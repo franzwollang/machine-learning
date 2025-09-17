@@ -1,0 +1,185 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts,mathtools}
+\usepackage{bm}
+\usepackage{hyperref}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+\title{Supplementary Information for\\ Proteus: Adaptive Scale-Space Analysis for Learning Non-Linear Fuzzy Manifold Memberships}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+
+\section*{S1. Initial Dimensionality Reduction}
+\textbf{Randomized SVD:} Sample up to 20\,000 rows (or all if small), compute a randomized SVD with sketch width $k_{\mathrm{target}}\approx 256$ and oversampling 20. Determine rank by cumulative energy $\ge 99.9\%$ and/or Levina--Bickel intrinsic dimension; keep $r=\max(r_{0.999},2\,\lceil D_{\mathrm{LB}}\rceil)$ if it yields a $\ge 5\%$ reduction; otherwise skip projection. Optionally append 32 JL vectors to tighten distance preservation.
+\[P=V_{1:r}^{\top}\ \Rightarrow\ Z = X\,P\,,\quad Z\in\mathbb R^{N\times r}.\]
+\textbf{Rationale:} Cuts ANN costs and per-sample updates by $\times 5$--$\times 40$ on high-$d$ data while retaining \,$\ge 99.9\%$ variance and local distances.
+
+\section*{S2. First-Principles Derivations}
+\subsection*{S2.1 Geometric Grid Spacing}
+Normalized responses in scale-space obey $\Delta_{\mathrm{FWHM}}(\log\sigma)\approx 0.586$. If two peaks are separated by less than this, they are not reliably distinguishable. Therefore, choose adjacent scales to differ by $\log\sigma_{j+1}-\log\sigma_j = \Delta \approx \tfrac{1}{2}\,\Delta_{\mathrm{FWHM}}$, giving $\sigma_{j+1}/\sigma_j = e^{\Delta}\approx \sqrt{2}$. Since $\tau=\sigma^2$, the geometric ratio in $\tau$ becomes $r=\tau_{j+1}/\tau_j = (\sigma_{j+1}/\sigma_j)^2 \approx 1/2$. In practice we span both directions, so we use $r=1/\sqrt{2}\approx 0.71$ in $\sigma$ (7--9 points/decade) and map consistently into $\tau$.
+
+\subsection*{S2.2 EWMA Weight from Neighborhood Size}
+EWMA recursion $m_{t+1}=(1{-}\alpha)m_t+\alpha x_{t+1}$ has half-life $T_{1/2}=\ln(0.5)/\ln(1{-}\alpha)\approx \ln 2/\alpha$ for small $\alpha$. Set $T_{1/2}{=}k$ (one neighborhood of updates) $\Rightarrow$ $\alpha=\ln 2/k$. This ties estimator memory to the actual neighborhood support.
+
+\subsection*{S2.3 Dual-Rate Motion from Variance Correction}
+Under isotropy, variance $\sigma_i^2\approx\mathbb E\lVert x{-}w_i\rVert^2$. A radial shift $\delta r$ changes variance by $\Delta\sigma_i^2 \approx 2\,\sqrt{\sigma_i^2}\,\delta r$. Spreading over $H{=}k$ effective updates gives
+\[\eta_{\mathrm{GNG},i} \approx \frac{\Delta\sigma_i^2}{2H\,\sigma_i^2} = \frac{1}{2k}\Big(1-\frac{\sigma_i^2}{\tau}\Big)\,;\qquad \eta_{\mathrm{GNG},i}=\frac{\ln 2}{2k}\Big(1-\frac{\sigma_i^2}{\tau}\Big)\ \text{with half-life normalization}.\]
+For centering, with $\delta_{\min}=\kappa(1{-}r)\sqrt{\tau}$ and expected drift per update $\approx\sqrt{\tau}$, set $k\,\eta_{\mathrm{cent}}\,\sqrt{\tau}=\delta_{\min}$ $\Rightarrow$ $\eta_{\mathrm{cent}}=\kappa(1{-}r)/k$. Unless stated otherwise, we use a default of $\kappa=0.5$.
+
+\textbf{Deferred nudge mechanism:} Node positions are updated only when the accumulated nudge $\mathbf{a}_i$ exceeds the resolution threshold $\delta_{\min}$, ensuring mesh changes occur only when meaningfully resolvable at the current scale. This prevents high-frequency noise from destabilizing the mesh while maintaining geometric accuracy.
+
+\subsection*{S2.4 Control-to-Threshold Mapping}
+Constrain growth to local intrinsic dimension by mapping optimizer control to thresholds: $\tau_{\mathrm{global}}= -D_{\mathrm{subspace}}\,\log(1{-}s_{\mathrm{control}})$ and $\tau_{\mathrm{local},i}= -d_{\mathrm{final},i}\,\log(1{-}s_{\mathrm{control}})$.
+
+\section*{S3. Statistical Gauntlets}
+Unless noted, we adopt significance defaults consistent with Stage 1: Welch's $t$ tests at $p{=}0.05$ (one-tailed where directional) for neighborhood-stability triggers, and Wilson one-sided bounds at 90\% (i.e., $z{=}1.2816$) for link significance comparisons.
+\subsection*{S3.1 Link Pruning}
+\emph{Power shield:} protect a new link until $n_{\mathrm{eff}}\ge n_{\mathrm{req}}$ from an analytic power formula for proportions. \emph{Relative weakness:} compute Wilson one-sided upper bound $\nu^+$ for link proportion $p$ with count $n$:
+\[\nu^+ = \frac{ p + z^2/(2n) + z\sqrt{p(1-p)/n + z^2/(4n^2)} }{1+z^2/n}\,,\ z{=}1.2816.\]
+Vote to prune if $\nu^+{<}$ median peer significance; require bilateral agreement from both endpoints.
+
+\subsection*{S3.2 Node Pruning}
+\emph{Trigger:} require neighborhood stability (Welch $t$ on $\tilde\rho$). \emph{Fair chance:} Poisson arrival-rate test $\lambda_{\mathrm{est}}=h_i/\text{lifetime} \ge 2/\delta_{\min}$. \emph{Relative:} prune if hits$<0.5\times$ neighbor mean \emph{and} variance $\sigma_i^2 < 0.5\,\tau_{\mathrm{local},i}$. This avoids deleting low-mass but still-curved support.
+
+\subsection*{S3.3 Node Pruning (Stage 2, simplex-arbitrated)}
+\emph{Arbitration by simplex star:} A deletion proposal for node $i$ is decided by a vote over its incident simplexes $\mathcal S(i)$; require majority agreement based on local stability and activity metrics. \emph{Geometric veto:} Always perform a reconstruction error test; if removal of $i$ causes a significant increase in local reconstruction error (tent-pole behavior), veto the deletion. \emph{Rationale:} Stage 2's geometry is mediated by the simplicial complex; arbitration by $\mathcal S(i)$ preserves structural integrity in complex regions.
+
+\section*{S4. Torsion and Shape Quality}
+Let $\bar{\mathbf w}$ and $\bar{\mathbf m}$ be barycenters. With $E=[\mathbf w_{v_1}{-}\bar{\mathbf w}\;\cdots\;\mathbf w_{v_d}{-}\bar{\mathbf w}]$ and $M=[\mathbf m_{v_1}{-}\bar{\mathbf m}\;\cdots\;\mathbf m_{v_d}{-}\bar{\mathbf m}]$, define
+\[\Omega_S = M^{\top}E - E^{\top}M\,,\qquad \kappa_S = \lVert \Omega_S \rVert_F\,;\qquad R_S = \kappa_S/\tau^*.\]
+\textbf{Torsion Ladder:} \emph{Ignore} if $R_S{<}0.05$ (numerical noise). \emph{Keep as-is} if $0.05\le R_S{<}0.30$ (tolerable curvature). \emph{Geometric fix} if $0.30\le R_S{<}0.60$: perform a torsion-aligned split with explicit placement below. \emph{Non-linear upgrade} if $R_S\ge 0.60$: attach a local mini-NSF (see S7) to the affected patch. If the fitted mini-NSF fails to reduce $R_S$ below $0.60$ on the patch, perform a torsion-aligned split as a fallback.
+
+\emph{Split placement:} Insert the new node at the midpoint of the simplex's longest edge projected onto the principal axis of $\Omega_S$ (dominant torsion axis). If any child has $Q_S{<}0.25$, redo via centroid star split.
+
+\textbf{Shape quality safeguard:} The simplex shape metric $Q_S = d\,r_{\mathrm{in}}/R_{\mathrm{circ}} \in (0,1]$ uses the inradius $r_{\mathrm{in}}$ and circumradius $R_{\mathrm{circ}}$. Poor quality ($Q_S < 0.25$) indicates numerical instability risk; the centroid split fallback ensures stable face normals and well-conditioned gradients.
+
+\section*{S5. Dual Flow Mechanisms}
+Accumulate facet pressures for winning simplex $S$ via $\Delta p_f \propto \max(0,(\mathbf x{-}\bar{\mathbf w}_S)^{\top}\mathbf n_f)$. On the dual graph, solve
+\[\min_{\{p_f\}}\; \lambda\sum_f (p_f{-}\hat p_f)^2 + \mu\sum_S \lVert A_S\,\mathbf p_S\rVert_2^2\,,\]
+with Gauss--Seidel iterations $p_f\leftarrow (\lambda\hat p_f + \mu\,\sum_{S\ni f}(A_S^{\top}A_S\,\mathbf p_S)_f)/(\lambda + \mu\,\deg(f))$, or equivalently by loopy BP messages until convergence.
+
+\section*{S6. Masking for Missing Modalities}
+For input $\mathbf x\in\mathbb R^d$ with structured sparsity, build boolean mask $\mathbf m=(x\neq 0)$. Compute distances and residuals only on active dimensions: $\lVert \mathbf x{-}\mathbf w\rVert^2=\sum_{j:m_j} (x_j{-}w_j)^2$; residual $\mathbf e=\mathbf x{-}\mathbf w$ with $e_j{=}0$ if $m_j{=}0$. Apply the mask to all vector updates (moments, nudges, Oja), and accumulate variance only on active dimensions. Optionally normalize updates by the active count to equalize per-sample influence. This preserves geometry and statistics in multi-modal fusion where zeros indicate missingness rather than small values.
+
+\section*{S7. Non-Linear Warp Strategies}
+When geometric refinement (node moves and splits) is insufficient to resolve high residual curvature, Proteus can apply a non-linear warp. The core strategy is a hybrid approach that adapts to the nature of the curvature, measured by the torsion coverage $P_\kappa$ (the fraction of simplices with torsion ratio $R_S \ge 0.30$).
+
+\paragraph{Global vs. Patch-wise Strategy:}
+\begin{itemize}
+  \item If curvature is \textbf{widespread ($P_\kappa > 50\%$)}, a shallow \emph{global Glow} is trained. Its invertible 1$\times$1 convolutions mix dimensions efficiently, providing a good baseline correction for system-wide bends.
+  \item If curvature is \textbf{patchy ($P_\kappa \le 25\%$)}, compact and expressive \emph{mini-Normalizing Spline Flows (NSFs)} are attached only to the highest-torsion patches. This avoids wasting model capacity on regions that are already linear.
+  \item If curvature is \textbf{mixed ($25\% < P_\kappa \le 50\%$)}, a moderate global Glow is combined with mini-NSFs on the worst $\sim$10\% of patches.
+\end{itemize}
+
+\paragraph{Patch Identification and Mini-NSF Training:}
+A facet-adjacency graph is built over all "hot" simplices ($R_S \ge 0.60$). Leiden community detection finds contiguous patches of high torsion, with resolution auto-tuned to ensure no patch exceeds a size cap $P_{\max}$ (e.g., 64 simplices). Each mini-NSF is a compact model (2-3 layers of rational-quadratic spline couplings, 64-128 hidden units, 8-12 bins) trained for a small number of epochs on its routed data, with the global model frozen. If, after training, any simplex in the patch still exhibits $R_S \ge 0.60$, attempt a torsion-aligned split as a geometric fallback.
+
+\section*{S8. Numerical Stability and Implementation}
+\textbf{Warm-start and state reset:} On entering Stage 2 at fixed $\tau^*$, shrink EWMA moments by a decay factor $\gamma_0\approx 0.7$, carry hit/link counts unchanged, and reset the nudge accumulator $\mathbf a$ to zero to ensure stable dynamics under the richer neighborhood model ($k\approx d$).
+\textbf{Conditioning for $\Omega_S$:} Use QR (preferred) or thin SVD to stabilize $E$; scale residuals $M$ by a local norm to avoid magnitude blow-up; compute $\Omega_S=M^TE{-}E^TM$ from stabilized factors; cache per-simplex factors and recompute only after geometric moves/splits.
+
+\textbf{Small constants and clipping:} Set $\varepsilon$ in $\rho_i$ to $10^{-8}$\,–\,$10^{-6}$ depending on data scale; clip $\eta_{\mathrm{GNG}}$ to $\lvert\eta\rvert\le 0.3$ (Stage 1) and $\le 0.05$ (Stage 2); constrain spline slopes/bins to avoid near-singular Jacobians; bound $\lVert\mathbf a_i\rVert$ growth between apply steps.
+
+\textbf{ANN configuration (HNSW):} Typical defaults: $M{=}16$\,–\,32, $\mathrm{efConstruction}{=}100$\,–\,400, $\mathrm{efSearch}{=}50$\,–\,200; increase efSearch modestly near convergence to improve neighbor stability. Persist indices per recursion level; rebuild only after significant mesh mutation.
+
+\section*{S9. Robustness and Edge Cases}
+\textbf{Outliers:} Use Huber-like weighting on residuals in moment updates or winsorize top 0.5\% residual norms; optionally cap per-sample hit contributions.
+
+\textbf{Boundaries and orientation:} For open meshes, treat boundary faces with Neumann-like conditions in the dual flow (no flux across exterior). In non-orientable regions, operate on local orientation patches to keep face normals consistent.
+
+\textbf{Sparse patches:} Require a minimum routed sample count $n_{\min}=\max(10\,d, 1000)$ before fitting a mini-NSF; otherwise defer to geometric refinement.
+
+\section*{S10. Evaluation Protocols}
+\textbf{Defaults:} Stage 1 $k{=}8$, $\alpha{=}\ln 2/8$, grid $r{=}1/\sqrt{2}$; Stage 2 $k{\approx}d$, $\alpha{=}\ln 2/k$. Stopping: CV$<0.01$ and $R_S{<}0.30$. PH: VR complex, max dim 2, filtration up to $1.5\,\sigma_\star$. MMD: RBF kernel, bandwidth median heuristic, 1\,000 samples/1\,000 tests. Ablations: remove Stage 1 scaffold, Torsion Ladder, or Dual Flow.
+
+\textbf{Persistent Homology:} Vietoris–Rips (max dim 2), filtration to $1.5\,\sigma_\star$; report bottleneck/2-Wasserstein.
+\textbf{MMD:} RBF kernel (median heuristic), 1000 samples/1000 tests, 5 seeds.
+\textbf{Log-likelihood:} Sum of face-pressure potentials within simplex plus normalization; use held-out data.
+
+\section*{S11. Algorithmic Details}
+The following procedures reference node and link bookkeeping commonly used in the implementation: nodes track an \emph{update count} and creation index $N_{\mathrm{creation}}$ in addition to positions and EWMA statistics; links maintain directed counters and recent activity snapshots. These fields support pruning power analyses and tenure checks but are not essential for the mathematical description.
+
+\paragraph{Data structures (Stage 2 additions).} Each simplex maintains small fields to support the torsion audit and dual-flow:
+\begin{itemize}
+  \item \texttt{face\_pressures}: array of size $d{+}1$ for facet pressures
+  \item \texttt{torsion\_sum}, \texttt{torsion\_sum\_sq}: accumulators for $\kappa_S$
+  \item \texttt{simplex\_update\_count}: number of updates contributing to the audit
+\end{itemize}
+\begin{algorithm}[h]
+\caption{Stage 1 at Fixed $\tau$}
+\label{alg:stage1}
+\begin{algorithmic}[1]
+\Procedure{RunToEquilibrium}{$X, \tau$}
+    \State Initialize mesh $\mathcal M \leftarrow \varnothing$ \Comment{Create links between BMU$_1$ and BMU$_2$ on first co-activation; maintain directed weighted counters $C_{12},C_{21}$}
+    \Repeat
+        \State Sample $\mathbf x$ from $X$
+        \State $\mathcal{N}_k \gets \text{QueryANN}(\mathbf x, k)$ \Comment{Find $k$ nearest nodes}
+        \State \text{ApplyRankWeightedUpdates}($\mathbf x, \, \mathcal{M}, \, \mathcal{N}_k$)
+        \For{\textbf{each} updated node $i$}
+            \If{$\lVert \mathbf{node}_i.\mathbf a \rVert \ge \delta_{min}$} \Comment{Deferred move}
+                \State $\mathbf{node}_i.\mathbf w \mathrel{+}= \mathbf{node}_i.\mathbf a$; $\mathbf{node}_i.\mathbf a \gets 0$; $\text{RefreshANN}(\mathbf{node}_i)$
+            \EndIf
+            \If{$\mathbf{node}_i.\sigma^2 > \tau_{local,i}$} \Comment{Split rule}
+                \State $\text{SplitNode}(\mathbf{node}_i)$ \Comment{Flush nudge; place child at $\mathbf w_i{+}\mathbf m_i$ along $\mathbf u_i$; shrink-inherit stats}
+            \EndIf
+        \EndFor
+        \State $\text{ApplyPruningGauntlets}(\mathcal{M})$ \Comment{Per SI S3}
+    \Until{$\text{ComputeCV}(\mathcal M) < 0.01$}
+    \State \textbf{return} $\mathcal M$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[h]
+\caption{Rank-weighted neighbor updates}
+\label{alg:rankupdates}
+\begin{algorithmic}[1]
+\Procedure{ApplyRankWeightedUpdates}{$\mathbf x, \mathcal{M}, \mathcal{N}_k$}
+    \For{$j=1 \dots k$ \textbf{in} $\mathcal{N}_k$ (rank-ordered)}
+        \State $w_j \gets 2^{-(j-1)}$
+        \State $\mathbf{node} \gets \mathcal{N}_k[j]$
+        \State $\mathbf e \gets \mathbf x - \mathbf{node}.\mathbf w$
+        \State $\mathbf{node.m} \gets (1-\alpha w_j)\mathbf{node.m} + \alpha w_j\,\mathbf e$; $\mathbf{node.s} \gets (1-\alpha w_j)\mathbf{node.s} + \alpha w_j\,\mathbf e^{\circ 2}$
+        \State $\rho \gets \lVert \mathbf{node.m} \rVert/(\mathbf{node.}\sigma+\varepsilon)$; $\mathbf{node.a} \gets \mathbf{node.a} + \eta_{cent}\,\rho\,\mathbf{node.m}$
+        \State $\text{UpdateOja}(\mathbf{node.u}, \mathbf e)$
+        \State $\mathbf{node.h} \gets \mathbf{node.h} + w_j$ \Comment{Fractional hits and link counters}
+    \EndFor
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[h]
+\caption{Simplex-native updates (Stage 2)}
+\label{alg:stage2updates}
+\begin{algorithmic}[1]
+\Procedure{ApplySimplexNativeUpdates}{$\mathbf x, \mathcal{C}$}
+    \State $C \gets \text{LocateWinningSimplex}(\mathbf x)$ \Comment{Barycentric or nearest with projection}
+    \State Order vertices of $C$ by increasing $\lVert \mathbf x - \mathbf w\_v \rVert$; assign rank-weights $w_j=2^{-(j-1)}$
+    \For{each vertex $v$ of $C$ in rank order}
+        \State $\mathbf e \gets \mathbf x - \mathbf w\_v$; $\mathbf m\_v \gets (1-\alpha w_j)\mathbf m\_v + \alpha w_j\,\mathbf e$; $\mathbf s\_v \gets (1-\alpha w_j)\mathbf s\_v + \alpha w_j\,\mathbf e^{\circ 2}$
+        \State $\rho \gets \lVert \mathbf m\_v \rVert/(\sigma\_v+\varepsilon)$; $\mathbf a\_v \gets \mathbf a\_v + \eta\_{cent}\,\rho\,\mathbf m\_v$
+    \EndFor
+    \State Accumulate facet pressures for $C$ per S5
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\section*{S12. Theoretical Guarantees}
+\subsection*{S12.1 Expressivity and Approximation}
+Let $p$ be a probability density on a compact set $\Omega\subset\mathbb R^d$ with a (piecewise) Lipschitz continuous log-density and bounded curvature of its principal level sets. For any $\varepsilon{>}0$, there exist finite budgets for recursion depth, mesh resolution, and non-linear warps (mini-NSFs) such that the model density $q$ learned by the Proteus procedure satisfies $\lVert p-q\rVert_{L_1} < \varepsilon$.
+
+The proof is constructive, following the algorithmic stages. We show that the total approximation error can be bounded by the sum of errors from a hierarchical decomposition, a piecewise-linear approximation of each component, and a non-linear residual correction. By making the resolution and capacity of each stage sufficient, the total error can be made arbitrarily small.
+
+\subsection*{S12.2 Correspondence: Simplex Equilibrium Implies Effective Node Equilibrium}
+\paragraph{Setting and assumptions.} Consider a simplicial complex with nondegenerate simplex stars around each node, locally stationary sampling, and a fixed characteristic scale $\tau^*$. Let $P(V_i)$ denote Voronoi mass at node $i$ and $P(C)$ the mass of simplex $C$.
+
+\paragraph{Claim.} Driving the system toward simplex equilibrium ($P(C) \approx 1/M$ for all simplexes) induces effective node equilibrium ($P(V_i) \approx 1/N$ up to junction effects and sampling noise).
+
+\paragraph{Sketch.} Suppose a node $i$ has excess mass $P(V_i) \gg 1/N$. Samples concentrate near $w_i$, biasing residuals in the adjacent simplex star $\mathcal S(i)$. The barycentric residual means in $\mathcal S(i)$ acquire outward components, raising torsional stress and face pressures that cannot be canceled by PL translation alone. The Torsion Ladder therefore either (i) performs a torsion-aligned split creating a child $j$ in the outward direction, or (ii) fits a local mini-NSF that unbends the region and reduces the asymmetric flux. In both cases the effective domain of $V_i$ contracts in favor of $V_j$ or of neighboring stars, strictly decreasing $P(V_i)$ while increasing mass in adjacent cells. Repeating this argument shows that any persistent Voronoi over-mass produces simplex-level stresses whose resolution decreases the imbalance, establishing a negative feedback toward node equilibrium. Deviations persist only at structural junctions (e.g., different intrinsic dimensions), where systematic bimodality and asymmetric links form an informative signature rather than a failure.
+
+\paragraph{Remarks.} The argument uses only local stationarity and nondegenerate stars; concentration bounds convert it to a finite-sample statement. Empirically, the correspondence manifests around overloaded nodes as: sharply bimodal simplex activity within the node's star at dimensionality junctions; a clean partition of link statistics into high-significance backbone links versus low-significance bridge links; and bridge links that exhibit persistent directional hit asymmetry together with low net face pressure, distinguishing stable junctions from active frontiers.
+
+\end{document}
