@@ -1,10 +1,12 @@
-# Toward a Universal Machine Learning Framework: A First-Principles Approach Through Geometric Manifold Learning
+# Toward a Universal Machine Learning Framework
+
+<small><em>A First-Principles Approach Through Geometric Manifold Learning</em></small>
 
 ## The Limits of Monolithic Architectures: An Intuitive Tour
 
 At the heart of most modern AI is a powerful and elegant idea: build a deep, end-to-end differentiable graph, define a global objective (a loss function), and use backpropagation to adjust every parameter to minimize that loss. This approach has proven extraordinarily effective, yet it produces architectures with characteristic and predictable limitations. This section offers an intuitive tour of why.
 
-### 1. The Price of End-to-End Optimization: A World Without Firewalls
+### 1. The Price of End-to-End Optimization: Balancing a Ball on the Tip of A Pencil
 
 Imagine building a complex machine, like a car engine. A sane design would involve distinct, modular sub-assemblies: a fuel injector, a cooling system, an alternator. Each can be understood, tested, and replaced with minimal side effects on the others. They have clean interfaces and local responsibilities.
 
