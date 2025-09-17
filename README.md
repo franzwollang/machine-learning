@@ -146,29 +146,30 @@ This research program is therefore composed of three tightly coupled efforts:
 
 ## Current State of Progress (high level)
 
-- **Proteus (Foundational, docs/Proteus/paper_1_foundational)**
+### Proteus (Foundational, docs/Proteus/paper_1_foundational)
 
-  - Draft paper and SI with algorithms, derivations (S1–S12), and protocols; placeholders for figures/tables.
-  - Stage 1/Stage 2 specification complete enough to implement a reference model; experiments/visuals to be added.
+- Draft paper and SI with algorithms, derivations (S1–S12), and protocols; placeholders for figures/tables.
+- Stage 1/Stage 2 specification complete enough to implement a reference model; experiments/visuals to be added.
 
-- **Proteus (Augmentation, docs/Proteus/paper_2_augmentation)**
+### Proteus (Augmentation, docs/Proteus/paper_2_augmentation)
 
-  - Draft outlining query engine, representation layer (Elastic ANFIS AEs), recursive analysis tower, and streaming (Temporal Pyramids).
-  - Implementation guidance present; empirical benchmarks and API surfaces TBD.
+- Draft outlining query engine, representation layer (Elastic ANFIS AEs), recursive analysis tower, and streaming (Temporal Pyramids).
+- Implementation guidance present; empirical benchmarks and API surfaces TBD.
 
-- **Ensemble ρ-SFCs (docs/Ensemble ρ-SFCs)**
+### Ensemble ρ-SFCs (docs/Ensemble ρ-SFCs)
 
-  - ACM-style draft with core sections scaffolded (density-guided curves, global metric, recipe trees, cascade, feasibility study).
-  - Proofs, algorithms, and experiments to be inlined; references/metadata pending.
+- ACM-style draft with core sections scaffolded (density-guided curves, global metric, recipe trees, cascade, feasibility study).
+- Proofs, algorithms, and experiments to be inlined; references/metadata pending.
 
-- **Mimir (docs/Mimir)**
+### Mimir (docs/Mimir)
 
-  - Three conceptual drafts: foundational cognitive core, perceptual engine, memory system.
-  - Clear architectural flows (Teacher→Proteus→Student bootstrapping; EMS; consolidation with mapper nets); implementation plan and evals pending.
+- Three conceptual drafts: foundational cognitive core, perceptual engine, memory system.
+- Clear architectural flows (Teacher→Proteus→Student bootstrapping; EMS; consolidation with mapper nets); implementation plan and evals pending.
 
-- **Code (code/)**
-  - Early skeleton with Pipfile and tests scaffold; no full reference implementation yet.
-  - Benchmark and visualization stubs exist; prototypes to follow the Proteus Stage 1/2 specs.
+### Code (code/)
+
+- Early skeleton with Pipfile and tests scaffold; no full reference implementation yet.
+- Benchmark and visualization stubs exist; prototypes to follow the Proteus Stage 1/2 specs.
 
 ## Repository Structure
 
@@ -225,8 +226,9 @@ I have been working on these problems since 2017. I taught myself computer scien
 
 ## Contributing
 
-- Draft-first, iterate quickly: prefer conservative, high-signal edits that reduce ambiguity and add empirical hooks.
-- Save generated visualizations under `code/tests/` by default; avoid interactive displays in commits.
+Draft-first, iterate quickly: prefer conservative, high-signal edits that reduce ambiguity and add empirical hooks.
+
+Save generated visualizations under `code/tests/` by default; avoid interactive displays in commits.
 
 ## Citation (placeholder)
 
