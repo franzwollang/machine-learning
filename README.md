@@ -36,6 +36,12 @@ In both scenarios, the core task is the same: the model must identify delicate, 
 
 But what are the intermediate layers responsible for this transport? They are the very attention and fully-connected modules we just described—engines of total information mixing. This makes the necessary hierarchy an unstable proposition. Trying to preserve a specific, subtle signal through a series of high-dimensional mixing operations is like trying to carry a single drop of blue ink through a series of churning vats. The signal is highly likely to be diluted, distorted, or overwritten. The model often learns statistical shortcuts instead, which is a primary reason why generalization can be so brittle.
 
+#### A note on residual connections
+
+Residual (skip) connections are invaluable for optimization stability and gradient flow, but they do not create hard modular boundaries or guarantee protected signal transport. They additively combine an identity path with a mixing path. Downstream blocks still receive a high-capacity mixture and remain free to remap, overwrite, or entangle the carried signal. In other words, skips tame the symptoms of deep training, like vanishing gradients, without changing the underlying coupling. There is no selective routing, no isolation contract, and no invariant that preserves specific features across depth. As a result, residualized stacks still face the same cross-scale interference problem. They are better behaved, but not modular. Fixing the root issue would require architectural mechanisms that explicitly preserve and compose information—such as protected channels or invertible transports—rather than relying on unconstrained mixing plus additive shortcuts.
+
+<small><em>Footnote:</em> Skips make deep nets trainable by improving gradient/information flow but do not isolate features—downstream mixing remains unconstrained [He et al., 2016](https://arxiv.org/abs/1603.05027). When true preservation is needed, architectures impose invertibility (e.g., i‑RevNets)—useful but restrictive—confirming that plain residuals don’t provide protected channels [Jacobsen et al., 2018](https://arxiv.org/abs/1802.07088).</small>
+
 ### 5. The Cascade: Why Entanglement Leads to Systemic Failures
 
 This deep entanglement of coupled parameters and composite concepts has practical, systemic consequences.
@@ -128,7 +134,7 @@ This process yields a final model that is far more than just a picture of the da
 
 This representation is powerful because it builds on the connection between fuzzy logic and statistical metrics. The relationships _between_ the atomic clusters—the "fuzzy predicates"—define a reconstructed manifold metric that is grounded in the statistical reality of the data. This makes the geometry fully actionable, providing a robust foundation for the applications that follow, like Mimir and Ensemble ρ-SFCs, which depend on this stable, meaningful representation.
 
-Notes on references: For the fuzzy/statistical link, see Bezdek’s fuzzy c‑means formulation linking memberships and distances [Bezdek, 1981](https://link.springer.com/book/10.1007/978-1-4757-0450-1) and comparative analyses of fuzzy similarity/distance measures [Bouchon‑Meunier, Dubois & Prade, 2000](https://www.sciencedirect.com/science/article/pii/S0888613X00000777). For approximating general finite metrics from predicate-like components, see L1/cut‑metric decompositions and probabilistic tree embeddings—mixtures of cuts/trees approximate metrics with logarithmic distortion [Deza & Laurent, 2009](https://link.springer.com/book/10.1007/978-3-540-37126-2), [Bourgain, 1985](https://onlinelibrary.wiley.com/doi/abs/10.1002/cpa.3160380405), [Fakcharoenphol, Rao & Talwar, 2004](https://dl.acm.org/doi/10.1145/1007352.1007355).
+<small><em>Footnote:</em> For the fuzzy/statistical link, see Bezdek’s fuzzy c‑means formulation linking memberships and distances [Bezdek, 1981](https://link.springer.com/book/10.1007/978-1-4757-0450-1) and comparative analyses of fuzzy similarity/distance measures [Bouchon‑Meunier, Dubois & Prade, 2000](https://www.sciencedirect.com/science/article/pii/S0888613X00000777). For approximating general finite metrics from predicate-like components, see L1/cut‑metric decompositions and probabilistic tree embeddings—mixtures of cuts/trees approximate metrics with logarithmic distortion [Deza & Laurent, 2009](https://link.springer.com/book/10.1007/978-3-540-37126-2), [Bourgain, 1985](https://onlinelibrary.wiley.com/doi/abs/10.1002/cpa.3160380405), [Fakcharoenphol, Rao & Talwar, 2004](https://dl.acm.org/doi/10.1145/1007352.1007355).
 
 ## Downstream Applications: What a True Manifold Model Unlocks
 
@@ -205,20 +211,21 @@ Open the desired `paper.tex` in VS Code and use your LaTeX plugin to build. Outp
 
 ## Milestones and Roadmap
 
-- **Proteus (reference implementation)**
+### Proteus (reference implementation)\*\*
 
-  - Stage 1: ANN loop, rank-weighted EWMAs, variance thresholds, pruning gauntlets, CV stopping.
-  - Stage 2: simplex-native updates, torsion ladder + shape guards, dual-flow solver, OOS queries.
-  - Experiments: PH, MMD, log-likelihood; ablations.
+- Stage 1: ANN loop, rank-weighted EWMAs, variance thresholds, pruning gauntlets, CV stopping.
+- Stage 2: simplex-native updates, torsion ladder + shape guards, dual-flow solver, OOS queries.
+- Experiments: PH, MMD, log-likelihood; ablations.
 
-- **ρ-SFCs (systemization)**
+### ρ-SFCs (systemization)
 
-  - Formalize density-guided inverse map; implement recipe trees + cascade; feasibility benchmarks.
-  - Keying strategies (global metric vs hierarchical composite) and integration points.
+- Formalize density-guided inverse map; implement recipe trees + cascade; feasibility benchmarks.
+- Keying strategies (global metric vs hierarchical composite) and integration points.
 
-- **Mimir (modules)**
-  - EMS k-NN index on sparse memberships; codec autoencoders; mapper networks for consolidation.
-  - Policy/critic scaffolding and SEE integration (for symbolic actions).
+### Mimir (modules)
+
+- EMS k-NN index on sparse memberships; codec autoencoders; mapper networks for consolidation.
+- Policy/critic scaffolding and SEE integration (for symbolic actions).
 
 ## Origin and Context
 
