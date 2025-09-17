@@ -128,6 +128,8 @@ This process yields a final model that is far more than just a picture of the da
 
 This representation is powerful because it builds on the connection between fuzzy logic and statistical metrics. The relationships _between_ the atomic clusters—the "fuzzy predicates"—define a reconstructed manifold metric that is grounded in the statistical reality of the data. This makes the geometry fully actionable, providing a robust foundation for the applications that follow, like Mimir and Ensemble ρ-SFCs, which depend on this stable, meaningful representation.
 
+Notes on references: For the fuzzy/statistical link, see Bezdek’s fuzzy c‑means formulation linking memberships and distances [Bezdek, 1981](https://link.springer.com/book/10.1007/978-1-4757-0450-1) and comparative analyses of fuzzy similarity/distance measures [Bouchon‑Meunier, Dubois & Prade, 2000](https://www.sciencedirect.com/science/article/pii/S0888613X00000777). For approximating general finite metrics from predicate-like components, see L1/cut‑metric decompositions and probabilistic tree embeddings—mixtures of cuts/trees approximate metrics with logarithmic distortion [Deza & Laurent, 2009](https://link.springer.com/book/10.1007/978-3-540-37126-2), [Bourgain, 1985](https://onlinelibrary.wiley.com/doi/abs/10.1002/cpa.3160380405), [Fakcharoenphol, Rao & Talwar, 2004](https://dl.acm.org/doi/10.1145/1007352.1007355).
+
 ## Downstream Applications: What a True Manifold Model Unlocks
 
 The promise of Proteus is that it can solve the fundamental, historically intractable problem of learning a high-fidelity, multi-scale model of a data manifold. Conditional on this core representation problem being solved, it acts as a key that unlocks straightforward and natural solutions to other notoriously difficult problems. This repository explores two such direct applications that are enabled by this foundation:
@@ -198,7 +200,7 @@ python code/skeleton.py
 
 ### Building Papers
 
-- Open the desired `paper.tex` in VS Code and use your LaTeX plugin to build. Outputs are under the corresponding `docs/...` folder (e.g., `paper.pdf`, `SI.pdf`).
+Open the desired `paper.tex` in VS Code and use your LaTeX plugin to build. Outputs are under the corresponding `docs/...` folder (e.g., `paper.pdf`, `SI.pdf`).
 
 ## Milestones and Roadmap
 
