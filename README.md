@@ -26,7 +26,7 @@ These composites can be extraordinarily effective because the underlying data ma
 
 ### 4. The Challenge of Cross-Scale Reasoning: A Necessary but Unstable Hierarchy
 
-This leads to a critical, subtle failure in reasoning. Any efficient learning system, when faced with a high-dimensional space, will naturally tend to build a hierarchy of patterns, driven by two constraints. First, to reduce the combinatorial explosion of possibilities, it is vastly more efficient to first identify simpler, statistically common motifs (like edges and textures) and then use those as building blocks for more complex patterns (like objects and scenes). Second, while training adjusts weights globally via backpropagation, **inference is causally constrained**: the network must process information layer by layer in a forward pass. This causal flow forces a division of labor where early layers, having access only to raw inputs, necessarily specialize in simpler features, and later layers must learn to recognize compositions of what came before. This hierarchical, compositional approach is therefore not just an emergent property; it is a near-necessity for tractable learning.
+This leads to a critical, subtle failure in reasoning. Any efficient learning system, when faced with a high-dimensional space, will naturally tend to build a hierarchy of patterns, driven by two constraints. First, to reduce the combinatorial explosion of possibilities, it is vastly more efficient to first identify simpler, statistically common motifs (like edges and textures) and then use those as building blocks for more complex patterns (like objects and scenes). Second, while training adjusts weights globally via backpropagation, inference is causally constrained: the network must process information layer by layer in a forward pass. This causal flow forces a division of labor where early layers, having access only to raw inputs, necessarily specialize in simpler features, and later layers must learn to recognize compositions of what came before. This hierarchical, compositional approach is therefore not just an emergent property; it is a near-necessity for tractable learning.
 
 However, many vital real-world concepts are **cross-scale**. For example, recognizing a "worried expression" requires integrating low-level geometric cues (the precise curve of a lip corner, the angle of an eyebrow) with high-level context (the overall structure of the face).
 
@@ -216,6 +216,10 @@ python code/skeleton.py
 - **Mimir (modules)**
   - EMS k-NN index on sparse memberships; codec autoencoders; mapper networks for consolidation.
   - Policy/critic scaffolding and SEE integration (for symbolic actions).
+
+## Origin and Context
+
+I have been working on these problems since 2017. I taught myself computer science and machine learning from scratch, spending untold hours from 2017–2019 reading and re-reading core CS/ML papers and banging my head against them until they made sense. This repository is the culmination of that early effort, followed by years of settling and maturation. What has changed recently is tooling: modern LLMs now help with the laborious parts of turning ideas and understanding into something communicable, testable, and complete. Proteus, and the downstream systems it unlocks, are my attempt to finally make that long arc concrete and find closure.
 
 ## Contributing
 
