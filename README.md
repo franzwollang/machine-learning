@@ -50,7 +50,7 @@ This deep entanglement of coupled parameters and composite concepts has practica
 - **Unstable Reinforcement Learning:** The entanglement means that updates can cause widespread, unpredictable shifts in the representation space, making it difficult for credit assignment to find a stable footing.
 - **Representation Drift:** For any system that needs a long-term memory, this is a fatal flaw. If the internal meaning of concepts shifts every time the model is updated, old memories become inaccessible to new queries.
 
-In short, while monolithic optimization is excellent at finding a single, high-performing solution for a fixed task, it produces models that are difficult to interpret, extend, or trust over time. They are powerful, but opaque and brittle.
+In short, while monolithic optimization is excellent at finding a single, high-performing solution for a fixed task, it produces models that are difficult to interpret, extend, or trust over time. They are powerful, but opaque and brittle. The aim of this work is not to discard their power, but to ground it in a more stable and modular foundation.
 
 ### 6. Conflating the Map and the Territory: Mixed Objectives
 
@@ -116,7 +116,11 @@ Therefore, any generalizable concept must correspond to a cluster with these pro
 
 ## The Proteus Approach: A Principled Geometric Solution
 
-The preceding sections have laid out a fundamental tension: monolithic architectures are pragmatically effective but architecturally flawed, while a direct, purely geometric approach is intellectually appealing but historically intractable due to the curse of dimensionality. Proteus is designed to resolve this tension by creating a practical, scalable framework that takes the geometric picture seriously. It's an attempt to overcome the historical difficulties not by sidestepping them, but by tackling them with a more principled and powerful set of tools.
+The preceding sections have laid out a fundamental tension: monolithic architectures are pragmatically effective but architecturally flawed, while a direct, purely geometric approach is intellectually appealing but historically intractable due to the curse of dimensionality.
+
+The goal of Proteus is therefore not to replace deep neural networks. DNNs, and attention mechanisms in particular, are extraordinarily powerful function approximators. The issue is not the tool, but the task to which it is applied. Proteus is designed to solve the foundational representation problem: building a stable, interpretable, multi-scale geometric map of the data. With this map in place, DNNs can be deployed to their greatest strength: learning complex, task-specific functions on top of a meaningful and robust coordinate system. Proteus builds the skeleton; DNNs provide the muscle.
+
+Proteus is designed to resolve this tension by creating a practical, scalable framework that takes the geometric picture seriously. It's an attempt to overcome the historical difficulties not by sidestepping them, but by tackling them with a more principled and powerful set of tools.
 
 The core strategy is a **two-stage, coarse-to-fine decomposition** of the problem:
 
@@ -162,7 +166,7 @@ The promise of Proteus is that it can solve the fundamental, historically intrac
 
 - **Manifold-Aware Indexing (Ensemble ρ-SFCs):** The clusters discovered by Proteus are not just pictures; they are detailed geometric and statistical descriptions of how data is shaped. This information is precisely what is needed to overcome the limitations of standard, geometry-agnostic database indexes. The Ensemble ρ-SFCs project leverages this structure to design custom, adaptive space-filling curves that "respect" the shape of the data. This ensures that points belonging to a single concept are mapped to a single, contiguous range in a 1D index, achieving maximal compression and query performance.
 
-- **A More Human-like Cognitive Architecture (Mimir):** Similarly, the stable, interpretable, and hierarchical concepts produced by Proteus provide the ideal building blocks for a more robust cognitive system. The Mimir project uses these "atomic concepts" as the vocabulary for a learning system that can reason, remember, and adapt in ways that are more analogous to the human mind. Because the concepts are grounded in the data's geometry, they are stable across model upgrades (preventing catastrophic forgetting) and are naturally interpretable. The system can even apply Proteus to its own internal representations, creating a capacity for recursive self-understanding that is impossible with entangled, black-box models.
+- **A More Human-like Cognitive Architecture (Mimir):** Similarly, the stable, interpretable, and hierarchical concepts produced by Proteus provide the ideal building blocks for a more robust cognitive system. The Mimir project uses these "atomic concepts" as the vocabulary for a learning system—which in turn uses powerful DNN-based components—that can reason, remember, and adapt in ways that are more analogous to the human mind. Because the concepts are grounded in the data's geometry, they are stable across model upgrades (preventing catastrophic forgetting) and are naturally interpretable. The system can even apply Proteus to its own internal representations, creating a capacity for recursive self-understanding that is impossible with entangled, black-box models.
 
 This research program is therefore composed of three tightly coupled efforts:
 
