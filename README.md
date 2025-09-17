@@ -4,13 +4,13 @@
 
 ## The Limits of Monolithic Architectures: An Intuitive Tour
 
-At the heart of most modern AI is a powerful and elegant idea: build a deep, end-to-end differentiable graph, define a global objective (a loss function), and use backpropagation to adjust every parameter to minimize that loss. This approach has proven extraordinarily effective, yet it produces architectures with characteristic and predictable limitations. This section offers an intuitive tour of why.
+At the heart of most modern AI is a powerful and elegant idea: build a deep, end-to-end differentiable graph, define a global objective (a loss function), and use backpropagation to adjust every parameter to minimize that loss. This approach has proven extraordinarily effective, yet it produces architectures with characteristic and predictable limitations. This section offers an intuitive tour of why these limitations arise and motivates this repository’s aim: a first-principles geometric framework, Proteus, that learns a multi-scale model of the data manifold and uses it to power practical systems.
 
 ### 1. The Price of End-to-End Optimization: Balancing a Ball on the Tip of A Pencil
 
 Imagine building a complex machine, like a car engine. A sane design would involve distinct, modular sub-assemblies: a fuel injector, a cooling system, an alternator. Each can be understood, tested, and replaced with minimal side effects on the others. They have clean interfaces and local responsibilities.
 
-A monolithic deep learning model is different. Its end-to-end differentiability means that, in principle, every parameter is coupled to every other. There are no true firewalls or modular boundaries. The gradient of the global loss function flows back through the entire network, creating a dense web of dependencies. The sheer number of interacting degrees of freedom makes the system inherently unstable and difficult to control with precision. It relies on a patchwork of regularizers (like dropout or weight decay) to manage this complexity, but these are statistical guardrails, not hard architectural boundaries.
+A monolithic deep learning model is different. Its end-to-end differentiability means that, in principle, every parameter is coupled to every other, limited only by the structure of the computational graph and data flow. There are no true firewalls or modular boundaries. The gradient of the global loss function flows back through the entire network, creating a dense web of dependencies. The sheer number of interacting degrees of freedom makes the system inherently unstable and difficult to control with precision. It relies on a patchwork of regularizers (like dropout or weight decay) to manage this complexity, but these are statistical guardrails, not hard architectural boundaries.
 
 ### 2. The Engine of Entanglement: Fully-Connected and Attention Layers
 
