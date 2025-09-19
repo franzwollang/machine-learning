@@ -17,6 +17,11 @@
 \[P=V_{1:r}^{\top}\ \Rightarrow\ Z = X\,P\,,\quad Z\in\mathbb R^{N\times r}.\]
 \textbf{Rationale:} Cuts ANN costs and per-sample updates by $\times 5$--$\times 40$ on high-$d$ data while retaining \,$\ge 99.9\%$ variance and local distances.
 
+\subsection*{S1.1 Optional Pre-processing via Marginal Gaussianisation}
+\textbf{Workflow:} For datasets where individual features exhibit high skew or heavy tails, an optional pre-processing step can significantly accelerate convergence. For each feature $x_j$, its empirical CDF $\hat F_j$ is computed on a data subsample. The features are then transformed via the inverse error function to be marginally Gaussian: $z_j = \sqrt{2}\,\operatorname{erf}^{-1}\!(2\hat F_j(x_j)-1)$.
+
+\textbf{Linearity Test and Model Selection:} After this transform, statistical linearity tests (e.g., Graph-Laplacian Curvature Energy and distance correlation) are run on the $z$-space. If the data is found to be linearly separable to within a given tolerance ($p \ge 0.01$), the expensive fitting of a global \texttt{Glow} model can be skipped entirely for that recursion level, and the algorithm can proceed directly to the geometric audit. This provides a principled mechanism for avoiding unnecessary non-linear transformations.
+
 \section*{S2. First-Principles Derivations}
 \subsection*{S2.1 Geometric Grid Spacing}
 Normalized responses in scale-space obey $\Delta_{\mathrm{FWHM}}(\log\sigma)\approx 0.586$. If two peaks are separated by less than this, they are not reliably distinguishable. Therefore, choose adjacent scales to differ by $\log\sigma_{j+1}-\log\sigma_j = \Delta \approx \tfrac{1}{2}\,\Delta_{\mathrm{FWHM}}$, giving $\sigma_{j+1}/\sigma_j = e^{\Delta}\approx \sqrt{2}$. Since $\tau=\sigma^2$, the geometric ratio in $\tau$ becomes $r=\tau_{j+1}/\tau_j = (\sigma_{j+1}/\sigma_j)^2 \approx 1/2$. In practice we span both directions, so we use $r=1/\sqrt{2}\approx 0.71$ in $\sigma$ (7--9 points/decade) and map consistently into $\tau$.
@@ -39,25 +44,29 @@ Unless noted, we adopt significance defaults consistent with Stage 1: Welch's $t
 \subsection*{S3.1 Link Pruning}
 \emph{Power shield:} protect a new link until $n_{\mathrm{eff}}\ge n_{\mathrm{req}}$ from an analytic power formula for proportions. \emph{Relative weakness:} compute Wilson one-sided upper bound $\nu^+$ for link proportion $p$ with count $n$:
 \[\nu^+ = \frac{ p + z^2/(2n) + z\sqrt{p(1-p)/n + z^2/(4n^2)} }{1+z^2/n}\,,\ z{=}1.2816.\]
-Vote to prune if $\nu^+{<}$ median peer significance; require bilateral agreement from both endpoints.
+The Wilson score interval is used in place of a standard t-test as it is an "exact" test for binomial proportions that does not assume normality, making it robust and accurate even for the low-hit-count links common in early training. Vote to prune if $\nu^+{<}$ median peer significance; require bilateral agreement from both endpoints.
 
 \subsection*{S3.2 Node Pruning}
-\emph{Trigger:} require neighborhood stability (Welch $t$ on $\tilde\rho$). \emph{Fair chance:} Poisson arrival-rate test $\lambda_{\mathrm{est}}=h_i/\text{lifetime} \ge 2/\delta_{\min}$. \emph{Relative:} prune if hits$<0.5\times$ neighbor mean \emph{and} variance $\sigma_i^2 < 0.5\,\tau_{\mathrm{local},i}$. This avoids deleting low-mass but still-curved support.
+\emph{Trigger:} require neighborhood stability (Welch $t$ on $\tilde\rho$). \emph{Fair chance:} Poisson arrival-rate test $\lambda_{\mathrm{est}}=h_i/\text{lifetime} \ge 2/\delta_{\min}$. \emph{Relative:} prune if hits$<0.5\times$ neighbor mean \emph{and} variance $\sigma_i^2 < 0.5\,\tau_{\mathrm{local},i}$. 
+
+The composite rule for node pruning (requiring both low relative hits \emph{and} low local variance) is a critical safeguard. It ensures the system only removes nodes that are both statistically insignificant (low-mass) and located in regions that have already been sufficiently linearized. This prevents the algorithm from mistakenly punching holes in the manifold in areas that are still curved and under active refinement.
 
 \subsection*{S3.3 Node Pruning (Stage 2, simplex-arbitrated)}
 \emph{Arbitration by simplex star:} A deletion proposal for node $i$ is decided by a vote over its incident simplexes $\mathcal S(i)$; require majority agreement based on local stability and activity metrics. \emph{Geometric veto:} Always perform a reconstruction error test; if removal of $i$ causes a significant increase in local reconstruction error (tent-pole behavior), veto the deletion. \emph{Rationale:} Stage 2's geometry is mediated by the simplicial complex; arbitration by $\mathcal S(i)$ preserves structural integrity in complex regions.
 
 \section*{S4. Torsion and Shape Quality}
-Let $\bar{\mathbf w}$ and $\bar{\mathbf m}$ be barycenters. With $E=[\mathbf w_{v_1}{-}\bar{\mathbf w}\;\cdots\;\mathbf w_{v_d}{-}\bar{\mathbf w}]$ and $M=[\mathbf m_{v_1}{-}\bar{\mathbf m}\;\cdots\;\mathbf m_{v_d}{-}\bar{\mathbf m}]$, define
+The geometric audit operates on the principle that error responses depend on local rigidity: in \emph{plastic} regions, error produces geometric adjustments; in \emph{rigid} regions, error accumulates as structural stress requiring topological resolution. Let $\bar{\mathbf w}$ and $\bar{\mathbf m}$ be barycenters. With $E=[\mathbf w_{v_1}{-}\bar{\mathbf w}\;\cdots\;\mathbf w_{v_d}{-}\bar{\mathbf w}]$ and $M=[\mathbf m_{v_1}{-}\bar{\mathbf m}\;\cdots\;\mathbf m_{v_d}{-}\bar{\mathbf m}]$, define
 \[\Omega_S = M^{\top}E - E^{\top}M\,,\qquad \kappa_S = \lVert \Omega_S \rVert_F\,;\qquad R_S = \kappa_S/\tau^*.\]
 \textbf{Torsion Ladder:} \emph{Ignore} if $R_S{<}0.05$ (numerical noise). \emph{Keep as-is} if $0.05\le R_S{<}0.30$ (tolerable curvature). \emph{Geometric fix} if $0.30\le R_S{<}0.60$: perform a torsion-aligned split with explicit placement below. \emph{Non-linear upgrade} if $R_S\ge 0.60$: attach a local mini-NSF (see S7) to the affected patch. If the fitted mini-NSF fails to reduce $R_S$ below $0.60$ on the patch, perform a torsion-aligned split as a fallback.
+
+A split is only permitted if the parent simplex (or node) has accumulated sufficient hits to pass a budget check ($h_{\mathrm{parent}} \ge 2 \cdot h_{\mathrm{prune}}$), ensuring that the resulting children are not immediately vulnerable to pruning under the framework's statistical gauntlets.
 
 \emph{Split placement:} Insert the new node at the midpoint of the simplex's longest edge projected onto the principal axis of $\Omega_S$ (dominant torsion axis). If any child has $Q_S{<}0.25$, redo via centroid star split.
 
 \textbf{Shape quality safeguard:} The simplex shape metric $Q_S = d\,r_{\mathrm{in}}/R_{\mathrm{circ}} \in (0,1]$ uses the inradius $r_{\mathrm{in}}$ and circumradius $R_{\mathrm{circ}}$. Poor quality ($Q_S < 0.25$) indicates numerical instability risk; the centroid split fallback ensures stable face normals and well-conditioned gradients.
 
 \section*{S5. Dual Flow Mechanisms}
-Accumulate facet pressures for winning simplex $S$ via $\Delta p_f \propto \max(0,(\mathbf x{-}\bar{\mathbf w}_S)^{\top}\mathbf n_f)$. On the dual graph, solve
+Accumulate facet pressures for winning simplex $S$ via $\Delta p_f \propto \max(0,(\mathbf x{-}\bar{\mathbf w}_S)^{\top}\mathbf n_f)$. This \emph{fractional tallying} avoids winner–take–all artifacts and yields smoother, more stable boundary pressure estimates than single-face voting. On the dual graph, solve
 \[\min_{\{p_f\}}\; \lambda\sum_f (p_f{-}\hat p_f)^2 + \mu\sum_S \lVert A_S\,\mathbf p_S\rVert_2^2\,,\]
 with Gauss--Seidel iterations $p_f\leftarrow (\lambda\hat p_f + \mu\,\sum_{S\ni f}(A_S^{\top}A_S\,\mathbf p_S)_f)/(\lambda + \mu\,\deg(f))$, or equivalently by loopy BP messages until convergence.
 
@@ -83,7 +92,17 @@ A facet-adjacency graph is built over all "hot" simplices ($R_S \ge 0.60$). Leid
 
 \textbf{Small constants and clipping:} Set $\varepsilon$ in $\rho_i$ to $10^{-8}$\,–\,$10^{-6}$ depending on data scale; clip $\eta_{\mathrm{GNG}}$ to $\lvert\eta\rvert\le 0.3$ (Stage 1) and $\le 0.05$ (Stage 2); constrain spline slopes/bins to avoid near-singular Jacobians; bound $\lVert\mathbf a_i\rVert$ growth between apply steps.
 
+\textbf{Cache face normals:} Precompute and cache per–simplex face normals; recompute only after deferred moves or splits affecting a vertex. This keeps torsion and face-pressure updates $\mathcal O(d^2)$ and stable.
+
 \textbf{ANN configuration (HNSW):} Typical defaults: $M{=}16$\,–\,32, $\mathrm{efConstruction}{=}100$\,–\,400, $\mathrm{efSearch}{=}50$\,–\,200; increase efSearch modestly near convergence to improve neighbor stability. Persist indices per recursion level; rebuild only after significant mesh mutation.
+
+\subsection*{S8.1 Practical Implementation Notes}
+\paragraph{Rank-1 Oja vs. Scalar Variance.} While the core theory holds with a simple scalar variance tracker, the specified implementation uses a rank-1 Oja's rule update to track the dominant principal component of the local error. This provides a more accurate, data-driven vector for placing new nodes during a split, at the cost of one extra stored vector per node. For ambient dimensions $d \lesssim 10,000$, the improved split quality justifies the modest increase in memory, and this method is recommended.
+
+\paragraph{Initial Simplex Seeding.} Upon entering Stage 2, the initial simplicial complex is seeded from the Stage 1 node-edge graph using a fast, "Greedy Chaining" heuristic. This heuristic rapidly discovers the majority of $d$-simplices, providing a robust starting point for the dynamic refinement process.
+
+\subsection*{S8.2 Cost Envelopes}
+Stage~1 per-epoch time is $\mathcal O\bigl(N\,d\,k\,\log N_{\mathrm{nodes}}\bigr)$ with HNSW queries; space is $\mathcal O(N_{\mathrm{nodes}}\,d + N_{\mathrm{nodes}}\,\bar d)$. Stage~2 initial simplex seeding by Greedy Chaining is $\mathcal O\bigl(N_c\,d_{\mathrm{cand}}^{\,2}\,d_c\bigr)$; torsion audits are $\mathcal O\bigl(N_{\mathrm{simplices}}\,(d{+}1)^2\,d\bigr)$. The dual graph used by the belief propagation solver has size $\mathcal O(N_{\mathrm{simplices}}\,d)$.
 
 \section*{S9. Robustness and Edge Cases}
 \textbf{Outliers:} Use Huber-like weighting on residuals in moment updates or winsorize top 0.5\% residual norms; optionally cap per-sample hit contributions.
@@ -101,6 +120,13 @@ A facet-adjacency graph is built over all "hot" simplices ($R_S \ge 0.60$). Leid
 
 \section*{S11. Algorithmic Details}
 The following procedures reference node and link bookkeeping commonly used in the implementation: nodes track an \emph{update count} and creation index $N_{\mathrm{creation}}$ in addition to positions and EWMA statistics; links maintain directed counters and recent activity snapshots. These fields support pruning power analyses and tenure checks but are not essential for the mathematical description.
+
+\paragraph{Flow-conserving initialization after a split.}
+Let $C$ be the parent simplex with vertices $V(C)=\{v_1,\dots,v_{d{+}1}\}$ and let $h_{\mathrm{old}}(v_i,v_j)$ denote pre-split internal hit counts between vertices. When inserting a new vertex $k$, initialize the new tallies by
+\[
+  h_{\mathrm{new}}(k,v_i) \;=\; \tfrac{1}{2}\sum_{\substack{v_j\in V(C)\\ j\ne i}} h_{\mathrm{old}}(v_i,v_j)\,.
+\]
+This preserves the total internal mass $H_{\mathrm{total}}(C)$ and approximately preserves the local flow gradient.
 
 \paragraph{Data structures (Stage 2 additions).} Each simplex maintains small fields to support the torsion audit and dual-flow:
 \begin{itemize}
@@ -181,5 +207,13 @@ The proof is constructive, following the algorithmic stages. We show that the to
 \paragraph{Sketch.} Suppose a node $i$ has excess mass $P(V_i) \gg 1/N$. Samples concentrate near $w_i$, biasing residuals in the adjacent simplex star $\mathcal S(i)$. The barycentric residual means in $\mathcal S(i)$ acquire outward components, raising torsional stress and face pressures that cannot be canceled by PL translation alone. The Torsion Ladder therefore either (i) performs a torsion-aligned split creating a child $j$ in the outward direction, or (ii) fits a local mini-NSF that unbends the region and reduces the asymmetric flux. In both cases the effective domain of $V_i$ contracts in favor of $V_j$ or of neighboring stars, strictly decreasing $P(V_i)$ while increasing mass in adjacent cells. Repeating this argument shows that any persistent Voronoi over-mass produces simplex-level stresses whose resolution decreases the imbalance, establishing a negative feedback toward node equilibrium. Deviations persist only at structural junctions (e.g., different intrinsic dimensions), where systematic bimodality and asymmetric links form an informative signature rather than a failure.
 
 \paragraph{Remarks.} The argument uses only local stationarity and nondegenerate stars; concentration bounds convert it to a finite-sample statement. Empirically, the correspondence manifests around overloaded nodes as: sharply bimodal simplex activity within the node's star at dimensionality junctions; a clean partition of link statistics into high-significance backbone links versus low-significance bridge links; and bridge links that exhibit persistent directional hit asymmetry together with low net face pressure, distinguishing stable junctions from active frontiers.
+
+\paragraph{The Signature of a Dimensionality Junction.} The "informative mismatch" at structural junctions manifests as a concrete, stable, and observable statistical signature. A node located where, for example, a 1D filament meets a 2D sheet will persistently exhibit:
+\begin{itemize}
+    \item \textbf{Bimodal Simplex Activity:} The distribution of internal activity values for its adjacent simplexes will be sharply bimodal.
+    \item \textbf{Divergent Link Significance:} Its links will partition into high-significance "backbone" links (within a manifold) and low-significance "bridge" links (connecting manifolds).
+    \item \textbf{Stable Asymmetry on Bridge Links:} Bridge links show high, stable directional hit-counter asymmetry but, crucially, low net face pressure. This distinguishes a stable junction from an active, growing frontier, where both asymmetry and pressure would be high.
+\end{itemize}
+This emergent signature is not a failure of the algorithm, but a feature that allows the system to report on the complex local topology of the data.
 
 \end{document}

@@ -44,6 +44,7 @@ class ProteusNode:
     hit_count: float = 0.0
     update_count: int = 0
     creation_index: int = 0
+    matrix_index: int = 0
 
     def copy(self) -> "ProteusNode":
         return ProteusNode(
@@ -55,6 +56,7 @@ class ProteusNode:
             hit_count=self.hit_count,
             update_count=self.update_count,
             creation_index=self.creation_index,
+            matrix_index=self.matrix_index,
         )
 
 
@@ -101,6 +103,7 @@ class ProteusStage1:
         link_protection: int = 25,
         cv_tolerance: float = 0.01,
         min_equilibrium_epochs: int = 3,
+        samples_per_epoch: Optional[int] = None,
         rng: Optional[np.random.Generator] = None,
     ) -> None:
         self.k_neighbors = int(k_neighbors)
@@ -120,6 +123,7 @@ class ProteusStage1:
         self.link_protection = int(link_protection)
         self.cv_tolerance = float(cv_tolerance)
         self.min_equilibrium_epochs = int(min_equilibrium_epochs)
+        self.samples_per_epoch = None if samples_per_epoch is None else int(samples_per_epoch)
         self.rng = rng if rng is not None else np.random.default_rng()
 
         self.nodes: List[ProteusNode] = []
@@ -132,6 +136,8 @@ class ProteusStage1:
         self.node_history: List[int] = []
         self._last_cv: float = np.inf
         self._eps: float = 1e-8
+        self._positions_matrix: np.ndarray = np.zeros((0, 0), dtype=float)
+        self._active_node_count: int = 0
 
     # ------------------------------------------------------------------
     # Public API
@@ -183,7 +189,11 @@ class ProteusStage1:
 
         for epoch in range(self.max_epochs):
             order = self.rng.permutation(n_samples)
-            for idx in order:
+            if self.samples_per_epoch is not None and self.samples_per_epoch < n_samples:
+                epoch_indices = order[: self.samples_per_epoch]
+            else:
+                epoch_indices = order
+            for idx in epoch_indices:
                 x = data[idx]
                 neighbor_indices = self._query_neighbors(x)
                 self._apply_rank_weighted_updates(x, neighbor_indices)
@@ -209,7 +219,9 @@ class ProteusStage1:
         return self._last_cv
 
     def get_node_positions(self) -> np.ndarray:
-        return np.stack([node.position for node in self.nodes], axis=0)
+        if self._active_node_count == 0:
+            return np.empty((0, self.dimension), dtype=float)
+        return self._positions_matrix[: self._active_node_count].copy()
 
     def neighbour_graph(self) -> Dict[int, Sequence[int]]:
         adj = {i: [] for i in range(len(self.nodes))}
@@ -227,23 +239,27 @@ class ProteusStage1:
         n_samples = data.shape[0]
         n_init = min(self.min_nodes, n_samples)
         indices = self.rng.choice(n_samples, size=n_init, replace=False)
+        self._positions_matrix = np.zeros((self.max_nodes, self.dimension), dtype=float)
         for idx, sample_idx in enumerate(indices):
             sample = data[sample_idx]
             principal = self.rng.normal(size=self.dimension)
             node = ProteusNode(
-                position=sample.copy(),
+                position=self._positions_matrix[idx],
                 residual_mean=np.zeros_like(sample),
                 residual_sq=np.zeros_like(sample),
                 nudge=np.zeros_like(sample),
                 principal_dir=_unit_vector_like(principal),
                 creation_index=idx,
+                matrix_index=idx,
             )
+            np.copyto(self._positions_matrix[idx], sample)
             self.nodes.append(node)
+        self._active_node_count = len(self.nodes)
 
     def _query_neighbors(self, x: np.ndarray) -> List[int]:
         if not self.nodes:
             raise RuntimeError("No nodes available for neighbour query")
-        positions = np.stack([node.position for node in self.nodes], axis=0)
+        positions = self._positions_matrix[: self._active_node_count]
         deltas = positions - x
         distances = np.sum(deltas * deltas, axis=1)
         order = np.argsort(distances)
@@ -276,8 +292,9 @@ class ProteusStage1:
         for rank, idx in enumerate(neighbors):
             node = self.nodes[idx]
             weight = 2.0 ** (-rank)
-            error = x - node.position
-            node.position = node.position + self.eta_move * weight * error
+            position = self._positions_matrix[node.matrix_index]
+            error = x - position
+            position += self.eta_move * weight * error
             node.residual_mean = (1.0 - self.alpha * weight) * node.residual_mean + self.alpha * weight * error
             node.residual_sq = (1.0 - self.alpha * weight) * node.residual_sq + self.alpha * weight * (error ** 2)
             variance_vec = np.maximum(node.residual_sq - node.residual_mean ** 2, 0.0)
@@ -298,7 +315,9 @@ class ProteusStage1:
             node = self.nodes[idx]
             magnitude = float(np.linalg.norm(node.nudge))
             if magnitude >= self.delta_min:
-                node.position = node.position + node.nudge
+                position = self._positions_matrix[node.matrix_index]
+                position += node.nudge
+                node.position = position
                 node.nudge.fill(0.0)
 
     def _check_splits(self, neighbors: Iterable[int]) -> None:
@@ -318,21 +337,30 @@ class ProteusStage1:
         offset = parent.residual_mean
         if float(np.linalg.norm(offset)) < 1e-6:
             offset = parent.principal_dir * np.sqrt(self.tau) * 0.5
-        child_position = parent.position + offset
+        child_index = len(self.nodes)
+        if child_index >= self.max_nodes:
+            return
+        parent_position = self._positions_matrix[parent.matrix_index]
+        child_position = self._positions_matrix[child_index]
+        np.copyto(child_position, parent_position)
+        child_position += offset
         child = ProteusNode(
-            position=child_position.copy(),
+            position=child_position,
             residual_mean=0.5 * parent.residual_mean,
             residual_sq=parent.residual_sq.copy(),
-            nudge=np.zeros_like(parent.position),
+            nudge=np.zeros_like(parent_position),
             principal_dir=parent.principal_dir.copy(),
             hit_count=parent.hit_count * 0.5,
             update_count=0,
             creation_index=self.iteration,
+            matrix_index=child_index,
         )
         # Shrink parent statistics to reflect the split.
         parent.residual_mean *= 0.5
         parent.hit_count *= 0.5
+        parent.position = parent_position
         self.nodes.append(child)
+        self._active_node_count = len(self.nodes)
         # Existing links remain valid; neighbours will be picked up naturally.
 
     def _compute_cv(self) -> float:
@@ -396,6 +424,7 @@ class ProteusStage1:
         keep_mask[to_remove] = False
         new_index = np.cumsum(keep_mask) - 1
         self.nodes = [node for keep, node in zip(keep_mask, self.nodes) if keep]
+        self._reindex_nodes()
         new_links: Dict[Tuple[int, int], ProteusLink] = {}
         for key, link in self.links.items():
             if not (keep_mask[link.i] and keep_mask[link.j]):
@@ -423,6 +452,13 @@ class ProteusStage1:
                 )
             new_links[(link.i, link.j)] = link
         self.links = new_links
+
+    def _reindex_nodes(self) -> None:
+        for idx, node in enumerate(self.nodes):
+            np.copyto(self._positions_matrix[idx], node.position)
+            node.matrix_index = idx
+            node.position = self._positions_matrix[idx]
+        self._active_node_count = len(self.nodes)
 
 
 __all__ = ["ProteusStage1", "ProteusNode", "ProteusLink"]

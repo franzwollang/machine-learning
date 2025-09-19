@@ -39,7 +39,8 @@ class AlgorithmParameters:
     stage1_eta_oja: float = 0.05
     stage1_grid_ratio: float = 1.0 / np.sqrt(2.0)
     stage1_kappa: float = 0.5
-    stage1_max_epochs: int = 45
+    stage1_max_epochs: int = 30
+    stage1_samples_per_epoch: Optional[int] = 2200
     stage1_max_nodes: int = 128
     stage1_min_nodes: int = 10
     stage1_prune_after: int = 25
@@ -138,6 +139,7 @@ class ProteusAlgorithm:
             max_nodes=self.params.stage1_max_nodes,
             min_nodes=self.params.stage1_min_nodes,
             prune_after=self.params.stage1_prune_after,
+            samples_per_epoch=self.params.stage1_samples_per_epoch,
             rng=np.random.default_rng(self.params.random_seed + self._node_counter),
         )
         self._node_counter += 1
@@ -206,11 +208,13 @@ class ProteusAlgorithm:
         if improvement < self.params.split_improvement_threshold:
             return []
 
-        assignments = self._assign_points_to_nodes(subset, positions)
-        cluster_labels = labels[assignments]
+        data_centres, data_labels = self._refine_split_with_data(subset, centres)
+        if data_centres is None or data_labels is None:
+            return []
+        cluster_labels = data_labels
 
         child_indices: List[np.ndarray] = []
-        for label in unique_labels:
+        for label in range(centres.shape[0]):
             mask = cluster_labels == label
             count = int(mask.sum())
             if count < self.min_cluster_size:
@@ -262,6 +266,40 @@ class ProteusAlgorithm:
         relabelling = {old: new for new, old in enumerate(order)}
         remapped_labels = np.array([relabelling[label] for label in labels], dtype=int)
         return centres, remapped_labels
+
+    def _refine_split_with_data(
+        self, points: np.ndarray, initial_centres: np.ndarray
+    ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        """Refine a two-way split using the actual data assigned to a node."""
+
+        if points.shape[0] == 0 or initial_centres.shape[0] < 2:
+            return None, None
+
+        centres = initial_centres.copy()
+        labels: Optional[np.ndarray] = None
+        for _ in range(60):
+            distances = np.sum((points[:, None, :] - centres[None, :, :]) ** 2, axis=2)
+            new_labels = np.argmin(distances, axis=1)
+            new_centres = centres.copy()
+            for idx in range(centres.shape[0]):
+                mask = new_labels == idx
+                if not mask.any():
+                    return None, None
+                new_centres[idx] = points[mask].mean(axis=0)
+            if labels is not None and np.array_equal(new_labels, labels):
+                centres = new_centres
+                break
+            centres = new_centres
+            labels = new_labels
+
+        if labels is None:
+            return None, None
+
+        unique = np.unique(labels)
+        if unique.size < centres.shape[0]:
+            return None, None
+
+        return centres, labels
 
     def _calculate_max_depth(self, node: Optional[HierarchyNode]) -> int:
         if node is None:

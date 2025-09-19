@@ -8,3 +8,6 @@
 *.synctex.gz
 
 scratchpad.md
+code/tests/artifacts/*
+!code/tests/artifacts/.gitkeep
+docs/Proteus/reference
