@@ -16,7 +16,7 @@ A monolithic deep learning model is different. Its end-to-end differentiability 
 
 This tight coupling isn't just theoretical; it's a direct consequence of the workhorse components of modern architectures. In a **fully-connected layer**, every output neuron is a weighted sum of _every_ input neuron. In an **attention module**, every output token is a weighted combination of _every_ input token. These operations are, by design, engines of total information mixing.
 
-This creates a profound inefficiency. Any clean separation of concepts achieved in one layer becomes inherently unstable when passed to the next. The mixing operation, with its high degrees of freedom, forces the model to expend a vast amount of its capacity simply to salvage and maintain that separation. Instead of cleanly building toward a "natural" understanding, it's engaged in a constant, unstable battle to re-isolate the very signals it needs for the next stage of reasoning. This is the core mechanism of entanglement.
+This creates a profound inefficiency. Any clean separation of concepts achieved in one layer becomes inherently unstable when passed to the next. The mixing operation, with its high degrees of freedom, forces the model to expend a vast amount of its capacity simply to salvage and maintain that separation. Instead of cleanly building toward a "natural" understanding, it's engaged in a constant, unstable battle to re-isolate the very signals it needs for the next stage of reasoning.
 
 ### 3. How "Concepts" Form: The Logic of Incremental Error Correction
 
