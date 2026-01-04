@@ -216,4 +216,124 @@ The proof is constructive, following the algorithmic stages. We show that the to
 \end{itemize}
 This emergent signature is not a failure of the algorithm, but a feature that allows the system to report on the complex local topology of the data.
 
+\section*{S13. Bayesian Non-Parametric View of the Proteus Pipeline}
+\subsection*{S13.1 Objects and Geometry-Induced Conditionals}
+Let $X=\{x_n\}_{n=1}^N\subset \mathbb R^d$ and let $G=(\mathcal V,\mathcal E)$ denote the Hebbian/GNG graph with node locations $\{z_i\}$.
+Per-node BMU hit counts are $n_i$ and directional edge counts are $n_{i\to j}$ (first/second NN ``conditional hits''). Define empirical conditionals $\hat p(j\mid i)=n_{i\to j}/\max(1,n_i)$.
+
+Let $\mathcal S$ denote the dual (Delaunay-like) complex with simplexes $S\in\mathcal S$ that tile the space between adjacent nodes. We introduce unknown simplex masses $m=\{m_S\}_{S\in\mathcal S}$ with $m_S\ge 0$ and $\sum_S m_S=1$. Geometry induces barycentric weights $w_{iS}\in[0,1]$ with $\sum_{S\ni i} w_{iS}=1$, and the mass ``seen'' by node $i$ is
+\[ M_i(m)=\sum_{S\ni i} w_{iS}\, m_S\, . \]
+A geometry-derived conditional from $i\to j$ implied by $m$ (one sensible choice) is
+\[
+q(j\mid i; m)=\frac{\sum_{S\ni i,j} \,\kappa_{ijS}\, m_S }{\sum_{S\ni i} \,\kappa_{iS}\, m_S}\, ,
+\]
+with positive geometric terms $\kappa$ reflecting shared face length/area/solid angle or conductance.
+
+\subsection*{S13.2 Likelihood from Dirichlet--Multinomial Evidence}
+Treat outgoing counts at node $i$ as multinomial draws given $q(\cdot\mid i; m)$:
+\[
+\{n_{i\to j}\}_{j}\,\big|\, n_i,\, m \sim \mathrm{Multinomial}\!\bigl(n_i,\, q(\cdot\mid i; m)\bigr)\, .
+\]
+Placing a small Dirichlet smoothing prior on $q(\cdot\mid i)$ and integrating it out yields a Dirichlet--multinomial factor at node $i$,
+\[
+\phi_i(m)\;\propto\; \prod_{j\in\mathcal N(i)} q(j\mid i; m)^{\,n_{i\to j}}\, ,
+\]
+up to a gamma-ratio constant independent of $m$. Thus each node contributes a log-linear potential in $\log q(j\mid i;m)$: Hebbian counts provide conjugate evidence about local transitions, while $m$ is the global mass field that must rationalize all local transitions via geometry.
+
+\subsection*{S13.3 Priors on the Mass Field $m$}
+Several Bayesian priors are natural, each imparting a different character to the model:
+\begin{itemize}
+  \item \textbf{Simplex-wide Dirichlet (composition).} $m\sim\mathrm{Dirichlet}(\beta_S)_{S\in\mathcal S}$. Captures uncertainty on a fixed partition. It is conjugate if counts were observed directly in cells; here, the link is indirect via the transition likelihood, but the model remains coherent.
+  \item \textbf{Logistic-Gaussian MRF (smoothness).} Let $\theta_S\in\mathbb R$ with GMRF prior $\theta\sim\mathcal N(0,\,\tau^{-1}L^+)$ on the dual-graph Laplacian $L$, and set $m_S=\exp(\theta_S)/\sum_{S'}\exp(\theta_{S'})$. This is a logistic-normal prior that encourages neighboring simplexes to have similar mass, inducing spatial smoothness.
+  \item \textbf{Dirichlet/P\'olya tree on a mesh (hierarchical composition).} Impose a hierarchical split scheme over $\mathcal S$ (e.g., via a spanning tree) and place Dirichlet priors at each split. This defines a non-parametric model over recursive partitions, where the partition itself is learned by the Hebbian process.
+  \item \textbf{Normalized random measures.} Assign independent $\tilde m_S\sim\mathrm{Gamma}(a_S,1)$ and set $m_S=\tilde m_S/\sum_{S'}\tilde m_{S'}$. This is equivalent to a Dirichlet with parameters $a_S$ on a fixed set $\mathcal S$ and connects the model to the broader theory of completely random measures.
+\end{itemize}
+
+\subsection*{S13.4 Posterior as a Factor Graph and Sum--Product}
+The posterior over $m$ (up to normalization) is
+\[
+p(m\mid \text{data})\;\propto\; \underbrace{\prod_{i\in\mathcal V} \phi_i(m)}_{\text{Dirichlet--multinomial edge evidence}}\; \times\; \underbrace{\psi(m)}_{\text{prior on }m}\, ,
+\]
+where $\psi$ is one of the priors above. Sum--product (belief propagation) on the dual factor graph performs approximate marginalization of this posterior. With a logistic-GMRF prior, this becomes a CRF-like model with spatial smoothness; with a Dirichlet prior, it is a compositional model without coupling.
+
+\subsection*{S13.5 MaxEnt/MAP Connection}
+Setting a flat prior on $m$ and maximizing the log-likelihood yields the MaxEnt/MLE estimator
+\[
+\hat m \;=\; \arg\max_{m\in\Delta}\; \sum_{i}\sum_{j} n_{i\to j}\,\log q(j\mid i; m)\, .
+\]
+Adding $\log\psi(m)$ yields a MAP estimator under the chosen Bayesian prior. Thus the Proteus MaxEnt + sum--product pipeline is the zero-prior (or uniform-prior) MAP limit of this coherent Bayesian model.
+
+\subsection*{S13.6 Relation to BNP Families and Multiscale Refinement}
+The Proteus framework synthesizes ideas from several BNP families, but its data-driven, geometric construction creates key differences.
+
+\paragraph{At a fixed scale,} Proteus acts as a partition-based BNP model on a learned simplicial mesh. Its closest cousins are:
+\begin{itemize}
+    \item \textbf{P\'olya/Optional P\'olya Trees (PT/OPT):} These models define densities on recursive, axis-aligned partitions. Proteus is similar in using a partition, but its partition is a \emph{data-learned simplicial mesh with cycles}, not an axis-aligned tree. Furthermore, its likelihood is based on \emph{transition counts} between nodes, not direct bin counts.
+    \item \textbf{Log-Gaussian Cox Processes (LGCP):} These models use a latent Gaussian field to define a smooth log-density. Proteus with a logistic-GMRF prior is similar, but its likelihood is a CRF-like potential based on transition counts, coupling neighboring cells via $q(j\mid i; m)$, whereas LGCPs typically use direct Poisson counts in fixed bins.
+    \item \textbf{Dependent Dirichlet Processes (DDP):} These models allow mass allocation to vary over space. However, DDPs typically randomize mixture weights and atoms in an infinite-dimensional space, whereas Proteus defines a \emph{finite-dimensional} mass vector $m$ whose components are geometrically coupled by the learned Hebbian topology.
+\end{itemize}
+
+\paragraph{Across scales,} the coarse$\to$fine recursion resembles a hierarchical BNP prior.
+For a coarse cell $P \in \mathcal S^{(s)}$ with children $\mathrm{ch}(P) \subset \mathcal S^{(s+1)}$, the refinement can be modeled as a stochastic process:
+\[
+m^{(s+1)}_{\mathrm{ch}(P)}\mid m^{(s)}_P\;\sim\; \mathrm{Dir}\!\bigl(\alpha_s\,\pi^{(s)}_{\mathrm{ch}(P)}\, m^{(s)}_P\bigr)\, ,\qquad \sum_{C\in\mathrm{ch}(P)} m^{(s+1)}_C = m^{(s)}_P\, .
+\]
+This is the multiscale Dirichlet refinement used by P\'olya trees, but applied to a simplicial mesh. The warm-start procedure in Proteus, where the converged state at scale $s$ initializes the search at $s+1$, is a deterministic analogue of using the posterior at one level as the prior for the next. The variance-based splitting rule acts as a data-driven control on mesh refinement, analogous to a Bayes factor test for splitting a cell.
+
+\subsection*{S13.7 Practical Notes}
+\textbf{Consistency and identifiability.} As data grow, $n_{i\to j}$ stabilize and the posterior over $m$ concentrates, provided the geometric router $q(\cdot\mid i;m)$ is sufficiently injective in the local masses (choose $\kappa$ accordingly). A weak smoothness prior (e.g., logistic-GMRF) can also ensure identifiability. \textbf{Uncertainty propagation.} A fully Bayesian treatment propagates finite-sample noise in $n_{i\to j}$ into credible intervals over the mass field $m$. The MaxEnt/MAP approach provides a point estimate, which can be seen as the zero-prior ($\tau\to 0$) or infinite-data limit.
+
+\subsection*{S13.8 Summary of Mapping}
+The Proteus pipeline can be mapped directly to a Bayesian non-parametric model:
+\begin{itemize}
+    \item \textbf{Hebbian Learning/GNG} $\rightarrow$ A method for learning a \textbf{data-driven prior structure} (the simplicial partition $\mathcal S$).
+    \item \textbf{Edge Hit Statistics ($n_{i\to j}$)} $\rightarrow$ Evidence for \textbf{Dirichlet--multinomial local likelihoods} ($\phi_i(m)$).
+    \item \textbf{Dual-Graph Sum--Product} $\rightarrow$ An algorithm for \textbf{approximate Bayesian marginalization} over the global simplex mass field $m$.
+    \item \textbf{MaxEnt Objective} $\rightarrow$ The **MAP inference** limit of the same model under a uniform prior.
+\end{itemize}
+This correspondence positions Proteus as a computationally efficient, geometrically grounded realization of BNP principles, using a deterministic, sequential MAP-tracking approach across scales in place of more expensive stochastic inference.
+
+\section*{S14. Conditions for Equivalence of Stage 1 to Gaussian-Weighted PCA/SVD}
+\textbf{Claim (informal).} Under standard limits---frozen topology, infinitesimal step-size, stable neighborhoods, and infinite data---the Stage 1 moment tracker with rank-weighted updates and Oja's rule performs \emph{local} Gaussian-weighted PCA/SVD at node locations. The variance threshold acts as a scale-dependent cap that adaptively refines regions whose Gaussian-windowed variance exceeds the target.
+
+\subsection*{S14.1 Setting and Kernel Mapping}
+Let $K_\sigma$ denote an isotropic Gaussian window with bandwidth $\sigma$, and let $w_i$ be a (temporarily fixed) node location. Using the scale calibration in S2.1, set
+\[\sigma \;=\; \sqrt{\tau}/c_{d,k}\,,\]
+so that the per-node statistics at $w_i$ target the Gaussian-smoothed local moments at the Stage 1 threshold $\tau$.
+
+Define the Gaussian-windowed local mean and covariance centered at $w_i$:
+\[\mu_i\;=\; \mathbb E_{K_\sigma(\cdot-w_i)}[x]\,,\qquad C_i\;=\; \mathbb E_{K_\sigma(\cdot-w_i)}\big[(x-\mu_i)(x-\mu_i)^{\top}\big].\]
+
+\subsection*{S14.2 Conditions for Equivalence}
+The following constraints yield the reduction of Stage 1 statistics to Gaussian-weighted PCA/SVD:
+\begin{enumerate}
+  \item \textbf{Frozen topology and slow geometry.} During the estimation window, disable splits/pruning and take "slow" geometric motion (deferred moves with $\eta_{\mathrm{cent}}\to 0$) so positions change on a slower time scale than moment convergence (cf. S2.3 deferred nudge).
+  \item \textbf{Infinitesimal step-size, infinite data.} Use $\alpha\to 0$ with a Robbins--Monro schedule or a small constant EWMA weight (S2.2) and an effectively infinite stream of i.i.d. samples from $p(x)$. Then EWMAs converge to the corresponding kernel expectations.
+  \item \textbf{Stable, approximately isotropic neighborhoods.} Use ANN settings where $k$ is large enough and efSearch sufficiently high so the rank-ordered neighbor sets approximate samples from an isotropic ball around $w_i$ of radius $\mathcal O(\sigma)$. The rank-geometric weights $2^{-(j-1)}$ then act as a discrete radial kernel that weakly converges to $K_\sigma$ as $N\to\infty$, $k\to\infty$, $k/N\to 0$.
+  \item \textbf{Oja's rule for the principal subspace.} Apply standard Oja updates to residuals $e=x-w_i$ (cf. S8.1). Under the above sampling and step-size limits, Oja converges almost surely to the principal subspace of $C_i$; the tracked eigenpairs match those from the SVD of the local Gaussian-weighted covariance.
+  \item \textbf{Variance-cap thresholding.} Use the split criterion $\sigma_i^2>\tau_{\mathrm{local},i}$ with $\tau_{\mathrm{local},i}$ mapped from the control per S2.4. With EWMAs equal to kernel moments, this is equivalent to adaptively refining where $\operatorname{tr}(C_i)$ exceeds the target scale.
+\end{enumerate}
+
+\subsection*{S14.3 Consequences}
+Under these conditions, the Stage 1 per-node estimates equal the Gaussian-windowed moments at $w_i$:
+\[m_i \to \mu_i - w_i\,,\qquad \sigma_i^2 \to \operatorname{tr}(C_i)\,;\quad \text{Oja}(e)\;\Rightarrow\; \text{eigvectors/values of }C_i.\]
+Thus, the procedure performs \emph{local PCA/SVD at scale $\sigma$}, and the thresholded growth rule implements an adaptive partition until the local Gaussian-smoothed variance falls below the cap.
+
+\subsection*{S14.4 Explicit Limits Recovering SVD}
+\begin{itemize}
+  \item \textbf{Global PCA limit.} Single node, $k\to N$, and $\sigma$ larger than the data diameter $\Rightarrow$ uniform weights over the dataset; the covariance reduces to the global covariance and Oja recovers global PCA.
+  \item \textbf{Local PCA limit.} Fixed nodes, $\alpha\to 0$, large $k$ with isotropic neighborhoods $\Rightarrow$ each node estimates the SVD of $C_i$, the Gaussian-windowed local covariance at $w_i$.
+  \item \textbf{Piecewise-linear manifold limit.} With growth enabled at fixed $\tau$, the mesh partitions the space so each cell maintains $\operatorname{tr}(C_i)\le \tau_{\mathrm{local},i}$; within cells, local SVD is recovered and provides the dominant direction for geometric refinement (via Oja).
+\end{itemize}
+
+\subsection*{S14.5 What Is \emph{Not} the Same}
+\begin{itemize}
+  \item With active growth/topology changes, the method is \emph{not} a single global SVD of the convolved dataset; it is a stitched collection of local Gaussian-weighted SVDs with adaptive centers and supports.
+  \item At finite $k$, rank-geometric weights only approximate Gaussian radial weighting; exact equality holds asymptotically under the neighborhood stability conditions.
+  \item Stage 2 constructs (simplicial complex, torsion audit, dual flow) have no SVD reduction; the equivalence pertains solely to Stage 1 at fixed scale.
+\end{itemize}
+
+\subsection*{S14.6 Takeaway}
+With the calibration $\sigma=\sqrt{\tau}/c_{d,k}$ (S2.1) and the constraints above, Stage 1 reduces to \textbf{local Gaussian-weighted PCA/SVD}, while the variance threshold implements \textbf{scale-aware adaptive refinement}. This provides a precise bridge between the Hebbian/GNG dynamics and kernel PCA at a chosen characteristic scale.
+
 \end{document}

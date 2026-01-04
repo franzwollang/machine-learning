@@ -1,5 +1,8 @@
 \documentclass{article}
 \usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
 
 \title{Mimir: A Hierarchical Context Architecture for Grounded Perception}
 \author{Your Name}
@@ -29,7 +32,34 @@ This paper will detail this multi-stage pipeline, from the initial unimodal stud
 The first stage of the pipeline trains independent, efficient "Student" models that learn to reproduce the concepts discovered by large Teacher models, but using only local context. This acts as a variable-to-fixed-size data processing layer where computational cost is proportional to input fidelity.
 
 \subsection{The Visual Student (`Student-V`)}
-The visual student is an E(2)-Equivariant Graph Network (EGNN) that operates on a k-NN graph of image patches. Through message passing, it refines each patch's hidden state based on its neighbors, learning a context-aware representation. The final variable number of patch vectors are distilled into a single, fixed-size signature via an Attention-Based Aggregator, which uses a small set of learnable latent queries to pool information without lossy summarization.
+The visual student is an E(2)-Equivariant Graph Network (EGNN) that operates on a k-NN graph of image patches. Its objective is not only compression but to learn a \textbf{disentangled latent} where content/identity is separated from pose/scale/illumination.
+
+Concretely, the EGNN produces a variable-sized set of per-patch latents $\{(z_{inv,i}, z_{eq,i})\}$.
+Training uses a \textbf{multi-part objective} that induces a \emph{learned} partition of each latent into an \emph{invariant} feature subspace $z_{inv}$ and a complementary \emph{equivariant/covariant} subspace $z_{eq}$:
+\begin{itemize}
+    \item \textbf{Reconstruction:} a decoder reconstructs the input from the full latent $z$, preserving information.
+    \item \textbf{Invariance:} an invariance criterion (e.g., VICReg/Barlow Twins or InfoNCE on augmented pairs) is applied so that $z_{inv}(x) \approx z_{inv}(T\,x)$ for SE(2)+scale transforms $T$, yielding a stable feature subspace suitable for Proteus.
+    \item \textbf{Equivariance:} a complementary loss encourages $z_{eq}(T\,x) \approx R(T)\,z_{eq}(x)$ for a simple representation $R$ of the transform (e.g., rotation in a low-dimensional head), concentrating transformation factors outside $z_{inv}$.
+\end{itemize}
+\noindent \textit{Per-patch manifold and densification:}
+\begin{enumerate}
+    \item The set of invariant patch vectors $\{z_{inv,i}\}$ is passed through a pre-trained, modality-specific Proteus instance (e.g., `Proteus-V`). This yields sparse, variable-dimension membership vectors $\{\mu_{V,i}\}$.
+    \item The sparse set $\{\mu_{V,i}\}$ is passed through a lightweight Elastic Autoencoder (a "primitive codec") to produce dense embeddings $\{\nu_{V,i}\}$.
+    \item The set $\{(\nu_{V,i}, z_{eq,i})\}$ is then summarized by an Attention-Based Aggregator into a single, fixed-size, disentangled signature for the image: $(\Phi_{V,inv}, \Phi_{V,eq})$.
+\end{enumerate}
+\noindent \textit{Masking at multiple levels:} The same mask-based partitioning is applied \emph{wherever a representation is produced}. Concretely: (i) at the \textbf{patch level}, each latent $z_i$ is split into $(z_{inv,i}, z_{eq,i})$ by a mask head $m^{\text{patch}}$; (ii) at the \textbf{aggregator level}, the output signature $\Phi_V$ is also split into $(\Phi_{V,inv},\,\Phi_{V,eq})$ by an independent mask head $m^{\text{agg}}$. Each level receives its own invariance/equivariance objectives appropriate to its scope (local SE(2)+scale for patches; global transforms/state for the image-level signature), plus the binary bias, capacity target, and cross-covariance regularizers to preserve a clean separation.
+
+This multi-part objective is not a collection of independent heuristics, but a system of competing pressures designed to be the minimal set of constraints for learning a useful, disentangled representation. The \textbf{Invariance Loss} acts as the primary differentiable proxy for the stationarity that Proteus requires, forcing the model to ignore nuisance variables. However, this pressure alone would lead to a trivial solution (e.g., $z_{inv}=0$), a problem known as representation collapse. The \textbf{Reconstruction Loss} provides the necessary counter-pressure, ensuring that the latent vector retains enough information to be useful. Finally, the \textbf{Equivariance Loss} provides a structured destination for the nuisance information that the invariance loss necessarily discards, organizing it in a predictable way for downstream temporal models. The mask regularization terms then enforce a clean separation between these two subspaces. This principled trade-off is the core of the student's learning process.
+
+\paragraph{Unimodal concept manifold and densification.}
+Across many inputs, the fixed-size invariant signatures $\{\Phi_{V,inv}\}$ are used to train a second Proteus instance (e.g., a holistic `Proteus-Image`) that learns the manifold of complete visual concepts. At inference, its sparse output (e.g., $\Psi_{V,inv}$) is passed through an Elastic Autoencoder (a "holistic codec") to yield a final dense, stable, fixed-size unimodal vector $C_{V,inv}$. The pair $(C_{V,inv}, \Phi_{V,eq})$ is the final per-image output forwarded to higher levels.
+
+\paragraph{Latent partition and objective (generic form).}
+For any representation vector $r \in \mathbb R^D$ (patch-level $z_i$ or aggregated signature $\Phi_V$), a learned mask $m(r)\in[0,1]^D$ produces
+\[ r_{inv} = m(r) \odot r, \qquad r_{eq} = (\mathbf 1 - m(r)) \odot r. \]
+Patch-level objectives use local SE(2)+scale augmentations; aggregate-level objectives use global transforms/state. We optimize the weighted objective
+\[ \mathcal L = \lambda_{\mathrm{rec}}\,\mathcal L_{\mathrm{rec}} + \lambda_{\mathrm{inv}}\,\mathcal L_{\mathrm{inv}} + \lambda_{\mathrm{eq}}\,\mathcal L_{\mathrm{eq}} + \lambda_{\mathrm{bin}}\,\mathcal L_{\mathrm{bin}} + \lambda_{\mathrm{size}}\,\mathcal L_{\mathrm{size}} + \lambda_{\mathrm{cov}}\,\mathcal L_{\mathrm{cov}}. \]
+A typical instantiation is identical to the per-patch formulation, replacing $z$ with the appropriate $r$ and and using the transform representation $R(T)$ consistent with that level (e.g., image-wise rotation for $\Phi_V$).
 
 \subsection{The Sequential Students (`Student-T`, `Student-A`)}
 The students for temporal data like text and audio use a gated recurrent architecture. The core model is a multi-rate EMA bank (a "mixture of decays") that allows the model to capture context over multiple time scales simultaneously. As with the visual student, an Attention-Based Aggregator is used to convert the variable-length sequence of context-aware outputs into a single, fixed-size signature vector for downstream processing.
@@ -44,7 +74,7 @@ $$ v_{\text{multimodal}} = [v_{\text{frame\_sig}}, v_{\text{text\_sig}}, v_{\tex
 `Proteus-M` discovers the natural clusters in this space, which represent abstract, multimodal concepts. For example, it learns a single "dog" concept that is activated by images of dogs, the word "dog", and the sound of barking.
 
 \subsection{The Shared Multimodal Latent Space (SMLS)}
-The result of this process is a trained `Proteus-M` model that defines a Shared Multimodal Latent Space. The fuzzy membership vector over this space, `v_Context_Unified`, serves as the final, unified context for any given moment in time, providing a rich, abstract representation to the higher-level cognitive core. This model is also bidirectional, enabling concept-driven generative synthesis.
+The result of this process is a trained `Proteus-M` model that defines a Shared Multimodal Latent Space. The fuzzy membership vector over this space, \texttt{v\_Context\_Unified}, serves as the final, unified context for any given moment in time, providing a rich, abstract representation to the higher-level cognitive core. This model is also bidirectional, enabling concept-driven generative synthesis.
 
 \section{The Bootstrapping Philosophy}
 
