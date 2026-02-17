@@ -109,6 +109,18 @@ Self-supervised methods are a profound leap forward. By creating ingenious prete
 
 While scaling has delivered remarkable empirical results, the argument that it will solve all remaining issues resembles Ptolemy's epicycles. By adding more circles, his system could predict planetary motion with arbitrary accuracy, but it was complex, lacked explanatory power, and ultimately missed deeper truths. Similarly, scaling approaches can deliver phenomenal benchmark performance, but may not address fundamental issues of interpretability, efficiency, and trust. A model with trillions of parameters is an opaque oracle. An elegant, geometric model that captures the intrinsic simplicity of the data manifold is more efficient, more powerful, and offers a path toward systems that can reason about their own knowledge, a capability that scaling alone can never provide. The goal is not just prediction, but understanding.
 
+#### (Quick aside, out of scope here) Instruments trained-in, not just intelligence scaled-up
+
+There is another major path to capability that is largely _orthogonal_ to “make the monolith bigger/better”: **couple models to instruments during training**, so they learn to _construct and use_ external structure instead of spending parameter budget implicitly simulating complex scenarios inside their weights.
+
+The key idea is not “tools as a post-hoc crutch at inference.” It’s **instrumented learning**: train in-the-loop with external memory, code, simulators, and especially solver-backed formalizations so the learning signal rewards (a) choosing a representation, (b) compiling a situation into a stable semantic contract (an IR), and (c) interpreting computed outputs (policies, sensitivities, failure modes). Long-horizon combinatorics, counterfactual evaluation, equilibrium logic, and robustness tradeoffs should be computed by purpose-built machinery whenever possible, not approximated implicitly by ever-larger opaque weights.
+
+One concrete template is “game-like” scaffolding: represent scenarios as states/actions/observations/uncertainty/costs/goals, compile them into a solver-friendly IR, then attach planning (partial observability), multi-agent solvers, and robust optimization modules. In that regime, the model becomes a **compiler + calibrator**: recognize which primitives apply, instantiate/tune them (noise, budgets, risk), and decide what computations to request.
+
+This repo does not pursue that instrument-building track directly, but it’s plausibly an equally important research direction—and one that should compose cleanly with the geometric approach here, especially the fuzzy-predicate / fuzzy-logic thread (i.e., representing structure as reusable, compositional “predicates” with stable semantics).
+
+Put more sharply: two of the highest-leverage routes to more powerful AI seem to be (1) **better fluid intelligence substrates** (e.g., geometry-first primitives that yield stable, modular representations) and (2) **better instruments trained-in** (external solvers/tools/memory coupled during training that yield more “crystalline” competence via explicit structure and computation).
+
 ## A complementary, geometric picture
 
 The curse of dimensionality paints a bleak picture of a vast, empty space. If real-world data were uniformly distributed throughout this space, generalization would be impossible; nearly every new data point would be an isolated "outlier," far from any training example.
