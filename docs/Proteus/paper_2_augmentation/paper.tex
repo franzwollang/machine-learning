@@ -60,7 +60,7 @@ These features enable a powerful, general-purpose foundation for tackling most m
 
 \section{Sparse-to-Dense Representation with Elastic ANFIS Autoencoders}
 
-The raw feature set from Proteus---a high-dimensional, sparse fuzzy membership vector---is not optimal for direct use in complex analytical models. To address this, we introduce a foundational representation learning layer: a self-scaling autoencoder that produces compact, dense, and semantically rich latent vectors.
+The raw feature set from Proteus---a high-dimensional, sparse fuzzy membership vector---is not optimal for direct use in complex analytical models. Moreover, the foundational Proteus model provides not only memberships, but also structure-sensitive diagnostics derived from its evidence objective (e.g., local residual and misfit signals that indicate where the learned manifold is currently under-explaining incoming data). To address this, we introduce a foundational representation learning layer: a self-scaling autoencoder that produces compact, dense, and semantically rich latent vectors. This layer acts as a stable interface between the sparse, structured vocabulary produced by the geometric generative model and the dense representations expected by downstream analytics.
 
 \subsection{Architecture: The Elastic ANFIS-Autoencoder}
 The system uses a modular design where each input stream is handled by its own dedicated, deep ANFIS autoencoder. This allows for independent scaling and adaptation. The encoder itself is not a monolithic network but a deep, hierarchical structure with a tapering series of layers (e.g., $1024 \to 512 \to 256 \to 128$). This is implemented as a single ANFIS model with a hierarchy of shared fuzzy rule bases, where each layer learns concepts from the code vector produced by the layer above it, ensuring interpretability at every stage of compression.
@@ -91,7 +91,7 @@ The core analytical engine at each node of the tower is an ANFIS-DNF-DNN, a mode
 \begin{itemize}
     \item \textbf{Function:} The model takes the dense, latent vectors produced by the ANFIS autoencoders as input. It is then trained on a classification or analysis task (e.g., identifying anomalous data points within a given cluster).
     \item \textbf{Interpretability:} While the model is a Deep Neural Network, its ANFIS-based structure allows its learned knowledge to be extracted after training. The internal fuzzy rule base of the trained model can be traversed to generate a set of human-readable IF-THEN rules.
-    \item \textbf{Rule Extraction to DNF:} We employ a procedure to convert this learned rule set into a formal logical statement in \textbf{Disjunctive Normal Form (DNF)}. The result is a precise, human-readable description of the conditions required for a given classification (e.g., "(feature_\_A is HIGH and feature_\_C is LOW) or (feature_\_B is HIGH)").
+    \item \textbf{Rule Extraction to DNF:} We employ a procedure to convert this learned rule set into a formal logical statement in \textbf{Disjunctive Normal Form (DNF)}. The result is a precise, human-readable description of the conditions required for a given classification (e.g., ``(\texttt{feature\_A} is HIGH and \texttt{feature\_C} is LOW) or (\texttt{feature\_B} is HIGH)'').
 \end{itemize}
 This capability allows the system not only to identify patterns, but to explain \textit{why} a pattern was identified, transforming it from a black-box classifier into a transparent analysis tool.
 
@@ -106,7 +106,7 @@ The core of the streaming architecture is the \textbf{Temporal Pyramid}, a multi
 Instead of operating on raw data, the Temporal Pyramid aggregates the compact, \textbf{dense latent vectors} produced by the ANFIS autoencoders. This provides a statistically stable and low-noise signal.
 \begin{enumerate}
     \item \textbf{Aggregation:} At each level of the pyramid, the system maintains a statistical profile (e.g., mean and covariance) of the latent vectors seen during that time window.
-    \item \textbf{Drift Detection:} Concept drift is detected by comparing the statistical profile of a recent time window to that of a more stable, longer-term window. A significant divergence indicates that the underlying data distribution has changed.
+    \item \textbf{Drift Detection:} Concept drift is detected by comparing the statistical profile of a recent time window to that of a more stable, longer-term window. A significant divergence indicates that the underlying data distribution has changed. In addition, we monitor a model-level signal: the local evidence (equivalently, free energy) of the underlying Proteus generative model on recent data. A sustained rise in free energy can flag drift even when latent-vector moments remain stable, because it detects failures of the current manifold structure to predict local transition statistics.
     \item \textbf{Adaptation:} The detection of drift triggers an adaptation response. This can range from a minor, incremental update to the Proteus model for small drifts, to a full re-scaffolding (a targeted re-run of Stage 1) for major shifts in the data distribution.
 \end{enumerate}
 This architecture allows the system to efficiently monitor for and react to changes in the data stream without requiring a costly full reprocessing at every timestep.

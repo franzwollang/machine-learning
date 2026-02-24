@@ -54,10 +54,46 @@ The composite rule for node pruning (requiring both low relative hits \emph{and}
 \subsection*{S3.3 Node Pruning (Stage 2, simplex-arbitrated)}
 \emph{Arbitration by simplex star:} A deletion proposal for node $i$ is decided by a vote over its incident simplexes $\mathcal S(i)$; require majority agreement based on local stability and activity metrics. \emph{Geometric veto:} Always perform a reconstruction error test; if removal of $i$ causes a significant increase in local reconstruction error (tent-pole behavior), veto the deletion. \emph{Rationale:} Stage 2's geometry is mediated by the simplicial complex; arbitration by $\mathcal S(i)$ preserves structural integrity in complex regions.
 
+\subsection*{S3.4 Evidence-Based Structure Learning (Local Free Energy)}
+Purely geometric triggers (e.g., $\sigma_i^2>\tau_{\mathrm{local},i}$ or high torsion ratio $R_S$) are fast indicators of local misfit, but they cannot distinguish unresolved structure from noise under weak evidence. Proteus therefore treats geometry as a \emph{proposal} mechanism and uses a local evidence test to \emph{ratify} discrete edits (splits, pruning/merges, and optional warp attachments). The evidence is computed from how well the current topology explains the observed local transition counts $\{n_{i\to j}\}$ under the geometry-induced router $q(j\mid i; m)$ (see S13).
+
+\paragraph{Affected region.}
+Let $M$ denote a candidate topology (keep vs.~edit). For a proposed edit, define the affected node set $\mathcal V_{\mathrm{aff}}$ as the set of nodes whose simplex stars change under the edit, augmented by a small neighbor ring to account for router denominators:
+\[
+\mathcal V_{\mathrm{aff}} \;=\; \mathcal V_{\mathrm{core}}\ \cup\ \bigcup_{i\in \mathcal V_{\mathrm{core}}}\mathcal N(i)\,,\qquad
+\mathcal V_{\mathrm{core}} \;=\; \{i:\mathrm{Star}_M(i)\ \text{differs between candidates}\}\, .
+\]
+Let the affected simplex set be $\mathcal S_{\mathrm{aff}}=\bigcup_{i\in\mathcal V_{\mathrm{aff}}}\mathrm{Star}_M(i)$. We treat the exterior mass field as fixed boundary conditions: $m_S$ for $S\notin\mathcal S_{\mathrm{aff}}$ is held at its current settled value.
+
+\paragraph{Local likelihood and prior.}
+Restrict the transition log-likelihood to affected sources:
+\[
+\mathcal L_{\mathcal R}(m;M)\;=\;\sum_{i\in\mathcal V_{\mathrm{aff}}}\ \sum_{j\in\mathcal N(i)} n_{i\to j}\,\log q(j\mid i; m,M)\, ,
+\]
+where $q$ is computed using the full denominator for each $i$ but with exterior masses frozen as above. Choose a prior $\psi(m\mid M)$ (e.g., Dirichlet composition on simplex masses, or logistic-GMRF smoothness on logits as in S13.3).
+
+\paragraph{Local settle (MAP).}
+For each candidate topology $M$, warm-start the affected masses from the current solution and settle to a local MAP configuration:
+\[
+\hat m_M\;=\;\arg\max_{m\in\Delta}\ \mathcal L_{\mathcal R}(m;M)\;+\;\log \psi(m\mid M)\, ,
+\]
+holding exterior masses fixed. In practice, settling is performed with a fixed small iteration budget for comparability across candidates (and because the acceptance test only requires a reliable local ranking).
+
+\paragraph{BIC/MDL evidence proxy and acceptance.}
+We score each candidate by a local free-energy proxy (negative evidence) with an explicit complexity penalty:
+\[
+F(\mathcal R;M)\;=\;-\mathcal L_{\mathcal R}(\hat m_M;M)\;-\;\log \psi(\hat m_M\mid M)\;+\;\tfrac{1}{2}\,k_M\,\log N_{\mathrm{eff},\mathcal R}\, ,
+\]
+where $N_{\mathrm{eff},\mathcal R}=\sum_{i\in\mathcal V_{\mathrm{aff}}}\sum_{j} n_{i\to j}$ and $k_M$ is the number of free mass parameters in the affected region (typically $k_M=|\mathcal S_{\mathrm{aff}}|-1$ under the simplex constraint, counted consistently across candidates). The edit is accepted iff it decreases local free energy by a margin:
+\[
+F(\mathcal R;M_{\mathrm{edit}})\;<\;F(\mathcal R;M_{\mathrm{keep}})\;-\;\log\tau\, ,
+\]
+with $\tau>1$ controlling conservatism (e.g., $\log\tau\in[1,3]$ for splits; merges/prunes may use $\tau=1$).
+
 \section*{S4. Torsion and Shape Quality}
 The geometric audit operates on the principle that error responses depend on local rigidity: in \emph{plastic} regions, error produces geometric adjustments; in \emph{rigid} regions, error accumulates as structural stress requiring topological resolution. Let $\bar{\mathbf w}$ and $\bar{\mathbf m}$ be barycenters. With $E=[\mathbf w_{v_1}{-}\bar{\mathbf w}\;\cdots\;\mathbf w_{v_d}{-}\bar{\mathbf w}]$ and $M=[\mathbf m_{v_1}{-}\bar{\mathbf m}\;\cdots\;\mathbf m_{v_d}{-}\bar{\mathbf m}]$, define
 \[\Omega_S = M^{\top}E - E^{\top}M\,,\qquad \kappa_S = \lVert \Omega_S \rVert_F\,;\qquad R_S = \kappa_S/\tau^*.\]
-\textbf{Torsion Ladder:} \emph{Ignore} if $R_S{<}0.05$ (numerical noise). \emph{Keep as-is} if $0.05\le R_S{<}0.30$ (tolerable curvature). \emph{Geometric fix} if $0.30\le R_S{<}0.60$: perform a torsion-aligned split with explicit placement below. \emph{Non-linear upgrade} if $R_S\ge 0.60$: attach a local mini-NSF (see S7) to the affected patch. If the fitted mini-NSF fails to reduce $R_S$ below $0.60$ on the patch, perform a torsion-aligned split as a fallback.
+\textbf{Torsion Ladder:} \emph{Ignore} if $R_S{<}0.05$ (numerical noise). \emph{Keep as-is} if $0.05\le R_S{<}0.30$ (tolerable curvature). \emph{Geometric fix} if $0.30\le R_S{<}0.60$: propose a torsion-aligned split with explicit placement below, and accept it only if it passes the local free-energy/evidence test in S3.4 (in addition to the numerical safeguards in this section). \emph{Non-linear upgrade} if $R_S\ge 0.60$: attach a local mini-NSF (see S7) to the affected patch. If the fitted mini-NSF fails to reduce $R_S$ below $0.60$ on the patch, propose a torsion-aligned split as a geometric fallback, again gated by S3.4.
 
 A split is only permitted if the parent simplex (or node) has accumulated sufficient hits to pass a budget check ($h_{\mathrm{parent}} \ge 2 \cdot h_{\mathrm{prune}}$), ensuring that the resulting children are not immediately vulnerable to pruning under the framework's statistical gauntlets.
 
@@ -69,6 +105,7 @@ A split is only permitted if the parent simplex (or node) has accumulated suffic
 Accumulate facet pressures for winning simplex $S$ via $\Delta p_f \propto \max(0,(\mathbf x{-}\bar{\mathbf w}_S)^{\top}\mathbf n_f)$. This \emph{fractional tallying} avoids winner–take–all artifacts and yields smoother, more stable boundary pressure estimates than single-face voting. On the dual graph, solve
 \[\min_{\{p_f\}}\; \lambda\sum_f (p_f{-}\hat p_f)^2 + \mu\sum_S \lVert A_S\,\mathbf p_S\rVert_2^2\,,\]
 with Gauss--Seidel iterations $p_f\leftarrow (\lambda\hat p_f + \mu\,\sum_{S\ni f}(A_S^{\top}A_S\,\mathbf p_S)_f)/(\lambda + \mu\,\deg(f))$, or equivalently by loopy BP messages until convergence.
+This reconstruction is conditioned on the accepted topology and its settled geometry/mass field; it does not act as an additional likelihood term for the same simplex masses.
 
 \section*{S6. Masking for Missing Modalities}
 For input $\mathbf x\in\mathbb R^d$ with structured sparsity, build boolean mask $\mathbf m=(x\neq 0)$. Compute distances and residuals only on active dimensions: $\lVert \mathbf x{-}\mathbf w\rVert^2=\sum_{j:m_j} (x_j{-}w_j)^2$; residual $\mathbf e=\mathbf x{-}\mathbf w$ with $e_j{=}0$ if $m_j{=}0$. Apply the mask to all vector updates (moments, nudges, Oja), and accumulate variance only on active dimensions. Optionally normalize updates by the active count to equalize per-sample influence. This preserves geometry and statistics in multi-modal fusion where zeros indicate missingness rather than small values.
@@ -216,7 +253,8 @@ The proof is constructive, following the algorithmic stages. We show that the to
 \end{itemize}
 This emergent signature is not a failure of the algorithm, but a feature that allows the system to report on the complex local topology of the data.
 
-\section*{S13. Bayesian Non-Parametric View of the Proteus Pipeline}
+\section*{S13. The Proteus Generative Model and Free-Energy Objective}
+This section states the statistical model that underlies Proteus and provides the free-energy objective used to justify discrete structure changes under finite data. The key idea is that the learned topology induces a geometry-derived router $q(j\mid i; m)$, and the observed transition counts $\{n_{i\to j}\}$ act as evidence about a latent simplex mass field $m$. Continuous updates (settling) reduce transition prediction error, while discrete edits (splits/merges/pruning) are accepted only when they improve a local evidence proxy (S3.4).
 \subsection*{S13.1 Objects and Geometry-Induced Conditionals}
 Let $X=\{x_n\}_{n=1}^N\subset \mathbb R^d$ and let $G=(\mathcal V,\mathcal E)$ denote the Hebbian/GNG graph with node locations $\{z_i\}$.
 Per-node BMU hit counts are $n_i$ and directional edge counts are $n_{i\to j}$ (first/second NN ``conditional hits''). Define empirical conditionals $\hat p(j\mid i)=n_{i\to j}/\max(1,n_i)$.
@@ -283,15 +321,15 @@ This is the multiscale Dirichlet refinement used by P\'olya trees, but applied t
 \subsection*{S13.7 Practical Notes}
 \textbf{Consistency and identifiability.} As data grow, $n_{i\to j}$ stabilize and the posterior over $m$ concentrates, provided the geometric router $q(\cdot\mid i;m)$ is sufficiently injective in the local masses (choose $\kappa$ accordingly). A weak smoothness prior (e.g., logistic-GMRF) can also ensure identifiability. \textbf{Uncertainty propagation.} A fully Bayesian treatment propagates finite-sample noise in $n_{i\to j}$ into credible intervals over the mass field $m$. The MaxEnt/MAP approach provides a point estimate, which can be seen as the zero-prior ($\tau\to 0$) or infinite-data limit.
 
-\subsection*{S13.8 Summary of Mapping}
-The Proteus pipeline can be mapped directly to a Bayesian non-parametric model:
+\subsection*{S13.8 Summary}
+The Proteus pipeline corresponds to the following Bayesian model and inference loop:
 \begin{itemize}
     \item \textbf{Hebbian Learning/GNG} $\rightarrow$ A method for learning a \textbf{data-driven prior structure} (the simplicial partition $\mathcal S$).
     \item \textbf{Edge Hit Statistics ($n_{i\to j}$)} $\rightarrow$ Evidence for \textbf{Dirichlet--multinomial local likelihoods} ($\phi_i(m)$).
     \item \textbf{Dual-Graph Sum--Product} $\rightarrow$ An algorithm for \textbf{approximate Bayesian marginalization} over the global simplex mass field $m$.
     \item \textbf{MaxEnt Objective} $\rightarrow$ The **MAP inference** limit of the same model under a uniform prior.
 \end{itemize}
-This correspondence positions Proteus as a computationally efficient, geometrically grounded realization of BNP principles, using a deterministic, sequential MAP-tracking approach across scales in place of more expensive stochastic inference.
+Proteus uses geometric signals to propose discrete edits to $\mathcal S$, and a local evidence proxy (S3.4) to accept edits only when they reduce free energy after accounting for model complexity.
 
 \section*{S14. Conditions for Equivalence of Stage 1 to Gaussian-Weighted PCA/SVD}
 \textbf{Claim (informal).} Under standard limits---frozen topology, infinitesimal step-size, stable neighborhoods, and infinite data---the Stage 1 moment tracker with rank-weighted updates and Oja's rule performs \emph{local} Gaussian-weighted PCA/SVD at node locations. The variance threshold acts as a scale-dependent cap that adaptively refines regions whose Gaussian-windowed variance exceeds the target.
