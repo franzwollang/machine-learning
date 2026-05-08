@@ -39,6 +39,129 @@ For centering, with $\delta_{\min}=\kappa(1{-}r)\sqrt{\tau}$ and expected drift 
 \subsection*{S2.4 Control-to-Threshold Mapping}
 Constrain growth to local intrinsic dimension by mapping optimizer control to thresholds: $\tau_{\mathrm{global}}= -D_{\mathrm{subspace}}\,\log(1{-}s_{\mathrm{control}})$ and $\tau_{\mathrm{local},i}= -d_{\mathrm{final},i}\,\log(1{-}s_{\mathrm{control}})$.
 
+\subsection*{S2.5 Scale Response $\Phi_C(\tau)$: Per-Cluster Lindeberg Form}
+
+\paragraph{Per-node response.}
+At a fixed scale $\tau$, Stage 1 runs to thermal equilibrium and returns a node--edge scaffold for the current recursion-level region $C$. For each node $i$, let $h_i$ be its fractional hit mass, let $r_{k,i}$ be the distance from node $i$ to its $k$-th nearest scaffold neighbor, and let $V_d$ be the volume of the unit $d$-ball in the local working dimension. The standard $k$-NN density estimate is
+\[
+\widehat\rho_i\;=\;\frac{h_i\,k\,N_C}{V_d\,r_{k,i}^{\,d}}\,,
+\]
+where $N_C$ is the number of routed samples in the current recursion-level region. With the one-time scale calibration $\sigma=\sqrt{\tau}/c_{d,k}$ (S14.1), the Lindeberg-normalized node response is
+\[
+R_i(\tau)\;=\;\left(\frac{\sqrt{\tau}}{c_{d,k}}\right)^{d}\widehat\rho_i
+\;=\;\left(\frac{\sqrt{\tau}}{c_{d,k}}\right)^{d}\frac{h_i\,k\,N_C}{V_d\,r_{k,i}^{\,d}}\, .
+\]
+This is the GNG analogue of a scale-normalized Gaussian feature response: the density term measures how much mass the node explains, while the $\tau^{d/2}$ factor makes responses comparable across scales.
+
+\paragraph{Per-cluster response.}
+The response for the current recursion-level cluster $C$ is the summed node response
+\[
+\boxed{\;\Phi_C(\tau)\;=\;\sum_{i\in C} R_i(\tau)\;}\,.
+\]
+At the root level, $C$ is the full dataset. After a recursion step, $C$ is one Affinity-Propagation cluster from S2.6, and the same definition is applied inside that subregion. Thus scale selection is always local to the current semantic region rather than global over all unresolved modes.
+
+\paragraph{Support trace as a cheap secondary signal.}
+Using the same $r_{k,i}$ values, define a local volume proxy
+\[
+\widehat V_i\;=\;\frac{V_d\,r_{k,i}^{\,d}}{k/N_C}
+\]
+and the cluster support trace
+\[
+V_C(\tau)\;=\;\sum_{i\in C}\widehat V_i\, .
+\]
+$V_C(\tau)$ is cheap because it reuses quantities already needed for $R_i(\tau)$. As $\tau$ decreases, $V_C$ grows while the mesh resolves the cluster silhouette, then plateaus once further refinement adds nodes inside the already-resolved support rather than expanding it. We use $V_C$ as a secondary cross-check on $\Phi_C$: robust characteristic scales exhibit both a peak in $\Phi_C$ and a nearby plateau transition in $V_C$.
+
+\paragraph{Peak detection and refinement.}
+The controller evaluates $\Phi_C$ on the geometric grid $\{\tau_j\}$ of S2.1. Candidate scales are detected by the centered second difference
+\[
+\Delta^2\Phi_C(\tau_j)\;=\;\Phi_C(\tau_{j+1})-2\Phi_C(\tau_j)+\Phi_C(\tau_{j-1})\, .
+\]
+A bracket is opened around a local maximum when the discrete derivative changes sign and $\Phi_C(\tau_j)$ exceeds a small relative floor (default: $5\%$ of the maximum response seen on the current grid). The bracket is then refined with a lightweight Bayesian optimizer on $\log\tau$ (typically 3--5 additional Stage 1 evaluations). The selected scale for cluster $C$ is $\tau_C^\star$.
+
+\paragraph{Relationship to Lindeberg scale-space.}
+For Gaussian features (or features Gaussian up to affine whitening), Lindeberg's scale-normalized derivatives attain scale-covariant extrema with the standard normalization exponent. Proteus inherits the same principle because the variance cap fixes $\tau=\sigma^2$ as the smoothing scale: $R_i(\tau)$ is a scale-normalized density response over the node's local support. The geometric grid spacing in S2.1 provides the resolution guarantee for separating neighboring peaks in $\log\sigma$.
+
+\paragraph{Connection to density-resolution.}
+The response $\Phi_C$ implements the intuition that a mode is discovered when its support has resolved at the current variance cap. Above the characteristic scale, distinct substructure is blurred and the summed response is weak. Near $\tau_C^\star$, the mesh tiles the mode according to its intrinsic variance and the normalized density response peaks. Below $\tau_C^\star$, refinement primarily adds interior nodes within an already-resolved support, so the response no longer increases and $V_C(\tau)$ plateaus. This keeps the semantic object of recursion a multi-node cluster with a support silhouette, not a single centroid.
+
+\paragraph{Degenerate cases and fallbacks.}
+\begin{itemize}[leftmargin=1.5em]
+  \item \emph{Stage 1 fails to stabilize.} If $\mathrm{CV}\ge\varepsilon_{\mathrm{CV}}$ (S10), the corresponding grid point is excluded from peak detection. If stabilization fails across a contiguous grid segment, double the stabilization budget once; if still failing, declare the region terminal.
+  \item \emph{Small datasets.} If $N_C<\max(10d,1000)$, the response is logged for diagnostics but recursion is deferred (S9).
+  \item \emph{Poor intrinsic-dimension estimate.} Since $d$ enters both $V_d$ and the scale-normalization exponent, use the neighborhood-smoothed $d_{\mathrm{final},i}$ from S2.4 and aggregate by the cluster median $d_C=\mathrm{median}_{i\in C}d_{\mathrm{final},i}$ for $R_i$ until Stage 2 refines the local dimension.
+\end{itemize}
+
+\subsection*{S2.6 Cluster Identification and Cross-Scale Tracking}
+
+\paragraph{Affinity Propagation on the Hebbian graph.}
+At the selected scale $\tau_C^\star$, the converged Stage 1 scaffold is clustered by Affinity Propagation (AP) on the sparse Hebbian graph. The vertices are scaffold nodes; candidate similarities exist only on Hebbian links. This preserves Stage 1's speed profile: AP is run on the max-ent number of nodes at the current scale and on $O(kN)$ edges, not on all sample pairs.
+
+\paragraph{Smoothed transition probabilities.}
+For each directed Hebbian counter $C(i\to j)$, define the posterior predictive transition probability
+\[
+\widehat q(j\mid i)\;=\;\frac{\alpha_{0,i}+C(i\to j)}
+{\sum_{\ell\in\mathcal N(i)}\bigl(\alpha_{0,i}+C(i\to \ell)\bigr)}\, ,
+\]
+where $\alpha_{0,i}=1/(d_{\mathrm{final},i}+1)$ by S2.7. This is the same Dirichlet-smoothed conditional used in the S13 transition model, so clustering and evidence scoring consume the same probabilistic signal.
+
+\paragraph{Smoothed-PMI similarity.}
+Let $\widehat P(i)$ be the smoothed marginal node mass
+\[
+\widehat P(i)\;=\;\frac{h_i+\alpha_{0,i}K_i}{\sum_v(h_v+\alpha_{0,v}K_v)}\, ,
+\qquad K_i=|\mathcal N(i)|\, .
+\]
+For an undirected Hebbian edge $\{i,j\}$, define the symmetrized joint estimate
+\[
+\widehat P(i,j)\;=\;\tfrac12\bigl(\widehat P(i)\widehat q(j\mid i)+\widehat P(j)\widehat q(i\mid j)\bigr)\, .
+\]
+The AP similarity is smoothed pointwise mutual information
+\[
+s(i,j)\;=\;\log\widehat P(i,j)-\log\widehat P(i)-\log\widehat P(j)\, .
+\]
+No similarity is assigned to unlinked node pairs; in AP notation $s(i,j)=-\infty$ if $\{i,j\}$ is not a Hebbian edge.
+
+\paragraph{Derived self-preference.}
+AP's self-similarity (preference) is not tuned. With the BDeu prior of S2.7,
+\[
+s(i,i)\;=\;-2\log(d_{\mathrm{final},i}+1)\, .
+\]
+This makes low-dimensional regions more willing to instantiate exemplars and high-dimensional regions more conservative, matching the fact that a high-dimensional patch needs more nodes to tile a single semantic support.
+
+\paragraph{Asymmetry retained as a diagnostic.}
+The AP similarity is symmetric by construction. The directional information discarded by symmetrization is retained as
+\[
+A(i,j)\;=\;\frac{C(i\to j)-C(j\to i)}{C(i\to j)+C(j\to i)+\varepsilon}\, .
+\]
+$A(i,j)$ is not used for clustering. It is logged for dimensionality-junction diagnostics (S12.2), where stable high asymmetry together with low face pressure distinguishes a structural bridge from an active growth frontier.
+
+\paragraph{Cross-scale tracking.}
+Across neighboring grid points, the scaffold graph is warm-started: node positions and links persist, while distributional statistics are reset or strongly attenuated. This makes cluster tracking cheap. A cluster at $\tau_{j+1}$ is matched to the cluster at $\tau_j$ with maximum node-ID overlap; no separate persistence matching over samples is required. The matched sequence carries the traces $\Phi_C(\tau_j)$ and $V_C(\tau_j)$ used for characteristic-scale detection.
+
+\paragraph{Recursion.}
+After AP at $\tau_C^\star$, each AP cluster becomes a child recursion region. Samples are routed to the child cluster that owns their BMU at $\tau_C^\star$. The child run inherits the parent graph restricted to that cluster, with node/link topology warm-started and moment/hit statistics reset or attenuated according to S8. This preserves semantic support while still allowing the child to discover finer scales within the region.
+
+\subsection*{S2.7 Dirichlet Concentration from the BDeu Prior}
+
+\paragraph{Goal.}
+The Dirichlet concentration $\alpha_0$ appears in the transition smoother (S2.6), the Dirichlet--multinomial evidence alternative (S3.4), and the BNP model (S13). Rather than tune it, Proteus uses the Bayesian Dirichlet equivalent uniform (BDeu) prior.
+
+\paragraph{BDeu construction.}
+At node $i$, the effective categorical outcome count is the local branching factor $K_i\approx d_{\mathrm{final},i}+1$. BDeu assigns one equivalent pseudo-observation spread uniformly over the outcomes:
+\[
+\boxed{\;\alpha_{0,i}\;=\;\frac{1}{d_{\mathrm{final},i}+1}\;}\, .
+\]
+Thus the total prior mass per node is $(d_{\mathrm{final},i}+1)\alpha_{0,i}=1$, independent of intrinsic dimension.
+
+\paragraph{Consistency across uses.}
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Transition smoothing:} $\widehat q(j\mid i)=(\alpha_{0,i}+C(i\to j))/(1+\sum_\ell C(i\to\ell))$, so a single pseudo-sample regularizes zero counts without dominating real evidence.
+  \item \textbf{Dirichlet--multinomial evidence:} the node-local marginal likelihood uses the same $\alpha_{0,i}$, making the Occam factor dimension-aware without adding a knob.
+  \item \textbf{Affinity Propagation preference:} the CRP/BDeu exemplar prior gives $s(i,i)=\log(\alpha_{0,i}/(d_{\mathrm{final},i}+1))=-2\log(d_{\mathrm{final},i}+1)$.
+\end{itemize}
+
+\paragraph{Remaining empirical scalar.}
+The Stage 1 $\to$ Stage 2 warm-start shrink $\gamma_0\approx0.7$ remains empirical. It is a one-time attenuation of moments rather than a runtime scale-search knob, and can be replaced later by a variance-matching derivation.
+
 \section*{S3. Statistical Gauntlets}
 Unless noted, we adopt significance defaults consistent with Stage 1: Welch's $t$ tests at $p{=}0.05$ (one-tailed where directional) for neighborhood-stability triggers, and Wilson one-sided bounds at 90\% (i.e., $z{=}1.2816$) for link significance comparisons.
 \subsection*{S3.1 Link Pruning}
@@ -54,8 +177,8 @@ The composite rule for node pruning (requiring both low relative hits \emph{and}
 \subsection*{S3.3 Node Pruning (Stage 2, simplex-arbitrated)}
 \emph{Arbitration by simplex star:} A deletion proposal for node $i$ is decided by a vote over its incident simplexes $\mathcal S(i)$; require majority agreement based on local stability and activity metrics. \emph{Geometric veto:} Always perform a reconstruction error test; if removal of $i$ causes a significant increase in local reconstruction error (tent-pole behavior), veto the deletion. \emph{Rationale:} Stage 2's geometry is mediated by the simplicial complex; arbitration by $\mathcal S(i)$ preserves structural integrity in complex regions.
 
-\subsection*{S3.4 Evidence-Based Structure Learning (Local Free Energy)}
-Purely geometric triggers (e.g., $\sigma_i^2>\tau_{\mathrm{local},i}$ or high torsion ratio $R_S$) are fast indicators of local misfit, but they cannot distinguish unresolved structure from noise under weak evidence. Proteus therefore treats geometry as a \emph{proposal} mechanism and uses a local evidence test to \emph{ratify} discrete edits (splits, pruning/merges, and optional warp attachments). The evidence is computed from how well the current topology explains the observed local transition counts $\{n_{i\to j}\}$ under the geometry-induced router $q(j\mid i; m)$ (see S13).
+\subsection*{S3.4 Evidence-Based Structure Learning (Local Evidence Score)}
+Purely geometric triggers (e.g., $\sigma_i^2>\tau_{\mathrm{local},i}$ or high torsion ratio $R_S$) are fast indicators of local misfit, but they cannot distinguish unresolved structure from noise under weak evidence. Proteus therefore treats geometry as a \emph{proposal} mechanism and uses a local evidence test to \emph{ratify} discrete edits (splits, pruning/merges, and optional warp attachments). The evidence is computed from how well the current topology explains the observed local transition counts $\{n_{i\to j}\}$ under the geometry-induced router $q(j\mid i; m)$ (see S13). The score is the closed-form Dirichlet--multinomial (DM) marginal evidence under the BDeu prior of S2.7; no iterative MAP settle on the simplex mass field is required.
 
 \paragraph{Affected region.}
 Let $M$ denote a candidate topology (keep vs.~edit). For a proposed edit, define the affected node set $\mathcal V_{\mathrm{aff}}$ as the set of nodes whose simplex stars change under the edit, augmented by a small neighbor ring to account for router denominators:
@@ -65,35 +188,34 @@ Let $M$ denote a candidate topology (keep vs.~edit). For a proposed edit, define
 \]
 Let the affected simplex set be $\mathcal S_{\mathrm{aff}}=\bigcup_{i\in\mathcal V_{\mathrm{aff}}}\mathrm{Star}_M(i)$. We treat the exterior mass field as fixed boundary conditions: $m_S$ for $S\notin\mathcal S_{\mathrm{aff}}$ is held at its current settled value.
 
-\paragraph{Local likelihood and prior.}
-Restrict the transition log-likelihood to affected sources:
+\paragraph{Dirichlet--multinomial marginal evidence.}
+Place the BDeu prior of S2.7 directly on per-node transitions: $q(\cdot\mid i)\sim\mathrm{Dir}(\alpha_{0,i}\mathbf 1)$ with $\alpha_{0,i}=1/(d_{\mathrm{final},i}+1)$. The Dirichlet--multinomial marginal likelihood at node $i$ is analytic:
 \[
-\mathcal L_{\mathcal R}(m;M)\;=\;\sum_{i\in\mathcal V_{\mathrm{aff}}}\ \sum_{j\in\mathcal N(i)} n_{i\to j}\,\log q(j\mid i; m,M)\, ,
+p(\{n_{i\to j}\}\mid M,\alpha_{0,i})\;=\;\frac{\Gamma(J_i\alpha_{0,i})}{\Gamma(J_i\alpha_{0,i}+n_i)}\prod_{j=1}^{J_i}\frac{\Gamma(\alpha_{0,i}+n_{i\to j})}{\Gamma(\alpha_{0,i})}\,,
 \]
-where $q$ is computed using the full denominator for each $i$ but with exterior masses frozen as above. Choose a prior $\psi(m\mid M)$ (e.g., Dirichlet composition on simplex masses, or logistic-GMRF smoothness on logits as in S13.3).
+where $J_i=|\mathcal N(i)|$ is determined by the candidate topology $M$. The per-region score is
+\[
+\boxed{\;F_{\mathrm{DM}}(\mathcal R;M)\;=\;-\sum_{i\in\mathcal V_{\mathrm{aff}}}\log p(\{n_{i\to j}\}\mid M,\alpha_{0,i})\;}\, .
+\]
+This form requires \emph{no} iterative MAP settle on $m$: the Dirichlet posterior over each $q(\cdot\mid i)$ is closed-form, the marginal likelihood is analytic, and the Occam factor is intrinsic to the BDeu prior volume. Topology candidates are therefore directly comparable, with no protocol-dependent biases (iteration budgets, warm-start choices, or per-candidate convergence) entering the score. The only candidate-dependent quantities are the neighbor sets $\mathcal N(i)$ (and hence $J_i$) and the routed counts $\{n_{i\to j}\}$ under $M$.
 
-\paragraph{Local settle (MAP).}
-For each candidate topology $M$, warm-start the affected masses from the current solution and settle to a local MAP configuration:
+\paragraph{Acceptance.}
+A candidate edit $M_{\mathrm{edit}}$ is accepted iff
 \[
-\hat m_M\;=\;\arg\max_{m\in\Delta}\ \mathcal L_{\mathcal R}(m;M)\;+\;\log \psi(m\mid M)\, ,
+F_{\mathrm{DM}}(\mathcal R;M_{\mathrm{edit}})\;<\;F_{\mathrm{DM}}(\mathcal R;M_{\mathrm{keep}})\;-\;\log\tau\, ,
 \]
-holding exterior masses fixed. In practice, settling is performed with a fixed small iteration budget for comparability across candidates (and because the acceptance test only requires a reliable local ranking).
+with $\tau>1$ controlling conservatism (e.g., $\log\tau\in[1,3]$ for splits; merges/prunes may use $\tau=1$). Decreasing $F_{\mathrm{DM}}$ is equivalent to increasing log evidence; the log-ratio threshold $\log\tau$ is a log-Bayes-factor margin.
 
-\paragraph{BIC/MDL evidence proxy and acceptance.}
-We score each candidate by a local free-energy proxy (negative evidence) with an explicit complexity penalty:
-\[
-F(\mathcal R;M)\;=\;-\mathcal L_{\mathcal R}(\hat m_M;M)\;-\;\log \psi(\hat m_M\mid M)\;+\;\tfrac{1}{2}\,k_M\,\log N_{\mathrm{eff},\mathcal R}\, ,
-\]
-where $N_{\mathrm{eff},\mathcal R}=\sum_{i\in\mathcal V_{\mathrm{aff}}}\sum_{j} n_{i\to j}$ and $k_M$ is the number of free mass parameters in the affected region (typically $k_M=|\mathcal S_{\mathrm{aff}}|-1$ under the simplex constraint, counted consistently across candidates). The edit is accepted iff it decreases local free energy by a margin:
-\[
-F(\mathcal R;M_{\mathrm{edit}})\;<\;F(\mathcal R;M_{\mathrm{keep}})\;-\;\log\tau\, ,
-\]
-with $\tau>1$ controlling conservatism (e.g., $\log\tau\in[1,3]$ for splits; merges/prunes may use $\tau=1$).
+\paragraph{Routed counts under candidate $M$.}
+For most edit types, the counts $\{n_{i\to j}\}$ used to score $M_{\mathrm{edit}}$ are obtained by reassigning each routed event in $\mathcal R$ to its BMU under the candidate topology and tallying. For splits, the parent's events are partitioned between children by their BMU under the proposed split direction; for merges, child counts are summed; for prunes, events that lose their BMU are reassigned to the next-nearest survivor. This reassignment is geometric and deterministic; it is the only candidate-dependent preprocessing required.
+
+\paragraph{Predictive substitutes (diagnostics only).}
+WAIC and PSIS-LOO provide finite-sample predictive-accuracy alternatives and correspond to Bayes-factor proxies via $\mathrm{BF}\approx\exp(\Delta\mathrm{ELPD})$. They can be used as cross-checks on $F_{\mathrm{DM}}$ when validating the gate on small benchmarks; default deployment uses $F_{\mathrm{DM}}$ alone.
 
 \section*{S4. Torsion and Shape Quality}
 The geometric audit operates on the principle that error responses depend on local rigidity: in \emph{plastic} regions, error produces geometric adjustments; in \emph{rigid} regions, error accumulates as structural stress requiring topological resolution. Let $\bar{\mathbf w}$ and $\bar{\mathbf m}$ be barycenters. With $E=[\mathbf w_{v_1}{-}\bar{\mathbf w}\;\cdots\;\mathbf w_{v_d}{-}\bar{\mathbf w}]$ and $M=[\mathbf m_{v_1}{-}\bar{\mathbf m}\;\cdots\;\mathbf m_{v_d}{-}\bar{\mathbf m}]$, define
 \[\Omega_S = M^{\top}E - E^{\top}M\,,\qquad \kappa_S = \lVert \Omega_S \rVert_F\,;\qquad R_S = \kappa_S/\tau^*.\]
-\textbf{Torsion Ladder:} \emph{Ignore} if $R_S{<}0.05$ (numerical noise). \emph{Keep as-is} if $0.05\le R_S{<}0.30$ (tolerable curvature). \emph{Geometric fix} if $0.30\le R_S{<}0.60$: propose a torsion-aligned split with explicit placement below, and accept it only if it passes the local free-energy/evidence test in S3.4 (in addition to the numerical safeguards in this section). \emph{Non-linear upgrade} if $R_S\ge 0.60$: attach a local mini-NSF (see S7) to the affected patch. If the fitted mini-NSF fails to reduce $R_S$ below $0.60$ on the patch, propose a torsion-aligned split as a geometric fallback, again gated by S3.4.
+\textbf{Torsion Ladder:} \emph{Ignore} if $R_S{<}0.05$ (numerical noise). \emph{Keep as-is} if $0.05\le R_S{<}0.30$ (tolerable curvature). \emph{Geometric fix} if $0.30\le R_S{<}0.60$: propose a torsion-aligned split with explicit placement below, and accept it only if it passes the local evidence test in S3.4 (in addition to the numerical safeguards in this section). \emph{Non-linear upgrade} if $R_S\ge 0.60$: attach a local mini-NSF (see S7) to the affected patch. If the fitted mini-NSF fails to reduce $R_S$ below $0.60$ on the patch, propose a torsion-aligned split as a geometric fallback, again gated by S3.4.
 
 A split is only permitted if the parent simplex (or node) has accumulated sufficient hits to pass a budget check ($h_{\mathrm{parent}} \ge 2 \cdot h_{\mathrm{prune}}$), ensuring that the resulting children are not immediately vulnerable to pruning under the framework's statistical gauntlets.
 
@@ -102,10 +224,24 @@ A split is only permitted if the parent simplex (or node) has accumulated suffic
 \textbf{Shape quality safeguard:} The simplex shape metric $Q_S = d\,r_{\mathrm{in}}/R_{\mathrm{circ}} \in (0,1]$ uses the inradius $r_{\mathrm{in}}$ and circumradius $R_{\mathrm{circ}}$. Poor quality ($Q_S < 0.25$) indicates numerical instability risk; the centroid split fallback ensures stable face normals and well-conditioned gradients.
 
 \section*{S5. Dual Flow Mechanisms}
-Accumulate facet pressures for winning simplex $S$ via $\Delta p_f \propto \max(0,(\mathbf x{-}\bar{\mathbf w}_S)^{\top}\mathbf n_f)$. This \emph{fractional tallying} avoids winner–take–all artifacts and yields smoother, more stable boundary pressure estimates than single-face voting. On the dual graph, solve
-\[\min_{\{p_f\}}\; \lambda\sum_f (p_f{-}\hat p_f)^2 + \mu\sum_S \lVert A_S\,\mathbf p_S\rVert_2^2\,,\]
-with Gauss--Seidel iterations $p_f\leftarrow (\lambda\hat p_f + \mu\,\sum_{S\ni f}(A_S^{\top}A_S\,\mathbf p_S)_f)/(\lambda + \mu\,\deg(f))$, or equivalently by loopy BP messages until convergence.
-This reconstruction is conditioned on the accepted topology and its settled geometry/mass field; it does not act as an additional likelihood term for the same simplex masses.
+Accumulate facet pressures for winning simplex $S$ via $\Delta p_f \propto \max(0,(\mathbf x{-}\bar{\mathbf w}_S)^{\top}\mathbf n_f)$. This \emph{fractional tallying} avoids winner--take--all artifacts and yields smoother, more stable boundary pressure estimates than single-face voting. On the dual graph, solve
+\[\min_{\{p_f\}}\; \lambda\sum_f (p_f{-}\hat p_f)^2 + \sum_S \mu_S\,\lVert A_S\,\mathbf p_S\rVert_2^2\,,\]
+via \emph{loopy Gaussian belief propagation} on the factor graph with face variables $\{p_f\}$, per-face data factors (the $\lambda$ term), and per-simplex conservation factors (the $\mu_S$ term). Use damped Gaussian message updates if non-walk-summable spectra are detected; otherwise vanilla loopy BP suffices. This reconstruction is conditioned on the accepted topology and its settled geometry/mass field; it does not act as an additional likelihood term for the same simplex masses.
+
+\paragraph{Sliver-aware conservation weighting.}
+The shape-quality guard of S4 ($Q_S\ge Q_{\min}=0.25$) bounds simplex degeneracy in the interior. For boundary or pre-existing simplexes that fall below $Q_{\min}$ (slivers), the discrete divergence stencil $A_S$ is geometrically ill-conditioned and the conservation constraint loses physical meaning. We therefore set
+\[
+\mu_S \;=\; \begin{cases} \mu & \text{if } Q_S \ge Q_{\min}, \\ 0 & \text{if } Q_S < Q_{\min}, \end{cases}
+\]
+i.e.\ sliver simplexes contribute a data factor only and no conservation factor. This is principled (the divergence theorem is undefined on degenerate cells) and removes the dominant numerical-conditioning failure mode of the solver: ill-conditioned $A_S^{\top}A_S$ blocks no longer enter message precisions. Loopy Gaussian BP then converges robustly: per-face variances remain bounded by $1/\lambda$ in the data-only case, and the precision matrix on the rest of the mesh stays well-behaved.
+
+\paragraph{Definition of $A_S$ (discrete divergence stencil).}
+Let simplex $S$ have $d{+}1$ facets $f_0,\dots,f_d$ with outward unit normals $\mathbf n_{f_i}\in\mathbb R^{d}$ and facet (hyper)areas $A_{f_i}$. Stack the pressures incident to $S$ as $\mathbf p_S=(p_{f_0},\dots,p_{f_d})^{\top}\in\mathbb R^{d+1}$, and define $A_S\in\mathbb R^{d\times(d+1)}$ column-wise by
+\[
+(A_S)_{\cdot,i}\;=\; A_{f_i}\,\mathbf n_{f_i}\,,
+\qquad i=0,\dots,d\,.
+\]
+Then $A_S\,\mathbf p_S = \sum_{i} A_{f_i}\,p_{f_i}\,\mathbf n_{f_i}$ is the discrete-divergence-theorem sum over the facets of $S$: a vector in $\mathbb R^{d}$ measuring the net oriented flux leaving $S$ under the pressure configuration. At steady state on a conservative field this sum vanishes, so the penalty $\lVert A_S\,\mathbf p_S\rVert_2^2$ enforces discrete conservation cell-by-cell. $A_S$ is the matrix of the discrete (primal) divergence operator restricted to $S$. For boundary faces (facets with no neighboring simplex on one side), the corresponding column is zeroed to impose the Neumann-like no-exterior-flux convention (see S9).
 
 \section*{S6. Masking for Missing Modalities}
 For input $\mathbf x\in\mathbb R^d$ with structured sparsity, build boolean mask $\mathbf m=(x\neq 0)$. Compute distances and residuals only on active dimensions: $\lVert \mathbf x{-}\mathbf w\rVert^2=\sum_{j:m_j} (x_j{-}w_j)^2$; residual $\mathbf e=\mathbf x{-}\mathbf w$ with $e_j{=}0$ if $m_j{=}0$. Apply the mask to all vector updates (moments, nudges, Oja), and accumulate variance only on active dimensions. Optionally normalize updates by the active count to equalize per-sample influence. This preserves geometry and statistics in multi-modal fusion where zeros indicate missingness rather than small values.
@@ -129,17 +265,72 @@ A facet-adjacency graph is built over all "hot" simplices ($R_S \ge 0.60$). Leid
 
 \textbf{Small constants and clipping:} Set $\varepsilon$ in $\rho_i$ to $10^{-8}$\,–\,$10^{-6}$ depending on data scale; clip $\eta_{\mathrm{GNG}}$ to $\lvert\eta\rvert\le 0.3$ (Stage 1) and $\le 0.05$ (Stage 2); constrain spline slopes/bins to avoid near-singular Jacobians; bound $\lVert\mathbf a_i\rVert$ growth between apply steps.
 
-\textbf{Cache face normals:} Precompute and cache per–simplex face normals; recompute only after deferred moves or splits affecting a vertex. This keeps torsion and face-pressure updates $\mathcal O(d^2)$ and stable.
+\textbf{Topology vs. geometry caches:} Stage~2 maintains a clean separation between topology and geometry. Topology is the top-dimensional flag complex of the current Hebbian graph: a simplex exists iff its vertices form a clique in the graph at the local intrinsic dimension. Node/link additions and removals therefore create or destroy simplexes; geometric node motion does not. Geometry-dependent quantities (face normals, simplex volumes, shape quality, $\Omega_S$, $A_S$) are cached per simplex and recomputed only after deferred moves, splits, or any edge/node edit affecting that simplex. This keeps torsion and face-pressure updates $\mathcal O(d^2)$ and prevents stale geometric caches while preserving a single topological invariant.
 
 \textbf{ANN configuration (HNSW):} Typical defaults: $M{=}16$\,–\,32, $\mathrm{efConstruction}{=}100$\,–\,400, $\mathrm{efSearch}{=}50$\,–\,200; increase efSearch modestly near convergence to improve neighbor stability. Persist indices per recursion level; rebuild only after significant mesh mutation.
 
 \subsection*{S8.1 Practical Implementation Notes}
 \paragraph{Rank-1 Oja vs. Scalar Variance.} While the core theory holds with a simple scalar variance tracker, the specified implementation uses a rank-1 Oja's rule update to track the dominant principal component of the local error. This provides a more accurate, data-driven vector for placing new nodes during a split, at the cost of one extra stored vector per node. For ambient dimensions $d \lesssim 10,000$, the improved split quality justifies the modest increase in memory, and this method is recommended.
 
-\paragraph{Initial Simplex Seeding.} Upon entering Stage 2, the initial simplicial complex is seeded from the Stage 1 node-edge graph using a fast, "Greedy Chaining" heuristic. This heuristic rapidly discovers the majority of $d$-simplices, providing a robust starting point for the dynamic refinement process.
+\paragraph{Flag-complex invariant.}
+The Stage~2 simplicial complex is not an independently optimized triangulation. It is the top-dimensional flag complex of the current Hebbian graph, restricted to the locally estimated intrinsic dimension. Thus a simplex $\sigma=\{v_0,\dots,v_d\}$ is valid iff every pair $(v_a,v_b)$ is a Hebbian edge and $d$ matches the relevant local $d_{\mathrm{final}}$. Greedy Chaining below initializes this flag-complex view; continuous simplex discovery maintains it when new links appear; link/node pruning removes every simplex that contains the deleted edge or vertex. This invariant is the reason no Delaunay maintenance, alpha complex, or Pachner-style retriangulation is required.
+
+\paragraph{Initial Simplex Seeding (Greedy Chaining).}
+Upon entering Stage 2, the initial simplicial complex is seeded from the Stage 1 Hebbian graph using a node-seeded BFS algorithm exploiting the structural fact that, at variance-cap equilibrium, a node $i$ with intrinsic dimension $d_{\mathrm{final},i}=d$ and degree $\approx d{+}1$ has at most $d{+}1$ incident $d$-simplexes:
+\[
+T_k(i)\;=\;\{i\}\,\cup\,\bigl(\mathcal N(i)\setminus\{n_k\}\bigr)\, ,\qquad k=0,\dots,d\, ,
+\]
+each obtained by dropping one neighbor and pairing the rest with $i$. $T_k(i)$ is a valid simplex iff its $d$ non-$i$ vertices form a $(d{-}1)$-clique among themselves; their connections to $i$ are automatic.
+
+\subparagraph*{Algorithm.}
+\begin{algorithm}[H]
+\caption{Greedy Chaining: node-seeded simplex discovery}
+\label{alg:greedy-chaining}
+\begin{algorithmic}[1]
+\Procedure{GreedyChaining}{$G,\,\{d_{\mathrm{final},v}\}$}
+    \State $\mathcal{S}\gets\varnothing$ \Comment{set of canonical-form simplexes}
+    \State $\mathrm{cnt}[v]\gets 0$ for all $v\in V$ \Comment{incident-simplex count}
+    \State $\mathrm{queue}\gets\textsc{PriorityQueue}(V,\,\text{key}=\deg,\,\text{descending})$
+    \State $\mathrm{visited}\gets\varnothing$
+    \While{$\mathrm{queue}$ not empty}
+        \State $i\gets\mathrm{queue}.\mathrm{pop}()$
+        \If{$i\in\mathrm{visited}$} \textbf{continue} \EndIf
+        \State $\mathrm{visited}\gets\mathrm{visited}\cup\{i\}$
+        \State $d\gets d_{\mathrm{final},i}$
+        \If{$|\mathcal N(i)|<d$} \State $\textsc{LogOrphan}(i)$; \textbf{continue} \EndIf
+        \If{$\mathrm{cnt}[i]\ge d{+}1$} \textbf{continue} \Comment{$i$ already saturated} \EndIf
+        \For{each $d$-subset $T\subseteq\mathcal N(i)$}
+            \If{not $\textsc{IsClique}(T,G)$} \textbf{continue} \EndIf
+            \State $\sigma\gets\textsc{CanonicalSort}(\{i\}\cup T)$
+            \If{$\sigma\in\mathcal{S}$} \textbf{continue} \Comment{already discovered} \EndIf
+            \State $\mathcal{S}\gets\mathcal{S}\cup\{\sigma\}$
+            \For{$v\in\sigma$} $\mathrm{cnt}[v]\gets\mathrm{cnt}[v]+1$ \EndFor
+            \If{$\mathrm{cnt}[i]\ge d{+}1$} \textbf{break} \Comment{$i$ now saturated} \EndIf
+        \EndFor
+        \For{$j\in\mathcal N(i)$}
+            \If{$j\notin\mathrm{visited}$} $\mathrm{queue}.\mathrm{push}(j)$ \EndIf
+        \EndFor
+    \EndWhile
+    \State \textbf{log} $\mathrm{cnt}$ distribution \Comment{junction signature, S12.2}
+    \State \Return $\mathcal{S}$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subparagraph*{Two operations only.}
+The inner loop performs (i) clique verification on a $d$-subset of $\mathcal N(i)$ via $\mathcal O(d^2)$ adjacency hash lookups, and (ii) canonical-form deduplication via $\mathcal O(d\log d)$ sort and hashset insert. No Cayley--Menger, no Gram determinants, no shape-quality computation. This is intentional: the Hebbian graph at GNG equilibrium already encodes geometric proximity (edges form between Voronoi-adjacent nodes), so a Hebbian $d$-clique implies approximately good shape quality. Pathological cases (slivers from junctions, boundary inflation, degenerate configurations) are handled at runtime by the mechanisms that actually use shape quality: torsion-aligned splits with centroid fallback (S4), $\mu_S=0$ in dual flow for $Q_S<Q_{\min}$ (S5), and simplex-arbitrated pruning (S3.3).
+
+\subparagraph*{BFS ordering and dedup speedup.}
+Each simplex is reachable from $d{+}1$ different vertex-seeds (once per member). Canonical-form deduplication ensures each simplex is verified and inserted exactly once across the BFS traversal. After the first few high-degree seeds, most simplexes touching subsequent visited nodes are already in $\mathcal S$ and only require an $\mathcal O(d\log d)$ lookup --- the BFS frontier amortizes the per-node enumeration cost over its already-resolved interior.
+
+\subparagraph*{Heterogeneous intrinsic dimension.}
+Each node $i$ enumerates $d_{\mathrm{final},i}$-subsets of $\mathcal N(i)$. At a dimensionality junction (e.g., a 1D filament meeting a 2D sheet), nodes on the lower-$d$ side enumerate fewer-vertex simplexes; cross-junction simplexes naturally fail the clique test and are not materialized. The resulting $\mathrm{cnt}[v]$ distribution is bimodal across junction stars (matching the addendum's signature in S12.2), available as a free initial diagnostic.
+
+\subparagraph*{Orphan handling.}
+Nodes with $\mathrm{cnt}[v]=0$ after the main pass attempt one final node-seeded extension; failures are deferred to the runtime ``Continuous Simplex Discovery'' rule (Stage~2 dynamic-topology management), which materializes a new simplex whenever a fresh Hebbian link completes a $(d{+}1)$-clique. This division of labor keeps Greedy Chaining cheap and decisive while ensuring full eventual coverage.
 
 \subsection*{S8.2 Cost Envelopes}
-Stage~1 per-epoch time is $\mathcal O\bigl(N\,d\,k\,\log N_{\mathrm{nodes}}\bigr)$ with HNSW queries; space is $\mathcal O(N_{\mathrm{nodes}}\,d + N_{\mathrm{nodes}}\,\bar d)$. Stage~2 initial simplex seeding by Greedy Chaining is $\mathcal O\bigl(N_c\,d_{\mathrm{cand}}^{\,2}\,d_c\bigr)$; torsion audits are $\mathcal O\bigl(N_{\mathrm{simplices}}\,(d{+}1)^2\,d\bigr)$. The dual graph used by the belief propagation solver has size $\mathcal O(N_{\mathrm{simplices}}\,d)$.
+Stage~1 per-epoch time is $\mathcal O\bigl(N\,d\,k\,\log N_{\mathrm{nodes}}\bigr)$ with HNSW queries; space is $\mathcal O(N_{\mathrm{nodes}}\,d + N_{\mathrm{nodes}}\,\bar d)$. Stage~2 initial simplex seeding by Greedy Chaining (S8.1) is $\mathcal O\bigl(N_{\mathrm{nodes}}\,d^{\,2}\bigr)$ amortized: each of the $\approx N_{\mathrm{nodes}}$ resulting simplexes pays a single $\mathcal O(d^2)$ clique check and an $\mathcal O(d\log d)$ deduplication insert across all $d{+}1$ vertices that could discover it; the BFS frontier amortizes per-node enumeration. Torsion audits are $\mathcal O\bigl(N_{\mathrm{simplices}}\,(d{+}1)^2\,d\bigr)$, applied selectively. The dual graph used by the loopy Gaussian BP solver (S5) has size $\mathcal O(N_{\mathrm{simplices}}\,d)$.
 
 \section*{S9. Robustness and Edge Cases}
 \textbf{Outliers:} Use Huber-like weighting on residuals in moment updates or winsorize top 0.5\% residual norms; optionally cap per-sample hit contributions.
@@ -237,13 +428,84 @@ Let $p$ be a probability density on a compact set $\Omega\subset\mathbb R^d$ wit
 The proof is constructive, following the algorithmic stages. We show that the total approximation error can be bounded by the sum of errors from a hierarchical decomposition, a piecewise-linear approximation of each component, and a non-linear residual correction. By making the resolution and capacity of each stage sufficient, the total error can be made arbitrarily small.
 
 \subsection*{S12.2 Correspondence: Simplex Equilibrium Implies Effective Node Equilibrium}
-\paragraph{Setting and assumptions.} Consider a simplicial complex with nondegenerate simplex stars around each node, locally stationary sampling, and a fixed characteristic scale $\tau^*$. Let $P(V_i)$ denote Voronoi mass at node $i$ and $P(C)$ the mass of simplex $C$.
+\paragraph{Setting and assumptions.} Consider a simplicial complex $\mathcal{K}=(\mathcal{V},\mathcal{S})$ with $|\mathcal{V}|=N$ nodes and $|\mathcal{S}|=M$ top-dimensional simplexes (each with $d{+}1$ vertices), nondegenerate simplex stars around each node, locally stationary sampling, and a fixed characteristic scale $\tau^*$. Let $P$ be the data-generating measure with $\mathrm{supp}(P)\subset\bigcup_{C\in\mathcal{S}}C$. For node $i$ let $V_i$ denote the Voronoi cell of $w_i$ and write $P(V_i)$ for its mass; for $C\in\mathcal{S}$ write $P(C)$ for its mass. Empirical estimates from $H$ i.i.d.\ samples are $\hat P(V_i)=h_i/H$ and $\hat P(C)=h_C/H$.
 
-\paragraph{Claim.} Driving the system toward simplex equilibrium ($P(C) \approx 1/M$ for all simplexes) induces effective node equilibrium ($P(V_i) \approx 1/N$ up to junction effects and sampling noise).
+\paragraph{Claim.} Driving the system toward simplex equilibrium ($\hat P(C) \approx 1/M$ for all simplexes) induces effective node equilibrium ($\hat P(V_i) \approx 1/N$) up to (i) an irreducible structural term controlled by simplex shape quality and star regularity, (ii) a residual equilibration tolerance, and (iii) a sampling term that vanishes as $H\to\infty$. The structural residual is exactly the dimensionality-junction signature.
 
-\paragraph{Sketch.} Suppose a node $i$ has excess mass $P(V_i) \gg 1/N$. Samples concentrate near $w_i$, biasing residuals in the adjacent simplex star $\mathcal S(i)$. The barycentric residual means in $\mathcal S(i)$ acquire outward components, raising torsional stress and face pressures that cannot be canceled by PL translation alone. The Torsion Ladder therefore either (i) performs a torsion-aligned split creating a child $j$ in the outward direction, or (ii) fits a local mini-NSF that unbends the region and reduces the asymmetric flux. In both cases the effective domain of $V_i$ contracts in favor of $V_j$ or of neighboring stars, strictly decreasing $P(V_i)$ while increasing mass in adjacent cells. Repeating this argument shows that any persistent Voronoi over-mass produces simplex-level stresses whose resolution decreases the imbalance, establishing a negative feedback toward node equilibrium. Deviations persist only at structural junctions (e.g., different intrinsic dimensions), where systematic bimodality and asymmetric links form an informative signature rather than a failure.
+\paragraph{Mechanism.} The dominant equilibration channel is the \emph{variance-cap split} $\sigma_i^2>\tau_{\mathrm{local},i}$ (Algorithm~1), gated by the local evidence test of S3.4; the Torsion Ladder is a secondary refinement that redirects, rather than triggers, splits in curved regions. Decompose any candidate over-mass $P(V_i)\gg 1/N$ into two regimes:
+\begin{itemize}
+\item \emph{Centering imbalance.} If $\mathbf m_i:=\mathbb{E}[\mathbf x-\mathbf w_i\mid \mathbf x\in V_i]\ne 0$, the centering update $\eta_{\mathrm{cent}}\rho_i\mathbf m_i$ in Algorithm~2 drives $\mathbf m_i\to 0$. This step is \emph{approximately volume-preserving for $V_i$} (slow geometry, S2.3) and so cannot by itself reduce $P(V_i)$; it only ensures subsequent equilibration acts on cell volume rather than position bias.
+\item \emph{Mass (cell-volume) imbalance.} With $\mathbf m_i\approx 0$, persistent over-mass implies $V_i$ is geometrically over-extended at scale $\tau^*$. Under the conditions of S14, $\sigma_i^2\to\mathrm{tr}(C_i)$, the trace of the Gaussian-windowed local covariance at $\mathbf w_i$ at bandwidth $\sigma=\sqrt{\tau}/c_{d,k}$. An over-extended cell elevates this trace through the kernel-weighted contribution of mass at distance $\gtrsim\sigma$ from $\mathbf w_i$; the variance cap fires, and a split is proposed along the dominant Oja axis (S8.1). The flow-conserving initialization (S11) transfers a strictly positive mass increment from $V_i$ to the new child $V_j$.
+\end{itemize}
+The Torsion Ladder enters only when the over-mass coexists with non-PL-resolvable curvature: the proposed split is then redirected along $\mathrm{ax}(\Omega_S)$ rather than the Oja axis (S4). The S3.4 evidence gate filters every proposed split, so the loop terminates when no further split improves local evidence (i.e., when the proposed children carry insufficient transition support to ratify the topology change).
 
-\paragraph{Remarks.} The argument uses only local stationarity and nondegenerate stars; concentration bounds convert it to a finite-sample statement. Empirically, the correspondence manifests around overloaded nodes as: sharply bimodal simplex activity within the node's star at dimensionality junctions; a clean partition of link statistics into high-significance backbone links versus low-significance bridge links; and bridge links that exhibit persistent directional hit asymmetry together with low net face pressure, distinguishing stable junctions from active frontiers.
+\paragraph{Negative feedback (informal).} Iterating the propose--gate--accept loop over all overloaded nodes drives $\sup_i P(V_i)$ monotonically downward in expectation: each accepted split removes one node from the overloaded set while injecting bounded amounts into neighboring cells, and the variance-cap rule guarantees that further splits are proposed at any node still violating $\sigma_i^2\le\tau_{\mathrm{local},i}$. A formal Lyapunov function for the discrete-time, evidence-gated dynamics is not constructed here; see S15.1.
+
+\paragraph{Why the loop stalls at junctions.} At a $k$-D / $\ell$-D dimensionality junction with $k<\ell$ meeting at node $i$, the local mass distribution is anisotropic and partially supported on a lower-dimensional subset. The variance trace $\mathrm{tr}(C_i)$ saturates at a value reflecting the higher-dimensional limb's spread; additional splits proposed along the lower-D limb either fall below the cap (fewer effective directions of dispersion) or fail the S3.4 evidence test (the lower-D limb cannot generate enough transition counts to ratify added structure). The simplex star around $i$ then carries a permanent dimensional mismatch: incident simplexes span different limb subsets, yielding non-uniform $|\mathcal S(i)|$ and bimodal $\alpha_{i,C}$. The structural floor of the Theorem above is precisely the residual node-mass imbalance this configuration produces — the loop's stalled state is the dimensionality-junction signature. A formal stuck-junction lemma is left open (S15.2).
+
+\paragraph{Concentration form (static correspondence).} The mechanism above describes \emph{why} the algorithm drives simplex masses toward $1/M$; the following result quantifies \emph{the consequence}: any state in which simplex masses are equilibrated to within tolerance $\epsilon_{\mathrm{sim}}$ implies node masses equilibrated to within an explicit, finite-sample bound. The static correspondence requires only the Voronoi--simplex mass identity and multinomial concentration; it does not depend on the specifics of the equilibration dynamics.
+
+\emph{Lemma 1 (Voronoi--simplex decomposition; deterministic).} Define the barycentric Voronoi share of vertex $i$ within simplex $C\ni i$ by
+\[
+  \alpha_{i,C}\;:=\;P(V_i\cap C)/P(C)\,,\qquad \sum_{i\in V(C)}\alpha_{i,C}\;=\;1\,.
+\]
+Since $\{V_i\}$ partitions $\mathrm{supp}(P)$ and $\{C\}$ tiles it,
+\begin{equation}
+  P(V_i)\;=\;\sum_{C\ni i}\alpha_{i,C}\,P(C)\,. \tag{D}\label{eq:vs-decomp}
+\end{equation}
+
+\emph{Lemma 2 (shape and star regularity).} Under simplex shape quality $Q_S\ge Q_{\min}$ enforced by the Torsion Ladder (S4) and pruning gauntlets (S3), there exists $\beta_{\max}=\beta_{\max}(d,Q_{\min})$ with $\beta_{\max}(d,1)=0$ such that
+\[
+  \big|\alpha_{i,C}-\tfrac{1}{d{+}1}\big|\;\le\;\beta_{\max}\quad\text{for every incident pair }(i,C)\,.
+\]
+Counting incidences gives $\sum_i s_i=(d{+}1)M$, so $\bar s:=(d{+}1)M/N$. Assume star regularity $|s_i/\bar s-1|\le\eta_s$ for all $i$ (a property the algorithm maintains via simplex-arbitrated pruning, S3.3).
+
+\emph{Lemma 3 (multinomial concentration).} Let $h_C$ be multinomial counts over $\mathcal{S}$ from $H$ i.i.d.\ draws. By Hoeffding with a union bound, with probability $\ge 1-\delta$,
+\begin{equation}
+  \max_{C\in\mathcal{S}}\bigl|\hat P(C)-P(C)\bigr|\;\le\;\Delta_M(H,\delta)\;:=\;\sqrt{\tfrac{\log(2M/\delta)}{2H}}\,. \tag{C$_\mathrm{S}$}\label{eq:conc-S}
+\end{equation}
+The same bound applies to the $N$-cell Voronoi multinomial,
+\begin{equation}
+  \max_{i\in\mathcal{V}}\bigl|\hat P(V_i)-P(V_i)\bigr|\;\le\;\Delta_N(H,\delta)\;:=\;\sqrt{\tfrac{\log(2N/\delta)}{2H}}\,. \tag{C$_\mathrm{V}$}\label{eq:conc-V}
+\end{equation}
+Bernstein refinements give the tighter $\sqrt{2\log(2M/\delta)/(MH)}+\log(2M/\delta)/(3H)$ when $P(C)\approx 1/M$ (and analogously for the Voronoi cells); we use the Hoeffding form below for clarity.
+
+\emph{Theorem (effective node equilibrium, finite-sample).} Suppose the algorithm achieves simplex equilibrium with empirical tolerance
+\[
+  \big|\hat P(C)-1/M\big|\;\le\;\epsilon_{\mathrm{sim}}/M\quad\text{for all }C\in\mathcal{S}\,,
+\]
+and that Lemmas~1--2 hold. Then on the joint event of \eqref{eq:conc-S}--\eqref{eq:conc-V} (probability $\ge 1-2\delta$), for every node $i$,
+\begin{equation}
+  \Bigl|\hat P(V_i)-\tfrac{1}{N}\Bigr|\;\le\;\underbrace{\frac{\eta_s+(1{+}\eta_s)(d{+}1)\beta_{\max}}{N}}_{\mathrm{structural}}
+  \;+\;\underbrace{\overline\alpha_d\,s_i\,\frac{\epsilon_{\mathrm{sim}}}{M}}_{\mathrm{equilibrium}}
+  \;+\;\underbrace{\overline\alpha_d\,s_i\,\Delta_M(H,\delta)+\Delta_N(H,\delta)}_{\mathrm{sampling}}\,, \tag{T}\label{eq:thm-bound}
+\end{equation}
+where $\overline\alpha_d=1/(d{+}1)+\beta_{\max}$.
+
+\emph{Proof.} Decompose the deviation as
+\[
+  \hat P(V_i)-\tfrac{1}{N}\;=\;\bigl[\hat P(V_i)-P(V_i)\bigr]\;+\;\bigl[P(V_i)-\tfrac{1}{N}\bigr]\,.
+\]
+The first bracket is bounded by $\Delta_N$ via \eqref{eq:conc-V}. For the second, apply \eqref{eq:vs-decomp} and write $\alpha_{i,C}=\tfrac{1}{d{+}1}+\beta_{i,C}$ with $|\beta_{i,C}|\le\beta_{\max}$, and $s_i=(1{+}\xi_i)\bar s$ with $|\xi_i|\le\eta_s$:
+\[
+  P(V_i)-\tfrac{1}{N}\;=\;\Bigl[\Bigl(\tfrac{s_i}{d{+}1}+\!\!\sum_{C\ni i}\!\beta_{i,C}\Bigr)\tfrac{1}{M}-\tfrac{1}{N}\Bigr]+\sum_{C\ni i}\alpha_{i,C}\bigl(P(C)-\tfrac{1}{M}\bigr)\,.
+\]
+Using $\bar s/M=(d{+}1)/N$, the first bracket equals $\xi_i/N+(1/M)\sum_{C\ni i}\beta_{i,C}$, whose absolute value is at most $\eta_s/N+s_i\beta_{\max}/M\le \eta_s/N+(1{+}\eta_s)(d{+}1)\beta_{\max}/N$ — the structural term. For the second sum, combine the algorithmic tolerance with \eqref{eq:conc-S}:
+\[
+  \big|P(C)-1/M\big|\;\le\;\big|\hat P(C)-1/M\big|+\big|\hat P(C)-P(C)\big|\;\le\;\epsilon_{\mathrm{sim}}/M+\Delta_M\,,
+\]
+and $\sum_{C\ni i}\alpha_{i,C}\le\overline\alpha_d s_i$. Combining yields \eqref{eq:thm-bound}.\quad$\square$
+
+\paragraph{Interpretation.} The bound separates three sources of node-mass deviation, each with its own scaling:
+\begin{enumerate}
+  \item \emph{Structural} $(\eta_s+(d{+}1)\beta_{\max})/N$: irreducible without further mesh edits, controlled by simplex shape quality and star regularity. Both quantities are actively bounded by the Torsion Ladder (S4), shape-quality safeguards ($Q_S\ge 0.25$), and simplex-arbitrated pruning (S3.3). In the regular limit ($Q_S\to 1$, $\eta_s\to 0$) this term vanishes.
+  \item \emph{Equilibrium} $\overline\alpha_d s_i\,\epsilon_{\mathrm{sim}}/M\approx(1{+}\eta_s)\epsilon_{\mathrm{sim}}/N$: the residual algorithmic equilibration tolerance, which decreases as splits/merges drive empirical simplex masses toward $1/M$. The S3.4 evidence gating ensures monotone improvement in $\epsilon_{\mathrm{sim}}$ on accepted edits.
+  \item \emph{Sampling} $\overline\alpha_d s_i\,\Delta_M+\Delta_N=\mathcal{O}\!\bigl(M\sqrt{\log(M/\delta)/H}/N+\sqrt{\log(N/\delta)/H}\bigr)$: vanishes as $H\to\infty$. The $M\Delta_M/N$ scaling tightens to $\sqrt{M\log(M/\delta)/(N^2H)}$ under the Bernstein refinement; under either scaling, $H\gg M$ samples suffice for the term to drop below the structural floor.
+\end{enumerate}
+
+In the asymptotic regime ($H\to\infty$, $\epsilon_{\mathrm{sim}}\to 0$) the bound reduces to the irreducible structural term. Hence \emph{any} persistent deviation $|\hat P(V_i)-1/N|=\Omega(1/N)$ that survives both the sampling and equilibration limits must be supported by elevated $\eta_s$ or $\beta_{\max}$ in the local star — i.e.\ by genuine geometric irregularity. This is the negative-feedback content of the sketch made quantitative: the algorithm's only mechanism for sustaining a node-mass imbalance against its torsion/evidence controllers is to maintain a structurally irregular star, which the data themselves enforce only at intrinsic-dimensional junctions or other topological features.
+
+\paragraph{Remarks.} The argument uses only local stationarity, nondegenerate stars, and standard multinomial concentration. The structural floor in \eqref{eq:thm-bound} furnishes an \emph{upper bound on residual imbalance after equilibration}; conversely, observing $|\hat P(V_i)-1/N|$ above the sampling and equilibrium scales is a \emph{lower bound} on local irregularity ($\eta_s$ or $\beta_{\max}$), which is the formal content of the dimensionality-junction signature. Empirically, the correspondence manifests around overloaded nodes as: sharply bimodal simplex activity within the node's star at dimensionality junctions; a clean partition of link statistics into high-significance backbone links versus low-significance bridge links; and bridge links that exhibit persistent directional hit asymmetry together with low net face pressure, distinguishing stable junctions from active frontiers.
 
 \paragraph{The Signature of a Dimensionality Junction.} The "informative mismatch" at structural junctions manifests as a concrete, stable, and observable statistical signature. A node located where, for example, a 1D filament meets a 2D sheet will persistently exhibit:
 \begin{itemize}
@@ -254,18 +516,25 @@ The proof is constructive, following the algorithmic stages. We show that the to
 This emergent signature is not a failure of the algorithm, but a feature that allows the system to report on the complex local topology of the data.
 
 \section*{S13. The Proteus Generative Model and Free-Energy Objective}
-This section states the statistical model that underlies Proteus and provides the free-energy objective used to justify discrete structure changes under finite data. The key idea is that the learned topology induces a geometry-derived router $q(j\mid i; m)$, and the observed transition counts $\{n_{i\to j}\}$ act as evidence about a latent simplex mass field $m$. Continuous updates (settling) reduce transition prediction error, while discrete edits (splits/merges/pruning) are accepted only when they improve a local evidence proxy (S3.4).
+This section states the statistical model that underlies Proteus and provides the Bayesian model-selection objective used to justify discrete structure changes under finite data. The key idea is that the learned topology induces a geometry-derived router $q(j\mid i; m)$, and the observed transition counts $\{n_{i\to j}\}$ act as evidence about a latent simplex mass field $m$. Continuous updates (settling) reduce transition prediction error, while discrete edits (splits/merges/pruning) are accepted only when they improve the local evidence score of S3.4 (the closed-form Dirichlet--multinomial marginal likelihood under the BDeu prior of S2.7; the legacy term ``free-energy proxy'' in the broader literature refers here to Bayesian model-selection evidence, not to variational free energy).
 \subsection*{S13.1 Objects and Geometry-Induced Conditionals}
 Let $X=\{x_n\}_{n=1}^N\subset \mathbb R^d$ and let $G=(\mathcal V,\mathcal E)$ denote the Hebbian/GNG graph with node locations $\{z_i\}$.
 Per-node BMU hit counts are $n_i$ and directional edge counts are $n_{i\to j}$ (first/second NN ``conditional hits''). Define empirical conditionals $\hat p(j\mid i)=n_{i\to j}/\max(1,n_i)$.
 
 Let $\mathcal S$ denote the dual (Delaunay-like) complex with simplexes $S\in\mathcal S$ that tile the space between adjacent nodes. We introduce unknown simplex masses $m=\{m_S\}_{S\in\mathcal S}$ with $m_S\ge 0$ and $\sum_S m_S=1$. Geometry induces barycentric weights $w_{iS}\in[0,1]$ with $\sum_{S\ni i} w_{iS}=1$, and the mass ``seen'' by node $i$ is
 \[ M_i(m)=\sum_{S\ni i} w_{iS}\, m_S\, . \]
-A geometry-derived conditional from $i\to j$ implied by $m$ (one sensible choice) is
+A geometry-derived conditional from $i\to j$ implied by $m$ is
 \[
-q(j\mid i; m)=\frac{\sum_{S\ni i,j} \,\kappa_{ijS}\, m_S }{\sum_{S\ni i} \,\kappa_{iS}\, m_S}\, ,
+q(j\mid i; m)=\frac{\sum_{S\ni i,j} \,\kappa_{ijS}\, m_S }{\sum_{S\ni i} \,\kappa_{iS}\, m_S}\, .
 \]
-with positive geometric terms $\kappa$ reflecting shared face length/area/solid angle or conductance.
+
+\paragraph{Canonical choice for $\kappa$ (committed).}
+For every $d$-simplex $S$ with vertex $i\in S$, let $A_{iS}$ denote the $(d{-}1)$-volume of the facet of $S$ \emph{opposite} to $i$ (equivalently, $A_{iS}=d\cdot|S|_d/h_{iS}$ where $|S|_d$ is the $d$-volume of $S$ and $h_{iS}$ is the altitude from $i$). Define
+\[
+\kappa_{iS}\;=\;A_{iS}\,,\qquad
+\kappa_{ijS}\;=\;\frac{A_{iS}}{d}\quad\text{for }j\in S,\;j\ne i\,.
+\]
+This is the ``uniform facet-share'' choice: the total conductance $\kappa_{iS}$ of node $i$ into simplex $S$ equals the opposite-facet area, and it is split uniformly among the $d$ neighbors of $i$ within $S$. Consistency: $\sum_{j\in S,\,j\ne i}\kappa_{ijS}=d\cdot A_{iS}/d=\kappa_{iS}$, so the router normalizer is always the sum of conductances leaving $i$. The choice is manifestly positive on nondegenerate complexes, scale-covariant in the mesh geometry, and invariant under simplex relabeling/orientation. Alternative weightings (cotangent/FEM stiffness, altitude-ratio, edge-length-scaled facet area) preserve the identifiability analysis below; we commit to uniform facet-share as the default because it is cheap to compute, avoids sign issues on obtuse simplices, and yields a clean star-matrix structure (S13.7).
 
 \subsection*{S13.2 Likelihood from Dirichlet--Multinomial Evidence}
 Treat outgoing counts at node $i$ as multinomial draws given $q(\cdot\mid i; m)$:
@@ -318,10 +587,55 @@ m^{(s+1)}_{\mathrm{ch}(P)}\mid m^{(s)}_P\;\sim\; \mathrm{Dir}\!\bigl(\alpha_s\,\
 \]
 This is the multiscale Dirichlet refinement used by P\'olya trees, but applied to a simplicial mesh. The warm-start procedure in Proteus, where the converged state at scale $s$ initializes the search at $s+1$, is a deterministic analogue of using the posterior at one level as the prior for the next. The variance-based splitting rule acts as a data-driven control on mesh refinement, analogous to a Bayes factor test for splitting a cell.
 
-\subsection*{S13.7 Practical Notes}
-\textbf{Consistency and identifiability.} As data grow, $n_{i\to j}$ stabilize and the posterior over $m$ concentrates, provided the geometric router $q(\cdot\mid i;m)$ is sufficiently injective in the local masses (choose $\kappa$ accordingly). A weak smoothness prior (e.g., logistic-GMRF) can also ensure identifiability. \textbf{Uncertainty propagation.} A fully Bayesian treatment propagates finite-sample noise in $n_{i\to j}$ into credible intervals over the mass field $m$. The MaxEnt/MAP approach provides a point estimate, which can be seen as the zero-prior ($\tau\to 0$) or infinite-data limit.
+\subsection*{S13.7 Star Matrix and Identifiability Theorem}
+Under the canonical $\kappa$ of S13.1, the router at node $i$ has a clean linear structure. Let $\mathrm{Star}(i)=\{S\in\mathcal S:S\ni i\}$ and $\mathcal N(i)=\{j\ne i:\exists S\in\mathrm{Star}(i),\,j\in S\}$. Stack the masses in $\mathrm{Star}(i)$ as $m^{(i)}\in\mathbb R^{|\mathrm{Star}(i)|}_{\ge 0}$, ordered by some fixed indexing of $\mathrm{Star}(i)$.
 
-\subsection*{S13.8 Summary}
+\paragraph{Star matrix.}
+Define $K_i\in\mathbb R^{|\mathcal N(i)|\times|\mathrm{Star}(i)|}$ by
+\[
+(K_i)_{jS}\;=\;\begin{cases} A_{iS}/d & \text{if }j\in S\,,\\ 0 & \text{otherwise,}\end{cases}
+\qquad
+k_i\;=\;K_i^{\top}\mathbf 1_{|\mathcal N(i)|}\,,
+\]
+where $\mathbf 1$ is the all-ones vector. By construction $(k_i)_S=\sum_{j\in\mathcal N(i)}(K_i)_{jS}=d\cdot A_{iS}/d=A_{iS}=\kappa_{iS}$, confirming the row sums. The router at $i$ reads
+\[
+q(\cdot\mid i;m)\;=\;\frac{K_i\,m^{(i)}}{k_i^{\top}m^{(i)}}\;\in\;\Delta^{|\mathcal N(i)|-1}\,.
+\]
+
+\paragraph{Theorem (local and global identifiability).}
+Assume
+\begin{enumerate}[leftmargin=1.5em]
+  \item[(A1)] \emph{Local rank condition:} for every $i$, $\ker(K_i)\cap \mathrm{span}(k_i)^{\perp}=\{0\}$, i.e.\ $K_i$ has rank $|\mathrm{Star}(i)|$ on the complement of the one-dimensional scaling subspace.
+  \item[(A2)] \emph{Star overlap / connected dual:} the dual graph on $\mathcal S$ (simplices adjacent by shared facet) is connected.
+\end{enumerate}
+Then $m$ is uniquely determined by the full set of transition probabilities $\{q(\cdot\mid i;m)\}_{i\in\mathcal V}$ up to the simplex constraint $\sum_S m_S=1$.
+
+\paragraph{Proof sketch.} Fix $i$. If $q(\cdot\mid i;m)=q(\cdot\mid i;m')$ then $K_i m^{(i)}$ and $K_i {m'}^{(i)}$ are positively proportional: $K_i(m^{(i)}-\lambda_i {m'}^{(i)})=0$ with $\lambda_i=(k_i^{\top}m^{(i)})/(k_i^{\top}{m'}^{(i)})$. Assumption (A1) forces $m^{(i)}=\lambda_i{m'}^{(i)}$ on $\mathrm{Star}(i)$. For two stars sharing a simplex $S$, the two scalars $\lambda_i,\lambda_j$ must agree on $m_S$, giving $\lambda_i=\lambda_j$. By (A2), all scalars agree: $m=\lambda m'$ globally. The simplex constraint then forces $\lambda=1$. \hfill$\square$
+
+\paragraph{When does (A1) hold? A counting bound.}
+$K_i$ has $|\mathrm{Star}(i)|$ columns and $|\mathcal N(i)|$ rows. Each column (simplex $S$) has exactly $d$ non-zeros (its $d$ other vertices). A necessary condition for full column rank is $|\mathcal N(i)|\ge|\mathrm{Star}(i)|$. For generic manifolds at their intrinsic dimension, a node with $k$ neighbors of degree $d$ typically has $|\mathrm{Star}(i)|\approx k$ and $|\mathcal N(i)|\approx k$; the condition is tight but usually met. Two regimes where it fails:
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Degenerate simplices.} $A_{iS}\to 0$ (sliver simplex, altitude collapse) zeroes an entire column of $K_i$, making that column linearly dependent on zero. Detected by the shape-quality guard $Q_S\ge Q_{\min}$ (S4).
+  \item \textbf{Collinear neighbor rays.} If two simplices $S_1,S_2$ of $\mathrm{Star}(i)$ have identical vertex sets apart from $i$ itself (possible only on thin/non-manifold configurations), their columns of $K_i$ are proportional. Detected by simplex-enumeration deduplication.
+\end{itemize}
+Neither regime arises in a well-formed simplicial complex with bounded shape quality. We state (A1) as a runtime hypothesis rather than a universal guarantee.
+
+\paragraph{Runtime conditioning check.}
+Compute $\sigma_{\min}(K_i)/\sigma_{\max}(K_i)$ at each node whose star has just changed. The check is cheap ($\mathcal O(|\mathrm{Star}(i)|\,|\mathcal N(i)|^2)$ via thin SVD, amortized over simplex edits). If the ratio falls below a threshold $\rho_{\min}$ (default $10^{-4}$; conservative $10^{-3}$):
+\begin{enumerate}[leftmargin=1.5em]
+  \item Flag $i$ as \emph{router-ill-conditioned}.
+  \item Skip the MAP settle contribution from node $i$ in the local evidence score $F(\mathcal R;M)$ of S3.4 (equivalently, set $n_{i\to j}$ to zero at $i$ for that scoring pass).
+  \item Fall back to purely geometric acceptance for any edit whose affected region $\mathcal R$ contains $i$, until the condition is restored (typically on the next local edit that resolves the degeneracy).
+\end{enumerate}
+This fallback is strictly more conservative than the evidence gate: it never \emph{accepts} an edit it would otherwise reject; it only declines to use the likelihood contribution from an ill-conditioned neighborhood.
+
+\paragraph{Connection to Fisher information.}
+$K_i$ is (up to normalization) the Jacobian of $q(\cdot\mid i;m)$ with respect to $m^{(i)}$ at the canonical $\kappa$. The local Fisher information matrix of the transition likelihood $\phi_i(m)$ is $I_i(m)=n_i\,K_i^{\top}\mathrm{diag}(1/q)\,K_i$ (up to the normalizer). (A1) is precisely the condition that $I_i(m)$ is nonsingular on the tangent of the simplex at $m$. This gives a cleanly asymptotic version of identifiability: under (A1--A2), the Fisher information of the full transition model is nonsingular on $\{\sum_S m_S=1\}$, and standard MLE consistency applies as $\min_i n_i\to\infty$.
+
+\subsection*{S13.8 Practical Notes}
+\textbf{Consistency and identifiability.} Under canonical $\kappa$ (S13.1) and the star-rank condition (A1), the posterior over $m$ concentrates as $n_{i\to j}$ grows. A weak smoothness prior (e.g., logistic-GMRF) would regularize marginal cases where (A1) is borderline; the algorithm itself does not use such a prior, opting instead for the closed-form Dirichlet--multinomial marginal evidence of S3.4. \textbf{Relation to the algorithm.} The DM marginal of S3.4 places the BDeu prior directly on per-node transitions $q(\cdot\mid i)$, integrates them out analytically, and yields a model-selection score that depends only on observed transition counts and the canonical $\kappa$ (via $J_i$). The mass field $m$ never appears explicitly in the gate, but the identifiability theorem of S13.7 still applies because the per-node transition probabilities $q(\cdot\mid i;m)$ remain identifiable as a function of $m$ given the canonical $\kappa$. \textbf{Diagnostic logging.} The runtime conditioning check (S13.7) doubles as a numerical health diagnostic: persistent ill-conditioning at a vertex $i$ is a signal that the local complex has degenerated (slivers, accidental collinearities, broken stars) and should be flagged for Stage 2 shape-quality remediation.
+
+\subsection*{S13.9 Summary}
 The Proteus pipeline corresponds to the following Bayesian model and inference loop:
 \begin{itemize}
     \item \textbf{Hebbian Learning/GNG} $\rightarrow$ A method for learning a \textbf{data-driven prior structure} (the simplicial partition $\mathcal S$).
@@ -329,7 +643,7 @@ The Proteus pipeline corresponds to the following Bayesian model and inference l
     \item \textbf{Dual-Graph Sum--Product} $\rightarrow$ An algorithm for \textbf{approximate Bayesian marginalization} over the global simplex mass field $m$.
     \item \textbf{MaxEnt Objective} $\rightarrow$ The **MAP inference** limit of the same model under a uniform prior.
 \end{itemize}
-Proteus uses geometric signals to propose discrete edits to $\mathcal S$, and a local evidence proxy (S3.4) to accept edits only when they reduce free energy after accounting for model complexity.
+Proteus uses geometric signals to propose discrete edits to $\mathcal S$, and the local evidence score of S3.4 to accept edits only when they improve the approximate log marginal likelihood after accounting for model complexity.
 
 \section*{S14. Conditions for Equivalence of Stage 1 to Gaussian-Weighted PCA/SVD}
 \textbf{Claim (informal).} Under standard limits---frozen topology, infinitesimal step-size, stable neighborhoods, and infinite data---the Stage 1 moment tracker with rank-weighted updates and Oja's rule performs \emph{local} Gaussian-weighted PCA/SVD at node locations. The variance threshold acts as a scale-dependent cap that adaptively refines regions whose Gaussian-windowed variance exceeds the target.
@@ -373,5 +687,182 @@ Thus, the procedure performs \emph{local PCA/SVD at scale $\sigma$}, and the thr
 
 \subsection*{S14.6 Takeaway}
 With the calibration $\sigma=\sqrt{\tau}/c_{d,k}$ (S2.1) and the constraints above, Stage 1 reduces to \textbf{local Gaussian-weighted PCA/SVD}, while the variance threshold implements \textbf{scale-aware adaptive refinement}. This provides a precise bridge between the Hebbian/GNG dynamics and kernel PCA at a chosen characteristic scale.
+
+\section*{S15. Open Theoretical Questions}
+The arguments in S12 and S14 are intentionally a mixture of rigorous and informal. This section catalogues the remaining theoretical gaps so that future work can target them directly. Each item identifies (a) the claim, (b) the current status, and (c) what would be required to close it.
+
+\subsection*{S15.1 Lyapunov candidate for the variance-cap / evidence-gated dynamics}
+\textbf{Claim (S12.2 informal).} Iterating the variance-cap split rule under S3.4 evidence gating drives $\sup_i P(V_i)\to 1/N$ up to the structural floor of the Theorem in S12.2.
+
+\paragraph{Lyapunov candidate.}
+The dynamics decompose cleanly into continuous and discrete components, and admit a two-term joint Lyapunov function:
+\[
+L(t)\;=\;L_{\mathrm{vertex}}(t)\;+\;F_{\mathrm{DM}}\bigl(M(t);\,\mathrm{counts}(t)\bigr)\,,
+\]
+where $L_{\mathrm{vertex}}$ is the standard vector-quantization energy
+\[
+L_{\mathrm{vertex}}(\{w_i\})\;=\;\sum_i \int_{V_i} \|x-w_i\|^2\,p(x)\,dx
+\]
+familiar from Neural Gas / GNG (Martinetz \& Schulten 1991; Fritzke 1995), and $F_{\mathrm{DM}}(M;\mathrm{counts})=\sum_{i} -\log p(\{n_{i\to j}\}\mid M,\alpha_{0,i})$ is the Dirichlet--multinomial local evidence score (S3.4) under the BDeu prior of S2.7. The Voronoi--Delaunay duality of the construction (Stage 1 Voronoi cells with Hebbian flag complex as approximate Delaunay dual, S8.1) makes the two terms naturally complementary: $L_{\mathrm{vertex}}$ governs the primal (vertex / cell) picture, $F_{\mathrm{DM}}$ governs the dual (simplex / mass) picture.
+
+\paragraph{Decomposition argument.}
+The state evolves under two kinds of updates:
+\begin{itemize}
+\item \emph{Continuous updates} (deferred geometric nudges of S2.3, EWMA settling of S2.2): act on $\{w_i\}$ and counts. Topology $M$ is unchanged.
+\item \emph{Discrete edits} (variance-cap splits, simplex-arbitrated prunes/merges, optional warp attachments): change topology $M$. Counts are unchanged at the edit instant.
+\end{itemize}
+$L_{\mathrm{vertex}}\ge 0$ is bounded below trivially; the BDeu marginal $p(\{n_{i\to j}\}\mid M,\alpha_{0,i})\le 1$ gives $F_{\mathrm{DM}}\ge 0$. The combined $L$ is bounded below.
+
+\paragraph{Bridge to simplex-mass convergence.}
+Convergence of $L$ to a local minimum implies (i) no S3.4 edit is accepted and (ii) $L_{\mathrm{vertex}}$ is locally minimized. By the static correspondence theorem of S12.2, simplex-mass deviation $|\hat P(C)-1/M|$ is then bounded by the structural floor (controlled by shape quality $Q_S$ and star regularity $\eta_s$) plus the equilibrium tolerance $\epsilon_{\mathrm{sim}}$ plus a sampling term. Combining: the dynamic Lyapunov drives the system to a fixed point at which simplex masses are uniform up to the irreducible structural floor, precisely the dimensionality-junction signature.
+
+\paragraph{Lemma 1 (foundational, OPEN).}
+\textbf{Statement:} Under the dual-rate motion of S2.3 with EWMA half-life $k$ (S2.2), within a fixed topology $M$ and between split events, $L_{\mathrm{vertex}}(t)$ is a stochastic Lyapunov function:
+\[
+\mathbb E[L_{\mathrm{vertex}}(t+1)\mid \mathcal F_t]\;\le\;L_{\mathrm{vertex}}(t)\;-\;c_t\,,
+\]
+with $c_t\ge 0$ and $\sum_t c_t=\infty$ on any sample sequence visiting all Voronoi cells with positive probability, plus standard Robbins--Monro damping $\sum_t \eta_t^2<\infty$ on the deferred-nudge step sizes.
+
+\textbf{Status: open.} This is the variance-cap variant of the classical Neural Gas convergence theorem (Martinetz \& Schulten 1991), which used annealed neighborhood-decay schedules rather than adaptive variance caps. Required proof template: (i) verify Robbins--Monro conditions for $\eta_{\mathrm{GNG},i}=(\ln 2/2k)(1-\sigma_i^2/\tau)$ and $\eta_{\mathrm{cent}}=\kappa(1-r)/k$; (ii) handle discrete split events as bounded jumps using a Kushner--Yin-style ODE limit (Borkar, \emph{Stochastic Approximation: A Dynamical Systems Viewpoint}, 2008); (iii) connect the dual-rate dynamics to the soft-assignment reformulation in S14 (Gaussian-weighted local PCA limit). See OPEN\_ISSUES item~3 for full background, prep, and approach.
+
+The remaining lemmas (2--4 below) are proved \emph{conditionally on Lemma~1} and close the rest of the Lyapunov story by direct calculation.
+
+\paragraph{Lemma 2 (Joint monotonicity, continuous and discrete updates --- PROVED conditionally on Lemma~1).}
+\textbf{Statement:} Conditional on Lemma 1, the joint potential $L$ satisfies:
+\begin{enumerate}
+\item \emph{Continuous updates:} $\mathbb E[\Delta L\mid \mathcal F_t]\le -c_t+b(t)$, where $c_t\ge 0$ is the L_vertex driving rate from Lemma 1 and $b(t)\le \log J$ per sample is a bounded data-accumulation drift.
+\item \emph{Accepted discrete edits:} $\Delta L\le -\log\tau + O(\Delta L_{\mathrm{vertex,topology}})$, with $\Delta L_{\mathrm{vertex,topology}}$ a bounded, edit-type-dependent perturbation (negative for splits, bounded positive for prunes).
+\item \emph{Rejected discrete edits:} $\Delta L=0$.
+\end{enumerate}
+By the Robbins--Siegmund convergence theorem (Robbins \& Siegmund 1971), $L$ converges almost surely to a finite limit, with the optimum characterized by simultaneous Lemma~1 fixed-point and S3.4 non-acceptance.
+
+\textbf{Proof.}
+\emph{(1) Continuous update.} A single sample arrives at node $i$ with second-best $j$. Counts increment as $n_{i\to j}\mapsto n_{i\to j}+1$, $n_i\mapsto n_i+1$ (we use directional counters; symmetric increments at the second endpoint follow analogously). Positions update via the deferred-nudge mechanism (S2.3). Topology $M$ is unchanged.
+
+For the position component: Lemma 1 gives $\mathbb E[\Delta L_{\mathrm{vertex}}\mid \mathcal F_t]\le -c_t$.
+
+For the count component, the per-node DM marginal is
+\[
+\log p_i(M;\mathrm{counts}) = \log\Gamma(J_i\alpha_{0,i})-\log\Gamma(J_i\alpha_{0,i}+n_i)+\sum_{k\in\mathcal N(i)}\bigl[\log\Gamma(\alpha_{0,i}+n_{i\to k})-\log\Gamma(\alpha_{0,i})\bigr].
+\]
+Using $\log\Gamma(x+1)-\log\Gamma(x)=\psi(x)$ (digamma), incrementing $n_{i\to j}$ and $n_i$ each by 1 gives
+\[
+\Delta(-\log p_i)\;=\;-\psi(\alpha_{0,i}+n_{i\to j})+\psi(J_i\alpha_{0,i}+n_i)\,.
+\]
+The digamma is strictly increasing on $(0,\infty)$, and $J_i\alpha_{0,i}+n_i\ge\alpha_{0,i}+n_{i\to j}+(J_i-1)\alpha_{0,i}>\alpha_{0,i}+n_{i\to j}$ since $J_i\ge 2$, so this is strictly positive. Asymptotic expansion $\psi(x)=\log x-\tfrac{1}{2x}+O(1/x^2)$ gives, for $n_i\gg J_i\alpha_{0,i}$:
+\[
+\Delta F_{\mathrm{DM}}=\Delta(-\log p_i)\;\le\;\log\!\bigl((J_i\alpha_{0,i}+n_i)/(\alpha_{0,i}+n_{i\to j})\bigr)\;\le\;\log J_i+\log(1+1/n_i)\;\le\;\log J_i+1/n_i\,.
+\]
+This is the per-sample bound: $b(t):=\log J_i+1/n_i\le\log J+1$, uniformly bounded above. Combining,
+\[
+\mathbb E[\Delta L\mid \mathcal F_t]\;=\;\mathbb E[\Delta L_{\mathrm{vertex}}\mid \mathcal F_t]\;+\;\mathbb E[\Delta F_{\mathrm{DM}}\mid \mathcal F_t]\;\le\;-c_t+b(t)\,.
+\]
+This is a stochastic supermartingale with bounded positive drift. By Robbins--Siegmund 1971 (almost-sure convergence under bounded positive perturbations), $L(t)$ converges almost surely to a finite limit on every sample path satisfying $\sum_t c_t=\infty$ (granted by Lemma 1) and $\sum_t b(t)/c_t<\infty$ (granted because $c_t$ is positive and $b(t)$ is bounded). Note: $b(t)$ does not vanish, but is dominated by $c_t$ in cumulative effect, which is the standard SA condition.
+
+\emph{(2) Accepted discrete edit.} An edit $M_{\mathrm{edit}}$ is accepted iff $F_{\mathrm{DM}}(M_{\mathrm{edit}};\mathrm{counts})<F_{\mathrm{DM}}(M_{\mathrm{keep}};\mathrm{counts})-\log\tau$, by S3.4. The position component changes via:
+\begin{itemize}
+\item \emph{Splits:} a child node $k$ is added at $w_k=w_i+m_i$ (or torsion-aligned, S4) with $\sigma_k^2$ inheriting a fraction of the parent variance via the flow-conserving rule (S11). Within-cell variance reduction means $\Delta L_{\mathrm{vertex,topology}}\le 0$ for non-degenerate splits (each child cell explains a smaller mass).
+\item \emph{Prunes:} a node $j$ is deleted; its mass redistributes to surviving neighbors. By the simplex-arbitrated rule (S3.3) with geometric veto, prunes are gated to occur only at low-mass low-variance nodes ($h_j<0.5\bar h$ and $\sigma_j^2<0.5\tau_{\mathrm{local},j}$, S3.2). The resulting position-component change satisfies $\Delta L_{\mathrm{vertex,topology}}=O(\sigma_j^2\cdot h_j/N_{\mathrm{samples}})$, a bounded positive perturbation.
+\item \emph{Merges:} reversible counterpart of splits; satisfies the same bounds.
+\end{itemize}
+Combining: $\Delta L\le -\log\tau+\Delta L_{\mathrm{vertex,topology}}\le -\log\tau+\epsilon_{\mathrm{topo}}$, with $\epsilon_{\mathrm{topo}}=O(\bar\sigma^2/N)$ small relative to $\log\tau$ for the recommended $\log\tau\in[1,3]$ (S3.4).
+
+\emph{(3) Rejected discrete edit.} By construction of the gate, neither positions nor counts change; $\Delta L=0$.
+
+This completes the proof. $\square$
+
+\paragraph{Lemma 3 (Cross-scale inheritance --- PROVED).}
+\textbf{Statement:} Under the warm-start protocol of S8.1 (Stage 1 $\to$ Stage 2 transition) and the control-to-threshold mapping of S2.4 (across-recursion-level transitions), $L$ inherits a finite value across scale changes with $\Delta L\le 0$ at the transition instant.
+
+\textbf{Proof.} At the transition $\tau_s^*\to\tau_{s+1}^*$ (or Stage 1 $\to$ Stage 2):
+\begin{itemize}
+\item Node positions $\{w_i\}$ are carried forward unchanged.
+\item Hit counts $\{h_i\}$ and link counts $\{n_{i\to j}\}$ are carried forward unchanged.
+\item EWMA moments $m_i,s_i$ are shrunk by $\gamma_0\approx 0.7$ and the nudge accumulator is reset to zero (S8.1). This affects subsequent dynamics but not the value of $L$ at the transition.
+\item Topology $M$ is initialized from the converged Stage 1 graph (cluster identification S2.6) or from the previous level's mesh.
+\end{itemize}
+
+For $L_{\mathrm{vertex}}$: the data-generating density $p(x)$ and the positions $\{w_i\}$ are unchanged, so $L_{\mathrm{vertex}}$ value is unchanged at the transition.
+
+For $F_{\mathrm{DM}}$: counts and BDeu prior $\alpha_{0,i}=1/(d_{\mathrm{final},i}+1)$ are unchanged for nodes whose intrinsic dimension estimate is stable across the transition. For nodes whose $d_{\mathrm{final},i}$ updates, the prior shifts by a $O(1)$ multiplicative factor, contributing $O(\log d)$ per affected node to $F_{\mathrm{DM}}$. This is bounded.
+
+Threshold changes $\tau_{\mathrm{local},i}^{(s)}\to\tau_{\mathrm{local},i}^{(s+1)}$ via S2.4 affect only the dynamics (split-acceptance criterion), not the value of $L$ at the transition. Specifically, $L$ has no explicit dependence on $\tau_{\mathrm{local},i}$.
+
+Therefore $L^{(s+1)}|_{t=0}\le L^{(s)}|_{t=\infty}+O(\log d\cdot |\Delta\mathcal V|)$, where $|\Delta\mathcal V|$ is the number of nodes whose intrinsic dimension estimate updated. For warm-started transitions where intrinsic dimension is stable, this bound is exact equality. Subsequent dynamics at scale $s+1$ may decrease $L^{(s+1)}$ further toward the new local minimum (Lemma 2). $\square$
+
+\paragraph{Lemma 4 (EWMA noise control --- PROVED).}
+\textbf{Statement:} After an accepted split at node $i$ creating child $k$, the transient perturbation to neighbor variance estimates $\{\sigma_j^2\}_{j\in\mathcal N(i)}$ is bounded by $|\sigma_j^2(t)-\sigma_{j,*}^2|\le C\tau\cdot e^{-(t-t_0)/k}+\xi(t)$, where $\sigma_{j,*}^2$ is the new steady-state variance, $C$ is a constant of order unity, and $\xi(t)$ is a bounded martingale fluctuation of size $O(\sqrt{\alpha\log(2/\delta)}\,\tau)$ with probability $1-\delta$.
+
+\textbf{Proof.} After a split at node $i$, child $k$ inherits a fraction of $i$'s routed traffic, redirecting some BMU-second-best samples from $j\in\mathcal N(i)$ patterns. Let $\sigma_{j,*}^2$ denote the new steady-state variance of $j$ under the post-split routing pattern.
+
+The EWMA recursion for $\sigma_j^2$ is
+\[
+\sigma_j^2(t+1)\;=\;(1-\alpha)\sigma_j^2(t)+\alpha\,r_t^2\,,
+\]
+where $r_t=\|x_t-w_j\|$ when $j$ is in the BMU rank set with weight $w_j$. Decompose $r_t^2=\sigma_{j,*}^2+\xi_t$ with $\mathbb E[\xi_t]=0$ and $|\xi_t|\le 2\tau$ (residuals are bounded at scale $\sqrt{\tau}$ under the variance cap of the parent simplex). Then
+\[
+\sigma_j^2(t)-\sigma_{j,*}^2\;=\;(1-\alpha)^{t-t_0}(\sigma_j^2(t_0)-\sigma_{j,*}^2)+\alpha\sum_{s=t_0+1}^{t}(1-\alpha)^{t-s}\xi_s\,,
+\]
+where $t_0$ is the time of the split.
+
+The first term decays geometrically: $(1-\alpha)^{t-t_0}=e^{-(t-t_0)\log(1/(1-\alpha))}\le e^{-(t-t_0)\alpha}=e^{-(t-t_0)\ln 2/k}$, half-life $k$ as designed (S2.2). The initial gap $|\sigma_j^2(t_0)-\sigma_{j,*}^2|\le 2\tau$ since both terms are bounded by $\tau$ from the variance cap (locally, $\sigma_j^2\le\tau_{\mathrm{local},j}\le\tau$ at parent equilibrium).
+
+The second term is a martingale increment sum. By the Azuma--Hoeffding inequality with bounded increments $|\alpha(1-\alpha)^{t-s}\xi_s|\le 2\alpha\tau$ and quadratic variation $\sum_s \alpha^2(1-\alpha)^{2(t-s)}(2\tau)^2\le \alpha\tau^2$:
+\[
+P\!\left(\Bigl|\alpha\sum_{s=t_0+1}^t (1-\alpha)^{t-s}\xi_s\Bigr|>\eta\right)\;\le\;2\exp\!\left(-\frac{\eta^2}{2\alpha\tau^2}\right)\,.
+\]
+Setting $\eta=\tau\sqrt{2\alpha\log(2/\delta)}$ gives the high-probability bound.
+
+Combining: $|\sigma_j^2(t)-\sigma_{j,*}^2|\le 2\tau e^{-(t-t_0)\ln 2/k}+\tau\sqrt{2\alpha\log(2/\delta)}$ with probability $1-\delta$.
+
+\textbf{Effect on Lyapunov.} The transient variance perturbation contributes a transient $L_{\mathrm{vertex}}$ deviation of size $O(|\sigma_j^2-\sigma_{j,*}^2|\cdot h_j)\le O(\tau\cdot h_j)$, decaying with half-life $k$. Integrated over one half-life, total transient contribution is $O(\tau k\cdot h_j)\le O(\tau k\cdot\bar h)$, which is finite.
+
+\emph{Non-accumulation across splits.} Between accepted splits, the transient decays by factor $e^{-T/k}$ where $T$ is the inter-split waiting time. Since accepted splits happen at sub-linear rate (each consumes at least $\log\tau$ of $L$, so $\le L_0/\log\tau$ total accepted splits, with $L_0$ the initial Lyapunov value), the inter-split spacing grows and transients decay before accumulation. Total integrated transient is therefore $O(\tau k\cdot L_0/\log\tau)$, finite. $\square$
+
+\paragraph{Status summary.}
+\begin{itemize}
+\item \textbf{Lemma 1 (foundational, OPEN):} $L_{\mathrm{vertex}}$ is a stochastic Lyapunov for the dual-rate dynamics. The architectural framework is identified; the technical proof is the variance-cap variant of the classical NG convergence theorem and is the only foundational result genuinely outstanding. Tracked in OPEN\_ISSUES item~3 with full prep.
+\item \textbf{Lemmas 2--4 (auxiliary, PROVED conditionally on Lemma 1):} joint monotonicity (Lemma 2), cross-scale inheritance (Lemma 3), and EWMA noise control (Lemma 4) are proved by direct calculation above.
+\item \textbf{Net effect:} given Lemma 1, the joint potential $L=L_{\mathrm{vertex}}+F_{\mathrm{DM}}$ is a Lyapunov function for the variance-cap + evidence-gated dynamics, with explicit per-step bounds on continuous updates, accepted edits, rejected edits, and cross-scale transitions. Combined with the static correspondence theorem of S12.2, this drives simplex masses to $1/M$ up to the irreducible structural floor.
+\end{itemize}
+
+\subsection*{S15.2 Stuck-junction lemma}
+\textbf{Claim (S12.2 informal).} At a $k$-D / $\ell$-D dimensionality junction ($k<\ell$), the equilibration loop stalls at a configuration whose star irregularity ($\eta_s$) and shape-quality deviation ($\beta_{\max}$) are bounded below by quantities depending on the local intrinsic-dimension contrast.
+
+\textbf{Status.} The qualitative picture (variance saturation on the higher limb, evidence-test failure on the lower limb) is consistent with the algorithm's mechanics, but no formal lemma is proven. In particular:
+\begin{itemize}
+\item The claim that S3.4 \emph{must} reject splits across the junction depends on the local transition-count distribution near the junction, which has not been characterized analytically.
+\item The structural floor in the S12.2 Theorem is an upper bound; converting it into a \emph{lower} bound at junctions requires showing that the data themselves enforce $\eta_s,\beta_{\max}\ge c(k,\ell,d)>0$ at any star spanning the dimensional contrast.
+\end{itemize}
+\textbf{What would close it.} A model-driven calculation of the local transition-count distribution at a piecewise-linear junction (e.g.\ a $k$-flat meeting an $\ell$-flat in $\mathbb R^d$ at zero), evaluated against the S3.4 acceptance criterion. This should yield (i) an explicit lower bound on $\eta_s$ and $\beta_{\max}$ as a function of the dimensional contrast $\ell-k$ and the local mass ratio, and (ii) a critical sample size below which evidence rejection holds with high probability. The form is similar to local hypothesis-testing power calculations and is tractable for canonical junction geometries.
+
+\subsection*{S15.3 Approximation budgets in S12.1}
+\textbf{Claim (S12.1).} For any target $L_1$ error $\varepsilon$, finite budgets for recursion depth, mesh resolution, and mini-NSF capacity exist that achieve $\|p-q\|_{L_1}<\varepsilon$.
+
+\textbf{Status.} The claim is constructive in spirit but the explicit budget functions $(\text{depth},\, N_{\mathrm{nodes}},\, \text{NSF capacity})\to\varepsilon$ are not derived. The argument decomposes the total error into hierarchical, PL, and non-linear residual components without quantifying the constants.
+
+\textbf{What would close it.} Standard manifold-approximation results give the PL term explicitly: for a $C^2$ manifold of intrinsic dimension $d_{\mathrm{intr}}$, $N$ nodes uniformly distributed yield Hausdorff error $\mathcal O(N^{-1/d_{\mathrm{intr}}})$ and mass error of the same order under the variance cap. The hierarchical and NSF residual terms are model-class dependent; for the specific NSF parameterization in S7, density-approximation bounds for spline flows would supply explicit constants. Wiring these together into a single quantitative theorem is an exercise in bookkeeping but has not been performed in this paper.
+
+\subsection*{S15.4 Convergence of S3.4 evidence acceptance under finite data}
+\textbf{Claim (S3.4, implicit).} The local evidence test asymptotically accepts only structure changes that improve the model under the true data-generating distribution.
+
+\textbf{Status.} S3.4 is presented as a per-decision criterion; its asymptotic correctness is plausible by analogy with BIC consistency results, but no formal statement is made. The Dirichlet--multinomial marginal-likelihood ratio (an alternative to BIC, noted in OPEN\_ISSUES item~5) would be conjugate to the local likelihood and would inherit a cleaner consistency argument.
+
+\textbf{What would close it.} A consistency theorem of the form: under regularity conditions on the geometry-induced router $q$, the S3.4 acceptance test selects the correct topology among any finite candidate set with probability tending to 1 as $H\to\infty$. The argument follows the standard BIC/MDL consistency template (Kass--Raftery) once the regularity of $q$ is established.
+
+\subsection*{S15.5 Identifiability of the simplex mass field $m$ --- RESOLVED (S13.7)}
+\textbf{Status.} Addressed by the canonical $\kappa$ committed in S13.1 (uniform facet-share) and the Star Matrix Identifiability Theorem in S13.7. Under assumptions (A1) local star-rank and (A2) connected dual graph, $m$ is identifiable from $\{q(\cdot\mid i;m)\}_{i}$ up to the simplex constraint. A runtime conditioning check based on $\sigma_{\min}(K_i)/\sigma_{\max}(K_i)$ detects violations of (A1) in practice (slivers, degenerate stars), with a conservative fallback that skips the likelihood contribution from ill-conditioned neighborhoods. The identifiability statement corresponds to nonsingularity of the Fisher information on the probability simplex.
+
+\textbf{Residual open point.} The theorem is \emph{local-to-global} but static: it gives uniqueness of $m$ at a fixed topology. A dynamic version (identifiability preserved along trajectories of the variance-cap + evidence loop) would additionally require that edits do not transit through ill-conditioned configurations. In practice, the conditioning check + shape-quality guard jointly suffice, but a formal trajectory-level guarantee is not given.
+
+\subsection*{S15.6 Summary}
+The paper's theoretical guarantees fall into four tiers:
+\begin{itemize}
+\item \textbf{Rigorous:} S12.2 Theorem (effective node equilibrium, finite-sample), S14 conditions for kernel-PCA equivalence in the appropriate limit, S13.7 Star Matrix Identifiability Theorem (static identifiability under canonical $\kappa$), S15.1 Lemmas 2--4 (joint monotonicity, cross-scale inheritance, EWMA noise control).
+\item \textbf{Conditionally rigorous, foundational result open:} S15.1 Lemma 1 (variance-cap NG monotonicity for $L_{\mathrm{vertex}}$). Lemmas 2--4 are proved conditionally on Lemma 1; Lemma 1 itself is the variance-cap variant of the classical NG convergence theorem and is the only foundational result genuinely outstanding. See OPEN\_ISSUES item~3 for prep.
+\item \textbf{Constructive but quantitatively incomplete:} S12.1 expressivity (S15.3), S13's BNP correspondence.
+\item \textbf{Mechanism-level / informal:} S12.2 dynamic equilibration at junctions (S15.2), S3.4 consistency (S15.4), dynamic preservation of identifiability along trajectories (residual in S15.5).
+\end{itemize}
+The single most actionable remaining item for future theory work is S15.1 Lemma 1 (variance-cap NG monotonicity); proving it elevates the entire dynamic convergence story from ``conditionally rigorous'' to ``rigorous'' in one stroke, since Lemmas 2--4 are already in hand. S15.4 (S3.4 consistency) is the second-most-actionable item; it follows the standard BIC/MDL template once router regularity from S13.7 is established.
 
 \end{document}

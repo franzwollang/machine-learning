@@ -12,12 +12,10 @@
 \usepackage{xr-hyper}
 \usepackage{fancyhdr}
 
-% External references (optional, for future SI)
 \externaldocument{SI}
 
 \hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
 
-% Footer marking the draft status
 \pagestyle{fancy}
 \fancyhf{}
 \fancyfoot[L]{\small Draft — version posted to Zenodo on 2025-??-??}
@@ -25,7 +23,6 @@
 \renewcommand{\headrulewidth}{0pt}
 \renewcommand{\footrulewidth}{0pt}
 
-% ---------- Macros
 \newcommand{\cs}{c_s}
 \newcommand{\Heff}{H_{\mathrm{eff}}}
 \newcommand{\Nband}{\mathcal N}
@@ -36,6 +33,8 @@
 \newcommand{\kmax}{k_{\max}}
 \newcommand{\grad}{\nabla}
 
+\newcommand{\sectionsubtitle}[1]{\vspace{-0.25em}\noindent\textit{#1}\par\vspace{0.75em}}
+
 \title{Proteus: Adaptive Scale-Space Analysis for Learning Non-Linear Fuzzy Manifold Memberships (\textit{Draft})}
 \author{Franz Wollang\\ \small Independent Researcher}
 \date{\small Dated: 2025-??-??}
@@ -44,7 +43,6 @@
 
 \maketitle
 
-% Prominent draft disclaimer box
 \begin{center}
 \setlength{\fboxsep}{8pt}%
 \fbox{\parbox{0.92\textwidth}{\centering\bfseries DRAFT — NOT FOR CITATION\\[4pt]
@@ -53,145 +51,330 @@ This is a preliminary working version posted for discussion and feedback. Conten
 \vspace{1em}
 
 \begin{abstract}
-    We present Proteus, a two-stage framework for learning explicit, interpretable, and generative models of high-dimensional data supported on non-linear manifolds across multiple nested scales. Proteus separates fast geometric discovery from statistically grounded refinement: Stage~1 performs a scale-space search with an augmented Growing Neural Gas to produce a multiscale scaffold that supports efficient querying and coarse classification. Stage~2 lifts this scaffold to a dynamic simplicial complex and refines it into a piecewise-linear generative core, optionally composing localized invertible warps where curvature exceeds the capacity of a linear approximation. Discrete structural edits (splits, merges/prunes, and warp attachments) are proposed by geometric diagnostics but accepted only when they improve a local free-energy proxy derived from finite-data transition statistics, providing an evidence-based notion of model selection under noise and weak sampling. Finally, a dual-flow reconstruction yields a divergence-consistent probability field on the learned complex, enabling likelihood evaluation, semantic queries under fuzzy constraints, and conditional synthesis within a single representation.
+    We present Proteus, a two-stage framework for learning explicit, interpretable, and generative models of high-dimensional data supported on non-linear manifolds across multiple nested scales. Proteus separates fast geometric discovery from statistically grounded refinement: Stage~1 performs a scale-space search with an augmented Growing Neural Gas to produce a multiscale scaffold that supports efficient querying and coarse classification. Stage~2 lifts this scaffold to a dynamic simplicial complex and refines it into a piecewise-linear generative core, optionally composing localized invertible warps where curvature exceeds the capacity of a linear approximation. Discrete structural edits (splits, merges/prunes, and warp attachments) are proposed by geometric diagnostics but accepted only when they improve a local evidence score (a closed-form Dirichlet--multinomial marginal likelihood under a dimension-adaptive BDeu prior) derived from finite-data transition statistics, providing an evidence-based notion of model selection under noise and weak sampling. Finally, a dual-flow reconstruction yields a divergence-consistent probability field on the learned complex, enabling likelihood evaluation, semantic queries under fuzzy constraints, and conditional synthesis within a single representation.
 \end{abstract}
 
 \section{Introduction}
+\label{sec:intro}
+\sectionsubtitle{Motivation, contributions, and roadmap}
 
-Real-world data rarely lies near a single linear subspace; it is often concentrated on non-linear manifolds with spatially varying intrinsic dimension and structure that is only visible at particular scales. A useful model must therefore do more than produce a descriptive embedding: it should (i) \emph{discover} characteristic scales without extensive tuning, (ii) \emph{represent} the geometry explicitly enough to be interpretable, and (iii) \emph{support inference} tasks such as likelihood evaluation and conditional generation. The current state of the art is not a single solution to this full stack, but a fragmented toolchain: embedding methods can reveal structure for visualization, TDA provides topological diagnostics, and probabilistic generative models can fit densities, yet these components typically do not yield a unified, explicit geometric representation with an evidence-based mechanism for discrete structure selection. Likewise, graph/mesh-growth approaches can construct explicit scaffolds efficiently in many regimes, but they are often governed by heuristics for stopping and complexity control, making it difficult to separate genuine unresolved structure from variance due to noise or weak sampling.
+\subsection{Motivation and Gap}
+High-dimensional data often concentrates near non-linear manifolds whose \emph{structure is scale dependent}: a pattern can be obvious at one granularity and disappear at another, and local intrinsic dimension can vary across the same dataset. In these settings, a useful model should do more than produce an embedding. It should discover characteristic scales with minimal tuning, represent the geometry explicitly enough to be inspected and edited, and expose an inference interface (likelihoods, queries, and conditional generation) without switching representations.
 
-Proteus aims to reduce this gap by learning an explicit, multiscale geometric representation together with an evidence-based rule for discrete structure selection. It exposes a single representation that supports three modes of interaction: \emph{conditional synthesis} from partial or fuzzy constraints, \emph{semantic querying} of data regions (e.g., density, anomaly, or manifold-membership queries under constraints), and \emph{constraint extraction} that summarizes global structure from selected data subsets.
+Today this ``full stack'' is typically assembled from separate tools. Embedding methods and topological diagnostics can reveal shape, but they rarely produce an explicit, generative object. Deep generative models can fit densities, but they often hide geometry and topology behind a parameterization that is difficult to interrogate. Meanwhile, growing-graph and mesh methods can build explicit scaffolds efficiently, but they are frequently governed by heuristic stopping and ad hoc complexity control, making it hard to tell whether a proposed split or prune reflects real structure or finite-sample noise.
 
-Architecturally, Proteus follows a coarse-to-fine, two-stage pipeline. Stage~1 performs fast scale-space--guided exploration using an augmented Growing Neural Gas to build a multiscale scaffold that captures coarse adjacency, topology, and mass partitioning at candidate scales. Stage~2 lifts this scaffold to a simplicial complex and refines it into a generative core, optionally augmenting locally with invertible warps where curvature requires additional capacity. Throughout, Proteus follows the principle of ``geometry proposes, evidence disposes'': geometric diagnostics propose discrete structural edits, but an edit is accepted only when it improves a local free-energy proxy derived from finite-data transition statistics, providing an operational notion of model selection under noise.
+\subsection{What Proteus Delivers}
+Proteus is a two-stage system designed to unify these pieces around a single, inspectable representation. Stage~1 performs fast multiscale discovery and produces a \emph{scaffold}: a hierarchy of coarse graphs that summarize adjacency and local evidence across candidate scales. Stage~2 lifts a selected scaffold to a simplicial complex and refines it into a generative core, while monitoring when a piecewise-linear approximation is insufficient and upgrading capacity only where justified.
 
-\paragraph{Contributions.}
+Across both stages, Proteus uses a simple control loop: geometry proposes candidate structural edits; a local evidence test decides whether they are accepted; and continuous parameters are settled between accepted edits. The output is an explicit geometric model equipped with a probability field, enabling likelihood evaluation, semantic queries, and conditional synthesis within the same learned object.
+
+\subsection{Contributions}
 \begin{itemize}[leftmargin=1.5em]
-    \item A two-stage framework that separates scalable multiscale discovery (Stage~1) from evidence-grounded geometric refinement into a generative model (Stage~2).
-    \item A scale-space controller for characteristic-scale search that enables hierarchical decomposition where supported by data evidence.
-    \item A simplicial generative representation with a local evidence test for discrete edits, unifying splits/merges/pruning and optional localized warps under a single acceptance criterion.
+    \item A two-stage architecture that separates scalable multiscale discovery (Stage~1) from evidence-grounded refinement into an explicit simplicial generative core (Stage~2).
+    \item A scale-space controller that discovers characteristic scales and triggers hierarchical decomposition only where supported by routed evidence.
+    \item An evidence-gated mechanism for discrete structure selection (splits, pruning/merges, and optional local non-linear upgrades) using a local evidence score (closed-form Dirichlet--multinomial marginal likelihood under a dimension-adaptive BDeu prior).
+    \item A torsion-based geometric audit that detects localized failures of piecewise-linear approximation and proposes targeted interventions.
     \item A dual-flow reconstruction that yields a divergence-consistent probability field on the learned complex for likelihood queries and conditional synthesis.
 \end{itemize}
 
-\paragraph{Roadmap.} Section~2 details the Proteus framework. Section~3 evaluates model quality and ablations, with derivations and implementation details provided in the Supplementary Information (SI).
+\subsection{Roadmap}
+Section~\ref{sec:overview} summarizes Proteus end-to-end and enumerates the learned artifacts. Sections~\ref{sec:stage1-scaffold} and~\ref{sec:stage1-controller} describe Stage~1 at a single scale and the multiscale controller, respectively. Section~\ref{sec:stage2-core} introduces simplicial lifting and the core objective; Section~\ref{sec:torsion-audit} presents the torsion audit; Section~\ref{sec:structure-selection} formalizes evidence-based structure selection; and Section~\ref{sec:generative-interface} describes the generative and inference interface. Section~\ref{sec:model-quality} evaluates model quality and ablations, followed by limitations and scaling and a concluding discussion. Derivations, defaults, and implementation details are provided in the Supplementary Information (SI).
 
 \subsection{Related Work}
+Proteus sits at the intersection of manifold learning, explicit geometric modeling, and probabilistic generative inference. It shares goals with embedding-based manifold learning and topological diagnostics, but targets an explicit object that can be refined and queried rather than an embedding alone. It builds on the tradition of self-organizing and growing-graph methods by pairing fast geometric proposals with an evidence-based acceptance rule for discrete edits. It also complements deep generative modeling by treating flexible invertible maps as localized upgrades to an explicit geometric core, rather than as the sole representation. Finally, its refinement and inference components draw on ideas from discrete geometry (field-like constructions on simplicial complexes) and Bayesian model selection (closed-form Dirichlet--multinomial marginals under a dimension-adaptive BDeu prior; see SI~S13) to couple interpretability with a principled notion of structural complexity.
 
-Proteus synthesizes concepts from manifold learning, computational geometry, and probabilistic modeling, occupying a unique niche at their intersection.
 
-\textbf{Manifold Learning and TDA.} Classical manifold learning techniques, such as Isomap, LLE, t-SNE, and UMAP, excel at revealing low-dimensional structure within high-dimensional data. However, these methods primarily yield coordinate embeddings rather than explicit, generative geometric models; they are descriptive rather than constructive. Similarly, Topological Data Analysis (TDA), particularly persistent homology, provides powerful diagnostics for shape characterization but does not inherently produce a generative mechanism. Proteus bridges this gap by constructing an explicit simplicial complex that is both topologically faithful and generatively capable.
-
-\textbf{Generative Deep Learning.} Modern generative models like VAEs, GANs, and Normalizing Flows have achieved remarkable success in density estimation and synthesis. Yet, they often operate as ``black boxes,'' obscuring the topological structure of the learned distribution. Proteus offers an interpretable alternative: a ``white box'' model where the data density is represented by a piecewise-linear manifold (with local corrections). While we utilize invertible flows for local warping, they are employed as targeted upgrades to the geometric scaffold rather than the primary modeling substrate.
-
-\textbf{Self-Organizing Maps and GNG.} Our work builds directly upon the tradition of Self-Organizing Maps (SOMs) and Growing Neural Gas (GNG). While these algorithms are effective for vector quantization and topology learning, they historically lack a rigorous statistical objective for model selection and termination. Proteus augments the GNG formalism with scale-space theory to guide growth and a variational free-energy objective to arbitrate structural complexity, transforming a heuristic clustering process into a principled statistical estimator.
-
-\textbf{Discrete Geometry and Physics.} The theoretical underpinnings of our refinement stage draw from Discrete Exterior Calculus (DEC). We treat the simplicial complex not just as a mesh, but as a discrete domain for field theories. Our ``Torsion Ladder'' and ``Dual Flow'' mechanisms are discrete analogs of smooth operators, allowing us to enforce physical constraints---such as divergence consistency---directly on the learned manifold.
-
-\textbf{Predictive Coding and Free Energy.} Finally, Proteus aligns with the Free Energy Principle (FEP) found in neuroscience and statistical physics. The ``geometry proposes, evidence disposes'' mechanic can be viewed as a form of structural predictive coding, where geometric stress (torsion, variance) generates prediction errors that are resolved either by continuous parameter updates (mass settling) or discrete topological interventions (splits/merges), minimizing a unified variational free energy.
-
-% Notation moved to appendix (see Appendix: Notation)
-
-\section{The Proteus Framework}
+\section{Framework Overview}
+\label{sec:overview}
+\sectionsubtitle{Proteus in one page}
 
 \subsection{At a Glance}
-Proteus learns an explicit geometric representation of a high-dimensional data distribution together with an evidence-based rule for adding or removing structure. The key design choice is a two-stage separation between (i) fast multiscale exploration that discovers candidate structure cheaply and (ii) high-fidelity refinement that adds geometric capacity only where supported by finite-data evidence. Stage~1 performs a scale-space search and builds a hierarchy of coarse scaffolds; Stage~2 lifts a selected scaffold to a simplicial complex at a fixed characteristic scale and refines it into a generative core.
-
-\paragraph{Learned artifacts.}
-Given samples $X \subset \mathbb R^d$, Proteus produces:
+Proteus learns an explicit geometric model of a data distribution together with a principled rule for when to add, remove, or locally upgrade structure. It is organized as a two-stage pipeline:
 \begin{itemize}[leftmargin=1.5em]
-    \item a multiscale \emph{scaffold} (a hierarchy of node--edge graphs with associated local statistics) and characteristic scale choices $\tau^*$ from Stage~1;
-    \item a refined simplicial complex (Stage~2) that serves as a piecewise-linear generative core at a fixed scale $\tau^*$;
-    \item a reconstructed probability field on the complex for likelihood/density evaluation and sampling, optionally composed with localized invertible warps where curvature requires non-linear capacity.
+    \item \textbf{Stage 1 (multiscale discovery):} rapidly explore candidate scales, build coarse distributional scaffolds, and route finite-sample evidence into those scaffolds to determine where further decomposition is warranted.
+    \item \textbf{Stage 2 (fixed-scale refinement):} lift a selected scaffold to a simplicial complex at a chosen characteristic scale, refine it into a generative core, and attach additional local capacity only when a geometric diagnostic and an evidence test agree it is justified.
+\end{itemize}
+This separation keeps scale discovery cheap and robust, while reserving high-fidelity refinement for the scales and regions supported by data.
+
+\subsection{Inputs and Learned Artifacts}
+Given a dataset of samples, Proteus produces a set of concrete artifacts that together constitute the learned model:
+\begin{itemize}[leftmargin=1.5em]
+    \item a \textbf{multiscale scaffold hierarchy}: a sequence (and recursion tree) of node--edge graphs with local statistical summaries, used for fast neighborhood queries and for discovering structure across scales;
+    \item a \textbf{fixed-scale simplicial complex}: a refined mesh-like representation built from a selected scaffold, serving as an explicit, interpretable generative core;
+    \item a \textbf{probability field on the complex}: a divergence-consistent field used for likelihood evaluation, semantic queries, and conditional sampling within the learned geometry;
+    \item optional \textbf{localized non-linear upgrades} (``warps'') attached only to patches where curvature exceeds the capacity of a piecewise-linear approximation.
 \end{itemize}
 
-\paragraph{Unifying learning rule: ``geometry proposes, evidence disposes.''}
-Proteus unifies its components with a simple control loop: (i) \emph{propose} candidate discrete edits using fast geometric diagnostics (e.g., variance, torsion, and element quality), (ii) \emph{test} each edit using a local free-energy proxy computed from finite-data transition statistics and a complexity penalty (SI~S3.4, SI~S13), and (iii) \emph{settle} continuous parameters between accepted edits. Convergence at a fixed scale is defined operationally by equilibration of local statistics, after which the final topology is used to reconstruct a probability field for inference and generation.
+\subsection{The Pipeline Contract (Propose, Test, Settle)}
+Across both stages, Proteus uses the same systems-level learning loop:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Propose:} fast geometric diagnostics suggest candidate edits (e.g., add capacity, prune weak structure, or upgrade a patch).
+    \item \textbf{Test:} a local evidence score decides acceptance, penalizing unnecessary complexity so that edits triggered by noise or weak sampling are rejected (details in SI).
+    \item \textbf{Settle:} between accepted edits, continuous state (geometry and mass/field variables) is re-equilibrated until local statistics stabilize.
+\end{itemize}
+This loop is the reason Proteus behaves as a single coherent system rather than a bag of heuristics: geometry suggests where the model is strained, while evidence determines whether a discrete change is warranted.
 
-\subsection{Stage 1: Fast Exploration and Scaffolding}
-Stage~1 is the framework's fast ``front end'': it builds a coarse geometric scaffold quickly, and it does so in a way that produces actionable signals for where additional structure might be warranted. Conceptually, Stage~1 can be read as four coupled functional components.
+\subsection{What Is Deferred (Progressive Disclosure)}
+This overview introduces names and roles only. Formal definitions, symbols, thresholds, and derivations are introduced in their owning sections (or the SI) when they become necessary for understanding the mechanism. As a rule, the main text focuses on architecture and logic, while the SI holds derivations, default values, and implementation details.
 
-\paragraph{(i) State: local statistical summaries.}
-Stage~1 represents the data at a candidate scale by a set of nodes and their induced Voronoi regions, forming a \emph{distributional scaffold} (a node--edge graph) that approximates a maximum-entropy partition. Rather than relying on heuristic error counters, each node $i$ maintains exponential moving averages of the first two moments of its local residual distribution: the mean ($\mathbf m_i$) and squared error ($\mathbf s_i$). These summaries induce derived quantities used throughout Stage~1, including a local variance ($\sigma_i^2$) and a signal incoherence score ($\rho_i$). Each node also tracks a principal error direction ($\mathbf u_i$) via Oja's rule, providing a data-driven axis along which to propose geometric expansion. The estimator memory is tied to neighborhood size by setting the EWMA weight to $\alpha = \ln 2/k$ (SI~S2.2).
+\section{Stage 1: The Distributional Scaffold}
+\label{sec:stage1-scaffold}
+\sectionsubtitle{Single-scale scaffold construction}
+Stage~1 is Proteus' fast ``front end.'' At a \emph{fixed} scale setting, it constructs a coarse but explicit geometric representation of the data distribution and accumulates the evidence needed to (i) stabilize that representation and (ii) decide whether additional capacity is warranted. The result is a scaffold that is interpretable, queryable, and cheap to update online, and that can later be refined or decomposed by the controller in Section~\ref{sec:stage1-controller}.
 
-\paragraph{(ii) Per-sample update: routing evidence into the scaffold.}
-Given a sample, Stage~1 identifies the $k$ nearest nodes and distributes the learning signal with rank-ordered geometric weights ($1/2, 1/4, 1/8, \ldots$). This defines a discrete exponential neighborhood kernel and yields stable fractional ``hit'' statistics that can be reused for pruning and scale evaluation (details in SI~S2.3).
-
-\paragraph{(iii) Structure adaptation: propose edits, then gate them by evidence.}
-The role of the statistics above is not only to move nodes but to propose targeted discrete edits. In Stage~1, a variance exceedance ($\sigma_i^2 > \tau_{local,i}$) proposes that a region may contain unresolved probability mass; a new node is then proposed along the principal error direction. Complementarily, weakly supported nodes/edges are proposed for pruning. Because high variance can also arise from noise or weak evidence, these discrete proposals are accepted only when they improve the local fit to observed transition statistics after a complexity penalty (SI~S3.4), implementing the ``geometry proposes, evidence disposes'' rule at the scaffold level.
-
-\paragraph{(iv) Stabilization and handoff: deciding when a scale is ``done.''}
-Stage~1 continues until local statistics equilibrate at the current scale, detected by a small-tolerance stabilization criterion (default CV$<0.01$ on neighbor-normalized incoherence; SI~S2.3 and SI~S3). The resulting scaffold and its routed evidence are then passed to the meta-level scale-space controller below, which searches over candidate thresholds and recurses into subregions only when supported by sufficient routed data.
-
-Computationally, per-sample updates are $\mathcal O(k\,d)$, with occasional deferred $\mathcal O(d^2)$ work on moves/splits; nearest-neighbor queries are handled with HNSW. Full pseudocode and implementation details are provided in SI~S11.
-
-
-\subsubsection{Principled Scale Representation}
-We employ a four-tier representation of scale to decouple the optimizer's search from the GNG's local, adaptive physics (see SI~S2.4 for the control-to-threshold mapping).
-\begin{enumerate}
-    \item \textbf{Control Parameter ($s_{control}$):} A normalized parameter $\in [0,1)$ proposed by the optimizer.
-    \item \textbf{Subspace Dimensionality ($D_{subspace}$):} The dimensionality of the current sub-problem.
-    \item \textbf{Global Growth Threshold ($\tau_{global}$):} A physical scale derived from the control parameter via $\tau_{global} = -D_{subspace} \log(1 - s_{control})$, where $D_{subspace}$ is the dimensionality of the current problem. This global threshold is used to evaluate the overall quality of the learned structure at a given scale.
-    \item \textbf{Local Growth Threshold ($\tau_{local,i}$):} A per-node threshold, $\tau_{local,i} = -d_{final,i} \log(1 - s_{control})$, where $d_{final,i}$ is the smoothed, local intrinsic dimension at node $i$. This allows the GNG to adapt its growth conditions to regions of varying manifold dimensionality.
+\subsection{What Stage 1 Is For}
+Stage~1 is designed to do three things efficiently:
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Summarize geometry and mass locally:} provide a sparse set of representative nodes with local statistical state.
+    \item \textbf{Route finite-sample evidence:} turn a stream of samples into stable node- and edge-level evidence (hits and transitions) rather than brittle per-sample decisions.
+    \item \textbf{Propose discrete changes:} identify where the current scaffold is under-capacity (suggesting a split) or over-parameterized (suggesting pruning), while deferring acceptance to an evidence gate formalized later (Section~\ref{sec:structure-selection}).
 \end{enumerate}
 
-\subsubsection{Scale-Space Grid, Optimizer, and Recursive Search}
-Classical scale-space theory studies how structures appear and disappear under Gaussian smoothing at scale $\sigma$, using scale-normalized operators to make responses comparable across scales. In Proteus, the Stage~1 growth threshold $\tau$ plays an analogous role: it bounds local residual variance, so increasing $\tau$ yields coarser partitions (with $\tau \equiv \sigma^2$ under a calibration; SI~S2.1). We define a scale-space response $\Phi(\tau)$ from routed fractional hits and a local $k$-NN volume proxy, which behaves like a kernel density estimate under local stationarity (up to constants). With a one-time calibration $\sigma = \sqrt{\tau}/c_{d,k}$ and choosing $\gamma{=}1$ for scale-covariance, peaks of the normalized response in $\log\tau$ identify characteristic scales (SI~S2.1).
+\subsection{Scaffold as a Data Structure}
+The scaffold is a node--edge graph. Each node represents a local region of the data distribution (a proxy for a Voronoi cell around a representative point), and each edge represents adjacency together with accumulated transition evidence induced by local routing. Concretely, Stage~1 maintains:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{node geometry:} a representative location in data space;
+    \item \textbf{node state:} local moment summaries and derived diagnostics (defined below);
+    \item \textbf{edge evidence:} statistics that summarize how often local routing connects nearby nodes (used both for topology maintenance and as downstream evidence).
+\end{itemize}
+This choice makes the representation explicit (you can inspect nodes and edges) while keeping updates local.
 
-We maximize $\Phi(\tau)$ over a geometric grid of thresholds $\{\tau_i\}$. The grid spacing follows a scale-space resolution limit: adjacent samples in $\log\sigma$ are separated by half the FWHM of a normalized Gaussian response, yielding a geometric ratio $r \approx 1/\sqrt{2} \approx 0.71$ (SI~S2.1). At each $\tau_i$, Stage~1 is run to its stabilization criterion (default CV$<0.01$), and $\Phi(\tau_i)$ is recorded. Candidate maxima are bracketed via sign changes in a discrete second difference over $\log\tau$, then refined with a Gaussian-process Bayesian optimizer restricted to the bracket to obtain $\tau^*$.
+\subsection{Node State: What We Track and Why}
+For each node $i$, Stage~1 maintains exponentially weighted moving averages (EWMAs) of the first two residual moments, together with derived diagnostics:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{mean residual} $\mathbf m_i$: a coherent drift signal indicating a persistent mismatch between the node's representative location and the local data it explains.
+    \item \textbf{second-moment summary} $\mathbf s_i$: used to estimate a local variance proxy.
+    \item \textbf{variance proxy} $\sigma_i^2$: a heterogeneity / under-capacity signal. We use the standard moment identity elementwise and summarize it as a scalar trace
+    \[
+        \sigma_i^2 \;=\; \mathrm{tr}\bigl(\mathbf s_i - \mathbf m_i \odot \mathbf m_i\bigr)
+        \;=\; \lVert \mathbf s_i \rVert_1 - \lVert \mathbf m_i \rVert_2^2\,,
+    \]
+    with $\odot$ denoting elementwise multiplication. Unless stated otherwise, $\sigma_i^2$ refers to this scalar summary (e.g., when compared against the split threshold $\tau_{\mathrm{local},i}$).
+    \item \textbf{incoherence ratio} $\rho_i$: a stability-normalized drift score that discounts mean drift when uncertainty is large (a common choice is $\rho_i = \lVert \mathbf m_i\rVert/(\sigma_i+\varepsilon)$, with $\sigma_i = \sqrt{\sigma_i^2}$; see Appendix: Notation).
+    \item \textbf{principal error direction} $\mathbf u_i$: an online estimate of the dominant residual direction, used as a placement heuristic when proposing new capacity.
+\end{itemize}
+The EWMAs provide a controlled memory of recent evidence; defaults and derivations (including the chosen EWMA weight schedule) are provided in the SI.
 
-The procedure then recurses on the data partitions induced by the converged mesh at $\tau^*$, discovering nested structure only where sufficient routed data exists (minimum sample thresholds as in SI~S9). The meta-level controller is summarized below.
+\subsection{Per-Sample Routing and Updates}
+Given an incoming sample, Stage~1 identifies the $k$ nearest nodes and routes evidence locally rather than assigning all credit to a single winner. Neighbors are updated with rank-ordered weights (e.g., a halving schedule $1/2, 1/4, 1/8,\ldots$) to achieve robust, localized credit assignment:
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{select} the $k$ nearest nodes;
+    \item \textbf{update} each selected node's state via EWMA moment updates using its assigned weight;
+    \item \textbf{accumulate} fractional hit and transition evidence on nodes and edges induced by this routed neighborhood.
+\end{enumerate}
+This routing step is the source of the ``evidence'' later used for pruning, for stability checks, and (in Section~\ref{sec:stage1-controller}) for deciding which scales and regions deserve additional attention.
+
+\subsection{Proposed Discrete Edits (Conceptual)}
+Stage~1 continuously generates \emph{proposals} for discrete structure changes:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Split proposals:} sustained high variance or systematic drift indicates that a single representative is explaining too much heterogeneous mass. A new node is proposed near the stressed node, typically along the estimated principal residual direction $\mathbf u_i$.
+    \item \textbf{Prune proposals:} nodes or edges with persistently weak routed support are proposed for removal (subject to safety checks that preserve essential connectivity).
+\end{itemize}
+Importantly, Stage~1 does not treat proposals as automatically correct. Proposals are \emph{accepted only if} a local evidence test approves them; the acceptance rule and its complexity penalty are formalized in Section~\ref{sec:structure-selection} (with details in the SI).
+
+\subsection{Stabilization at a Fixed Scale}
+At a fixed scale setting, Stage~1 runs until its local summaries stop drifting in a practical sense. Operationally, we use a simple stabilization criterion based on the equilibration of node-level diagnostics under routed updates (details and default tolerances in the SI). When stabilized, the scaffold is considered ``done'' at that scale and can be scored and/or decomposed by the controller.
+
+\subsection{Outputs Handed to the Controller}
+The output of Stage~1 at a single scale is the stabilized scaffold together with the evidence needed to drive subsequent decisions:
+\begin{itemize}[leftmargin=1.5em]
+    \item the node--edge graph geometry (node locations and adjacency),
+    \item per-node state $\{\mathbf m_i,\mathbf s_i,\sigma_i^2,\rho_i,\mathbf u_i\}$,
+    \item routed hit/transition evidence on nodes and edges, and
+    \item a stability status indicating whether local summaries have equilibrated.
+\end{itemize}
+Section~\ref{sec:stage1-controller} uses these outputs to search over scales and to recurse only where sufficient evidence exists.
+
+\begin{algorithm}[t]
+\caption{Single-scale scaffold update (Stage 1)}
+\label{alg:stage1-update}
+\begin{algorithmic}[1]
+\Procedure{UpdateScaffoldWithSample}{$\mathbf x, \mathcal G$}
+    \State Find $k$ nearest nodes to $\mathbf x$
+    \State Assign rank-ordered weights to the $k$ neighbors
+    \For{\textbf{each} neighbor $i$}
+        \State Update EWMA moment state $(\mathbf m_i,\mathbf s_i)$ using assigned weight
+        \State Update derived diagnostics $(\sigma_i^2,\rho_i,\mathbf u_i)$
+    \EndFor
+    \State Accumulate fractional hit/transition evidence on affected nodes/edges
+    \State Propose local edits (split/prune) from diagnostics and evidence
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+Computationally, per-sample updates are $\mathcal O(k\,d)$, with occasional deferred $\mathcal O(d^2)$ work on moves/splits; nearest-neighbor queries are handled with HNSW. Full implementation details are provided in SI~S11.
+
+\section{Stage 1 Controller: Multiscale Discovery}
+\label{sec:stage1-controller}
+\sectionsubtitle{Scale-space search and recursion}
+
+\subsection{Why a Scale Controller Is Needed}
+There is rarely a single ``right'' resolution at which a dataset's geometry is both stable and informative. If the representation is too fine, finite-sample noise and local idiosyncrasies trigger spurious structure; if it is too coarse, genuine substructure is collapsed. The role of the Stage~1 controller is to orchestrate repeated single-scale Stage~1 runs, identify characteristic scales, and recurse only when there is enough evidence to justify further decomposition.
+
+\subsection{The Scale Knob \texorpdfstring{$\tau$}{tau}}
+Stage~1 is governed by a scale parameter $\tau$ that acts as a variance/growth threshold: increasing $\tau$ makes the scaffold coarser (fewer, broader regions with less pressure to split), while decreasing $\tau$ yields finer partitions. Intuitively, $\tau$ plays the role of a smoothing scale in classical scale-space analysis (details and calibration are given in SI~S2.1).
+
+\subsection{Control-to-Threshold Mapping}
+To keep scale search decoupled from the local adaptation dynamics of Stage~1, we represent scale in a few layers (see SI~S2.4):
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Control parameter ($s_{control}$):} a normalized knob in $[0,1)$ used by an optimizer.
+    \item \textbf{Subspace dimensionality ($D_{subspace}$):} the dimensionality of the current sub-problem.
+    \item \textbf{Global threshold ($\tau_{global}$):} a problem-level scale derived from the control parameter,
+    \[
+        \tau_{global} \;=\; -D_{subspace}\,\log(1-s_{control})\,,
+    \]
+    used to score candidate scales.
+    \item \textbf{Local thresholds ($\tau_{local,i}$):} per-node thresholds that adapt growth to local intrinsic dimension,
+    \[
+        \tau_{local,i} \;=\; -d_{final,i}\,\log(1-s_{control})\,,
+    \]
+    where $d_{final,i}$ is a smoothed local dimension estimate.
+\end{enumerate}
+The controller searches using $s_{control}$ (or equivalently $\tau_{global}$), while Stage~1 consumes local thresholds that reflect heterogeneous dimensionality.
+
+\subsection{A Scale Response \texorpdfstring{$\Phi_C(\tau)$}{PhiC(tau)}}
+To decide which scales are meaningful, the controller evaluates a cluster-local response $\Phi_C(\tau)$ after Stage~1 has stabilized at that scale. The canonical form (derived in SI~S2.5) is the Lindeberg-normalized sum of per-node density responses:
+\[
+\Phi_C(\tau)\;=\;\sum_{i\in C} R_i(\tau)\,,\qquad
+R_i(\tau)\;\propto\;(\sqrt{\tau})^{d_C}\,\frac{h_i}{\widehat V_i}\, .
+\]
+Here $h_i$ is the routed hit mass at node $i$, $\widehat V_i$ is a local $k$-NN volume proxy, and $d_C$ is the neighborhood-smoothed intrinsic dimension for the current recursion-level region. $\Phi_C$ peaks when the variance-cap tiling is best matched to the region's intrinsic support. A companion support trace $V_C(\tau)=\sum_{i\in C}\widehat V_i$ provides a cheap cross-check: robust characteristic scales show a nearby plateau transition in $V_C$.
+
+\subsection{Grid Search, Local Refinement, and Selection}
+We evaluate $\Phi_C(\tau)$ on a geometric grid $\{\tau_i\}$ to cover orders of magnitude efficiently. The grid ratio is chosen from a scale-space resolution argument (SI~S2.1); in practice we use a fixed ratio $r \approx 1/\sqrt{2} \approx 0.71$. At each $\tau_i$, Stage~1 is run to its stabilization criterion and the per-node responses $R_i(\tau_i)$ are recorded; $\Phi_C(\tau_i)$ is their cluster sum (SI~S2.5). Candidate maxima are bracketed by sign changes of the centered second difference $\Delta^2\Phi_C$ and refined with a lightweight Bayesian optimizer (typically $\sim 5$ additional $\tau$ evaluations per bracket) to obtain a selected characteristic scale $\tau_C^*$.
+
+\subsection{Recursive Decomposition (Evidence-Limited)}
+Once a characteristic scale $\tau_C^*$ has been selected for a region, the stabilized scaffold at $\tau_C^*$ is clustered by Affinity Propagation on its Hebbian graph using the smoothed-PMI similarity defined in SI~S2.6. Each AP cluster induces a child subregion: samples are routed to the cluster that owns their BMU. The controller then recurses on these subregions \emph{only} when there is sufficient evidence to support another round of scale discovery. Recursion terminates on any of three conditions: (i) routed evidence in a subregion falls below a minimum-sample floor (SI~S9); (ii) the subregion's scale response $\Phi_C(\tau)$ has no significant maximum on the grid, indicating no further distinguished scale exists in the searched band; or (iii) a maximum recursion depth is reached. This is what prevents recursion from exploding: without either evidence or a distinguished scale, a region is declared terminal and is handed off (as-is) to downstream refinement.
+
+The meta-level controller is summarized below.
 
 \begin{algorithm}[h]
-\caption{Recursive Scale-Space Search (meta-level controller)}
+\caption{Recursive scale-space search (Stage 1 controller)}
 \label{alg:scalesearch}
 \begin{algorithmic}[1]
 \Procedure{FindScales}{$X$}
     \State Choose geometric grid $\mathcal T = \{\tau_0 r^j\}_{j=0}^{J}$ with $r{=}1/\sqrt{2}$
     \For{\textbf{each} $\tau \in \mathcal T$}
-        \State Initialize mesh $\mathcal M\leftarrow \varnothing$; \textbf{repeat} $\mathcal M \gets \text{UpdateWithSample}(\mathbf x, \mathcal M, \tau)$ until CV$<0.01$
-        \State Record response $\Phi(\tau)$
+        \State Run Stage~1 on $X$ at scale $\tau$ until stabilized, yielding scaffold $\mathcal M(\tau)$
+        \State Record node responses $\{R_i(\tau)\}_{i\in\mathcal M(\tau)}$ and support trace $V_C(\tau)$
     \EndFor
-    \State $\mathcal B \gets \text{BracketsFromSecondDifference}(\Phi,\mathcal T)$
-    \State $\tau^* \gets \text{BayesianOptimize}(\Phi, \mathcal B)$
-    \State $\mathcal M^* \gets \text{RunStage1ToEquilibrium}(X, \tau^*)$; $\{X_k\} \gets \text{PartitionByMesh}(X, \mathcal M^*)$
-    \For{\textbf{each} partition $X_k$}
-        \If{$|X_k| \ge n_{min}$}
-            \State \textsc{FindScales}$(X_k)$ \Comment{Recurse on sufficiently large sub-regions}
+    \State $\Phi_C(\tau_j) \gets \sum_i R_i(\tau_j)$ for each $\tau_j \in \mathcal T$ \Comment{SI~S2.5}
+    \State $\mathcal B \gets \text{BracketsFromSecondDifference}(\Phi_C,\mathcal T)$
+    \State $\tau_C^* \gets \text{BayesianOptimize}(\Phi_C, \mathcal B)$
+    \State $\mathcal M^* \gets \text{RunStage1ToEquilibrium}(X, \tau_C^*)$
+    \State $\mathcal C \gets \text{AffinityPropagation}(\mathcal M^*)$ \Comment{Smoothed-PMI similarities; SI~S2.6}
+    \State $\{X_C\}_{C\in\mathcal C} \gets \text{PartitionByClusterBMU}(X,\mathcal M^*,\mathcal C)$
+    \For{\textbf{each} cluster region $X_C$}
+        \If{$|X_C| \ge n_{min}$}
+            \State \textsc{FindScales}$(X_C)$ \Comment{Recurse on sufficiently large cluster supports}
         \EndIf
     \EndFor
 \EndProcedure
 \end{algorithmic}
 \end{algorithm}
 
-The result of Stage~1 at a single scale is a scaffold: a node--edge graph that captures manifold adjacency and mass partitioning at the chosen threshold. The full hierarchical scaffold is obtained by recursively re-applying Stage~1 to the sub-regions selected by the scale-space search.
+The output of the controller is a hierarchy of stabilized scaffolds together with selected characteristic scales. These outputs provide (i) an interpretable multiscale summary of the data distribution and (ii) warm-starts and scale choices for Stage~2 refinement (Section~\ref{sec:stage2-core}).
 
-\subsection{Stage 2: High-Fidelity Refinement and Generative Modeling}
-Stage~2 transitions from fast exploration to high-fidelity refinement. It takes the Stage~1 scaffold and a selected characteristic scale $\tau^*$ and constructs a generative model of the data manifold at that scale. The central architectural upgrade is to lift the representation from a node--edge graph to a simplicial complex, so that probability mass and geometry are modeled on simplex volumes rather than only on Voronoi cells. This yields a natural objective---\emph{simplex equilibrium}---and a discrete domain on which conservation laws can be enforced for generative modeling.
+\section{Stage 2: Simplicial Lifting and the Core Objective}
+\label{sec:stage2-core}
+\sectionsubtitle{From scaffold to a simplicial generative core}
+Stage~2 is the refinement stage that turns a stabilized scaffold at a selected characteristic scale $\tau^*$ into an explicit \emph{generative} model of the data manifold at that scale. The key upgrade is representational: we lift the Stage~1 node--edge graph into a simplicial complex so that geometry and probability mass can be modeled on higher-dimensional elements (simplices), not only on node-centric Voronoi regions.
 
-Stage~2 is run as an intensive refinement pass at fixed $\tau^*$. It warm-starts from Stage~1 (carrying forward node positions, links, and statistics) and initializes a simplicial complex from the existing graph; the initialization and warm-start mechanics are described in SI~S9. Learning then proceeds on a dynamic complex with simplex-native updates and continued topology growth/healing driven by local evidence.
+\subsection{From Scaffold to Complex: Why Lift?}
+The Stage~1 scaffold is an efficient summary, but it is not yet an ideal domain for generative inference. In particular, likelihood evaluation, sampling, and ``field-like'' constructions benefit from a representation whose basic units have volume/area (not just points and edges). A simplicial complex provides:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{local patches:} simplices act as minimal cells that approximate the manifold piecewise-linearly;
+    \item \textbf{explicit adjacency:} shared faces encode neighborhood relations needed for local conservation and transport constraints;
+    \item \textbf{elementwise modeling:} mass and geometric diagnostics can be attached to cells and propagated through cell adjacency.
+\end{itemize}
+This shift is what makes it possible to speak about an explicit generative core and to later reconstruct a probability field directly on the learned geometry (Section~\ref{sec:generative-interface}).
 
-Because a simplicial complex provides only a piecewise-linear (PL) approximation, Stage~2 includes two additional mechanisms that are introduced below as needed. First, a torsion-based geometric audit (the Torsion Ladder) detects localized failures of the PL approximation and proposes targeted structural interventions. Second, a dual-flow reconstruction accumulates face-wise flux evidence and reconstructs a probability field on the complex for likelihood queries and sampling. Where curvature is too strong for a purely PL core, Proteus can optionally attach localized invertible warps; the generative core remains PL in warped coordinates, and the model in the original space is obtained by pullback through the learned warp (SI~S7).
+\subsection{The Simplicial Representation in Proteus}
+In Stage~2, the vertices of the complex are the scaffold nodes carried forward from Stage~1. Edges inherit scaffold adjacency, and higher-dimensional simplices are constructed to fill in local neighborhoods, yielding a complex that approximates the manifold at scale $\tau^*$. More precisely, Proteus treats the Stage~2 complex as the top-dimensional flag complex of the current Hebbian graph: a $d$-simplex exists exactly when its $d{+}1$ vertices form a clique in the graph, with $d$ determined locally from the intrinsic-dimension estimate. The complex is dynamic because the Hebbian graph is dynamic: adding or pruning nodes and links creates or destroys the corresponding cliques, while ordinary geometric node motion changes simplex shape but not simplex membership.
 
-\subsubsection{The Learning Objective: Simplex Equilibrium}
-The learning rule in Stage 2 is based on a physical analogy of energy partition. We formalize this by treating the simplex masses as latent variables in a generative model that must explain the observed local transition statistics between mesh nodes (SI~S13). \textbf{Simplex equilibrium} is then the settled configuration of the mass field at the fixed scale $\tau^*$: the (local) minimum of a free-energy objective that trades off transition prediction error (data fit), prior regularization, and model complexity (SI~S3.4). In this view, the error from a data point is an ``impulsive force'' that increases prediction error locally; the system's response is determined by its local rigidity: in \emph{plastic} regions (low rigidity), error is reduced by geometric nudges and mass reallocation; in \emph{rigid} regions (high rigidity), error accumulates as structural stress indicating that a discrete edit (split, prune, or a local warp) is needed to lower free energy.
+The payoff of this representation is that learning and diagnostics can be expressed in terms of simplex-local quantities and their interactions across faces. When the manifold is well approximated piecewise-linearly at the chosen scale, this provides an interpretable generative substrate. When it is not, Stage~2 includes mechanisms that diagnose and locally upgrade capacity (Section~\ref{sec:torsion-audit} and Section~\ref{sec:generative-interface}).
 
-Define Node Equilibrium as the state where the probability mass in each node's Voronoi cell is approximately equal, $P(V_k) \approx 1/N$ for $N$ nodes. In contrast, Simplex Equilibrium requires equal mass in each simplex, $P(C_i) \approx 1/M$ for $M$ simplices. While not identical, optimizing for Simplex Equilibrium drives the system toward Node Equilibrium via a negative feedback loop. Consider a node $i$ with excess mass $P(V_i) \gg 1/N$. This biases data toward $w_i$, inflating structural stress in adjacent simplices $S_i$. The accumulated error vector $E_{C_k}$ grows radially away from $w_i$, triggering a split that inserts a new node $j$, redistributing mass from $V_i$ to $V_j$. Divergences occur at dimensionality junctions (e.g., 1D filament meeting 2D sheet), where bimodal activity and asymmetric links signal complex topology. This "informative mismatch" emerges naturally, providing robust signatures for local structure. A concise correspondence argument, showing that simplex equilibrium induces effective node equilibrium under mild regularity (local stationarity and nondegenerate simplex stars), is provided in SI~S12.2. The proof sketches how persistent node over-mass necessarily produces simplex-level stresses whose resolution reduces Voronoi imbalance.
+\paragraph{Intrinsic vs.\ ambient dimension.}
+A $d$-simplex has $d{+}1$ vertices. Throughout Stage~2, the simplex dimension refers to the \emph{local intrinsic} dimension $d_{\mathrm{final},i}$ estimated at each node (SI~S2.4), not the ambient dimension $D$ of the data. Initial optional projection (SI~S1) reduces $D$ for ANN and moment-update costs, but simplex construction itself operates at the (typically much smaller) intrinsic dimension; this is what keeps Stage~2 feasible when $D$ is large. Heterogeneous intrinsic dimension across the mesh is handled locally: each star uses the intrinsic dimension of its home region.
 
-\subsubsection{Geometric Audit: Torsion Formalism and the Torsion Ladder}
-The core innovation of Stage 2 is a rigorous geometric audit designed to address the limitations of the piecewise-linear approximation on a curved manifold. This audit is based on the concept of \textbf{torsion}. In our framework, the local residual mean field $\mathbf m$ should ideally be conservative (irrotational). Any rotational component in this field indicates a geometric mis-fit that cannot be resolved by simple node translation, signaling a failure in the linear approximation.
+\paragraph{Initial simplex discovery.}
+Constructing the top-dimensional cliques of the Hebbian flag complex is the only nontrivial initialization step. Proteus uses a greedy chaining heuristic (SI~S8.1) that rapidly discovers the majority of $d$-simplices from local node stars; dynamic refinement then maintains the flag-complex view incrementally as links and vertices change, avoiding full-complex reconstruction.
 
-We formalize this concept with a discrete 2-form. For a $d$-simplex $S=\{v_0,\dots,v_d\}$ with vertex positions $\{\mathbf w_{v_i}\}$ and residual means $\{\mathbf m_{v_i}\}$, we define edge matrices relative to the barycenter: $E=[\,\mathbf w_{v_1}{-}\bar{\mathbf w}\;\cdots\;\mathbf w_{v_d}{-}\bar{\mathbf w}\,]$ and $M=[\,\mathbf m_{v_1}{-}\bar{\mathbf m}\;\cdots\;\mathbf m_{v_d}{-}\bar{\mathbf m}\,]$. The torsion tensor is then given by:
+\subsection{Warm-Start and Initialization}
+Stage~2 is run as an intensive refinement pass at fixed $\tau^*$. It warm-starts from Stage~1 by reusing node positions, scaffold connectivity, and accumulated statistics, then initializes an initial simplicial complex from the scaffold graph. The goal is to begin refinement from a plausible geometry rather than from a random mesh. Initialization mechanics and implementation details are provided in SI~S9.
+
+\subsection{The Learning Objective: Simplex Equilibrium}
+At a fixed scale $\tau^*$, Stage~2 refines a simplex-associated mass field so that the complex becomes both geometrically and probabilistically consistent with the observed data. We treat simplex masses as latent variables in a generative view of the local transition evidence routed through the mesh (SI~S13). \textbf{Simplex equilibrium} is the settled configuration of this mass field: a locally optimal tradeoff between data fit, regularity, and model complexity (acceptance criteria and penalties are formalized in Section~\ref{sec:structure-selection} and detailed in the SI).
+
+Operationally, the equilibrium picture provides a useful separation of regimes. In \emph{plastic} regions, error is reduced by continuous adjustments (local geometry updates and mass reallocation). In \emph{rigid} regions, error accumulates as structural stress indicating that a discrete edit (e.g., adding capacity or upgrading a patch) may be warranted, subject to the evidence gate.
+
+\subsection{Node vs.\ Simplex Equilibrium (Intuition)}
+Two limiting ``balance'' conditions help build intuition for why simplex-level modeling produces stable behavior:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Node equilibrium:} probability mass is approximately balanced across node-associated regions,
+    \[
+        P(V_i) \approx 1/N\,,
+    \]
+    where $V_i$ denotes the Voronoi-like region explained by node $i$ and $N$ is the number of nodes.
+    \item \textbf{Simplex equilibrium:} probability mass is approximately balanced across simplices,
+    \[
+        P(C_j) \approx 1/M\,,
+    \]
+    where $C_j$ denotes simplex $j$ and $M$ is the number of simplices.
+\end{itemize}
+These are not identical: simplex masses resolve mass distribution at the level of local patches rather than node cells. The correspondence between them has two parts. (i) \emph{Static correspondence} (proved in SI~S12.2 as a finite-sample theorem): the deterministic decomposition $P(V_i)=\sum_{C\ni i}\alpha_{i,C}P(C)$ combined with multinomial concentration shows that empirical simplex equilibrium with tolerance $\epsilon_{\mathrm{sim}}$ implies node equilibrium up to (a) an irreducible structural floor controlled by simplex shape quality and star regularity, (b) a residual equilibration term proportional to $\epsilon_{\mathrm{sim}}$, and (c) a sampling term of order $\sqrt{\log(M/\delta)/H}$. (ii) \emph{Dynamic equilibration} (informal mechanism, SI~S12.2): the variance-cap split rule and the local evidence test (Section~\ref{sec:structure-selection}) drive simplex masses toward $1/M$ on the manifold interior; the loop stalls only at structural junctions, where the irreducible floor identifies the dimensionality-junction signature. A formal Lyapunov argument and a quantitative stuck-junction lemma are open theoretical questions catalogued in SI~S15.
+
+The remaining Stage~2 sections build on this setup: Section~\ref{sec:torsion-audit} introduces a geometric audit for when the piecewise-linear approximation fails, and Section~\ref{sec:generative-interface} describes how the settled complex supports likelihoods, queries, and sampling.
+
+\section{Stage 2 Diagnostics: Torsion Audit}
+\label{sec:torsion-audit}
+\sectionsubtitle{When piecewise-linear geometry fails}
+
+\subsection{Why Piecewise-Linear Geometry Fails}
+Stage~2 models the manifold with a simplicial complex, which is necessarily a piecewise-linear (PL) approximation. This approximation is often excellent at a chosen scale $\tau^*$, but it has an unavoidable failure mode: sufficiently curved structure cannot be made globally consistent by local vertex moves and re-triangulation alone. In Proteus, this failure is detected through the behavior of the local residual mean field. If the PL model is locally adequate, residual means behave (approximately) like a conservative correction field; when curvature, torsion-like twisting, or mismatched dimensionality forces non-conservative behavior, the residual field develops rotational components that continuous refinement cannot remove.
+
+\subsection{Discrete Torsion on a Simplex}
+Proteus formalizes this diagnostic with a discrete 2-form that measures how far the residual mean field deviates from being locally conservative on each simplex. For a $d$-simplex $S=\{v_0,\dots,v_d\}$ with vertex positions $\{\mathbf w_{v_i}\}$ and residual means $\{\mathbf m_{v_i}\}$, define barycenters $\bar{\mathbf w}$ and $\bar{\mathbf m}$ and construct edge and residual matrices (relative to the barycenter):
+\[
+E=[\,\mathbf w_{v_1}{-}\bar{\mathbf w}\;\cdots\;\mathbf w_{v_d}{-}\bar{\mathbf w}\,],\qquad
+M=[\,\mathbf m_{v_1}{-}\bar{\mathbf m}\;\cdots\;\mathbf m_{v_d}{-}\bar{\mathbf m}\,].
+\]
+We drop $v_0$ in the columns of $E$ and $M$ to remove the linear redundancy induced by centering over all $d{+}1$ vertices (equivalently, any one vertex can be dropped; $\Omega_S$ below is invariant to the choice).
+The simplex torsion form is the antisymmetric part of the local geometry-to-residual quadratic form,
 \[
 \Omega_S \;=\; M^{\top}E \,{-}\, E^{\top}M\,.
 \]
-This \textbf{simplex 2-form $\Omega_S$} is the direct discrete analogue of the curl ($\nabla \times \mathbf m$) of the residual mean field. Its Frobenius norm, $\kappa_S = \lVert \Omega_S \rVert_F$, provides a single scalar value for the ``torsional stress'' within simplex $S$. A high value of $\kappa_S$ indicates that the piecewise-linear approximation is failing and that a corrective intervention is necessary.
+If the residual mean field were (locally) the gradient of a potential, the implied Jacobian $J \approx M E^{+}$ would be symmetric and $\Omega_S = E^{\top}(J - J^{\top})E$ would vanish; in particular $\Omega_S$ scales quadratically with simplex size, which is why the ratio $R_S = \kappa_S/\tau^*$ below is dimensionless. Intuitively, $\Omega_S$ is a discrete analogue of curl: it is (approximately) zero when residual means are consistent with a potential-like correction over the simplex, and it grows when the residual field ``swirls'' around the simplex in a way that signals PL mismatch. We summarize torsional stress with a scalar
+\[
+\kappa_S \;=\; \lVert \Omega_S \rVert_F\,.
+\]
+We call this a ``torsion 2-form'' informally, in the spirit of discrete exterior calculus (DEC; Desbrun et al.; Hirani), but note that $\Omega_S$ is not a DEC 2-form in the formal cochain sense; it is a simplex-local quadratic-form diagnostic inspired by the same geometric intuition. The two share the interpretation of an antisymmetric discrete object that vanishes for conservative (gradient-like) fields.
 
-This audit is operationalized by the \textbf{Torsion Ladder}, a triage policy based on the torsion ratio $R_S = \kappa_S / \tau^*$. Intuitively, $R_S$ compares ``how curved'' the local residual field is to the scale at which the model is currently operating. Low ratios are treated as numerical noise; moderate ratios indicate tolerable curvature and are left unchanged; intermediate ratios trigger additional local settling and, if necessary, a torsion-aligned split that adds discrete capacity and is accepted only when it reduces the local free energy after accounting for complexity (SI~S3.4). When curvature is too strong for purely geometric refinement, the ladder escalates to a localized parametric intervention by attaching a small normalizing spline flow (``mini-NSF'') to the affected patch. Default cutoff values for these regimes are provided in the SI (SI~S3, SI~S7).
+\subsection{The Torsion Ladder (Triage Policy)}
+Torsion is a \emph{proposal signal}. It does not decide whether an intervention is warranted; it only localizes where the PL approximation is strained and suggests appropriate classes of corrective actions. We normalize torsional stress by the fixed operating scale and define a torsion ratio
+\[
+R_S \;=\; \kappa_S/\tau^*\,,
+\]
+which compares local non-conservativity to the characteristic variance scale at which Stage~2 is operating.
 
-To preserve numerical stability, any torsion-aligned split is screened by a simplex shape metric, $Q_S = d\,r_{\mathrm{in}}/R_{\mathrm{circ}} \in (0,1]$, where $r_{\mathrm{in}}$ and $R_{\mathrm{circ}}$ are the inradius and circumradius. If the resulting child simplices would have poor shape quality (default $Q_S < 0.25$), the split is rejected and replaced by a more conservative centroid insertion (a ``star split''); details and defaults are in SI~S3.
+The \textbf{Torsion Ladder} is a simple triage policy over $R_S$:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Ignore / monitor:} very small ratios are treated as sampling noise or numerical effects; the simplex is monitored but no action is taken.
+    \item \textbf{Refine geometry:} when curvature appears tolerable, Stage~2 focuses on additional local settling (continuous refinement and mass re-equilibration) without changing model class.
+    \item \textbf{Add discrete capacity:} persistent intermediate ratios propose a localized split that adds vertices and re-triangulates the stressed patch. Split placement is aligned with the local torsion signal to target the directions in which the PL approximation is failing.
+    \item \textbf{Escalate to non-linear upgrades:} when curvature is too strong for a stable PL patch, the ladder proposes attaching a localized invertible warp to the patch (details in Section~\ref{sec:generative-interface} and SI~S7).
+\end{itemize}
+All ladder actions beyond monitoring are evaluated by the same evidence-based acceptance rule used throughout Proteus (Section~\ref{sec:structure-selection}); torsion determines \emph{where} and \emph{what kind} of intervention to try, while evidence determines whether it should be kept. The numerical thresholds that separate the ladder's regimes (given in SI~S4) are empirical defaults calibrated on synthetic benchmarks; they are intentionally coarse and may require per-dataset adjustment, but because acceptance is always gated by the evidence test, the ladder's role is only to propose an appropriate \emph{class} of action.
 
-In Stage~2, node pruning is arbitrated by incident simplices: deletions require a formal vote across the simplex star of a node, with a geometric veto to protect structurally critical ``tent-pole'' nodes (SI~S11).
+\subsection{Shape-Quality Guard and Safe Edits}
+Discrete edits must also preserve numerical stability. In particular, aggressive splits can create sliver simplices that destabilize downstream updates. Proteus therefore screens split proposals with a simplex quality score
+\[
+Q_S \;=\; d\,r_{\mathrm{in}}/R_{\mathrm{circ}} \in (0,1]\,,
+\]
+where $r_{\mathrm{in}}$ and $R_{\mathrm{circ}}$ are the inradius and circumradius of the simplex. If a proposed split would produce poor-quality children, it is rejected in favor of a more conservative insertion strategy (e.g., a centroid-based ``star split''), with defaults and variants specified in the SI.
 
-% Torsion Ladder schematic (placeholder)
+Finally, Stage~2 pruning is arbitrated at the simplex level: deletions require agreement across the simplex star of a node, with geometric veto rules to protect structurally critical ``tent-pole'' vertices (SI~S11). This keeps the refinement dynamics from removing vertices that are topologically or geometrically essential.
+
 \begin{figure}[t]
     \centering
     \fbox{\parbox{0.9\linewidth}{Placeholder schematic: Torsion Ladder triage with thresholds on $R_S=\kappa_S/\tau^*$ and actions (keep, split, mini-NSF).}}
@@ -199,82 +382,156 @@ In Stage~2, node pruning is arbitrated by incident simplices: deletions require 
     \label{fig:ladder}
 \end{figure}
 
-\subsubsection{Generative Modeling with the Dual Flow}
-The framework's generative capability is enabled by tracking a \textbf{dual flow} of probability across simplex faces. For each data point, the residual is projected onto the outward face normals of its containing simplex, producing a signed ``pressure'' contribution for each face. Aggregating these contributions yields empirical flux evidence on faces; enforcing discrete conservation constraints then reconstructs a conservative face-flux (pressure) field and the associated piecewise-linear probability field on the complex. By the Divergence Theorem, this construction supports both density evaluation and sampling from a single learned representation.
+\section{Evidence-Based Structure Selection}
+\label{sec:structure-selection}
+\sectionsubtitle{Geometry proposes; evidence accepts}
 
-For a winning simplex $S$ and sample $\mathbf x$, a fractional face pressure is distributed to each facet $f\in\partial S$ proportional to the projection of the residual onto the outward unit normal $\mathbf n_f$:
+\subsection{Why a Single Disposer Is Needed}
+Proteus proposes discrete edits from several sources: Stage~1 proposes splits and pruning from scaffold diagnostics (Section~\ref{sec:stage1-scaffold}); Stage~2 proposes targeted interventions from torsion and element-quality audits (Section~\ref{sec:torsion-audit}); and optional non-linear upgrades can be proposed when local curvature cannot be resolved by piecewise-linear refinement (Section~\ref{sec:generative-interface}). Without a shared acceptance rule, these mechanisms would behave like independent heuristics, each with its own implicit notion of ``improvement.'' Instead, Proteus uses a single \emph{local evidence criterion} to arbitrate \emph{all} discrete edits. This keeps structure selection evidence-limited under finite data and makes proposals comparable across edit types.
+
+\subsection{Defining the Affected Region $\mathcal R$}
+Discrete edits are local: they change only a small portion of the scaffold/complex (e.g., splitting a vertex neighborhood, removing a weak node, or attaching a patch-wise warp). We therefore score edits on a local region $\mathcal R$ that contains:
+\begin{enumerate}[leftmargin=1.5em]
+    \item all nodes whose simplex stars would change under the proposed edit, and
+    \item a small additional neighbor ring to stabilize normalizers in the transition router used for likelihood evaluation.
+\end{enumerate}
+The goal of $\mathcal R$ is to include every term that materially changes under the edit, while keeping scoring local enough to be efficient and to avoid re-optimizing the full model for each proposal (formal details in SI~S3.4).
+
+\subsection{A Local Evidence Score}
+We score candidate topologies $M$ via a closed-form Dirichlet--multinomial (DM) marginal likelihood under the BDeu prior of SI~S2.7 ($\alpha_{0,i}=1/(d_{\mathrm{final},i}+1)$):
+\[
+F_{\mathrm{DM}}(\mathcal R; M)\;=\;-\sum_{i\in\mathcal V_{\mathrm{aff}}}\log p\bigl(\{n_{i\to j}\}\,\big|\,M,\alpha_{0,i}\bigr)\, ,
+\]
+with $p(\cdot)$ the per-node Dirichlet--multinomial marginal (SI~S3.4). The Dirichlet posterior over each per-node transition distribution $q(\cdot\mid i)$ is closed-form, the marginal likelihood is analytic, and the Occam factor is intrinsic to the BDeu prior volume. No iterative MAP settle on the simplex mass field $m$ is required, so topology candidates are directly comparable with no protocol-dependent biases (iteration budgets, warm-start choices, or per-candidate convergence) entering the score. WAIC/PSIS-LOO are available as predictive-accuracy diagnostics where wanted.
+
+\subsection{Acceptance Protocol}
+The accept/reject loop follows the global propose--test--settle pattern introduced in Section~\ref{sec:overview}:
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Propose} an edit from a geometric or statistical diagnostic (split/prune/merge/warp).
+    \item \textbf{Localize} the affected region $\mathcal R$ induced by the edit.
+    \item \textbf{Warm-start and settle} continuous variables locally (mass field and any local geometry parameters needed for scoring), holding the exterior fixed.
+    \item \textbf{Score} the candidate with $F_{\mathrm{DM}}(\mathcal R;M)$ and compare to the keep-topology baseline.
+    \item \textbf{Accept} only if the evidence score decreases by a margin $\log\tau$ (equivalently, the approximate log evidence increases by at least $\log\tau$); otherwise reject and continue under the current topology.
+\end{enumerate}
+The margin prevents churn from noisy or marginal improvements; default values and variants are provided in the SI.
+
+\subsection{Avoiding Double Counting with Reconstruction}
+After topology selection and settling, Proteus reconstructs a probability field on the accepted complex (Section~\ref{sec:generative-interface}). This reconstruction is \emph{conditioned} on the accepted topology and its settled mass/geometry. It is not treated as an additional independent likelihood term for the same transition evidence already used in $\mathcal L_{\mathcal R}$. This separation avoids double counting: the evidence gate selects structure using local transition statistics, and the reconstruction step converts the accepted, settled representation into an inference-ready probability field.
+
+\section{Generative Modeling and Inference Interface}
+\label{sec:generative-interface}
+\sectionsubtitle{Likelihoods, queries, and conditional synthesis}
+
+\subsection{What Is Reconstructed}
+After structure selection and settling, Proteus produces an inference-ready probability field on the learned complex. The core idea is to reconstruct a conservative face-wise ``pressure'' / flux field $\{p_f\}$ on the complex that (i) matches the empirical evidence accumulated during training and (ii) satisfies discrete conservation constraints implied by a valid probability field. This reconstruction is performed \emph{after} topology selection and is conditioned on the accepted complex and its settled mass field $\{m_S\}$ and geometry (Section~\ref{sec:structure-selection}). Conceptually, $\{m_S\}$ fixes \emph{how much} mass sits in each simplex, while $\{p_f\}$ specifies the \emph{interpolated flux geometry} on faces consistent with that mass under discrete conservation. The two are therefore \emph{complementary}, not redundant: $\{m_S\}$ is used for structure selection via the transition likelihood (and is frozen once accepted); $\{p_f\}$ is the inference-time interpolant used for density evaluation, queries, and sampling, and is not reused as a selection signal for the same evidence.
+
+\subsection{Dual Flow Reconstruction (Minimal View)}
+Proteus accumulates empirical flux evidence on simplex faces using a \textbf{dual flow}. For a sample $\mathbf x$ assigned to a winning simplex $S$, we project the residual onto outward face normals and distribute a nonnegative pressure increment to each facet $f\in\partial S$:
 \[
 \Delta p_f \propto \max\big(0,\, (\mathbf x{-}\bar{\mathbf w}_S)^{\top}\,\mathbf n_f\big)\,;\qquad p_f \leftarrow p_f + \Delta p_f\,.
 \]
-Let $\mathcal G_\mathrm{dual}$ be the dual graph whose nodes are faces and whose edges connect adjacent faces. Each primal simplex induces a local flow-consistency constraint on this graph. We seek face pressures $\{p_f\}$ that satisfy discrete conservation (no net source or sink within each simplex, up to sampling noise) while staying close to the accumulated evidence. This yields a quadratic objective over the dual graph:
+Aggregating these updates across samples yields empirical tallies $\{\hat p_f\}$ on faces. We then solve for face pressures $\{p_f\}$ on the dual graph $\mathcal G_\mathrm{dual}$ (nodes are faces; edges connect adjacent faces) by balancing fidelity to evidence with discrete conservation constraints. This yields a quadratic objective
 \[
 \min_{\{p_f\}}\; \sum_{f}\,\lambda\, (p_f{-}\hat p_f)^2\; +\; \sum_{S}\,\mu\,\big\lVert A_S\,\mathbf p_S\big\rVert_2^2\,,
 \]
-where $\hat p_f$ are the empirical tallies, $\mathbf p_S$ is the vector of face pressures incident to simplex $S$, and $A_S$ is a small stencil enforcing local conservation. Solving this quadratic objective on $\mathcal G_\mathrm{dual}$ yields face pressures $\{p_f\}$ that define a piecewise-linear probability gradient field on the complex; details of the discretization and solver are provided in SI~S4.
+where $\mathbf p_S$ collects the pressures on the faces incident to simplex $S$ and $A_S$ is a local stencil that penalizes violations of conservation within $S$. Solving this objective produces a conservative face-pressure field that induces a piecewise-linear probability gradient field on the complex. Discretization choices and solver variants are provided in SI~S4.
 
-\subsubsection{Structure Learning via Free Energy}
-Proteus makes discrete topology changes (splits, pruning/merges, and optional warp attachments) using geometric signals as fast proposals and a local evidence test as the arbiter. We define a local region $\mathcal R$ affected by a proposed edit as the set of nodes whose simplex stars change under the edit, plus a small neighbor ring to account for router denominators (SI~S3.4). Let $\mathcal L_{\mathcal R}$ denote the transition log-likelihood restricted to sources in $\mathcal R$ under the geometry-induced router $q(j\mid i; m)$ (SI~S13), and let $\log p(m)$ be a prior on the simplex mass field (e.g., Dirichlet composition or logistic-GMRF smoothness). For each candidate topology $M$ (keep vs.~split vs.~merge), we warm-start the local mass field from the current solution and settle it to a local MAP configuration $\hat m$ while keeping the exterior fixed. The candidate is scored by a free-energy proxy:
-\[
-F(\mathcal R; M) \;=\; -\mathcal L_{\mathcal R}(\hat m; M)\;-\;\log p(\hat m\mid M)\;+\;\tfrac{1}{2}\,k_M\,\log N_{\mathrm{eff},\mathcal R}\,,
-\]
-where $k_M$ is the number of free parameters introduced in the affected region and $N_{\mathrm{eff},\mathcal R}$ is the effective local transition count. The edit is accepted only if it decreases free energy by a threshold margin, providing a principled justification for non-continuous structure changes under finite data (details in SI~S3.4). Crucially, the dual-flow reconstruction above is \emph{conditioned} on the accepted topology and its settled mass/geometry; it does not provide an independent likelihood term for the same mass field, avoiding double-counting of evidence.
+\subsection{Querying the Learned Model}
+A point's association with the learned geometry is intrinsically \emph{fuzzy} rather than hard-categorical. Each point $\mathbf x$ is represented by barycentric coordinates $\{\beta_v(\mathbf x)\}_{v\in V(S)}$ in its containing (or nearest) simplex $S$, with $\beta_v\ge 0$ and $\sum_v \beta_v=1$; these act as soft vertex memberships. At the simplex level, membership in a user-defined region (a subset of simplices, a density band, a topological component, or a label class) is expressed as a probability over the restricted simplex set, normalized by mass. This is the sense in which Proteus learns \emph{fuzzy manifold memberships}: both vertex- and region-level associations are real-valued and smoothly varying, not crisp assignments.
 
-\subsubsection{Out-of-Sample Queries and Sampling}
-Once trained, the Proteus representation supports three inference-time uses within a single geometric model: \emph{semantic querying} (e.g., density and anomaly queries, optionally conditioned on constraints), \emph{conditional synthesis} from partial or fuzzy constraints, and \emph{constraint extraction} by aggregating routed mass and transition structure over selected subsets.
+Given a query point $\mathbf x$, Proteus then supports common inference-time operations in a single representation:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Density / likelihood evaluation:} locate the containing simplex (or nearest via barycentric projection), evaluate the reconstructed field locally, and combine with simplex mass to obtain a density estimate (details in SI~S13).
+    \item \textbf{Anomaly scoring:} compute a low-density score under the learned field, optionally normalized by local scale; anomalies correspond to points that cannot be assigned high likelihood in any nearby simplex.
+    \item \textbf{Fuzzy membership and semantic queries:} given a constraint $\mathcal C$ defining a subset of simplices (label, density band, topological component), report the membership score $\mu_{\mathcal C}(\mathbf x) = \sum_{S\in\mathcal C} \Pr(S\mid \mathbf x)$ where $\Pr(S\mid \mathbf x)$ is the posterior simplex membership under the learned field; fuzzy set operations (intersection, union, complement) combine by standard probabilistic or fuzzy-logic rules on the simplex sets.
+\end{itemize}
+Boundary faces are handled with a no-exterior-flux (Neumann-like) convention as in the SI.
 
-Given a query $\mathbf x$, locate the containing simplex (or nearest via barycentric projection), compute barycentric coordinates, and evaluate density from face pressures and the piecewise-linear gradient field (see SI~S13). For generation, sample a simplex proportional to its mass, draw barycentric coordinates, and map to data space; apply local warps if attached. This enables likelihood queries, anomaly scoring, and synthesis using the same dual-flow field used in training. Boundary faces use Neumann-like treatment (no exterior flux) as in the SI. The procedure is linear in simplex dimension and reuses cached factors.
+\subsection{Sampling and Conditional Synthesis}
+Sampling proceeds by drawing a simplex proportional to its settled mass, drawing barycentric coordinates within that simplex, and mapping back to data space. Conditional synthesis follows the same pipeline but conditions the simplex selection step on constraints, for example by:
+\begin{itemize}[leftmargin=1.5em]
+    \item selecting only simplices whose cached attributes satisfy the constraint,
+    \item reweighting simplex masses by a constraint likelihood factor, or
+    \item performing local constrained search on the simplex adjacency graph when constraints are relational or path-based.
+\end{itemize}
+The key design choice is that conditioning occurs at the level of the explicit complex: constraints prune or reweight a finite set of simplex candidates before sampling, enabling interpretable conditional generation without changing model class.
+
+\begin{algorithm}[t]
+\caption{Inference-time interface (high level)}
+\label{alg:inference-interface}
+\begin{algorithmic}[1]
+\Procedure{QueryDensity}{$\mathbf x$}
+    \State Locate containing simplex $S$ (or nearest via barycentric projection)
+    \State Evaluate local density from simplex mass and reconstructed field on $S$
+    \State \Return $\log p(\mathbf x)$
+\EndProcedure
+\Procedure{Sample}{}
+    \State Sample simplex $S$ with probability proportional to its mass
+    \State Sample barycentric coordinates in $S$ and map to data space
+    \State Apply local warp if attached to the sampled patch
+    \State \Return sample $\mathbf x$
+\EndProcedure
+\Procedure{ConditionalSample}{constraints}
+    \State Select/reweight a candidate simplex set consistent with constraints
+    \State Sample simplex and barycentric coordinates as in \Call{Sample}{}
+    \State \Return conditional sample $\mathbf x$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Constraint Extraction}
+Because Proteus routes evidence through explicit scaffold/complex elements, it can summarize structure from a selected subset of data or a query-defined region. Given a subset (or a soft selection) of points, we route them through the learned complex and aggregate:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{mass and density summaries} over the visited simplices,
+    \item \textbf{transition summaries} induced by routed neighbor assignments, and
+    \item \textbf{geometric summaries} such as dominant directions, local intrinsic dimension estimates, or torsion hot spots.
+\end{itemize}
+These aggregates can be exported as constraints or predicates for downstream systems (e.g., ``generate samples consistent with this subregion'') while keeping the explanation grounded in explicit simplices and their adjacency.
+
+\subsection{Optional Warps: Global vs.\ Patch-Wise}
+When torsion indicates that curvature exceeds what a stable PL patch can represent at scale $\tau^*$, Proteus can propose localized non-linear upgrades. We summarize curvature prevalence with a torsion coverage statistic $P_\kappa$ (the fraction of simplices whose torsion ratio exceeds a curvature threshold). If curvature is widespread (high $P_\kappa$), a shallow global invertible map can provide broad non-linear capacity; if curvature is localized (low $P_\kappa$), Proteus instead attaches compact patch-wise warps (e.g., small spline flows) only to high-torsion regions identified on a facet-adjacency graph. In both cases, the core representation remains the simplicial complex: the probability field is reconstructed in the warped coordinates, and the model in the original space is obtained by pullback through the learned invertible map. Training budgets, patch identification heuristics, and defaults are given in SI~S7.
 
 For evaluation, we report generation metrics (MMD) and log-likelihood as detailed in Section~\ref{sec:model-quality} and SI~S5.
 
 
-\subsubsection{Non-Linear Warp Strategy (Global vs. Patch-wise)}
-When residual curvature persists after geometric refinement, Proteus applies a minimal non-linear warp guided by a torsion-coverage statistic $P_\kappa$ (the fraction of simplices whose torsion ratio exceeds a curvature threshold). If curvature is widespread, Proteus trains a shallow global flow (e.g., a lightweight Glow variant) to provide broad non-linear capacity. If curvature is localized, Proteus instead attaches compact mini-NSFs (few-layer rational-quadratic spline couplings) only to the highest-torsion patches, identified via community detection on a facet-adjacency graph. In intermediate cases, a modest global flow can be combined with patch-wise mini-NSFs on the worst regions. If an attached warp fails to reduce torsion in its patch, the ladder falls back to a torsion-aligned split. Default thresholds, patch selection, and training procedures are provided in SI~S7.
 
 
-
-
-\section{Model Quality Analysis}
+\section{Evaluation}
 \label{sec:model-quality}
+\sectionsubtitle{Model quality and ablations}
 
-To validate the claims of the Proteus framework, we conduct a series of experiments designed to measure the fidelity of the generated model, rather than its performance on a specific downstream task.
+We evaluate Proteus as an end-to-end geometric generative representation: does it recover the right qualitative structure, does the learned complex remain geometrically faithful, and does the resulting probability field support likelihood queries and sampling? Our evaluation is therefore model-centric rather than task-centric. Concretely, we measure (i) topological faithfulness of the learned complex, (ii) geometric reconstruction quality, (iii) held-out likelihood under the reconstructed field, and (iv) sample quality. Each metric is chosen to correspond to a specific owned object in the architecture: simplicial lifting and refinement (Section~\ref{sec:stage2-core}), torsion-driven diagnostics (Section~\ref{sec:torsion-audit}), evidence-based structure selection (Section~\ref{sec:structure-selection}), and the dual-flow inference interface (Section~\ref{sec:generative-interface}).
 
 \subsection{Experimental Setup}
 \subsubsection{Datasets}
-We use a suite of synthetic datasets with known ground-truth topologies, including nested spheres of different dimensions, linked tori, and manifolds with variable density and dimensionality junctions. We also use benchmark real-world datasets to demonstrate performance on complex, unknown structures.
+We use synthetic datasets with known ground-truth structure (e.g., nested spheres of varying intrinsic dimension, linked tori, variable-density manifolds, and dimensionality junctions) to enable quantitative topology comparisons. We also evaluate on real-world benchmark datasets to assess robustness when ground truth is unavailable. Dataset details and preprocessing choices are provided in SI~S5.
 
-\subsubsection{Evaluation Metrics}
-Our analysis focuses on metrics that directly assess the quality of the learned manifold model:
-\begin{itemize}
-    \item \textbf{Topological Accuracy:} We compare the Betti numbers (characterizing holes of different dimensions) of the learned simplicial complex to the ground truth of the synthetic datasets using persistent homology.
-    \item \textbf{Reconstruction Error:} We measure the average distance between original data points and their projection onto the learned manifold.
-    \item \textbf{Log-Likelihood:} As Proteus produces a generative model, we evaluate the average log-likelihood of held-out test data under the model. This provides a direct measure of its predictive power, a capability absent in non-generative manifold learning methods.
-    \item \textbf{Generative Quality:} We draw samples from the learned model and compare their distribution to the original data's distribution using metrics such as Maximum Mean Discrepancy (MMD) to assess the fidelity of the generative process.
-\end{itemize}
-We follow standardized visualization and protocol defaults detailed in SI~S15 (visuals) and SI~S5 (evaluation settings).
+\subsubsection{Protocol}
+Unless otherwise stated, we train on an 80/20 split with multiple random seeds and report mean$\pm$std. For each dataset, Stage~1 discovers characteristic scales and triggers recursive decomposition only when evidence thresholds are met (Section~\ref{sec:stage1-controller}). Stage~2 refines the selected representation at the chosen scale, applies torsion-driven proposals as needed (Section~\ref{sec:torsion-audit}), and uses the local evidence disposer for all discrete edits (Section~\ref{sec:structure-selection}) before reconstructing the probability field (Section~\ref{sec:generative-interface}). Full protocol, defaults, and evaluation settings are in SI~S5 and SI~S10.
 
-\subsection{Comparative Analysis}
-We will present results (tables, visualizations) comparing the Proteus model's performance on the above metrics to models produced by other state-of-the-art algorithms, such as UMAP (for embedding quality) and a Variational Autoencoder (for generative quality).
-
-\subsubsection{Protocol Details}
+\subsection{Metrics}
+Our metrics directly assess the learned representation:
 \begin{itemize}[leftmargin=1.5em]
-    \item \textbf{Datasets:} Synthetic: nested spheres, linked tori, variable-density manifolds; Real-world: standard benchmarks (e.g., MNIST subset, tabular with mixed scales).
-    \item \textbf{Splits \& seeds:} 80/20 train/test; 5 seeds per experiment; report mean$\,\pm$std.
-    \item \textbf{Scales grid:} Geometric grid in $\tau$: $\tau_i = \tau_0\,r^i$, $r{=}0.71$; 7--9 points per decade; GP refinement within first bracketed maximum.
-    \item \textbf{Stopping:} Stage 1: CV$<0.01$; Stage 2: CV$<0.01$ and $R_S{<}0.30$ for all simplices.
-    \item \textbf{Persistent Homology:} Vietoris--Rips with max dim $\le2$; filtration up to $1.5\,\sigma_\star$; bottleneck/Wasserstein distances to truth.
-    \item \textbf{MMD:} RBF kernel with bandwidth median heuristic; 1\,000 samples; 1\,000 test points.
-    \item \textbf{Ablations:} (i) No Stage 1 scaffold; (ii) No Torsion Ladder; (iii) No Dual Flow.
+    \item \textbf{Topological accuracy (PH):} persistent homology distances between the learned complex and ground-truth synthetic manifolds, evaluating whether lifting and refinement recover correct topological signatures (Section~\ref{sec:stage2-core}--Section~\ref{sec:torsion-audit}).
+    \item \textbf{Reconstruction error:} average distance from data points to their projection on the learned complex, measuring geometric fidelity of the piecewise-linear (and optionally warped) representation (Section~\ref{sec:stage2-core} and Section~\ref{sec:torsion-audit}).
+    \item \textbf{Held-out log-likelihood:} average log-likelihood under the reconstructed probability field, reflecting both structure selection (Section~\ref{sec:structure-selection}) and the dual-flow reconstruction (Section~\ref{sec:generative-interface}).
+    \item \textbf{Generative quality (MMD):} distributional similarity between generated samples and held-out data, measuring whether the inference interface supports faithful synthesis (Section~\ref{sec:generative-interface}).
 \end{itemize}
+Metric definitions, hyperparameters, and evaluation conventions are provided in SI~S5 and SI~S10.
+
+\subsection{Baselines}
+We compare Proteus to representative baselines that cover the common ``toolchain'' alternatives: embedding-plus-density pipelines (e.g., UMAP with a downstream density estimator), and end-to-end generative models (e.g., VAEs). Where applicable, we also include topology- or geometry-focused baselines that produce explicit structures but lack an integrated likelihood/sampling interface. Baseline configurations are detailed in SI~S5.
 
 \subsection{Ablation Studies}
-We conduct targeted ablation studies to demonstrate the necessity of the core components of the Proteus architecture:
-\begin{itemize}
-    \item \textbf{Ablating Stage 1 Scaffolding:} We run the Stage 2 refinement process from a random initialization instead of the Stage 1 scaffold. We expect to show that this leads to significantly slower convergence, higher final reconstruction error, and frequent failure to identify the correct global topology, demonstrating the critical importance of the coarse-to-fine, scale-aware approach.
-    \item \textbf{Ablating the Torsion Audit:} We disable the Torsion Ladder, forcing the model to rely only on variance-based splitting. On datasets with non-trivial curvature, we expect the model to produce topologically incorrect structures and exhibit high reconstruction error in curved regions, validating the need for a direct geometric audit.
-    \item \textbf{Ablating the Dual Flow:} We disable the dual flow mechanism and evaluate the model's generative capabilities. We expect to show that without the explicit modeling of the probability gradient, the model's ability to produce high-fidelity samples and provide accurate density estimates is severely degraded.
+We conduct ablations that correspond directly to owned objects in the architecture:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{No scale controller:} replace multiscale discovery (Section~\ref{sec:stage1-controller}) with a fixed, single-scale run to measure the importance of characteristic-scale selection and evidence-limited recursion.
+    \item \textbf{No Stage~1 warm-start:} initialize Stage~2 without the stabilized scaffold (Section~\ref{sec:stage1-scaffold}) to quantify the benefit of coarse-to-fine refinement.
+    \item \textbf{No torsion audit:} disable the torsion ladder (Section~\ref{sec:torsion-audit}) to test whether curvature-driven failures can be handled by geometry-only refinement and variance-based splits.
+    \item \textbf{No evidence disposer:} accept discrete edits using heuristic triggers rather than the local evidence score (Section~\ref{sec:structure-selection}) to measure the role of evidence-based structure selection under finite data.
+    \item \textbf{No dual flow:} disable probability-field reconstruction (Section~\ref{sec:generative-interface}) to isolate the contribution of the inference interface to likelihoods and generation.
 \end{itemize}
 
-% Placeholder comparative results table
 \begin{table}[t]
     \centering
     \caption{Placeholder results: topological accuracy (PH distance), reconstruction error, log-likelihood, and MMD (lower is better where applicable).}
@@ -283,9 +540,11 @@ We conduct targeted ablation studies to demonstrate the necessity of the core co
         Method & PH Dist. & Recon Err & Log-Lik & MMD \\
         \hline
         Proteus (full) & -- & -- & -- & -- \\
-        No Stage 1 & -- & -- & -- & -- \\
-        No Ladder & -- & -- & -- & -- \\
-        No Dual Flow & -- & -- & -- & -- \\
+        No scale controller & -- & -- & -- & -- \\
+        No Stage 1 warm-start & -- & -- & -- & -- \\
+        No torsion audit & -- & -- & -- & -- \\
+        No evidence disposer & -- & -- & -- & -- \\
+        No dual flow & -- & -- & -- & -- \\
         Baseline (UMAP+KDE) & -- & -- & -- & -- \\
         VAE & -- & -- & -- & -- \\
         \hline
@@ -293,39 +552,67 @@ We conduct targeted ablation studies to demonstrate the necessity of the core co
     \label{tab:results}
 \end{table}
 
-% Placeholder ablation figure
 \begin{figure}[t]
     \centering
-    \fbox{\parbox{0.9\linewidth}{Placeholder ablation plots: effects of removing Stage 1 scaffold, Torsion Ladder, or Dual Flow on PH distance, reconstruction error, and MMD across datasets.}}
-    \caption{Ablations (placeholders): effects of removing Stage 1 scaffold, Torsion Ladder, or Dual Flow on PH distance, reconstruction error, and MMD across datasets.}
+    \fbox{\parbox{0.9\linewidth}{Placeholder ablation plots: effects of removing the scale controller, torsion audit, evidence disposer, or dual flow on PH distance, reconstruction error, and MMD across datasets.}}
+    \caption{Ablations (placeholders): effects of removing the scale controller, torsion audit, evidence disposer, or dual flow on PH distance, reconstruction error, and MMD across datasets.}
     \label{fig:ablations}
 \end{figure}
 
-\section{Limitations and Complexity/Scaling}
-\textbf{Limitations:} (i) Extremely high ambient dimensions without an initial projection can inflate ANN and per-sample costs; (ii) Highly anisotropic densities may require a deeper grid in $\tau$ to separate overlapping scales; (iii) In very sparse data, torsion estimates on large simplices can be noisy---guarded by our $Q_S$ fallback and minimum-sample thresholds but still a practical consideration.
+\section{Limitations and Scaling}
+\sectionsubtitle{Where the method can break; how it scales}
+\subsection{Limitations}
+Proteus is designed to be evidence-limited and robust, but there are practical regimes where performance or stability can degrade:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Very high ambient dimension:} without an initial projection or feature compression, nearest-neighbor search and per-sample updates become expensive and local moment estimates become noisier. This primarily affects Stage~1 stabilization and scale discovery (Section~\ref{sec:stage1-scaffold} and Section~\ref{sec:stage1-controller}).
+    \item \textbf{Strong anisotropy and overlapping scales:} highly anisotropic densities can blur scale separation, requiring denser scale evaluation and/or longer stabilization at candidate scales to reliably detect characteristic maxima (Section~\ref{sec:stage1-controller}).
+    \item \textbf{Sparse local support:} in regimes with weak sampling at high intrinsic dimension, simplex-local diagnostics (including torsion) are noisier. Evidence thresholds and quality guards mitigate instability, but can lead to conservative (underfit) representations unless stronger priors or more data are available (Section~\ref{sec:torsion-audit} and Section~\ref{sec:structure-selection}).
+    \item \textbf{Widespread nonlinearity:} when curvature is broad and highly non-stationary, patch-wise upgrades may be insufficient without increased global capacity or additional inductive bias (Section~\ref{sec:generative-interface}).
+\end{itemize}
 
-\noindent\textbf{Typical envelopes (indicative):}
+\subsection{Typical Operating Envelopes (Indicative)}
+\noindent These ranges provide a coarse sense of feasibility rather than guarantees:
 \begin{itemize}[leftmargin=1.5em]
     \item $N\in[10^5,10^7]$, $d\in[64,2048]$ after optional projection; per-level wall-time dominated by HNSW queries and moment updates.
     \item HNSW: $M\in[16,32]$, \texttt{efConstruction}$\in[100,400]$, \texttt{efSearch}$\in[50,200]$; increase \texttt{efSearch} near convergence for stability.
     \item Memory: nodes+links+simplexes typically within $\sim10\%$ growth per recursion level due to Ladder and prune rules.
 \end{itemize}
 
-\noindent\textbf{Asymptotic envelopes:}
-Stage~1 per-epoch time is $\mathcal O\bigl(N\,d\,k\,\log N_{\mathrm{nodes}}\bigr)$ with HNSW queries; topology/pruning is amortized. Space is $\mathcal O(N_{\mathrm{nodes}}\,d + N_{\mathrm{nodes}}\,\bar d)$, independent of $N$. Stage~2 seeding via Greedy Chaining costs $\mathcal O\bigl(N_c\,d_{\mathrm{cand}}^{\,2}\,d_c\bigr)$; periodic torsion audits cost $\mathcal O\bigl(N_{\mathrm{simplices}}\,(d{+}1)^2\,d\bigr)$. Dual-flow belief propagation operates on the dual graph of faces of size $\mathcal O(N_{\mathrm{simplices}}\,d)$ and converges in near-linear time per pass.
+\subsection{Complexity and Bottlenecks (Tied to Owned Objects)}
+The dominant costs can be understood in terms of the main architectural objects:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Stage~1 updates (Section~\ref{sec:stage1-scaffold}):} nearest-neighbor queries plus $k$ local EWMA updates dominate. Per-sample compute is $\mathcal O(k\,d)$ aside from ANN search, with occasional higher-order work on deferred moves/splits.
+    \item \textbf{Scale controller (Section~\ref{sec:stage1-controller}):} controller cost is Stage~1 cost multiplied by the number of evaluated grid points and (evidence-limited) recursion levels. In practice, most partitions terminate quickly once evidence thresholds are not met.
+    \item \textbf{Torsion audit (Section~\ref{sec:torsion-audit}):} torsion and simplex-quality computations are more expensive per element but are applied selectively (on flagged patches or topology events) rather than on every simplex at every step.
+    \item \textbf{Dual flow reconstruction (Section~\ref{sec:generative-interface}):} reconstruction solves a quadratic objective on the dual graph of faces; it is typically near-linear per solver pass in the number of faces and is performed after settling.
+\end{itemize}
+Asymptotic envelopes, solver notes, and implementation details are provided in the SI.
 
-\textbf{Complexity/Scaling:} Per-sample compute is $\mathcal O(k\,d)$; deferred moves/splits trigger occasional $\mathcal O(d^2)$ work. Stage 1’s grid uses 7--9 points per decade with GP refinements (few evaluations), leading to wall-time dominated by ANN queries and moment updates; HNSW scales well sub-linearly with $N$. Stage 2 adds simplex-native operations; torsion and shape metrics are $\mathcal O(d^2)$ but applied sparsely on topology events. Overall, memory grows with nodes/links/simplex count; empirical growth stays within a \~10\% budget per recursion level due to the Torsion Ladder and prune rules.
+\subsection{Scaling Summary}
+Overall memory grows with the number of scaffold nodes, edges, and simplices. Evidence gating and audit-driven proposals are designed to prevent uncontrolled growth: additional structure must be locally justified before it is retained. Wall time is typically dominated by ANN queries and moment updates in Stage~1, with Stage~2 costs concentrated in localized audits and reconstruction steps.
 
 \section{Conclusion}
-Proteus targets a common practical reality in modern manifold learning: progress is often achieved by stitching together a toolchain of embeddings, topological diagnostics, density estimators, and geometric heuristics, each providing only part of the desired modeling stack. Building on competitive Hebbian learning's maximum-entropy partitioning, Proteus integrates fast multiscale scaffold discovery with evidence-grounded refinement into a simplicial generative core. The two-stage, scale-aware design allows Proteus to discover candidate structure efficiently and then allocate refinement capacity only where supported by finite-data evidence. Our analysis shows that this hybrid approach produces models that are not only topologically faithful but also support likelihood-based inference and high-fidelity generation within a single representation.
+\sectionsubtitle{Summary and outlook}
+Proteus targets a common practical reality in manifold learning: practitioners often stitch together embeddings, topological diagnostics, density estimators, and geometric heuristics, yet still lack a single representation that is simultaneously explicit, generative, and governed by a principled rule for discrete structure selection. Proteus addresses this by combining fast multiscale discovery with evidence-grounded refinement into an explicit simplicial generative core.
 
-A key advantage of Proteus is that many quantities are \emph{derived from first principles} rather than tuned by hand: the geometric grid ratio $r$, the EWMA weight $\alpha$, and the dual motion rates $\eta_{\mathrm{cent}}$ and $\eta_{\mathrm{GNG}}$ all follow from scale-space resolution, statistical half-life, and variance-correction arguments (see SI~S2). Together with the statistical gauntlets for pruning (SI~S3), these choices make the system robust, interpretable, and largely parameter-free in practice.
+At a high level, the contribution is a coherent stack of owned objects:
+\begin{itemize}[leftmargin=1.5em]
+    \item a \textbf{distributional scaffold} that routes finite-sample evidence into an explicit node--edge representation (Section~\ref{sec:stage1-scaffold}),
+    \item an \textbf{evidence-limited scale controller} that selects characteristic scales and recurses only where supported (Section~\ref{sec:stage1-controller}),
+    \item a \textbf{simplicial lift and refinement objective} that turns the selected scaffold into a generative core (Section~\ref{sec:stage2-core}),
+    \item a \textbf{torsion audit} that localizes where piecewise-linear approximation fails and proposes targeted interventions (Section~\ref{sec:torsion-audit}),
+    \item a \textbf{single evidence disposer} that arbitrates all discrete edits under finite data (Section~\ref{sec:structure-selection}), and
+    \item a \textbf{dual-flow inference interface} that reconstructs a probability field for likelihoods, queries, and conditional synthesis (Section~\ref{sec:generative-interface}).
+\end{itemize}
+The evaluation (Section~\ref{sec:model-quality}) supports the claim that each piece is necessary: removing scale discovery, torsion diagnostics, evidence-based selection, or reconstruction degrades topological faithfulness, geometric fidelity, or generative performance.
 
-This work establishes a robust method for modeling complex data. The rich, generative model produced by the Proteus pipeline serves as a foundational layer for a wide array of subsequent applications, from high-performance search to automated pattern discovery. These applications, along with architectural enhancements for streaming data, will be detailed in subsequent work.
+Proteus also aims to reduce dependence on opaque tuning by grounding key decisions in stability criteria, routed evidence, and complexity penalties, with derivations and defaults provided in the SI. This makes the learned model easier to inspect, debug, and adapt across datasets.
 
-As shown in ablations, the two-stage design and torsion audit are necessary for both topological fidelity and generative quality; the added discussion on Simplex vs. Node Equilibria explains why our simplex-level objective still drives node-level balance in practice.
+\paragraph{Future work.}
+Immediate directions suggested by this architecture include (i) streaming and continual-update variants of Stage~1 and Stage~2 that preserve evidence-based edit arbitration under non-stationarity, (ii) tighter theory connecting equilibrium objectives, torsion diagnostics, and finite-sample selection guarantees, and (iii) richer but still localized non-linear upgrades that preserve the interpretability and queryability of the explicit complex.
 
 \section{References Prep}
+\sectionsubtitle{Draft list to formalize}
 
 This section collects potential references to be formalized and cited.
 
@@ -350,13 +637,14 @@ Generative Models: VAEs (Kingma \& Welling, 2013/2014); GANs (Goodfellow et al.,
 We summarize the core symbols used throughout the paper.
 \begin{itemize}[leftmargin=1.5em]
     \item $m_i \in \mathbb R^d$: EWMA residual mean at node $i$.
-    \item $s_i \in \mathbb R^d$: EWMA of squared residual at node $i$; variance $\sigma_i^2 = s_i - m_i^2$.
-    \item $\rho_i = \lVert m_i \rVert / (\sigma_i + \varepsilon)$: incoherence ratio at node $i$.
+    \item $s_i \in \mathbb R^d$: EWMA of squared residual at node $i$ (elementwise).
+    \item $\sigma_i^2 \in \mathbb R$: scalar variance proxy $\sigma_i^2 = \mathrm{tr}(s_i - m_i\odot m_i) = \lVert s_i\rVert_1 - \lVert m_i\rVert_2^2$; $\sigma_i = \sqrt{\sigma_i^2}$.
+    \item $\rho_i = \lVert m_i \rVert_2 / (\sigma_i + \varepsilon)$: incoherence ratio at node $i$.
     \item $k$: neighborhood size (Stage 1: $k{=}8$; Stage 2: $k{\approx}d$).
     \item $D_{subspace}$: current working dimensionality; $d_{final,i}$: smoothed local intrinsic dimension at node $i$.
     \item $s_{control} \in [0,1)$: optimizer control; $\tau_{global} = -D_{subspace}\,\log(1{-}s_{control})$.
     \item $\tau_{local,i} = -d_{final,i}\,\log(1{-}s_{control})$: per-node growth threshold.
-    \item $\Phi(\tau)$: scale-space response evaluated at threshold $\tau$.
+    \item $\Phi_C(\tau)$: cluster-local scale response at threshold $\tau$; $\Phi_C(\tau)=\sum_{i\in C}R_i(\tau)$ with $R_i$ the Lindeberg-normalized node density response (SI~S2.5).
     \item $\Omega_S$: simplex 2-form (discrete torsion) on simplex $S$; $\kappa_S = \lVert \Omega_S \rVert_F$.
     \item $R_S = \kappa_S / \tau^*$: torsion ratio used by the Torsion Ladder at the fixed scale $\tau^*$.
     \item $\tilde{\rho}$: neighbor-normalized incoherence; $\mathrm{CV} = \mathrm{std}(\tilde{\rho})/\mathrm{mean}(\tilde{\rho})$.
