@@ -195,12 +195,25 @@ the adaptive policy is driven by the local floor summaries of
 but the controller's confidence in each step becomes floor-aware rather than
 globally homoscedastic.
 
-\subsection*{S2.2 EWMA Weight from Neighborhood Size}
+\subsection*{S2.2 EWMA Weight and Neighbor Routing Weights}
+\label{sec:si-neighbor-weights}
 The EWMA recursion $m_{t+1}=(1-\alpha)m_t+\alpha x_{t+1}$ has half-life $T_{1/2}=\ln(0.5)/\ln(1-\alpha)\approx \ln 2/\alpha$ for small $\alpha$. Setting $T_{1/2}=k$ (one effective neighborhood of updates) yields
 \[
 \alpha=\frac{\ln 2}{k}.
 \]
 This ties estimator memory to the effective neighborhood support: changing $k$ scales the half-life by the same factor without altering the bias/variance interpretation of the moments. Equivalently, with effective neighborhood mass $\Heff$, the standard half-window rule $\alpha\approx 2/(\Heff+1)$ is recovered when $\Heff\approx 2k/\ln 2-1$.
+
+\paragraph{Neighbor routing weights.}
+Within the $k$-nearest set returned by the ANN query, each neighbor receives a routing weight $\omega_r$ that scales its EWMA moment update, its contribution to the deferred nudge, and its Hebbian tally. Two regimes are used, selected by the working dimension $D_{\mathrm{subspace}}$ of the current region frame:
+\begin{itemize}[leftmargin=1.5em]
+  \item \emph{Low dimension} ($D_{\mathrm{subspace}}\le d_{\mathrm{cut}}$, default $d_{\mathrm{cut}}=8$): \emph{relative Gaussian weights}. With squared distances $\{r_j^2\}$ and nearest squared distance $r_{(0)}^2$,
+  \[
+  \omega_j=\exp\!\Big(-\frac{r_j^2-r_{(0)}^2}{2\tau}\Big),
+  \]
+  so the nearest neighbor (BMU) has weight $1$ and the others decay by their squared-distance excess at bandwidth $\tau$. This uses the metric directly, which is reliable when low-dimensional distances are informative.
+  \item \emph{High dimension} ($D_{\mathrm{subspace}}>d_{\mathrm{cut}}$): \emph{rank-decay approximation} $\omega_r=2^{-(r-1)}$ for rank $r=1,\dots,k$ (BMU at rank $1$). Neighbor ranks stay stable under the distance concentration that degrades raw Gaussian weights in high dimension, and the geometric decay preserves the same qualitative BMU-dominated shape at lower cost.
+\end{itemize}
+The cutoff $d_{\mathrm{cut}}$ is an operational default (\texttt{routing\_weights.gaussian\_cutoff\_dim}) trading metric fidelity against high-dimensional distance concentration; it may be retuned per data regime. The rank-decay form is the one written out in the reference algorithms of S13.2--S13.3.
 
 \subsection*{S2.3 Dual-Rate Motion from Variance Correction}
 \label{sec:si-dual-rate-motion}
@@ -1672,7 +1685,7 @@ The deterministic term decays with half-life $k$. Azuma--Hoeffding gives the dis
 \begin{algorithmic}[1]
 \Procedure{ApplyRankWeightedUpdates}{$\mathbf x,G_C,\mathcal N_k$}
     \For{$r=1,\dots,k$ \textbf{in rank order}}
-        \State $i\gets\mathcal N_k[r]$; $\omega_r\gets 2^{-(r-1)}$
+        \State $i\gets\mathcal N_k[r]$; $\omega_r\gets$ routing weight (S2.2: rank-decay $2^{-(r-1)}$, or Gaussian-relative if $D_{\mathrm{subspace}}\le d_{\mathrm{cut}}$)
         \State $\mathbf e_i\gets\mathbf x-\mathbf w_i$
         \State $\mathbf m_i\gets(1-\alpha\omega_r)\mathbf m_i+\alpha\omega_r\mathbf e_i$
         \State $\mathbf s_i\gets(1-\alpha\omega_r)\mathbf s_i+\alpha\omega_r(\mathbf e_i^{\circ2})$
@@ -1772,6 +1785,7 @@ Defaults are listed here for implementers while remaining defined in their ownin
 \textbf{Object} & \textbf{Default} & \textbf{Owner} & \textbf{Status}\\
 \hline
 \alpha & \ln2/k & \text{S2.1} & \text{theory/operational}\\
+d_{\mathrm{cut}} & 8\ (\text{Gaussian vs rank-decay routing}) & \text{S2.2} & \text{operational}\\
 \eta_{\mathrm{cent}} & \kappa(1-r)/k,\ \kappa=0.5 & \text{S2.2} & \text{operational}\\
 \tau\ (\text{operational scale}) & \text{searched on grid; }\tau_{\mathrm{local},i}=\tau & \text{S2.4} & \text{operational}\\
 s_{\mathrm{control}}\ (\text{reporting only}) & 1-e^{-\tau/D_{\mathrm{subspace}}} & \text{S2.4} & \text{normalization}\\
