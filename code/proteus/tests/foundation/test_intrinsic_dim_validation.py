@@ -61,7 +61,7 @@ def test_mle_recovers_dimension_on_dense_ball_samples(d: int) -> None:
 # --- Degree proxy is unbiased on the reference ensemble -----------------------
 
 
-@pytest.mark.parametrize("d", [1, 2, 3])
+@pytest.mark.parametrize("d", [1, 2, 3, 4])
 def test_degree_proxy_unbiased_on_reference_ensemble(d: int) -> None:
     """The degree proxy median matches the true dimension on the uniform d-ball
     reference ensemble (the ensemble used to calibrate c_{d,k} / C_Q(d))."""

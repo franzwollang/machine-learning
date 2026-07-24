@@ -102,8 +102,10 @@ def estimate_d_final_mle(
     n = positions.shape[0]
     if n == 0:
         return np.empty(0, dtype=int)
-    if n == 1:
-        return np.full(1, int(dim_floor), dtype=int)
+    if n <= 2:
+        # Fewer than three points cannot form the T_j / T_k distance ratios the
+        # MLE needs; fall back to the dimension floor.
+        return np.full(n, int(dim_floor), dtype=int)
 
     from scipy.spatial import cKDTree
 
