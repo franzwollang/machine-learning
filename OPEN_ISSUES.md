@@ -22,12 +22,6 @@ Next issue number: 40
 - §1.5 is prose-only; the intended citation list is tracked in §13 "References Prep."
 - Does not affect implementation.
 
-## 19. Document dimension-dependent Stage 1 routing weights
-
-- Implementation uses relative Gaussian weights over the returned k-neighbor set when the working dimension is <= 8, and rank-decay weights as the high-dimensional performance approximation (`stage1/routing_weights.py`, cutoff `gaussian_cutoff_dim = 8`).
-- Paper/SI still describe rank-weighted routing as the default without distinguishing the theoretical Gaussian neighborhood kernel from the rank-based approximation (SI S2.3.1 gestures at it; the algorithm boxes in S13 show only rank decay).
-- Remaining: update the Stage 1 routing/moment sections (paper §3, SI S2.3, S13.2) so implementation and theory match, including whether the `<= 8` cutoff is operational or derived.
-
 ## 20. Document two-tier Hebbian edge semantics (shadow vs lifted)
 
 - The implemented design is two-tier (`links.py`): any routed co-activation may create or increment a **shadow** edge; only BMU_1 -> BMU_2 co-activation **lifts** an edge to the full (lifted) tier. Lifted edges define the topology used for clustering and (later) simplices; shadow edges retain low-grade adjacency evidence.

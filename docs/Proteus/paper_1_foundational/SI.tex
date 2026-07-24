@@ -209,6 +209,13 @@ Stage~1 separates fast statistical tracking from slower geometric movement. For 
 \paragraph{Node state.}
 Each node stores hit count $h_i$, residual mean $\mathbf m_i$, residual second moment $\mathbf s_i$, derived variance $\sigma_i^2$, an Oja direction $\mathbf u_i$ for dominant local variance, directed transition counts $n_{i\to j}$, and deferred nudge $\mathbf a_i$. A variance-cap violation $\sigma_i^2>\tau_{\mathrm{local},i}$ proposes additional local capacity, typically by splitting along $\mathbf u_i$ after evidence and budget checks. Low-hit, low-variance nodes or weak bilateral links become prune candidates. The variance cap is therefore both a geometric resolution target and a proposal generator; the evidence gate decides whether the proposed topology change is retained.
 
+\paragraph{Routing weights.}
+Each routed sample updates the $k$ nearest nodes with a rank-indexed routing weight $\omega_r$ ($r=1,\dots,k$ in $k$-NN order). In low ambient dimension ($d\le d_{\mathrm{gauss}}$, default $d_{\mathrm{gauss}}=8$) the weights are \emph{Gaussian-relative} on the returned neighbor distances $\{\delta_r\}$,
+\[
+\omega_r=\exp\!\Big(-\tfrac{\delta_r^2-\min_s\delta_s^2}{2\tau}\Big),
+\]
+so the nearest neighbor receives weight $1$ and the others decay by squared-distance excess, using the metric information available when low-dimensional distances are reliable. In higher dimension, where pairwise distances concentrate and become unreliable, the implementation falls back to the scale-free \emph{rank-decay} approximation $\omega_r=2^{-(r-1)}$ used by the reference algorithm (S13.2). Both schemes give the BMU dominant weight and decay smoothly with rank; the cutoff $d_{\mathrm{gauss}}$ is an operational default (a high-dimensional performance approximation), not a derived threshold. The variance estimator updates only on the BMU (rank~0) under either scheme (S2.3.1).
+
 \paragraph{Effective radial drift rate (analysis quantity).}
 Under local isotropy, the node variance satisfies $\sigma_i^2\approx \mathbb E\|x-w_i\|^2$ and a radial shift $\delta r$ changes the variance by $\Delta\sigma_i^2\approx 2\sqrt{\sigma_i^2}\,\delta r$. Spreading this correction over $H=k$ effective updates gives the effective radial drift rate
 \[
@@ -1650,13 +1657,14 @@ The deterministic term decays with half-life $k$. Azuma--Hoeffding gives the dis
 \end{algorithm}
 
 \subsection*{S13.2 Rank-Weighted Neighbor Updates}
+The routing weight $\omega_r$ below is the rank-decay form $2^{-(r-1)}$; for ambient dimension $d\le d_{\mathrm{gauss}}$ (default $8$) it is instead the Gaussian-relative weight of S2.3. Only the BMU (rank~0) updates the variance estimator (S2.3.1).
 \begin{algorithm}[h]
 \caption{Rank-weighted neighbor updates}
 \label{alg:rank-weighted-updates}
 \begin{algorithmic}[1]
 \Procedure{ApplyRankWeightedUpdates}{$\mathbf x,G_C,\mathcal N_k$}
     \For{$r=1,\dots,k$ \textbf{in rank order}}
-        \State $i\gets\mathcal N_k[r]$; $\omega_r\gets 2^{-(r-1)}$
+        \State $i\gets\mathcal N_k[r]$; $\omega_r\gets 2^{-(r-1)}$ \Comment{Gaussian-relative (S2.3) when $d\le d_{\mathrm{gauss}}$}
         \State $\mathbf e_i\gets\mathbf x-\mathbf w_i$
         \State $\mathbf m_i\gets(1-\alpha\omega_r)\mathbf m_i+\alpha\omega_r\mathbf e_i$
         \State $\mathbf s_i\gets(1-\alpha\omega_r)\mathbf s_i+\alpha\omega_r(\mathbf e_i^{\circ2})$
@@ -1756,6 +1764,7 @@ Defaults are listed here for implementers while remaining defined in their ownin
 \textbf{Object} & \textbf{Default} & \textbf{Owner} & \textbf{Status}\\
 \hline
 \alpha & \ln2/k & \text{S2.1} & \text{theory/operational}\\
+d_{\mathrm{gauss}} & 8\ (\text{Gaussian vs.\ rank-decay routing}) & \text{S2.3} & \text{operational}\\
 \eta_{\mathrm{cent}} & \kappa(1-r)/k,\ \kappa=0.5 & \text{S2.2} & \text{operational}\\
 s_{\mathrm{control}}\mapsto\tau_i & -d_i\log(1-s_{\mathrm{control}}) & \text{S2.4} & \text{theory}\\
 \text{scale grid} & r=1/\sqrt2 & \text{S2.5} & \text{operational}\\
