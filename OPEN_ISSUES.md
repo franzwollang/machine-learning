@@ -44,12 +44,6 @@ Next issue number: 40
 - One reconciliation pass remains: confirm paper prose, notation tables, SI S2.4, S2.5, S2.6, S4.4, and S8.4 all use the same convention — region-level `tau` set at region entry, uniform `tau_local` within a scaffold run, per-node `d_final` as diagnostic only, cluster/recursion-level scale selection via scale response + AP.
 - None of these sections should imply per-node `d_final` rescales the split cap.
 
-## 24. Stabilization: implemented CV threshold vs SI trend-exhaustion criterion
-
-- Implemented (`stage1/stabilization.py`): stop when `CV(sigma^2) < beta_cv * sqrt(2/k)` over mature nodes for 3 consecutive epochs, `beta_cv = 1.5`. This matches SI S14.2.
-- SI S2.5.1 now prescribes a stronger two-layer confidence-based criterion as primary — *topology quiet* (no accepted splits/prunes, stable node count over a trailing window) plus *moment flatness* (near-zero CV slope, flat mean load, non-trending reconstruction error) — with absolute thresholds demoted to sanity bounds.
-- Remaining: pick one as canonical. Either implement trend-exhaustion in the scaffold loop, or amend S2.5.1 to state the CV threshold is the operational default and trend-exhaustion is the recommended hardening. The old incoherence-based `CV(rho_tilde)` remains diagnostic-only in both cases.
-
 ## 25. Circle mesh topology test
 
 - The circle scaffold passes node-count and reconstruction-error assertions but lacks an explicit topology check that the lifted-edge graph is a single connected 1-ring (Betti_0 = 1, Betti_1 = 1).

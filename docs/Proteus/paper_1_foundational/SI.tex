@@ -399,8 +399,17 @@ The support trace $V_C(\tau)$ is a cheap secondary diagnostic: robust characteri
 \subsection*{S2.5.1 Scale Controller Procedure}
 Evaluate $\Phi_C(\tau)$ on a geometric grid in $\log \tau$. Candidate peaks are detected by sign changes in the centered second difference, then refined with a small number of additional evaluations near each bracket. A support trace, such as a summed local volume proxy $V_C(\tau)$, is logged as a cross-check: robust characteristic scales should coincide with the expected transition between unresolved support and redundant over-refinement. A grid point is eligible only if its Stage~1 scaffold stabilizes under the fixed-scale criteria. If no robust peak exists, the region is terminal for the searched band.
 
-The fixed-$\tau$ stopping rule should be confidence-based rather than a pure
-absolute-CV threshold. The minimal criterion has two layers:
+The canonical fixed-$\tau$ stopping rule is the absolute CV threshold of S14.2:
+stop once $\mathrm{CV}(\sigma_i^2)<\beta_{\mathrm{cv}}\sqrt{2/k}$ over mature
+nodes holds for a few consecutive epochs (defaults $\beta_{\mathrm{cv}}=1.5$,
+three epochs). This is the operational default because it is cheap, has the
+EWMA noise-floor derivation of S14.2, and is what the reference scaffold loop
+implements; the neighbor-normalized incoherence CV $\mathrm{CV}(\widetilde\rho)$
+is retained as a diagnostic only.
+
+A stronger confidence-based criterion is \emph{recommended as a hardening step}
+where the absolute threshold proves fragile (for instance under heavy
+neonatal-node transients). It has two layers:
 \begin{enumerate}[leftmargin=1.5em]
   \item \emph{Topology quiet:} over a trailing window of $W$ epochs, there are no
   accepted splits, no accepted node prunes, node count is unchanged, and the
@@ -411,12 +420,11 @@ absolute-CV threshold. The minimal criterion has two layers:
   the mean load $\mathbb E[\sigma_i^2/\tau]$ is flat rather than still drifting
   toward the cap.
 \end{enumerate}
-This replaces the weaker rule "the last few CV values fall below a tolerance."
-Absolute thresholds remain useful as sanity bounds, but the primary stopping
-signal is \emph{trend exhaustion}: the scaffold has become structurally quiet
-and its moments are no longer evolving systematically. Optional frozen-topology
-epochs may still be used as a diagnostic hardening step, but they are not the
-default equilibrium criterion.
+The signal this hardening adds is \emph{trend exhaustion}: the scaffold has
+become structurally quiet and its moments are no longer evolving systematically.
+Absolute thresholds remain the default equilibrium criterion; the
+trend-exhaustion layers and any frozen-topology epochs are optional diagnostic
+hardening, not the default stopping rule.
 
 \subsection*{S2.5.2 Local Noise Estimation from Settled Catchments}
 \label{sec:si-local-noise}
