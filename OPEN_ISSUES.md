@@ -84,11 +84,6 @@ Remaining work:
 - The structural bar and moment-matching harness are in place (`tests/harness/hierarchy_recovery.py`: Hungarian matching, Hotelling mean gate, Frobenius covariance gate; six-leaf regression passes).
 - Remaining: (a) use per-level tau from each recursion frame (not only the root) when comparing deeper trees; (b) tighten gates now that SI S2.5.4 declares `Sigma_smooth = tau * I` the canonical (no longer provisional) isotropic map — the harness's `tau * I` is now spec-backed, so the gate tolerances can be tightened against it.
 
-## 36. C_Q(d) is referenced but never defined
-
-- SI S3.3 uses `C_Q(d)` ("variance-cap star-radius constant in the regular interior") in the prune-radius guard and merge guard, and the S12 edit-budget argument leans on the resulting `B_p` jump bound — but no formula, derivation, or calibration is given anywhere.
-- Derive it (expected star radius of a cap-equilibrated Voronoi cell under local isotropy) or define it via the same uniform-d-ball calibration ensemble now shipped for `c_{d,k}` (S2.5.5, `proteus.stage1.calibration`): reuse `sample_unit_ball` + the equilibrated scaffolds and measure the star radius instead of the k-NN radius. Add it to S14.3 with the appropriate status label.
-
 ## 37. Constant-status audit of S14.3
 
 - Extend the S14.3 defaults table into a complete three-tier classification: **derived** (follows from a derivation; e.g. `alpha = ln2/k`, grid ratio, BDeu `alpha_0`), **calibrated** (measured on a declared reference ensemble with a written protocol; e.g. `c_{d,k}`, `C_Q(d)`, equilibrium load target), and **free operational default** (tunable, logged, backstopped by the evidence gate; e.g. torsion ladder bands, `kappa = 0.5`, `rho_max = 10`, prune floors).
