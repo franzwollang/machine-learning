@@ -46,6 +46,8 @@ def compute_edge_weights(scaffold: Any) -> dict[tuple[int, int], float]:
 
     n = len(scaffold.nodes)
     tau = float(getattr(scaffold, "tau", 1.0))
+    # d_final is seeded to the region working dim and refreshed only
+    # diagnostically (SI S1.4.1), so d_eff == D_subspace within a run.
     d_eff = max(int(np.median([node.d_final for node in scaffold.nodes])), 1)
     denom_kernel = 2.0 * d_eff * max(tau, _EPS)
 

@@ -1,23 +1,23 @@
 {
-  "updated_at": "2026-07-24T12:05Z",
-  "turn": 16,
-  "focus": { "milestone": "M3", "issue": 40, "goal": "#39 resolved (estimator validated + LB shipped); M3 done; #40 (operational d_final wiring) opened" },
+  "updated_at": "2026-07-24T13:00Z",
+  "turn": 17,
+  "focus": { "milestone": "M3", "issue": null, "goal": "#40 resolved (SI S1.4.1 operational refresh semantics); M3 fully closed" },
   "recent": [
-    "CHAIN: fetched --all first (per memory); head was eaf2 (turn15). ff-merged eaf2 into b0ab; continued.",
-    "#39 RESOLVED: validated degree-proxy d_final (unbiased on uniform d-ball d=1..4; biased HIGH on thin curved manifolds, circle GT1->median2). Added estimate_d_final_mle (Levina-Bickel, positions) + scaffold intrinsic_dim_method selector (degree default). SI S1.4.1 + S14.3 rows + paper xref. 14-test harness. Suite 157p/1skip/31xf.",
-    "GPT audit (gpt-5.4-high) cross-family: LB math correct; applied fixes (n<=2 short-circuit, d=4 test). Surfaced that refresh_intrinsic_dim is NEVER called operationally -> #40.",
-    "M3 marked DONE (c_dk+C_Q calibrated #28/#36, S14.3 audit #37, estimator #39)."
+    "CHAIN: git fetch --all first (per memory); chain head = b0ab (tip efa674d, 62 ahead). ff-merged into cursor/next-task-progression-0276 (was clean off main). diff vs head empty.",
+    "#40 RESOLVED via option (b): amended SI S1.4.1 'Operational refresh semantics' para — d_final seeded to working dim D_subspace, refreshed only diagnostically; all operational consumers (d_eff S2.6.1, alpha_0 S2.7, AP pref, d_hat S1.4, cluster_dim S3.1-2) evaluate at D_subspace within a run. Consistent with uniform-cap S2.4 + resolved #23.",
+    "Added SI-citing comments at 3 consumer sites (clustering.py:49, recursion.py:220, pruning.py:148). No behavior change. Suite 158p/1skip/31xf green; SI begin/end 40/40.",
+    "Chose (b) over acceptance-adjacent wiring (a): (a) changes AP prefs/alpha_0/d_hat/prune slots -> would need cross-family audit + regression re-validation; (b) is the low-risk spec-alignment."
   ],
   "discoveries": [
-    "OPERATIONAL d_final BUG (#40): run_until_stable never calls refresh_intrinsic_dim, so in live runs d_final stays at seed self.dim (working dim) through splits. ALL consumers (clustering alpha_0/preference S2.6.1, recursion d_hat S1.4, pruning cluster_dim S3.1) read the working dim, not an estimate. Contradicts SI.",
-    "d_final estimators only exercised in tests/diagnostics currently. LB on coarse near-regular scaffold nodes under-reads at d>=3 (violates Poisson assumption); accurate on dense samples.",
-    "degree proxy is genuinely unbiased on the uniform d-ball reference ensemble (same ensemble as c_dk/C_Q) for d=1..4."
+    "d_final consumers all read node.d_final medians; since refresh_intrinsic_dim is never called operationally, these == region working dim self.dim today (verified in clustering.py/recursion.py/pruning.py).",
+    "SI line 457 (S2.4) already framed d_final as diagnostic + not modulating the cap; S1.4.1 was the divergence site (implied live estimate feeding consumers). Now aligned."
   ],
   "open_threads": [
-    "#40: decide wire refresh_intrinsic_dim into scale-search+re-validate regressions (acceptance-adjacent, cross-family audit) vs amend SI that d_final defaults to working dim. S8.4/S4.2 (M5) must use scale-consistent estimator.",
-    "M2 remaining: persistence tau* coarse-end refinement; delete legacy load_band + dormant _legacy_slope_selector/_detect_peak once load-crossover dominates all scenarios.",
-    "M1 #27 Part B blocked SOLELY on M4 S3.4 DM evidence gate (cold-start recheck REFUTED; do not re-attempt)."
+    "M1 #27 Part B blocked SOLELY on M4 S3.4 DM evidence gate (cold-start recheck REFUTED; do not re-attempt).",
+    "M2 #28 remaining: refine persistence tau* off coarse-END; delete legacy load_band + dormant _legacy_slope_selector/_detect_peak once load_crossover dominates all scenarios.",
+    "#31 harness follow-ups now UNBLOCKED (S2.5.4 makes tau*I canonical): (a) per-level tau; (b) tighten gates. Self-contained, low-risk — good next-turn candidate.",
+    "M5 S8.4/S4.2 must invoke refresh_intrinsic_dim explicitly on scale-consistent sample (now documented in SI S1.4.1)."
   ],
-  "next_step": "Next turn: either start M4 step1 (flag-complex S4.1-4.2, whole part - see memory) or address #40 (SI amendment is the low-risk option; operational wiring is acceptance-adjacent). M2 cleanup is also unblocked.",
+  "next_step": "Next turn: fetch --all + chain onto furthest-ahead branch first. Then pick M4 step1 flag-complex (S4.1-4.2, whole part) as the critical-path lever, OR the low-risk #31 harness follow-ups, OR M2 cleanup.",
   "blockers": ["#27 Part B blocked on M4 S3.4 DM evidence gate"]
 }

@@ -217,6 +217,8 @@ def run_recursive_discovery(
             continue
 
         cluster_node_ids = np.where(cluster_result.labels == label)[0]
+        # Operationally d_final == working dim (SI S1.4.1 refresh semantics),
+        # so d_hat reduces to the region working dim unless refreshed.
         d_finals = [scaffold.nodes[int(i)].d_final for i in cluster_node_ids]
         d_hat = int(np.median(d_finals)) if d_finals else dim
 

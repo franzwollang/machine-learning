@@ -236,6 +236,30 @@ not as a coarse-node drop-in. The scaffold exposes both via an
 the scale-consistent estimator rather than inherit a silent proxy bias; the
 $k_{\min},k_{\max}$ range is an operational default (S14.3).
 
+\paragraph{Operational refresh semantics.}
+The two estimators above define the value produced by an \emph{explicit} refresh
+of the per-node estimate; they are not evaluated implicitly on every edit. In the
+Stage~1 stabilization loop the per-node value is \emph{seeded} to the region
+working dimension $D_{\mathrm{subspace}}$ (S1.4) when a node is created and is
+inherited unchanged across variance-cap splits; the scaffold does not recompute
+it mid-run. The refresh is a diagnostic/offline operation, invoked for junction
+diagnostics (S8.4) and for the validation protocol above. Consequently, within a
+single uniform-scale scaffold run ($\tau_{\mathrm{local},i}=\tau$ for all $i$,
+S2.4) every operational consumer that reads a $d_{\mathrm{final}}$ aggregate ---
+the S2.6.1 clustering effective dimension
+$d_{\mathrm{eff}}=\operatorname{median}_i d_{\mathrm{final},i}$, the S2.7 branching
+prior $\alpha_{0,i}=1/(d_{\mathrm{final},i}+1)$, the AP self-preference (S2.6.1),
+the recursion child dimension summary $\hat d=\operatorname{median}$ over cluster
+members (S1.4), and the S3.1--S3.2 post-clustering lifted-edge demotion cluster
+dimension --- evaluates at the region working dimension $D_{\mathrm{subspace}}$.
+This is intended and consistent with the uniform-cap design of S2.4: dimensional
+heterogeneity is resolved \emph{across} recursion levels (each child receives its
+own PCA rank via T2 transfer and its own scale search), not \emph{within} a single
+scaffold run. Consumers that require a genuine per-node estimate departing from
+$D_{\mathrm{subspace}}$ --- junction detection (S8.4) and heterogeneous simplex
+dimension (S4.2) in Stage~2 --- must invoke the refresh explicitly on the
+scale-consistent sample rather than read the seeded value.
+
 \section*{S2. Stage 1 Derivations}
 
 \subsection*{S2.1 Geometric Grid Spacing}
