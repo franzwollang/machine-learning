@@ -35,9 +35,10 @@ parse/import; finish the file first.
 
 ## What gets committed
 
-`git add -A` is fine: local working memory (`PLANNING.md`, `SCRATCHPAD.json`,
-`SCRATCHPAD_LOG.jsonl`) is already gitignored, and `OPEN_ISSUES.md` +
-`OPEN_ISSUES_LOG.jsonl` are meant to be tracked. Never commit credentials/secrets;
+`git add -A` is fine: all the workflow artifacts (`OPEN_ISSUES.md`, `PLANNING.md`,
+`SCRATCHPAD.json`, `OPEN_ISSUES_LOG.jsonl`, `SCRATCHPAD_LOG.jsonl`) are intentionally
+tracked so cloud agents can share project state (see the project-state rule), so committing
+them is expected — keep `SCRATCHPAD*` current before you do. Never commit credentials/secrets;
 never commit generated artifacts outside their sanctioned paths (`code/proteus/tests/`
 artifacts conventions).
 
