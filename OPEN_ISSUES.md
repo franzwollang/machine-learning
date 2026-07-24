@@ -71,9 +71,6 @@ equilibrium). The knee proposal is therefore demoted to a diagnostic; persistenc
 compensated count, is the structural signal, and `L = 1` fixes each feature's resolution.
 
 Remaining work:
-- **`c_{d,k}` calibration protocol.** Declare it as a calibration (uniform d-ball ensemble,
-  median `r_k / sqrt(tau)` at equilibrium, tabulated over (d, k)) rather than an analytic
-  constant, and ship the lookup table (couples to `C_Q(d)` #36 under the same ensemble).
 - **Persistence tau* is coarse-end.** The persistence selector lands tau* at the coarse end
   of the persistent interval (hierarchical tau*=0.36 vs expected 0.0225); refine toward the
   within-interval characteristic scale before making persistence the default for structured
@@ -90,7 +87,7 @@ Remaining work:
 ## 36. C_Q(d) is referenced but never defined
 
 - SI S3.3 uses `C_Q(d)` ("variance-cap star-radius constant in the regular interior") in the prune-radius guard and merge guard, and the S12 edit-budget argument leans on the resulting `B_p` jump bound — but no formula, derivation, or calibration is given anywhere.
-- Derive it (expected star radius of a cap-equilibrated Voronoi cell under local isotropy) or define it via the same uniform-d-ball calibration ensemble as `c_{d,k}` (#28), and add it to S14.3 with the appropriate status label.
+- Derive it (expected star radius of a cap-equilibrated Voronoi cell under local isotropy) or define it via the same uniform-d-ball calibration ensemble now shipped for `c_{d,k}` (S2.5.5, `proteus.stage1.calibration`): reuse `sample_unit_ball` + the equilibrated scaffolds and measure the star radius instead of the k-NN radius. Add it to S14.3 with the appropriate status label.
 
 ## 37. Constant-status audit of S14.3
 

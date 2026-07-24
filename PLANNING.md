@@ -14,8 +14,8 @@ bodies below stay static descriptions.
 |---|---|
 | M0 — Spec/implementation sync pass | done |
 | M1 — Canonical clustering objective | blocked (#27: coarse-anchoring fixes circle/hierarchy heuristic-free; cold-start recheck (ii') implemented + REFUTED as a gate — over-rejects genuine multi-level splits; stand-in deletion now blocks solely on the M4 S3.4 DM evidence gate) |
-| M2 — Characteristic-scale selection rebuild | in progress |
-| M3 — Constant audit & calibration tier | not started |
+| M2 — Characteristic-scale selection rebuild | in progress (load-crossover default; persistence signal + tau/heat bridge landed; c_{d,k} now calibrated + shipped as a lookup table, SI S2.5.5; remaining: persistence coarse-end refinement, delete legacy load-band selector) |
+| M3 — Constant audit & calibration tier | in progress (calibration tier bootstrapped: c_{d,k} is the first calibrated-tier constant with a written protocol + reusable ensemble; C_Q(d) #36 and the full S14.3 audit #37 remain) |
 | M4 — Stage 2 core (complex, evidence gate, dual flow) | not started |
 | M5 — Inference interface & diagnostics | not started |
 | M6 — Evaluation, benchmarks, paper finalization | not started |

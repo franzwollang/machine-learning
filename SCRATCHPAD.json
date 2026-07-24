@@ -1,22 +1,23 @@
 {
-  "updated_at": "2026-07-24T09:20Z",
-  "turn": 12,
-  "focus": { "milestone": "M4-prep", "issue": 38, "goal": "promote canonical SI-contract types out of tests/ into the package (pre-M4 packaging hygiene)" },
+  "updated_at": "2026-07-24T10:15Z",
+  "turn": 13,
+  "focus": { "milestone": "M2/M3", "issue": 28, "goal": "calibrate c_{d,k} as a calibrated-tier constant (SI S2.5.5 protocol + shipped table)" },
   "recent": [
-    "ff-merged chain head 8fd0 (turn-11 state) onto fresh branch 9378; installed deps (python3-dev+hnswlib --break-system-packages); baseline 129p/31xf green.",
-    "#38 RESOLVED: created proteus/types.py with all canonical SI-contract dataclasses; repointed the 5 src imports (scaffold/nodes/links/pruning/deferred) from tests.contracts.state -> proteus.types.",
-    "Rewrote all 8 tests/contracts/*.py as thin re-export shims from proteus.types (SI-section docstrings preserved); updated tests/contracts/__init__ + proteus-implementation.mdc Canonical-types note (staleness fix).",
-    "Verified shim identity (t.NodeState is state.NodeState etc.); full suite 129p/31xf — behavior-preserving. src/ no longer imports from tests/."
+    "ff-merged chain head 9378 (turn-12 state) onto fresh branch aa97; installed deps; baseline 129p/31xf green.",
+    "#28 c_{d,k} calibration: new proteus.stage1.calibration (uniform d-ball sampler, equilibrium r_k/sqrt(tau) measure, calibrate_cdk driver, shipped CDK_TABLE d in {1..4} x k in {6,8,10,12}, c_dk lookup + c_dk_analytic fallback).",
+    "Wired sigma=sqrt(tau)/c_{d,k} into scale_response.node_response (diagnostic only; selector=load-crossover unaffected). SI S2.5.5 + S0.1 + S14.3 (status=calibrated). 8 fast foundation tests; suite 137p/31xf.",
+    "GPT cross-family audit (agent 01e7a9a8) CHANGES-REQUIRED -> all fixes applied: SI h_i->r_{k,i} in S2.5.4, #28->S2.5.5 ref, node_response c_dk uses clamped k (exact identity), documented mature-node fallback, completed CDK_CALIBRATION_META."
   ],
   "discoveries": [
-    "Only NodeState+Link were actually consumed by src/ (5 imports); the other contract shapes (complex/evidence/geometry/membership/scale/clustering/diagnostics) were forward declarations imported nowhere yet.",
-    "#27 stand-in deletion remains blocked SOLELY on M4 S3.4 DM gate (path (i)); (ii') cold-start recheck and threshold-tightening both REFUTED earlier — do NOT re-attempt overlap-based rechecks."
+    "c_{d,k} decays strongly in d (k=8: 9.71,2.84,1.61,1.32 for d=1..4) and rises in k; d>=3 matches the isotropic analytic anchor c_dk_analytic=(k/V_d)^{1/d}*sqrt((d+2)/d) closely (d=3,k=8: 1.60 vs 1.61).",
+    "Full-grid calibration is slow (naive/hnsw ANN, d=1 tiny-tau dominates); shipped config n=3000/4 ens/N*=120/max_epochs=25 ~= 6-8 min. Regenerate via python -m proteus.stage1.calibration.",
+    "c_{d,k} is NOT on the acceptance path: tau* selector is load-crossover (S2.5.1); node_response R_i is diagnostic. So this is calibration-tier, audit-adjacent but not selector-changing."
   ],
   "open_threads": [
-    "M1 #27 Part B fully blocked on M4 (S3.4 DM evidence gate). No self-contained Stage-1 path remains.",
-    "Next unblocked options: M4 step1 flag-complex (S4.1-4.2, unblocks #25 + eventually #27 DM gate; now clean to add types in proteus.types); M2 #28 c_{d,k} calibration protocol (couples C_Q(d) #36); M3 #37 constant audit.",
-    "chain head after this push = 9378. ALWAYS git fetch --all + reconcile onto newest chain head before any work next run."
+    "#36 C_Q(d): reuse the S2.5.5 uniform-d-ball ensemble (sample_unit_ball + equilibrated scaffolds) but measure star radius instead of k-NN radius; add to S14.3.",
+    "#28 remaining: persistence tau* coarse-end refinement; delete legacy load-band selector + dormant _legacy_slope_selector/_detect_peak once load-crossover dominates all scenarios.",
+    "M1 #27 Part B still blocked SOLELY on M4 S3.4 DM gate (cold-start recheck REFUTED; do not re-attempt overlap-based rechecks)."
   ],
-  "next_step": "Start M4 step 1 (flag complex S4.1-4.2 + T3 transfer S4.4 + simplex structures S4.5); new types go in proteus.types now. Alternatively M2 #28 c_{d,k} calibration SI section + lookup table.",
-  "blockers": ["#27 Part B (stand-in deletion) blocked on M4 S3.4 DM evidence gate — no Stage-1-only path exists"]
+  "next_step": "Either #36 C_Q(d) (reuse the new calibration ensemble; couples M3) OR #37 full S14.3 three-tier constant audit OR start M4 step1 flag-complex (S4.1-4.2; note its awaiting tests span S4.1/S9.3/scenario-PH so it needs full-part landing).",
+  "blockers": ["#27 Part B blocked on M4 S3.4 DM evidence gate"]
 }
