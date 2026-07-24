@@ -1,22 +1,23 @@
 {
-  "updated_at": "2026-07-24T14:20Z",
-  "turn": 20,
-  "focus": { "milestone": "M4", "issue": 27, "goal": "landed flag-complex construction (S4.1/S4.2/S13.4) as first M4 step; topology recovery deferred to #41" },
+  "updated_at": "2026-07-24T15:55Z",
+  "turn": 21,
+  "focus": { "milestone": "M4", "issue": 27, "goal": "landed the S3.4 DM evidence gate (heart of the architecture); unblocks M1 Part B" },
   "recent": [
-    "CHAIN: git fetch --all; furthest = a422 (PR#19, turn19, 70 ahead). ff-merged into cursor/next-task-progression-2076 (was clean off main); diff vs head empty.",
-    "M4 step1a LANDED: stage2/flag_complex.py = Greedy Chaining (S13.4) top-dim clique complex of lifted graph; homogeneous+heterogeneous d_final, canonical dedup, incidence junction signature, orphan detect, simplex d-volume (S4.5). flag_complex_from_scaffold wires T3. 9 foundation + 2 stage2 tests. Suite 163->174p, 33xf unchanged. Committed + pushed.",
-    "EMPIRICAL (turn20): sparse lifted-graph flag complex of fitted circle scaffold has 6 ESSENTIAL H1 loops (band holes never filled by lifted cliques) -> confirms #25; VR-PH on positions (S14.2) is the recovery route but tissue pollution births spurious loops at 1.5*sigma_star. Topology recovery = new issue #41.",
-    "SCOPE decision: landed CONSTRUCTION only (correct + tested). Did NOT flip nested_spheres/linked_tori (S4.1) topology tests (need robust PH per-region, #41) nor manifold_zoo (S4.2) heterogeneous-dim test (needs #40 d_final refresh, still working-dim). No test weakening; no acceptance-path change; no audit needed (construction + metric-adjacent)."
+    "CHAIN: git fetch --all; furthest = 2076 (PR#20, turn20, 69 ahead, contains all prior tips). ff-merged into cursor/next-task-progression-402e (was clean off main); diff vs head empty.",
+    "M4 step2 DM EVIDENCE GATE LANDED: evidence/dm_score.py (closed-form BDeu marginal S3.4, F_DM, evaluate_edit), star_matrix.py (S10.4 conditioning + full-rank-modulo-scaling guard), gate.py (S3.6 window/hysteresis/edit-budget + all-or-nothing S10.4 rule). 7 awaiting tests flipped + 6 new. Suite 174->187p, 33->26xf.",
+    "CROSS-FAMILY AUDIT (gpt-5.4-high) done: DM math CONFIRMED correct. Fixed: all-or-nothing S10.4 evidence-bearing rule (was partial-quarantine bug), underdetermined-star guard, hysteresis firing-window, tau_bf log-units docs. REJECTED Finding5 (all guarded prune/merge ARE positive-jump per S3.3, so budgeting each is correct).",
+    "SI: added rho_min=1e-4 row to S14.3 (S10.4). OPEN_ISSUES #42 (K_i runtime form under-specified), #43 (dual-subgraph connectivity wiring pending S6 dual graph)."
   ],
   "discoveries": [
-    "d_final==working-dim operationally (#40) => flag_complex_from_scaffold on circle (ambient 3) yields 12 tetrahedra + 15 triangles + 5 edges, all valid lifted cliques. Heterogeneous per-patch simplex dim needs the #40 refresh at its S8.4 consumer (M5).",
-    "gudhi installed fine in venv; RipsComplex/SimplexTree/expansion/persistence all available. tests/metrics/persistent_homology.py already provides VR Betti."
+    "DM split evidence: merging two distinct sub-populations gives a high-entropy blended outgoing dist; splitting into concentrated children raises the marginal by ~N*log2 (S3.5 O(H_R*Delta_R)). This is the clean falsifier for the gate.",
+    "F_DM marginal is exchangeable/order-invariant (no optimizer). Single-node keep vs 2-node split is a legitimate F_DM comparison (affected region differs by topology).",
+    "rho_min ratio alone does NOT catch under-determined stars (2 outcomes/3 simplices): need n_outcomes>=n_simplices guard (full rank modulo scaling)."
   ],
   "open_threads": [
-    "#41 (NEW): Stage 2 topology recovery via VR-PH (S14.2) — filtration/persistence reading, tissue pollution (run per-region), multi-component assembly. Blocks nested_spheres/linked_tori S4.1 tests + circle #25 b1.",
-    "M4 next: (a) T3/T0 flow-conserving count transfer S4.3/S4.4 into the complex; (b) THE big lever = S3.4 DM evidence gate (unblocks M1 #27 Part B stand-in deletion + M1 default gate).",
-    "M2 #28 remaining (unchanged): within-interval persistence tau* refinement (acceptance-path + SI-underdetermined); delete legacy load_band once load_crossover dominates all scenarios."
+    "M1 Part B now UNBLOCKED: wire evidence.gate into runtime scaffold/clustering loop, delete load-bearing clustering.py stand-ins (_refine_boundaries, _absorb_*, <=3 collapse). Needs the S3.6 cadence firing during training + edit dry-run. ACCEPTANCE-PATH -> audit.",
+    "#43 dual-subgraph connectivity: score_edit has dual_connected hook but nothing computes it until S6 dual graph lands.",
+    "M4 remaining: T3/T0 flow-conserving count transfer S4.3/S4.4; #41 topology-recovery PH; S6 dual flow + density."
   ],
-  "next_step": "Next turn (fetch --all + chain first): strongest lever is M4 S3.4 DM evidence gate (closed-form Dirichlet-multinomial score; unblocks M1 Part B + is 'the heart of the architecture' per PLANNING) — acceptance-path, REQUIRES cross-family GPT audit. Alternative smaller: #41 topology-recovery PH reading (evidence-path).",
-  "blockers": ["#27 Part B blocked on M4 S3.4 DM evidence gate", "#41 topology recovery blocks on robust per-region PH reading; #26 S4.2 heterogeneous-dim also blocks on #40"]
+  "next_step": "Next turn (fetch --all + chain FIRST): strongest lever = wire the DM gate into the runtime scaffold loop to enable M1 Part B (delete clustering stand-ins) — acceptance-path, cross-family audit. Alternative: S4.3/S4.4 count transfer (proposal-path, smaller) or #41 PH reading.",
+  "blockers": ["#43 dual-connectivity blocks on S6 dual graph (gate defaults dual_connected=True meanwhile)", "M1 Part-B stand-in deletion needs the gate wired into training + single-scale clustering regressions re-evaluated against it"]
 }
