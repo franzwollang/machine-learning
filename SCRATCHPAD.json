@@ -1,22 +1,22 @@
 {
-  "updated_at": "2026-07-24T05:40Z",
-  "turn": 6,
-  "focus": { "milestone": "M2", "issue": 28, "goal": "characteristic-scale selection: land the load-crossover selector; close the compensated-count question" },
+  "updated_at": "2026-07-24T06:55Z",
+  "turn": 7,
+  "focus": { "milestone": "M1", "issue": 27, "goal": "wire persistence accept-gate into recursion; unblock stand-in heuristic deletion" },
   "recent": [
-    "ff-merged chain tip 7b9a (M0+M1A+M2 persistence) into branch 9f6a; env set up; baseline 120 passed/31 xfailed.",
-    "Implemented load-crossover selector (controller._select_load_crossover, L=1 up-crossing) and made it DEFAULT; kept legacy load_band behind flag. tau* circle 8.0x->1.6x, swiss 3.9x->0.9x; full suite still 120/31; scale-search tolerance tightened 10x->3x + swiss analog. Commit 36dee72.",
-    "Cross-family (GPT) audit + cold-start ablation: compensated node-count knee N*tau^{d/2} is NOT a usable operational selector (budget saturation, warm-start path dependence, slope never settles at d/2). Documented in SI S2.5.1 + S14.3; #28 trimmed. Commit 37b2296."
+    "Merged chain tip 9f6a (M0+M1A+M2 persistence+load-crossover) into branch 6aa1; baseline 121 passed/31 xfailed.",
+    "Wired persistence accept-gate: RecursionConfig.require_persistent_split (SI S2.6.2). Split accepted only if persistence_result.tau_star_index is not None; forces selector='persistence'+record_partitions. Added 2 gate tests. Full suite 123/31. Commit + push done.",
+    "Ablation (heuristics stripped via monkeypatch): gate ALONE gives circle->1 leaf, hierarchy->6 leaves ARI_f=1.0; heuristic-free WITHOUT gate over-splits (hierarchy->8). Confirms gate replaces stand-ins at recursion layer."
   ],
   "discoveries": [
-    "Compensated node-count/support-trace knee (#28 primary signal) rejected as operational selector, cold-start validated. Persistence (S2.6.2) is the structural arbiter; L=1 up-crossing fixes resolution scale per feature.",
-    "Load-crossover fix: legacy load-band picked coarsest point in [0.65,1] band -> ~8x too coarse; L=1 up-crossing lands within one grid step. Node cap (max_nodes~64) saturates N(tau) at fine scales, corrupting any N*tau^{d/2} signal.",
-    "Env: PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'; deps need reinstall each fresh VM (see memory). No LaTeX (SI edits text-only)."
+    "Single-scale run_clustering heuristic-free: circle->4, swiss->[1,6,6..], hierarchy->[5,5,6,6,8,9,6,6]. Persistence still discriminates: circle/swiss tau_star_index=None, hierarchy=1. Gate is the correct arbiter.",
+    "Blocker to deleting clustering.py stand-ins is NOT recursion (gate handles it) but SINGLE-SCALE tests: test_circle_clustering_produces_one_cluster (==1) + swiss scenario n_clusters<=3 + hierarchy purity. Cross-scale gate cannot rescue single-scale run_clustering. Re-scope needed (spec-justified by M1 finding).",
+    "Env: PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'; deps reinstalled this VM. Full suite ~86s = 123 passed/31 xfailed."
   ],
   "open_threads": [
-    "#28 remaining: (a) c_{d,k} calibration protocol (uniform d-ball ensemble; couples to C_Q(d) #36); (b) refine persistence tau* off the coarse-end of the interval toward v*; (c) delete legacy load_band + dormant _legacy_slope_selector/_detect_peak once load_crossover dominates ALL scenario/recursion regressions.",
-    "#27 purge (M1 Part B): wire persistence as accept gate in run_recursive_discovery (accept split only if persists>=P_persist), confirm circle=1/swiss<=3/hierarchy 6-leaf, THEN delete clustering.py stand-in heuristics.",
-    "chain PRs off main all draft/unmerged; 9f6a stacks the full chain + this M2 work."
+    "#27 NEXT turn: make recursion gate default, re-scope single-scale circle/swiss/hierarchy clustering tests (own auditable change; cross-family audit advised since it touches acceptance-path tests), THEN delete _refine_boundaries/_absorb_*/<=3-collapse.",
+    "#28 open: (a) c_{d,k} calibration protocol (uniform d-ball; couples C_Q(d) #36); (b) refine persistence tau* off coarse-end toward v*; (c) delete legacy load_band + dormant _legacy_slope_selector/_detect_peak once load_crossover dominates all scenarios.",
+    "chain: main -> 5413 -> 5511 -> eb8a -> 20e3 -> 7b9a -> 9f6a -> 6aa1(this). All draft PRs off main; 6aa1 stacks full chain + gate."
   ],
-  "next_step": "Wire persistence as the recursion accept-gate (#27 purge) OR write the c_{d,k} calibration protocol (#28); prefer the persistence gate since it unblocks deleting clustering.py heuristics.",
+  "next_step": "Re-scope single-scale clustering tests (spec-justified) + make gate default + delete clustering.py stand-ins (#27 Part B completion). Alternatively write c_{d,k} calibration protocol (#28).",
   "blockers": []
 }
