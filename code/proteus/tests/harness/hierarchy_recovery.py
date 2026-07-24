@@ -6,10 +6,13 @@ ARI checks.
 
 **Primary (hierarchical GT):** ``assert_recursion_matches_gt_hierarchy_unimodal_levels``
 builds a **bottom-up** τ-smoothed unimodal Gaussian per ``ClusterNode`` group in
-``make_hierarchical_gaussian`` (fine → coarse pairs → root), using root
-``tau_star`` for ``Σ_smooth = tau * I`` (see ``OPEN_ISSUES`` §32).  At each
-``level``, same-level recursion nodes are matched to GT groups by **Hungarian
-assignment on mean L2**; **mean** gates use a **chi-squared** threshold on a Hotelling statistic
+``make_hierarchical_gaussian`` (fine → coarse pairs → root) under the **canonical**
+isotropic bridge ``Σ_smooth = tau * I`` (SI S2.5.4; formerly provisional, see
+``OPEN_ISSUES`` §31/§32).  The smoothing scale is the **per-frame** ``tau_star`` of the
+matched recursion node (resolved up the parent chain), *not* a single global root scale,
+so deeper recursion levels are compared at the finer scale at which they were actually
+resolved.  At each ``level``, same-level recursion nodes are matched to GT groups by
+**Hungarian assignment on mean L2**; **mean** gates use a **chi-squared** threshold on a Hotelling statistic
 under the τ-smoothed mixture (analytic ``Cov(X)`` for one draw, Gaussian reference for ``x̄``);
 **covariance** gates compare sample covariance to the **raw** fine-leaf mixture second moment with a
 **Frobenius** tolerance (no Monte Carlo).
@@ -63,10 +66,11 @@ def resolve_tau_star(node: Any, tree: Any) -> float | None:
 
 
 def smoothing_covariance_isotropic(tau: float, dim: int) -> np.ndarray:
-    """Provisional map ``tau -> Σ_smooth`` for Gaussian convolution (ambient ``tau * I``).
+    """Canonical map ``tau -> Σ_smooth`` for Gaussian convolution (ambient ``tau * I``).
 
-    See ``OPEN_ISSUES`` §32: replace with subspace / anisotropic kernel once
-    theory and Stage 1 agree on a canonical map.
+    SI S2.5.4 (variance-cap / heat-kernel bridge) declares ``Σ_smooth = tau I`` the
+    canonical isotropic convention (no longer provisional; #32 resolved).  An
+    intrinsic / anisotropic tangent-space kernel is explicitly deferred future work.
     """
 
     t = float(tau)
@@ -286,10 +290,10 @@ def assert_recursion_matches_gt_hierarchy_unimodal_levels(
     *,
     min_samples: int = 5,
     min_samples_cov: int | None = None,
-    mean_chi2_alpha: float = 0.02,
+    mean_chi2_alpha: float = 0.05,
     mean_inv_reg: float = 1e-7,
-    cov_fro_atol: float = 0.55,
-    cov_fro_rtol: float = 0.28,
+    cov_fro_atol: float = 0.45,
+    cov_fro_rtol: float = 0.12,
     levels: set[int] | None = None,
     required_levels: Collection[int] | None = None,
     min_cov_diag: float = 1e-9,
@@ -300,10 +304,17 @@ def assert_recursion_matches_gt_hierarchy_unimodal_levels(
     that level **unless** ``required_levels`` contains that level, in which case
     missing prediction or GT nodes is an error (no silent skip).
 
-    **Mean:** sample mean vs mixture mean under the τ-smoothed child law at ``c``;
-    Hotelling statistic ``n (x̄-μ)^T Cov(X)^{-1}(x̄-μ)`` with ``Cov(X)`` the
-    single-draw mixture covariance, compared to ``χ²_{d,1-α}`` (Gaussian reference;
-    exact only for a single component).
+    **Per-frame scale:** the τ used to build each matched GT cluster's smoothed law is
+    the resolved ``tau_star`` of the *matched recursion node* (walking up the parent
+    chain), not a single global root scale.  Deeper recursion frames are therefore
+    compared at the finer scale at which they were resolved; on a flat tree every node
+    resolves to the root scale, so this reduces to the previous behavior.  The GT means
+    are convolution-invariant, so Hungarian matching is scale-independent.
+
+    **Mean:** sample mean vs mixture mean under the τ-smoothed child law at ``c`` (τ = the
+    matched node's per-frame ``tau_star``); Hotelling statistic
+    ``n (x̄-μ)^T Cov(X)^{-1}(x̄-μ)`` with ``Cov(X)`` the single-draw mixture covariance,
+    compared to ``χ²_{d,1-α}`` (Gaussian reference; exact only for a single component).
 
     **Covariance:** Frobenius norm ``||S - Σ_ref||_F`` vs ``cov_fro_atol + cov_fro_rtol * ||Σ_ref||_F``
     where ``Σ_ref`` is the raw fine-leaf mixture second moment under the matched GT subtree.
@@ -323,8 +334,8 @@ def assert_recursion_matches_gt_hierarchy_unimodal_levels(
             "required_levels must be contained in ``levels`` when levels is not None",
         )
 
-    tau = resolve_tau_star(tree.nodes[0], tree)
-    if tau is None:
+    root_tau = resolve_tau_star(tree.nodes[0], tree)
+    if root_tau is None:
         raise AssertionError("root has no resolved tau_star; cannot build τ-smoothed GT")
 
     data_arr = np.asarray(data, dtype=float)
@@ -334,7 +345,21 @@ def assert_recursion_matches_gt_hierarchy_unimodal_levels(
     else:
         cov_n_min = int(min_samples_cov)
 
-    analytic = gt_analytic_unimodal_by_cluster_id(hierarchy, float(tau), dim)
+    # Per-frame τ: cache the τ-smoothed analytic unimodals keyed by scale so each matched
+    # recursion node is compared at its own resolved ``tau_star`` (SI S2.5.4, #31).  GT
+    # means are scale-invariant, so ``analytic_match`` (built at the root scale) is used
+    # only for the scale-independent Hungarian assignment.
+    analytic_by_tau: dict[float, dict[int, tuple[np.ndarray, np.ndarray]]] = {}
+
+    def _analytic_for(tau_val: float) -> dict[int, tuple[np.ndarray, np.ndarray]]:
+        key = round(float(tau_val), 12)
+        cached = analytic_by_tau.get(key)
+        if cached is None:
+            cached = gt_analytic_unimodal_by_cluster_id(hierarchy, float(tau_val), dim)
+            analytic_by_tau[key] = cached
+        return cached
+
+    analytic_match = _analytic_for(root_tau)
     by_parent = children_by_parent_cluster_id(hierarchy)
     pred_by = recursion_nodes_by_level(tree)
     gt_by = cluster_nodes_by_level(hierarchy)
@@ -383,7 +408,7 @@ def assert_recursion_matches_gt_hierarchy_unimodal_levels(
             emp_means.append(data_arr[idx].mean(axis=0))
 
         p_means = np.stack(emp_means, axis=0)
-        g_means = np.stack([analytic[int(g.cluster_id)][0] for g in gt_nodes], axis=0)
+        g_means = np.stack([analytic_match[int(g.cluster_id)][0] for g in gt_nodes], axis=0)
         cost = ((p_means[:, None, :] - g_means[None, :, :]) ** 2).sum(axis=-1)
         row_ind, col_ind = linear_sum_assignment(cost)
 
@@ -394,9 +419,13 @@ def assert_recursion_matches_gt_hierarchy_unimodal_levels(
             n_s = int(idx.size)
             block = data_arr[idx]
 
-            mu_star, _ = analytic[int(gt.cluster_id)]
+            node_tau = resolve_tau_star(node, tree)
+            if node_tau is None:
+                node_tau = float(root_tau)
+            analytic_n = _analytic_for(node_tau)
+            mu_star, _ = analytic_n[int(gt.cluster_id)]
             mm_s, covs_s, ww_s = tau_smoothed_gt_mixture_components(
-                gt, analytic_by_id=analytic, by_parent=by_parent, tau=float(tau), dim=dim,
+                gt, analytic_by_id=analytic_n, by_parent=by_parent, tau=float(node_tau), dim=dim,
             )
 
             emp_mean = block.mean(axis=0)
