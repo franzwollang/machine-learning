@@ -12,7 +12,7 @@ bodies below stay static descriptions.
 
 | Milestone | Status |
 |---|---|
-| M0 — Spec/implementation sync pass | not started |
+| M0 — Spec/implementation sync pass | done |
 | M1 — Canonical clustering objective | not started |
 | M2 — Characteristic-scale selection rebuild | not started |
 | M3 — Constant audit & calibration tier | not started |

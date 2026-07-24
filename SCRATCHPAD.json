@@ -1,10 +1,22 @@
 {
-  "updated_at": null,
-  "turn": 0,
-  "focus": { "milestone": null, "issue": null, "goal": "" },
-  "recent": [],
-  "discoveries": [],
-  "open_threads": [],
-  "next_step": "",
+  "updated_at": "2026-07-24T03:00Z",
+  "turn": 1,
+  "focus": { "milestone": "M0", "issue": null, "goal": "M0 spec/impl sync pass complete; next is M1 (#27) Q-score canonicalization" },
+  "recent": [
+    "M0 done: resolved #34,#35,#24,#21,#29,#19,#20,#23 across paper.tex/SI.tex (+ minor code)",
+    "eta_GNG demoted to analysis quantity; deferred-nudge canonical (#34)",
+    "s_control demoted to reporting-only; dead assignments removed from scaffold/controller (#35)",
+    "new SI S2.3.3 two-tier shadow/lifted edges (#20); SI S3.1 directed-floor pruning canonical (#29)",
+    "tests green after code edits: 108 passed, 26 xfailed (hnswlib absent -> HNSW test skipped)"
+  ],
+  "discoveries": [
+    "Env: no `python` (use python3), no editable install (no pyproject), hnswlib wheel fails to build; run via PYTHONPATH=src, deps installed --user",
+    "No LaTeX toolchain on VM; cannot compile paper/SI, only structural balance checks",
+    "clustering.py already implements AP+Q-merge (W_v on lifted, components on lifted, AP sim on full graph) -- SI S2.6.1 canonicalization is M1/#27"
+  ],
+  "open_threads": [
+    "M1 (#27): promote W_v/LocalIntra/BoundaryInter formulas into SI S2.6.1; single-cluster null; replace cleanup heuristics with one Q-improving merge-to-fixpoint"
+  ],
+  "next_step": "Start M1 #27: read reference/stage1_clustering_and_resolution.md + clustering.py, canonicalize Q in SI S2.6.1",
   "blockers": []
 }

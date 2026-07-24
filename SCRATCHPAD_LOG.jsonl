@@ -1,1 +1,2 @@
 {"ts":"2026-07-23T21:12-05:00","focus":"workflow setup","summary":"baseline checkpoint commit 6979995 on main (234 files): code restructure, paper/SI rewrite, OPEN_ISSUES currency pass, 9 repo rules incl. git-checkpoints and rule-governance","next":"begin M0 spec/implementation sync pass"}
+{"ts":"2026-07-24T03:00Z","focus":"M0 spec/impl sync","summary":"Resolved 8 doc-sync issues (#34,#35,#24,#21,#29,#19,#20,#23) via per-issue commits; PLANNING M0 -> done; tests green (108 passed, 26 xfailed)","next":"begin M1 #27 Q-score canonicalization in SI S2.6.1"}
