@@ -1,11 +1,12 @@
 {
-  "updated_at": "2026-07-24T06:40Z",
-  "turn": 6,
+  "updated_at": "2026-07-24T06:45Z",
+  "turn": 7,
   "focus": { "milestone": "M2", "issue": 28, "goal": "retire the load-band heuristic; land a principled, dominant tau* selector" },
   "recent": [
     "ff-merged chain head 7b9a into branch 6084 (M0 done, M1 in prog, M2 persistence). Env: pip install numpy scipy pytest scikit-learn; PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'. Baseline 119 passed/31 xfailed.",
     "Instrumented traces: compensated node-count N*tau^{d/2} is confounded by N_max saturation (hierarchical caps at 128 everywhere, swiss caps mid-grid) -> NOT a universal selector.",
-    "variance-load=cap crossing (Lbar=1, log-interp of coarsest stabilized bracket) is clean & DOMINATES band on tau* (circle 8.0->1.13, swiss 1.88->0.73, var_density/nested ~1.9 vs 8.0). Added load_crossing+combined selectors behind flag; 5 tests assert dominance; SI+issues+S14.3 done; 124 passed. Commits pushed."
+    "variance-load=cap crossing (Lbar=1, log-interp of coarsest stabilized bracket) is clean & DOMINATES band on tau* (circle 8.0->1.13, swiss 1.88->0.73, var_density/nested ~1.9 vs 8.0). Added load_crossing+combined selectors behind flag; 5 tests assert dominance; SI+issues+S14.3 done; 124 passed. Commits pushed.",
+    "De-risk check: recursion on hierarchical GT with selector in {load_band,combined,load_crossing} all give IDENTICAL recovery (root.n_clusters=6, leaves=6, ari_c=0.582, root.tau*=0.36) -> combined is safe for the recursion path; default flip should not perturb the 6-leaf regression."
   ],
   "discoveries": [
     "Primary tau* signal = Lbar(tau)=E[sigma^2/tau] crossing the cap (=1, derived not tuned); documented SI S2.5.1. Compensated node-count/support-trace is a budget-confounded diagnostic only (recorded in #28).",
