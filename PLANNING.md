@@ -15,7 +15,7 @@ bodies below stay static descriptions.
 | M0 — Spec/implementation sync pass | done |
 | M1 — Canonical clustering objective | blocked (#27: coarse-anchoring fixes circle/hierarchy heuristic-free; cold-start recheck (ii') implemented + REFUTED as a gate — over-rejects genuine multi-level splits; stand-in deletion now blocks solely on the M4 S3.4 DM evidence gate) |
 | M2 — Characteristic-scale selection rebuild | in progress (load-crossover default; persistence signal + tau/heat bridge landed; c_{d,k} now calibrated + shipped as a lookup table, SI S2.5.5; remaining: persistence coarse-end refinement, delete legacy load-band selector) |
-| M3 — Constant audit & calibration tier | in progress (c_{d,k} and C_Q(d) both calibrated on the shared uniform-d-ball ensemble with written protocols; S14.3 three-tier audit #37 complete — every src/ constant tabulated; remaining: intrinsic-dim estimator validation #39) |
+| M3 — Constant audit & calibration tier | done (c_{d,k} + C_Q(d) calibrated on the shared uniform-d-ball ensemble; S14.3 three-tier audit #37 complete; intrinsic-dim estimator #39 validated vs GT + Levina–Bickel cross-check shipped, SI S1.4.1. Operational estimator-wiring divergence surfaced as #40, deferred to the M5 junction-detection consumer.) |
 | M4 — Stage 2 core (complex, evidence gate, dual flow) | not started |
 | M5 — Inference interface & diagnostics | not started |
 | M6 — Evaluation, benchmarks, paper finalization | not started |

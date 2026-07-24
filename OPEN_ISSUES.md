@@ -5,7 +5,7 @@ here. Numbering is historical and stable: resolved issues are deleted rather tha
 renumbered, so gaps in the sequence are expected. Each entry lists only the work that
 actually remains. See `PLANNING.md` for the suggested order of attack.
 
-Next issue number: 40
+Next issue number: 41
 
 ## 16. Fuzzy title decision
 
@@ -84,7 +84,8 @@ Remaining work:
 - The structural bar and moment-matching harness are in place (`tests/harness/hierarchy_recovery.py`: Hungarian matching, Hotelling mean gate, Frobenius covariance gate; six-leaf regression passes).
 - Remaining: (a) use per-level tau from each recursion frame (not only the root) when comparing deeper trees; (b) tighten gates now that SI S2.5.4 declares `Sigma_smooth = tau * I` the canonical (no longer provisional) isotropic map — the harness's `tau * I` is now spec-backed, so the gate tolerances can be tightened against it.
 
-## 39. Intrinsic-dimension estimator is a degree proxy
+## 40. d_final is not refreshed in the operational Stage-1 loop
 
-- `intrinsic_dim.py` estimates `d_final` from graph degree (degree − 1, neighbor-median smoothed); Levina–Bickel is deferred by design. The proxy feeds AP preferences, PMI smoothing, T2 rank selection, and (later) simplex dimension and junction detection — a lot of load for an uncalibrated proxy.
-- Before Stage 2 lands: validate the proxy against ground truth on the synthetic suite (swiss roll d=2, circle d=1, mixed-dim and junction datasets), and either calibrate a correction or implement Levina–Bickel behind the same interface. S8.4 junction detection should not inherit silent bias from the estimator.
+- The per-node intrinsic dimension `d_final` (degree proxy, plus the Levina–Bickel cross-check, both validated in SI S1.4.1 / #39) is only recomputed by the diagnostic `Stage1Scaffold.refresh_intrinsic_dim()`. No operational code path calls it: `run_until_stable` never invokes it, so in live runs `d_final` stays at the seed value `self.dim` (the region's working dimension) and is propagated unchanged through splits (`splits.py`).
+- Consequence: every `d_final` consumer currently reads the working dimension rather than an estimate — clustering `d_eff` / `alpha_0` / AP self-preference (`clustering.py`, SI S2.6.1/S2.7), the recursion child PCA-rank summary `d_hat` (`recursion.py`, SI S1.4), and post-clustering lifted-edge demotion `cluster_dim` (`pruning.py`, SI S3.1/S3.2). This contradicts the SI, which treats `d_final` as a live per-node estimate.
+- Remaining: either (a) wire `refresh_intrinsic_dim()` into the scale-search / pre-clustering path and re-validate the clustering + recursion regressions — this changes AP preferences, `alpha_0`, `d_hat`, and prune-floor slot counts, so it is an acceptance-adjacent change needing a cross-family audit; or (b) amend the SI to state `d_final` defaults to the working dimension unless explicitly refreshed. When S8.4 junction detection / S4.2 heterogeneous simplex dimension land (M5), they must consume the scale-consistent estimator (SI S1.4.1), not the constant working dim.

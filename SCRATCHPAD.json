@@ -1,22 +1,23 @@
 {
-  "updated_at": "2026-07-24T11:52Z",
-  "turn": 15,
-  "focus": { "milestone": "M3", "issue": null, "goal": "#37 S14.3 constant audit complete; next is #39 intrinsic-dim validation" },
+  "updated_at": "2026-07-24T12:05Z",
+  "turn": 16,
+  "focus": { "milestone": "M3", "issue": 40, "goal": "#39 resolved (estimator validated + LB shipped); M3 done; #40 (operational d_final wiring) opened" },
   "recent": [
-    "CHAIN RECOVERY: this branch (eaf2) initially built on STALE 7b9a (turn5); did misdirected M2 compensated-node-count work, then ran git fetch --all (per memory), found true head b824 (turn14). Reverted my 2 commits + merged b824 (additive, no history rewrite); eaf2 diff vs b824 == empty. Pushed.",
-    "#37 RESOLVED: completed S14.3 three-tier audit — added every missing src/ Stage-1 constant (T2 PCA r_min/r_0.999, Oja rate 0.05, rho_max 10, split offset 0.5*sqrt(tau)/budget 2h_prune, N_min/N_max/M_max/k, grid-search range, AP damping 0.8/iters, recursion N_min/depth, prune_after 25 maturity, neonatal link guard 25) with owner+status. Divergence check: none.",
-    "Closing S14.3 note now scopes out numerical guards (eps ~1e-8..1e-12) + ANN library params (HNSW M/ef) as non-algorithmic, and names the calibration-ensemble params (S2.5.5)."
+    "CHAIN: fetched --all first (per memory); head was eaf2 (turn15). ff-merged eaf2 into b0ab; continued.",
+    "#39 RESOLVED: validated degree-proxy d_final (unbiased on uniform d-ball d=1..4; biased HIGH on thin curved manifolds, circle GT1->median2). Added estimate_d_final_mle (Levina-Bickel, positions) + scaffold intrinsic_dim_method selector (degree default). SI S1.4.1 + S14.3 rows + paper xref. 14-test harness. Suite 157p/1skip/31xf.",
+    "GPT audit (gpt-5.4-high) cross-family: LB math correct; applied fixes (n<=2 short-circuit, d=4 test). Surfaced that refresh_intrinsic_dim is NEVER called operationally -> #40.",
+    "M3 marked DONE (c_dk+C_Q calibrated #28/#36, S14.3 audit #37, estimator #39)."
   ],
   "discoveries": [
-    "LESSON RE-CONFIRMED (now 3rd time in chain): MUST git fetch --all FIRST. Local remote refs from clone are stale and hide newest branches; I lost a turn's work to this. b824 tip 089b534 was the real head, 52 ahead of main.",
-    "b824's SI S2.5.1 (line ~466) already records the N(tau)*tau^{d/2} compensated-node-count proposal as a DIAGNOSTIC — real M2 went load-crossover default + calibrated c_{d,k}; the compensated-count-as-selector path was already considered and shelved.",
-    "prune_hit_fraction=0.20 governs the SPLIT budget (h_i>=2*h_prune) only; node-prune uses hardcoded 0.5 factors (match table). No code/spec divergence found in the audit."
+    "OPERATIONAL d_final BUG (#40): run_until_stable never calls refresh_intrinsic_dim, so in live runs d_final stays at seed self.dim (working dim) through splits. ALL consumers (clustering alpha_0/preference S2.6.1, recursion d_hat S1.4, pruning cluster_dim S3.1) read the working dim, not an estimate. Contradicts SI.",
+    "d_final estimators only exercised in tests/diagnostics currently. LB on coarse near-regular scaffold nodes under-reads at d>=3 (violates Poisson assumption); accurate on dense samples.",
+    "degree proxy is genuinely unbiased on the uniform d-ball reference ensemble (same ensemble as c_dk/C_Q) for d=1..4."
   ],
   "open_threads": [
-    "#39: validate degree-proxy intrinsic-dim estimator vs synthetic GT (swiss d=2, circle d=1; my turn-6 measurement showed median d~3 on the d=1 circle = biased HIGH) or swap Levina-Bickel behind same interface; wanted before M4. Note LB needs distances/positions, not the neighbour_graph, so 'same interface' is not literal.",
+    "#40: decide wire refresh_intrinsic_dim into scale-search+re-validate regressions (acceptance-adjacent, cross-family audit) vs amend SI that d_final defaults to working dim. S8.4/S4.2 (M5) must use scale-consistent estimator.",
     "M2 remaining: persistence tau* coarse-end refinement; delete legacy load_band + dormant _legacy_slope_selector/_detect_peak once load-crossover dominates all scenarios.",
-    "M1 #27 Part B blocked SOLELY on M4 S3.4 DM gate (cold-start recheck REFUTED; do not re-attempt overlap rechecks)."
+    "M1 #27 Part B blocked SOLELY on M4 S3.4 DM evidence gate (cold-start recheck REFUTED; do not re-attempt)."
   ],
-  "next_step": "Start #39: build a synthetic-GT validation harness for the intrinsic-dim estimator (circle d=1, swiss d=2) and either calibrate a degree-proxy correction or implement Levina-Bickel (positions+k) as the principled estimator; keep degree proxy default, migrate consumers carefully.",
+  "next_step": "Next turn: either start M4 step1 (flag-complex S4.1-4.2, whole part - see memory) or address #40 (SI amendment is the low-risk option; operational wiring is acceptance-adjacent). M2 cleanup is also unblocked.",
   "blockers": ["#27 Part B blocked on M4 S3.4 DM evidence gate"]
 }
