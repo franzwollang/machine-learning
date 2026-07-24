@@ -22,12 +22,6 @@ Next issue number: 40
 - §1.5 is prose-only; the intended citation list is tracked in §13 "References Prep."
 - Does not affect implementation.
 
-## 20. Document two-tier Hebbian edge semantics (shadow vs lifted)
-
-- The implemented design is two-tier (`links.py`): any routed co-activation may create or increment a **shadow** edge; only BMU_1 -> BMU_2 co-activation **lifts** an edge to the full (lifted) tier. Lifted edges define the topology used for clustering and (later) simplices; shadow edges retain low-grade adjacency evidence.
-- The previous issue text ("only BMU_1 -> BMU_2 creates edges") is superseded by this two-tier design, which the foundation tests now require.
-- Remaining: paper §3 and SI S2/S4 describe a single GNG-style edge convention. Document the shadow/lift/counter-update distinction explicitly, including which tier each consumer (AP clustering, pruning, flag complex) reads.
-
 ## 21. Paper prose for soft-mean / hard-variance asymmetry
 
 - The SI is updated: S2.3.1 introduces the hard-Voronoi variance vs soft-routing mean asymmetry, S2.3.2 has the Steiner shift and the hard-Voronoi variance conservation law, and S4.4 T0 / S12.6 reference the shadow mechanism.

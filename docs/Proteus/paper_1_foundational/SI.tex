@@ -84,6 +84,7 @@ Several objects appear in multiple parts of Proteus. The following list identifi
   \item $\Phi_C(\tau)$ and $R_i(\tau)$: S2.5. $R_i$ is a scale diagnostic, not a within-cluster density signal.
   \item $\alpha_{0,i}$: S2.7, derived from the BDeu prior and reused by AP preferences and the evidence gate.
   \item $F_{\mathrm{DM}}$: S3.4, with consistency in S3.5.
+  \item Two-tier Hebbian edges (shadow vs.\ lifted) and directed transition counts $n_{i\to j}$: S2.3.3.
   \item The flag-complex invariant and transition-count policies: S4.1--S4.4.
   \item Torsion ratio $R_S$, edge-ratio fallback, and warp policies: S5.
   \item Face pressures $p_f$ and simplex-local density: S6.
@@ -360,6 +361,21 @@ As $\mathbf u_i$ rotates, the shadow partition plane drifts. The shadow EWMAs us
 
 \paragraph{Cost.}
 Memory: one extra moment pair per node, i.e.\ $3\times$ per-node moment storage; still $O(d)$ and streaming-bounded. Compute: one extra dot product and one branched EWMA update per routed sample per node; no per-sample retention.
+
+\subsection*{S2.3.3 Two-Tier Hebbian Edges: Shadow and Lifted}
+\label{sec:si-two-tier-edges}
+Stage~1 maintains a \emph{two-tier} edge convention on the Hebbian graph. (This ``shadow'' tier is a low-grade \emph{edge} status; it is unrelated to the partition-aligned shadow \emph{moments} of S2.3.2, which are a split-placement device.) For each routed sample with rank-ordered neighbors $\mathcal N_k$:
+\begin{itemize}[leftmargin=1.5em]
+  \item the first-to-second nearest co-activation ($\mathrm{BMU}_1\!\to\!\mathrm{BMU}_2$) creates the edge if absent and \emph{lifts} it to the structural (\emph{lifted}) tier, incrementing its directed count $n_{\mathrm{BMU}_1\to\mathrm{BMU}_2}$ by the rank-1 routing weight;
+  \item every other co-activation $\mathrm{BMU}_1\!\to\! j$ ($j$ at rank $\ge2$) creates or increments a \emph{shadow} edge by $j$'s routing weight, without lifting it.
+\end{itemize}
+Each edge carries directed transition counts $n_{i\to j}$ in both orientations and a neonatal-guard deadline (S3.1). A lift is one-way and monotone: a shadow edge may later be promoted, and lifting never resets its accumulated counts. The two tiers serve different consumers:
+\begin{itemize}[leftmargin=1.5em]
+  \item the \emph{lifted} graph is the structural topology --- it defines the intrinsic-dimension estimate $d_{\mathrm{final}}$, the flag complex and its simplices (S4.1), the node-pruning peer neighborhoods (S3.2), and the CV/stabilization statistics (S2.5.1);
+  \item the \emph{full} graph (lifted $\cup$ shadow) supplies the adjacency and co-activation evidence read by Affinity-Propagation clustering similarities (S2.6);
+  \item link pruning (S3.1) reads directed transition mass on \emph{all} edges for its Stage~1 ambient floor, and on lifted edges only for the post-clustering demotion.
+\end{itemize}
+Shadow edges thus retain low-grade adjacency evidence that clustering can use, while the structural graph and its simplices stay restricted to the high-confidence $\mathrm{BMU}_1\!\to\!\mathrm{BMU}_2$ transitions.
 
 \subsection*{S2.4 Scale Parameter and Normalization}
 The operational scale primitive is the variance cap $\tau$: it is the quantity carried by the controller, stored across recursion frames, and read by every downstream consumer. Where a bounded control knob $s_{\mathrm{control}}\in(0,1)$ is convenient (for instance, to sweep scale monotonically over a fixed $[0,1)$ interval), it maps to $\tau$ by the normalization remark
@@ -1673,7 +1689,7 @@ The routing weight $\omega_r$ below is the rank-decay form $2^{-(r-1)}$; for amb
         \State \Call{UpdateOja}{$\mathbf u_i,\mathbf e_i$}
         \State $h_i\gets h_i+\omega_r$
     \EndFor
-    \State Update directed transition counters for first/second nearest co-activation
+    \State Update directed transition counters (S2.3.3): lift $\mathrm{BMU}_1\!\to\!\mathrm{BMU}_2$; shadow $\mathrm{BMU}_1\!\to\! j$ for $j$ at rank $\ge2$
 \EndProcedure
 \end{algorithmic}
 \end{algorithm}
