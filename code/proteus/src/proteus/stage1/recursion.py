@@ -25,8 +25,13 @@ class RecursionConfig:
     When enabled the scale search is forced to record partitions and select the
     persistence scale (``selector="persistence"``); a region whose split does not
     persist is treated as terminal (a single intrinsic feature).  This is the
-    canonical replacement for the provisional single-scale cleanup heuristics of
-    S2.6.1 (OPEN_ISSUES #27).  Default off during the M2 transition.
+    *intended* canonical replacement for the single-scale cleanup heuristics of
+    S2.6.1 (OPEN_ISSUES #27), but it is **not yet safe to delete those
+    heuristics**: on warm-started sweeps a uniform manifold's arc-partition can
+    spuriously persist over an isolated fine-end interval, so enabling this gate
+    *without* the S2.6.1 stand-ins over-fragments uniform manifolds (circle
+    -> tens of leaves).  See the "Known limitation" note in SI S2.6.2.  Default
+    off during the M2 transition.
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)

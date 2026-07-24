@@ -774,11 +774,16 @@ arc-partition of a uniform manifold does not. When the Stage~2 machinery is
 available, the Dirichlet--multinomial evidence gate (\hyperref[sec:si-dm-evidence]{S3.4})
 supplies the complementary likelihood-ratio null that $Q(\mathcal P;v)$ cannot.
 Accordingly, the boundary-refinement and residual-cleanup passes referenced
-above are \emph{provisional operational stand-ins} for the persistence signal:
-they approximate ``merge fragments that would not persist as independent
-features'' using single-scale side information (component structure, size
-balance), and are slated for replacement by the persistence criterion rather
-than for derivation as canonical single-scale constants.
+above are \emph{operational stand-ins} for the persistence signal: they
+approximate ``merge fragments that would not persist as independent features''
+using single-scale side information (component structure, size balance). They
+are intended for eventual replacement by the persistence criterion (S2.6.2) or
+the Stage~2 Dirichlet--multinomial evidence gate
+(\hyperref[sec:si-dm-evidence]{S3.4}). Empirically, however, they remain
+\emph{load-bearing}: the persistence rule as currently operationalized does not
+yet dominate them (see the warm-start failure mode in S2.6.2), so they are
+retained as the operating acceptance path until that rule is hardened. They are
+not canonical single-scale constants and carry no derivation status.
 
 \subsection*{S2.6.2 Feature Persistence and Recursion Timing}
 \label{sec:si-feature-persistence}
@@ -835,15 +840,43 @@ when their optimally matched clusters (maximum-intersection assignment) have mea
 Jaccard overlap at least $\theta_{\mathrm{ovl}}$, averaged over
 $\max(K_j,K_{j+1})$ slots so that a change in cluster count is penalized. A
 multi-cluster partition is accepted only if it persists over at least
-$P_{\mathrm{persist}}=2$ adjacent grid points --- the minimal interval consistent
-with the persistence definition above, so this count is derived rather than
-tuned. The characteristic scale of an accepted feature is the coarsest grid point
-of its persistence interval (its coarse-end death $v_{\mathrm{death}}^+$); the
-threshold $\theta_{\mathrm{ovl}}$ only fixes partition identity and is
-backstopped by the persistence count. A uniform manifold sampled into transient
-arcs fails this test (its arc-partition does not recur across scales), whereas a
-genuinely multi-modal region passes, which is precisely the discrimination the
-single-scale $Q$ of S2.6.1 cannot make.
+$P_{\mathrm{persist}}=2$ adjacent grid points --- the minimal non-trivial
+interval consistent with the persistence definition above. This minimality fixes
+the \emph{smallest admissible} interval; it is an operational default, not a
+derived guarantee that a two-point agreement is \emph{sufficient} evidence of an
+intrinsic feature (see the warm-start failure mode below). The characteristic
+scale of an accepted feature is the coarsest grid point of its persistence
+interval (its coarse-end death $v_{\mathrm{death}}^+$); the threshold
+$\theta_{\mathrm{ovl}}$ only fixes partition identity. Under a sufficiently
+robust acceptance rule, a uniform manifold sampled into transient arcs should
+fail this test---its arc-partition does not recur coherently across scales---
+whereas a genuinely multi-modal region persists from its coarse-end death over a
+long, high-overlap run, which is precisely the discrimination the single-scale
+$Q$ of S2.6.1 cannot make.
+
+\paragraph{Known limitation of the two-point rule (warm-start false positives).}
+The controller sweep is \emph{warm-started}: each grid point inherits the
+previous scaffold, so partition labelings are path-dependent. On a uniform
+manifold this can lock a fragment partition in place over a short interval even
+though no intrinsic feature exists. Empirically (circle, $8$ grid points, with
+the S2.6.1 stand-ins disabled), the matched-Jaccard overlaps between adjacent
+arc-partitions are mostly low ($0.17$--$0.33$, as expected), but an isolated
+fine-end pair can coincide at $\approx0.61$ --- enough to satisfy
+$P_{\mathrm{persist}}=2$ at $\theta_{\mathrm{ovl}}=0.5$ and admit a spurious
+split, whereas an independent \emph{cold-start} refit of the same scales removes
+the block entirely. A genuine multi-modal region instead persists from the
+\emph{coarsest} grid point with high, stable overlaps ($\gtrsim0.68$) over a run
+of length $\ge3$. Consequently the two-point rule at $\theta_{\mathrm{ovl}}=0.5$
+is \emph{not yet} a safe replacement for the S2.6.1 stand-ins. Hardening
+directions, in decreasing order of principled-ness: (i) require the
+complementary Stage~2 Dirichlet--multinomial evidence gate
+(\hyperref[sec:si-dm-evidence]{S3.4}) as the acceptance null; (ii) require the
+persistence interval to be anchored at (or connected to) the coarse end rather
+than an isolated fine-end block truncated by the grid; (iii) require a longer
+minimal run or a higher \emph{mean} interval overlap. Threshold-only tightening
+of $\theta_{\mathrm{ovl}}$ is brittle and is not recommended. Until one of these
+lands, $P_{\mathrm{persist}}$ is an operational default and the S2.6.1 stand-ins
+remain the operating acceptance path.
 
 \subsection*{S2.7 Dirichlet Concentration from the BDeu Prior}
 \label{sec:si-bdeu-prior}
@@ -2011,7 +2044,7 @@ M_{\mathrm{eq}} & 3\text{ consecutive epochs} & \text{S2.5.1} & \text{operationa
 \tau^\star\text{ selector} & \text{variance-load }L=1\text{ up-crossing} & \text{S2.5.1} & \text{derived}\\
 \Phi_C,V_C\text{ traces} & \text{scale diagnostics (not selector)} & \text{S2.5.1} & \text{diagnostic}\\
 \Sigma_{\mathrm{smooth}} & \tau I\ (\text{heat-kernel bridge, isotropic}) & \text{S2.5.4} & \text{convention}\\
-P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{derived}\\
+P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{operational}\\
 \theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
 \beta_{\mathrm{prune}} & 0.5\ (\text{directed-floor share}) & \text{S3.1} & \text{operational}\\

@@ -22,10 +22,19 @@ The signal has two consumers, both acceptance-path (S2.6.2):
 * characteristic-scale selection --- the coarsest ``tau`` at which a
   multi-cluster partition first *persists* (issue #28 secondary signal), and
 * recursion timing --- a proposed split is accepted only if it persists,
-  replacing the provisional single-scale cleanup stand-ins of S2.6.1 (issue #27).
+  intended to replace the single-scale cleanup stand-ins of S2.6.1 (issue #27).
 
 Both are wired incrementally behind a flag while the legacy load-band selector
 remains the transition default.
+
+.. warning::
+   The recursion-timing consumer is **not yet a safe replacement** for the
+   S2.6.1 stand-ins.  Because the controller sweep is warm-started, a uniform
+   manifold's arc-partition can spuriously satisfy the two-point persistence rule
+   over an isolated fine-end interval (empirically: circle over-fragments to tens
+   of leaves when the stand-ins are removed and ``require_persistent_split`` is
+   on).  The stand-ins therefore remain load-bearing; see the "Known limitation"
+   note in SI S2.6.2 and OPEN_ISSUES #27 for the hardening directions.
 """
 
 from __future__ import annotations
