@@ -67,11 +67,27 @@ class PersistenceConfig:
     min_clusters:
         Smallest cluster count that counts as a multi-cluster partition (the
         one-cluster null is never "persistent" in the sense that matters).
+    coarse_anchored:
+        When ``True`` (canonical, SI S2.6.2) the characteristic split must be
+        **coarse-anchored**: the region's *coarsest* multi-cluster partition must
+        itself persist for ``min_persistence`` grid points.  A persistent block
+        that only appears at finer scales --- after coarser scales showed
+        different, non-agreeing multi-cluster partitions --- is rejected as a
+        resolution artifact rather than an intrinsic feature.  This is the
+        S2.6.2 hardening that removes the warm-start fine-end false positive
+        (OPEN_ISSUES #27): on a warm-started sweep a uniform manifold's
+        arc-partition can chance-coincide over an isolated two-point block at the
+        finest scales, spuriously satisfying the bare persistence rule; requiring
+        the block to reach back to the emergence scale (where the region first
+        ceases to be one cluster) removes it.  When ``False`` the legacy rule is
+        used: the coarsest grid index whose block persists, scanning past any
+        non-persistent coarser multi-cluster points.  Operational (S14.3).
     """
 
     min_persistence: int = 2
     overlap_threshold: float = 0.5
     min_clusters: int = 2
+    coarse_anchored: bool = True
 
 
 @dataclass
@@ -247,10 +263,25 @@ def compute_persistence(
         run_lengths[i] = length
 
     tau_star_index: Optional[int] = None
-    for i in range(n):
-        if run_lengths[i] >= config.min_persistence:
-            tau_star_index = i
-            break
+    if config.coarse_anchored:
+        # Coarse-anchored rule (SI S2.6.2): only the coarsest multi-cluster
+        # partition may anchor the characteristic scale.  If it does not itself
+        # persist, the region has no coarse-anchored feature and is terminal ---
+        # any persistent block appearing further toward the fine end (after the
+        # partition has already churned through incompatible multi-cluster
+        # states) is treated as a warm-start artifact, not an intrinsic feature.
+        for i in range(n):
+            if snapshots[i].n_clusters >= config.min_clusters:
+                if run_lengths[i] >= config.min_persistence:
+                    tau_star_index = i
+                break
+    else:
+        # Legacy rule: coarsest grid index whose block persists, scanning past
+        # any non-persistent (transient) coarser multi-cluster points.
+        for i in range(n):
+            if run_lengths[i] >= config.min_persistence:
+                tau_star_index = i
+                break
 
     tau_star = snapshots[tau_star_index].tau if tau_star_index is not None else None
 
