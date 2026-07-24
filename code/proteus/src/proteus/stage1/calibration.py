@@ -1,16 +1,26 @@
-"""Calibration of the variance-cap constant c_{d,k} (SI S2.5.5, OPEN_ISSUES #28).
+"""Calibrated variance-cap constants on the uniform d-ball ensemble.
 
-The scale calibration constant ``c_{d,k}`` maps the operational variance cap
+Two calibrated constants are measured on the same reference ensemble (uniform
+samples in the unit d-ball, run to Stage 1 equilibrium):
+
+``c_{d,k}`` (SI S2.5.5, OPEN_ISSUES #28) maps the operational variance cap
 ``tau`` to the expected k-nearest-neighbor radius of an equilibrated scaffold
 under local isotropy: at equilibrium a cap-satisfied catchment locks its
 effective radius to ``r_{k,i} ~ c_{d,k} * sqrt(tau)`` (SI S2.5, S2.5.4, S11.1).
+It is measured as the median of ``r_{k,i} / sqrt(tau)`` over mature nodes,
+tabulated over ``(d, k)`` in :data:`CDK_TABLE`.
 
-``c_{d,k}`` is a **calibrated** constant, not an analytic one: it is measured on
-a declared reference ensemble (uniform samples in the unit d-ball) by running the
-fixed-tau Stage 1 scaffold to equilibrium and taking the median of
-``r_{k,i} / sqrt(tau)`` over mature nodes, tabulated over ``(d, k)``. The shipped
-table :data:`CDK_TABLE` was produced by :func:`calibrate_cdk` with the parameters
-recorded in :data:`CDK_CALIBRATION_META`; :func:`c_dk` is the runtime lookup.
+``C_Q(d)`` (SI S3.3, OPEN_ISSUES #36) is the interior star-radius constant used
+by the Stage-2 prune/merge guards: the worst-case reassignment distance of a
+cap-equilibrated interior cell, normalized by ``sqrt(tau)``. It is measured as
+the median of ``rho_prune / sqrt(tau)`` over the regular interior on the *same*
+equilibrated scaffolds and tabulated over ``d`` in :data:`CQ_TABLE`.
+
+Both are **calibrated** constants, not analytic ones. The shipped tables were
+produced by :func:`calibrate_cdk` / :func:`calibrate_cq` with the parameters in
+:data:`CDK_CALIBRATION_META` / :data:`CQ_CALIBRATION_META`; :func:`c_dk` and
+:func:`c_q` are the runtime lookups. Regenerate both via
+``python -m proteus.stage1.calibration``.
 """
 
 from __future__ import annotations
@@ -125,6 +135,47 @@ def _tau_for_target(d: int, target_nodes: int) -> float:
     return (d_f / (d_f + 2.0)) * float(target_nodes) ** (-2.0 / d_f)
 
 
+def _build_equilibrated_scaffold(
+    d: int,
+    k: int,
+    *,
+    n_samples: int,
+    target_nodes: int,
+    min_nodes: int,
+    max_nodes: int,
+    max_epochs: int,
+    ann_backend: str,
+    seed: int,
+    ensemble: int,
+) -> tuple[object, np.ndarray]:
+    """Build one equilibrated uniform-d-ball scaffold (SI S2.5.5 ensemble).
+
+    Shared by the ``c_{d,k}`` (k-NN radius) and ``C_Q(d)`` (star radius)
+    calibrations so both constants are measured on the *identical* reference
+    scaffolds. RNG seeding is deterministic in ``(seed, ensemble)``: the sample
+    uses ``seed + ensemble`` and the scaffold uses ``seed + ensemble + 10_000``.
+    """
+
+    # Local import to avoid a package import cycle at module load time.
+    from proteus.stage1 import Stage1Scaffold
+    from proteus.stage1.stabilization import StabilizationConfig
+
+    tau = _tau_for_target(int(d), target_nodes)
+    points = sample_unit_ball(n_samples, int(d), np.random.default_rng(seed + ensemble))
+    scaffold = Stage1Scaffold(
+        dim=int(d),
+        tau=tau,
+        k=int(k),
+        min_nodes=min_nodes,
+        max_nodes=max_nodes,
+        ann_backend=ann_backend,
+        rng=np.random.default_rng(seed + ensemble + 10_000),
+    )
+    scaffold.init_from(points, n_seeds=min_nodes)
+    scaffold.run_until_stable(points, StabilizationConfig(max_epochs=max_epochs))
+    return scaffold, points
+
+
 def calibrate_cdk(
     d: int,
     k: int,
@@ -139,28 +190,21 @@ def calibrate_cdk(
     per-scaffold ``median(r_{k,i} / sqrt(tau))`` estimates.
     """
 
-    # Local import to avoid a package import cycle at module load time.
-    from proteus.stage1 import Stage1Scaffold
-    from proteus.stage1.stabilization import StabilizationConfig
-
     cfg = config if config is not None else CDKCalibrationConfig()
-    tau = _tau_for_target(int(d), cfg.target_nodes)
-    stab = StabilizationConfig(max_epochs=cfg.max_epochs)
     estimates: list[float] = []
     for e in range(cfg.n_ensembles):
-        rng = np.random.default_rng(seed + e)
-        points = sample_unit_ball(cfg.n_samples, int(d), rng)
-        scaffold = Stage1Scaffold(
-            dim=int(d),
-            tau=tau,
-            k=int(k),
+        scaffold, _ = _build_equilibrated_scaffold(
+            d,
+            k,
+            n_samples=cfg.n_samples,
+            target_nodes=cfg.target_nodes,
             min_nodes=cfg.min_nodes,
             max_nodes=cfg.max_nodes,
+            max_epochs=cfg.max_epochs,
             ann_backend=cfg.ann_backend,
-            rng=np.random.default_rng(seed + e + 10_000),
+            seed=seed,
+            ensemble=e,
         )
-        scaffold.init_from(points, n_seeds=cfg.min_nodes)
-        scaffold.run_until_stable(points, stab)
         est = measure_cdk_from_scaffold(scaffold)
         if np.isfinite(est):
             estimates.append(est)
@@ -241,6 +285,207 @@ def c_dk_analytic(d: int, k: int) -> float:
     return r_over_spacing * cap_radius
 
 
+# ---------------------------------------------------------------------------
+# C_Q(d): interior star-radius constant (SI S3.3, OPEN_ISSUES #36)
+# ---------------------------------------------------------------------------
+#
+# The Stage-2 prune/merge guards of SI S3.3 bound the worst-case reassignment
+# distance of a node's Voronoi cell by ``C_Q(d) * sqrt(tau_local)``:
+#
+#   rho_prune := max_{x in V_j} min_{s != j} ||x - w_s||  <=  C_Q(d) * sqrt(tau).
+#
+# C_Q(d) is the "variance-cap star-radius constant in the regular interior": the
+# typical value of that worst-case reassignment distance, normalized by
+# sqrt(tau), for a cap-equilibrated cell away from the support boundary. It is a
+# **calibrated** constant measured on the *same* uniform-d-ball ensemble as
+# c_{d,k} (S2.5.5) -- the star radius rather than the k-NN radius on identical
+# equilibrated scaffolds.
+
+
+@dataclass(frozen=True)
+class CQCalibrationConfig:
+    """Reference-ensemble parameters for a single ``C_Q(d)`` calibration point.
+
+    Shares the uniform-d-ball ensemble of :class:`CDKCalibrationConfig`. ``k`` is
+    the representative neighbor count used to build the reference scaffolds (the
+    S3.3 guards act on the operational scaffold, whose default is ``k = 8``).
+    ``interior_fraction`` selects the "regular interior" as the inner fraction of
+    mature nodes by distance from the ball center, which excludes boundary cells
+    whose star radius is inflated by the missing exterior neighbors and adapts to
+    dimension (in high d most nodes concentrate near the surface). All fields are
+    operational calibration parameters (they set the measurement protocol).
+    """
+
+    n_samples: int = 3000
+    n_ensembles: int = 4
+    target_nodes: int = 120
+    max_nodes: int = 400
+    min_nodes: int = 4
+    max_epochs: int = 25
+    ann_backend: str = "auto"
+    k: int = 8
+    interior_fraction: float = 0.5
+
+
+def measure_cq_from_scaffold(
+    scaffold: object,
+    points: np.ndarray,
+    *,
+    interior_fraction: float = 0.5,
+) -> float:
+    """Median interior ``rho_prune / sqrt(tau)`` of an equilibrated scaffold (SI S3.3).
+
+    For each reference point ``x`` the two nearest nodes are queried; the nearest
+    is the owner ``j`` and the second-nearest distance equals
+    ``min_{s != j} ||x - w_s||`` (the reassignment distance if ``j`` is deleted).
+    The per-node star radius ``rho_prune`` is the max of this over the points the
+    node owns. Only mature nodes contribute; the "regular interior" keeps the
+    inner ``interior_fraction`` of them by distance from the ball center. Returns
+    ``NaN`` if the scaffold is too small to estimate.
+    """
+
+    nodes = list(getattr(scaffold, "nodes"))
+    n = len(nodes)
+    if n < 2:
+        return float("nan")
+    tau = float(getattr(scaffold, "tau"))
+    if tau <= 0.0:
+        return float("nan")
+    points = np.asarray(points, dtype=float)
+    if points.shape[0] < 2:
+        return float("nan")
+    prune_after = int(getattr(scaffold, "prune_after", 0))
+    positions = scaffold.node_positions()  # type: ignore[attr-defined]
+    node_norms = np.linalg.norm(positions, axis=1)
+
+    rho = np.zeros(n, dtype=float)  # per-node worst-case reassignment distance
+    for x in points:
+        idx, dists = scaffold.ann.query_knn(x, k=2)  # type: ignore[attr-defined]
+        j = int(idx[0])
+        d2 = float(dists[1]) if len(dists) > 1 else float(dists[0])
+        if d2 > rho[j]:
+            rho[j] = d2
+
+    mature = [
+        i
+        for i, node in enumerate(nodes)
+        if int(getattr(node, "update_count", 0)) >= prune_after and rho[i] > 0.0
+    ]
+    if len(mature) < 2:
+        # Fall back to every node that owns at least one reference point.
+        mature = [i for i in range(n) if rho[i] > 0.0]
+    if len(mature) < 2:
+        return float("nan")
+
+    order = sorted(mature, key=lambda i: float(node_norms[i]))
+    n_keep = max(2, int(np.ceil(float(interior_fraction) * len(order))))
+    interior = order[:n_keep]
+
+    sqrt_tau = float(np.sqrt(tau))
+    ratios = [float(rho[i]) / sqrt_tau for i in interior]
+    return float(np.median(ratios))
+
+
+def calibrate_cq(
+    d: int,
+    *,
+    config: CQCalibrationConfig | None = None,
+    seed: int = 0,
+) -> float:
+    """Calibrate ``C_Q(d)`` on the uniform d-ball reference ensemble (SI S3.3).
+
+    Runs ``config.n_ensembles`` independent uniform-d-ball scaffolds to
+    equilibrium (the same ensemble as :func:`calibrate_cdk`) and returns the
+    median of the per-scaffold interior ``median(rho_prune / sqrt(tau))``.
+    """
+
+    cfg = config if config is not None else CQCalibrationConfig()
+    estimates: list[float] = []
+    for e in range(cfg.n_ensembles):
+        scaffold, points = _build_equilibrated_scaffold(
+            d,
+            cfg.k,
+            n_samples=cfg.n_samples,
+            target_nodes=cfg.target_nodes,
+            min_nodes=cfg.min_nodes,
+            max_nodes=cfg.max_nodes,
+            max_epochs=cfg.max_epochs,
+            ann_backend=cfg.ann_backend,
+            seed=seed,
+            ensemble=e,
+        )
+        est = measure_cq_from_scaffold(
+            scaffold, points, interior_fraction=cfg.interior_fraction
+        )
+        if np.isfinite(est):
+            estimates.append(est)
+    if not estimates:
+        raise RuntimeError(f"calibration produced no finite estimate for d={d}")
+    return float(np.median(estimates))
+
+
+# Metadata describing how CQ_TABLE was produced (reproducibility record).
+CQ_CALIBRATION_META: dict[str, object] = {
+    "protocol": "SI S3.3 (ensemble shared with S2.5.5)",
+    "ensemble": "uniform unit d-ball",
+    "statistic": (
+        "median over the interior half of mature nodes of "
+        "rho_prune / sqrt(tau), median over ensembles"
+    ),
+    "config": {
+        "n_samples": 3000,
+        "n_ensembles": 4,
+        "target_nodes": 120,
+        "max_nodes": 400,
+        "min_nodes": 4,
+        "max_epochs": 25,
+        "ann_backend": "auto",
+        "k": 8,
+        "interior_fraction": 0.5,
+    },
+    "stabilization": "StabilizationConfig(max_epochs=25); other fields default",
+    "grid": {"d": [1, 2, 3, 4]},
+    "seed": 0,
+}
+
+# Calibrated C_Q(d) values (see CQ_CALIBRATION_META). Regenerate with
+# ``python -m proteus.stage1.calibration``.
+CQ_TABLE: dict[int, float] = {
+    1: 2.3462,
+    2: 1.6627,
+    3: 1.4895,
+    4: 1.4390,
+}
+
+
+def c_q(d: int) -> float:
+    """Look up the calibrated interior star-radius constant ``C_Q(d)`` (SI S3.3).
+
+    Falls back to the cap-fixed catchment-radius anchor :func:`c_q_analytic` for
+    dimensions outside the tabulated grid.
+    """
+
+    d_i = int(d)
+    if d_i in CQ_TABLE:
+        return CQ_TABLE[d_i]
+    return c_q_analytic(d_i)
+
+
+def c_q_analytic(d: int) -> float:
+    """Cap-fixed catchment-radius anchor for ``C_Q(d)`` (SI S3.3 fallback).
+
+    A cap-equilibrated interior cell has variance ``tau``; modeling it as a
+    uniform ball of radius ``R`` gives ``d/(d+2) R^2 = tau``, i.e.
+    ``R = sqrt((d+2)/d) sqrt(tau)``. The worst-case reassignment distance is of
+    this order, so ``C_Q^{iso}(d) = sqrt((d+2)/d)`` is the analytic anchor; the
+    calibrated table runs a consistent factor above it (boundary-corner and
+    discretization corrections). Decreasing in ``d``.
+    """
+
+    d_f = float(d)
+    return float(np.sqrt((d_f + 2.0) / d_f))
+
+
 def _regenerate_table(
     ds: tuple[int, ...] = (1, 2, 3, 4),
     ks: tuple[int, ...] = (6, 8, 10, 12),
@@ -257,9 +502,22 @@ def _regenerate_table(
     return table
 
 
+def _regenerate_cq_table(
+    ds: tuple[int, ...] = (1, 2, 3, 4),
+    *,
+    config: CQCalibrationConfig | None = None,
+    seed: int = 0,
+) -> dict[int, float]:
+    """Recompute the ``C_Q(d)`` table (used by ``__main__``)."""
+
+    return {d: calibrate_cq(d, config=config, seed=seed) for d in ds}
+
+
 if __name__ == "__main__":  # pragma: no cover - calibration entry point
     import json
 
     result = _regenerate_table()
     printable = {f"{d},{k}": round(v, 4) for (d, k), v in result.items()}
-    print(json.dumps(printable, indent=2, sort_keys=True))
+    cq_result = _regenerate_cq_table()
+    cq_printable = {str(d): round(v, 4) for d, v in cq_result.items()}
+    print(json.dumps({"c_dk": printable, "C_Q": cq_printable}, indent=2, sort_keys=True))
