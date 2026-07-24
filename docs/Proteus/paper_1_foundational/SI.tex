@@ -400,8 +400,24 @@ The support trace $V_C(\tau)$ is a cheap secondary diagnostic: robust characteri
 \subsection*{S2.5.1 Scale Controller Procedure}
 Evaluate $\Phi_C(\tau)$ on a geometric grid in $\log \tau$. Candidate peaks are detected by sign changes in the centered second difference, then refined with a small number of additional evaluations near each bracket. A support trace, such as a summed local volume proxy $V_C(\tau)$, is logged as a cross-check: robust characteristic scales should coincide with the expected transition between unresolved support and redundant over-refinement. A grid point is eligible only if its Stage~1 scaffold stabilizes under the fixed-scale criteria. If no robust peak exists, the region is terminal for the searched band.
 
-The fixed-$\tau$ stopping rule should be confidence-based rather than a pure
-absolute-CV threshold. The minimal criterion has two layers:
+The fixed-$\tau$ stopping rule has a canonical operational default and a
+recommended hardening.
+
+\emph{Operational default (implemented).} Stop when the coefficient of variation
+of the hard-Voronoi variance over mature nodes stays below the EWMA noise floor
+for $M_{\mathrm{eq}}$ consecutive epochs,
+\[
+\mathrm{CV}(\sigma_i^2)<\beta_{\mathrm{cv}}\sqrt{2/k},
+\qquad \beta_{\mathrm{cv}}=1.5,\quad M_{\mathrm{eq}}=3,
+\]
+whose derivation from the EWMA effective sample size is given in S14.2 (for
+$k=8$ the threshold is $\approx0.75$). This is the criterion used by the
+reference implementation (\texttt{stage1.stabilization}) and is sufficient for
+the synthetic suite.
+
+\emph{Recommended hardening (trend exhaustion).} Where a stronger guarantee is
+wanted, augment the absolute threshold with a two-layer confidence test and
+treat the threshold itself as a sanity bound rather than the sole signal:
 \begin{enumerate}[leftmargin=1.5em]
   \item \emph{Topology quiet:} over a trailing window of $W$ epochs, there are no
   accepted splits, no accepted node prunes, node count is unchanged, and the
@@ -412,12 +428,13 @@ absolute-CV threshold. The minimal criterion has two layers:
   the mean load $\mathbb E[\sigma_i^2/\tau]$ is flat rather than still drifting
   toward the cap.
 \end{enumerate}
-This replaces the weaker rule "the last few CV values fall below a tolerance."
-Absolute thresholds remain useful as sanity bounds, but the primary stopping
-signal is \emph{trend exhaustion}: the scaffold has become structurally quiet
-and its moments are no longer evolving systematically. Optional frozen-topology
-epochs may still be used as a diagnostic hardening step, but they are not the
-default equilibrium criterion.
+Under this hardening the primary stopping signal is \emph{trend exhaustion}: the
+scaffold has become structurally quiet and its moments are no longer evolving
+systematically. Optional frozen-topology epochs may be added as a further
+diagnostic check. In both regimes the incoherence-based
+$\mathrm{CV}(\widetilde\rho)$ criterion remains diagnostic-only (S14.2), because
+the incoherence ratio mixes hard-Voronoi $\sigma_i$ with soft-routing
+$\mathbf m_i$ and is fragile to neonatal-node transients.
 
 \subsection*{S2.5.2 Local Noise Estimation from Settled Catchments}
 \label{sec:si-local-noise}
@@ -1740,6 +1757,8 @@ Defaults are listed here for implementers while remaining defined in their ownin
 \tau\ (\text{operational scale}) & \text{searched on grid; }\tau_{\mathrm{local},i}=\tau & \text{S2.4} & \text{operational}\\
 s_{\mathrm{control}}\ (\text{reporting only}) & 1-e^{-\tau/D_{\mathrm{subspace}}} & \text{S2.4} & \text{normalization}\\
 \text{scale grid} & r=1/\sqrt2 & \text{S2.5} & \text{operational}\\
+\beta_{\mathrm{cv}} & 1.5\ (\mathrm{CV}(\sigma^2)<\beta_{\mathrm{cv}}\sqrt{2/k}) & \text{S2.5.1} & \text{operational}\\
+M_{\mathrm{eq}} & 3\text{ consecutive epochs} & \text{S2.5.1} & \text{operational}\\
 \Phi_C\text{ peak floor} & 5\%\text{ of grid max} & \text{S2.5.1} & \text{empirical}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
 z_{\mathrm{Wilson}} & 1.2816 & \text{S3.1} & \text{statistical}\\
