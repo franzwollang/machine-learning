@@ -43,6 +43,7 @@ T_C & \text{optional region warp} & \text{S5,S7}\\
 \boldsymbol\mu_C,\Sigma_C & \text{Gaussian mode and covariance} & \text{S7}\\
 \mu_C,\mu_C^{\mathrm{PL}},\boldsymbol\mu(\mathbf x) & \text{Gaussian, PL, and path memberships} & \text{S7}\\
 \Phi_C(\tau),R_i(\tau) & \text{cluster and node scale responses} & \text{S2.5}\\
+\Sigma_{\mathrm{smooth}} & \text{effective heat-kernel smoothing covariance }(=\tau I) & \text{S2.5.4}\\
 \alpha_{0,i} & \text{BDeu concentration} & \text{S2.7}\\
 F_{\mathrm{DM}},\tau_{\mathrm{BF}} & \text{evidence score and Bayes-factor margin} & \text{S3.4}\\
 W,\ T_{\mathrm{hyst}},A_T & \text{gate window, hysteresis, jump budget} & \text{S3.6,S12}\\
@@ -562,6 +563,66 @@ support local-floor-relative detectability, adaptive scale selection, and
 recursion timing without committing the first paper to a full anisotropic
 covariance-learning framework.
 
+\subsection*{S2.5.4 Variance-Cap / Heat-Kernel Bridge}
+\label{sec:si-tau-heat-bridge}
+Stage~1 uses $\tau$ operationally as a hard-Voronoi \emph{variance cap} (S2.4): a
+node splits when its catchment variance would exceed $\tau$, so at equilibrium
+each mature catchment carries residual variance $\sigma_i^2\lesssim\tau$. The
+resolution theory of S2.8 and the two scale-space propositions of the paper
+instead treat $\tau$ as the \emph{bandwidth of a Gaussian convolution} acting on
+the latent density $\rho$ (the smoothed family $\rho_\tau$ has variance
+$\sigma_i^2+\tau$). This subsection states the bridge that lets the same symbol
+play both roles and fixes the isotropic convention used by the implementation
+and the test harness.
+
+\paragraph{Equilibrium smoothing lemma (informal).}
+Fix a region at effective dimension $d$ with a settled scaffold at cap $\tau$,
+and let $\widehat\rho^{(C)}_\tau$ be the catchment-conditional density recovered
+from the equilibrated nodes (the per-node $k$-NN proxy of S2.5 aggregated over
+the region). By the equilibrium calibration of S2.5, a cap-satisfied catchment
+locks its effective radius to $h_i\approx c_{d,k}\sqrt\tau$, so estimating the
+density from that catchment averages the latent density over a neighborhood of
+squared scale $\sim\tau$. Substituting the local expansion of S2.5.2,
+$X=x_0+Uz+\tfrac12\mathrm{II}(z,z)+\varepsilon$, gives
+\[
+\widehat\rho^{(C)}_\tau(x)
+=
+\bigl(\mathcal G_{\Sigma_{\mathrm{smooth}}}\!*\rho\bigr)(x)
+\;+\;
+O\!\bigl(\|\mathrm{II}\|^2\,\tau^2\bigr)
+\;+\;
+O\!\bigl(\tau\,\|\nabla\Psi\|\bigr),
+\]
+where $\mathcal G_\Sigma$ is the Gaussian kernel with covariance $\Sigma$ and the
+error terms are precisely the curvature and floor-gradient corrections of
+S2.5.2. The bandwidth is fixed only up to the calibration constant $c_{d,k}$
+(S11; calibration protocol in OPEN\_ISSUES~\#28), which converts the operational
+cap into the effective smoothing scale, $\Sigma_{\mathrm{smooth}}\propto\tau$. In
+words: a settled catchment at cap $\tau$ reports the latent density smoothed at
+bandwidth $\sim\tau$, up to $c_{d,k}$ and second-order geometry. This is what
+licenses S2.8 to reason about $\rho_\tau$ while the controller manipulates the
+variance cap directly.
+
+\paragraph{Isotropic convention (canonical for Paper~1).}
+The reference implementation and the hierarchy-recovery harness adopt the
+isotropic bridge
+\[
+\Sigma_{\mathrm{smooth}}=\tau\,I,
+\]
+i.e.\ absorb $c_{d,k}$ into the scale calibration and treat smoothing as
+isotropic in the current working frame (ambient at the root, the retained PCA
+frame after the T2 transfer of S1.4). This is exact for locally isotropic noise
+on flat support and is the convention under which the S2.8 mode-evolution
+formulae (variance $\sigma_i^2+\tau$) hold verbatim; it is the declared default,
+not a placeholder.
+
+\paragraph{Deferred: anisotropic scale-space.}
+An intrinsic/anisotropic bridge --- replacing $\tau I$ by a tangent-space metric
+or a covariance semigroup driven by the local noise tensor $\Psi$ (S2.5.2) and
+the T2 frame --- would tighten the curvature and floor-gradient error terms above
+and is the natural refinement once per-region covariance learning lands. It is
+explicitly out of scope for Paper~1.
+
 \subsection*{S2.6.1 Cluster Identification, Q-Score, and Cross-Scale Tracking}
 \label{sec:si-cluster-derivation}
 At a fixed variance scale $v$, define the effective correlation radius
@@ -797,7 +858,11 @@ This concentration is used consistently in transition smoothing, AP self-prefere
 \label{sec:si-resolution-theory}
 The graph-local Q-score of S2.6 is the algorithmic separability criterion. This
 subsection states the corresponding information-theoretic preconditions under
-which the cluster definition can be satisfied at all.
+which the cluster definition can be satisfied at all. Throughout, $\tau$ denotes
+the Gaussian smoothing bandwidth acting on the latent density; the
+\hyperref[sec:si-tau-heat-bridge]{variance-cap / heat-kernel bridge of S2.5.4}
+licenses identifying it with the operational variance cap under the isotropic
+convention $\Sigma_{\mathrm{smooth}}=\tau I$.
 
 \paragraph{Density model.}
 At fixed local effective dimension $d$, model the density as
@@ -1945,6 +2010,7 @@ s_{\mathrm{control}}\ (\text{reporting only}) & 1-e^{-\tau/D_{\mathrm{subspace}}
 M_{\mathrm{eq}} & 3\text{ consecutive epochs} & \text{S2.5.1} & \text{operational}\\
 \tau^\star\text{ selector} & \text{variance-load }L=1\text{ up-crossing} & \text{S2.5.1} & \text{derived}\\
 \Phi_C,V_C\text{ traces} & \text{scale diagnostics (not selector)} & \text{S2.5.1} & \text{diagnostic}\\
+\Sigma_{\mathrm{smooth}} & \tau I\ (\text{heat-kernel bridge, isotropic}) & \text{S2.5.4} & \text{convention}\\
 P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{derived}\\
 \theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\

@@ -1,22 +1,22 @@
 {
-  "updated_at": "2026-07-24T06:55Z",
-  "turn": 7,
-  "focus": { "milestone": "M1", "issue": 27, "goal": "wire persistence accept-gate into recursion; unblock stand-in heuristic deletion" },
+  "updated_at": "2026-07-24T07:10Z",
+  "turn": 8,
+  "focus": { "milestone": "M2", "issue": 27, "goal": "chain-head reconciled; #32 bridge resolved; next = M1 #27 stand-in deletion" },
   "recent": [
-    "Merged chain tip 9f6a (M0+M1A+M2 persistence+load-crossover) into branch 6aa1; baseline 121 passed/31 xfailed.",
-    "Wired persistence accept-gate: RecursionConfig.require_persistent_split (SI S2.6.2). Split accepted only if persistence_result.tau_star_index is not None; forces selector='persistence'+record_partitions. Added 2 gate tests. Full suite 123/31. Commit + push done.",
-    "Ablation (heuristics stripped via monkeypatch): gate ALONE gives circle->1 leaf, hierarchy->6 leaves ARI_f=1.0; heuristic-free WITHOUT gate over-splits (hierarchy->8). Confirms gate replaces stand-ins at recursion layer."
+    "TRAP HIT: skipped git fetch --all at start, built on stale turn-5 branch (7b9a), duplicated turn-6 load-crossover in a divergent flag form. Fetched, found true head 6aa1 (7b9a->9f6a->6aa1), merged --no-ff, resolved all conflicts to theirs, deleted redundant test. Branch 6084 tree == 6aa1. Memory updated to reinforce fetch-first.",
+    "Genuinely-new work: resolved #32 (tau/heat-kernel bridge). Added SI S2.5.4 (equilibrium smoothing lemma via S2.5.2 local expansion + c_{d,k}; Sigma_smooth=tau*I declared canonical isotropic convention; anisotropic deferred), S0.1 symbol, S2.8 cross-ref, S14.3 convention row. #31(b) updated (tau*I now canonical).",
+    "Suite green post-reconcile: 122 passed/1 skipped/31 xfailed. SI \\[ \\] balanced 142/142."
   ],
   "discoveries": [
-    "Single-scale run_clustering heuristic-free: circle->4, swiss->[1,6,6..], hierarchy->[5,5,6,6,8,9,6,6]. Persistence still discriminates: circle/swiss tau_star_index=None, hierarchy=1. Gate is the correct arbiter.",
-    "Blocker to deleting clustering.py stand-ins is NOT recursion (gate handles it) but SINGLE-SCALE tests: test_circle_clustering_produces_one_cluster (==1) + swiss scenario n_clusters<=3 + hierarchy purity. Cross-scale gate cannot rescue single-scale run_clustering. Re-scope needed (spec-justified by M1 finding).",
-    "Env: PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'; deps reinstalled this VM. Full suite ~86s = 123 passed/31 xfailed."
+    "Canonical scale selector is ON-grid _select_load_crossover (variance-load L=1 up-crossing), DEFAULT since turn6/9f6a. My off-grid log-interp variant was discarded but is a noted possible future tau* refinement.",
+    "M1 #27 stand-in deletion is blocked by SINGLE-SCALE tests (test_circle_clustering_produces_one_cluster==1, swiss n_clusters<=3, hierarchy purity), NOT recursion (persistence gate handles recursion). Deletion needs spec-justified re-scope of those tests + cross-family audit (acceptance-path).",
+    "Env fast path: pip install -q numpy scipy pytest scikit-learn (~7s); PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'."
   ],
   "open_threads": [
-    "#27 NEXT turn: make recursion gate default, re-scope single-scale circle/swiss/hierarchy clustering tests (own auditable change; cross-family audit advised since it touches acceptance-path tests), THEN delete _refine_boundaries/_absorb_*/<=3-collapse.",
+    "#27 NEXT (main line): make recursion gate (require_persistent_split) default, re-scope single-scale circle/swiss/hierarchy clustering tests (spec-justified by turn-4 M1 finding; cross-family audit advised), THEN delete _refine_boundaries/_absorb_*/<=3-collapse in clustering.py.",
     "#28 open: (a) c_{d,k} calibration protocol (uniform d-ball; couples C_Q(d) #36); (b) refine persistence tau* off coarse-end toward v*; (c) delete legacy load_band + dormant _legacy_slope_selector/_detect_peak once load_crossover dominates all scenarios.",
-    "chain: main -> 5413 -> 5511 -> eb8a -> 20e3 -> 7b9a -> 9f6a -> 6aa1(this). All draft PRs off main; 6aa1 stacks full chain + gate."
+    "chain head = 6084 (== 6aa1). ALWAYS git fetch --all before any work next run."
   ],
-  "next_step": "Re-scope single-scale clustering tests (spec-justified) + make gate default + delete clustering.py stand-ins (#27 Part B completion). Alternatively write c_{d,k} calibration protocol (#28).",
+  "next_step": "M1 #27 Part B completion: re-scope the 3 single-scale clustering tests (spec-justified), make the persistence recursion gate default, then delete the clustering.py stand-in heuristics. Get cross-family audit since it touches acceptance-path tests.",
   "blockers": []
 }
