@@ -26,12 +26,14 @@ class RecursionConfig:
     persistence scale (``selector="persistence"``); a region whose split does not
     persist is treated as terminal (a single intrinsic feature).  This is the
     *intended* canonical replacement for the single-scale cleanup heuristics of
-    S2.6.1 (OPEN_ISSUES #27), but it is **not yet safe to delete those
-    heuristics**: on warm-started sweeps a uniform manifold's arc-partition can
-    spuriously persist over an isolated fine-end interval, so enabling this gate
-    *without* the S2.6.1 stand-ins over-fragments uniform manifolds (circle
-    -> tens of leaves).  See the "Known limitation" note in SI S2.6.2.  Default
-    off during the M2 transition.
+    S2.6.1 (OPEN_ISSUES #27).  The persistence rule is **coarse-anchored**
+    (S2.6.2), which removes the warm-start fine-end false positive: with the
+    S2.6.1 stand-ins removed and this gate on, the circle collapses to a single
+    leaf and the hierarchical Gaussian keeps its six leaves.  It is **not yet safe
+    to delete those stand-ins**, however: a developable manifold (swiss roll)
+    whose coarsest partition is a few arcs still over-fragments under the gate
+    alone, pending the Stage 2 DM evidence gate (S3.4, M4).  See the "residual
+    limitation" note in SI S2.6.2.  Default off during the M2 transition.
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)

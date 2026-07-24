@@ -854,29 +854,80 @@ whereas a genuinely multi-modal region persists from its coarse-end death over a
 long, high-overlap run, which is precisely the discrimination the single-scale
 $Q$ of S2.6.1 cannot make.
 
-\paragraph{Known limitation of the two-point rule (warm-start false positives).}
+\paragraph{Coarse-anchoring of the persistence interval.} The bare two-point
+rule is made robust to warm-start path dependence by requiring the accepted
+interval to be \emph{coarse-anchored}: the region's \emph{coarsest} multi-cluster
+partition must itself begin a persistent run of length $\ge P_{\mathrm{persist}}$.
+The motivation is the scale-space picture above: an intrinsic feature is born (in
+the coarse-to-fine direction) at its coarse-end death $v_{\mathrm{death}}^+$ and,
+by Gaussian non-enhancement of the smoothed density, persists monotonically
+toward finer scales, so one expects it to be present already at the scale where
+the region first ceases to be a single cluster. A candidate partition that
+appears only at finer scales---after the coarser scales have churned through
+mutually non-agreeing multi-cluster states---is treated as a resolution artifact
+of the warm-started refit and rejected. Formally, letting $j_0$ be the coarsest
+grid index with $K_{j_0}\ge 2$, the interval is accepted iff its run length
+$L_{j_0}\ge P_{\mathrm{persist}}$, and then $v_{\mathrm{death}}^+=\tau_{j_0}$;
+otherwise the region carries no coarse-anchored feature and is terminal. This is
+hardening direction~(ii) below, and it is the canonical rule
+(\texttt{coarse\_anchored} in the persistence configuration, S14.3).
+
+We stress that this is an \emph{operational} rule, not a grid-invariant
+consequence of scale-space theory. Non-enhancement is a statement about the
+extrema of the smoothed density family, and does not transfer verbatim to the
+first \emph{detected} partition of a warm-started scaffold-plus-AP pipeline on a
+discrete $\log\tau$ grid. Two known trade-offs follow. (a)~\emph{False negatives
+from a transient coarse blip:} if the coarsest multi-cluster grid point is a
+one-off partition that disagrees with a genuine persistent block just finer than
+it, the region is declared terminal even though real sub-structure exists just
+below; the recursion does not revisit it. (b)~\emph{Grid sensitivity:} inserting
+or removing a coarse grid point can move $j_0$ and flip an accept to a reject.
+Both are acceptable at Stage~1---the rule is deliberately conservative, and the
+Stage~2 evidence gate is the ultimate arbiter of acceptance---but they are the
+reason $P_{\mathrm{persist}}$, $\theta_{\mathrm{ovl}}$, and
+\texttt{coarse\_anchored} are all labeled operational in S14.3.
+
+\paragraph{The warm-start false positive and the residual limitation.}
 The controller sweep is \emph{warm-started}: each grid point inherits the
 previous scaffold, so partition labelings are path-dependent. On a uniform
 manifold this can lock a fragment partition in place over a short interval even
 though no intrinsic feature exists. Empirically (circle, $8$ grid points, with
 the S2.6.1 stand-ins disabled), the matched-Jaccard overlaps between adjacent
 arc-partitions are mostly low ($0.17$--$0.33$, as expected), but an isolated
-fine-end pair can coincide at $\approx0.61$ --- enough to satisfy
-$P_{\mathrm{persist}}=2$ at $\theta_{\mathrm{ovl}}=0.5$ and admit a spurious
+fine-end pair can coincide at $\approx0.61$ --- enough to satisfy the bare
+$P_{\mathrm{persist}}=2$ rule at $\theta_{\mathrm{ovl}}=0.5$ and admit a spurious
 split, whereas an independent \emph{cold-start} refit of the same scales removes
 the block entirely. A genuine multi-modal region instead persists from the
 \emph{coarsest} grid point with high, stable overlaps ($\gtrsim0.68$) over a run
-of length $\ge3$. Consequently the two-point rule at $\theta_{\mathrm{ovl}}=0.5$
-is \emph{not yet} a safe replacement for the S2.6.1 stand-ins. Hardening
-directions, in decreasing order of principled-ness: (i) require the
+of length $\ge3$. Coarse-anchoring (above) removes exactly this failure: because
+the circle's coarsest multi-cluster partition does not itself persist, the ring
+is correctly judged a single feature. Under a full removal of the S2.6.1
+stand-ins with the persistence accept-gate on, coarse-anchoring reduces the
+circle from tens of spurious leaves to a single leaf and leaves the
+$3$-coarse/$6$-fine hierarchical Gaussian at its correct six terminal leaves.
+
+It is \emph{not yet} sufficient to retire the stand-ins entirely. A developable
+manifold whose coarsest scaffold partition is a small number of arcs (the swiss
+roll: three arcs at the coarsest grid point) can produce a coarse-anchored run
+whose adjacent overlap sits just above $\theta_{\mathrm{ovl}}$ ($\approx0.57$),
+so coarse-anchoring admits it and the region over-fragments without the
+boundary-refinement and tiny-cluster-absorption stand-ins. The residual is thus
+narrowed from a fine-end warm-start artifact (now resolved) to \emph{marginal
+coarse-scale arc-persistence on developable manifolds}. Hardening directions for
+this residual, in decreasing order of principled-ness: (i) require the
 complementary Stage~2 Dirichlet--multinomial evidence gate
-(\hyperref[sec:si-dm-evidence]{S3.4}) as the acceptance null; (ii) require the
-persistence interval to be anchored at (or connected to) the coarse end rather
-than an isolated fine-end block truncated by the grid; (iii) require a longer
-minimal run or a higher \emph{mean} interval overlap. Threshold-only tightening
-of $\theta_{\mathrm{ovl}}$ is brittle and is not recommended. Until one of these
-lands, $P_{\mathrm{persist}}$ is an operational default and the S2.6.1 stand-ins
-remain the operating acceptance path.
+(\hyperref[sec:si-dm-evidence]{S3.4}) as the acceptance null --- an arc-partition
+of a connected manifold fails a Bayes-factor margin test where a marginal
+overlap does not; (ii$'$) require the candidate coarse-anchored interval to
+survive an independent \emph{cold-start} (or reverse-sweep) recomputation of the
+same grid interval, so acceptance rests on path-\emph{independent} persistence
+rather than a single warm-start trajectory --- a self-contained check that
+directly targets the marginal-overlap artifact without a new threshold; (iii)
+require a longer minimal run or a higher \emph{mean} interval overlap.
+Threshold-only tightening of $\theta_{\mathrm{ovl}}$ is brittle and is not
+recommended. Both (i) and (ii$'$) are viable; until one lands,
+$P_{\mathrm{persist}}$ is an operational default and the S2.6.1 stand-ins remain
+the operating acceptance path.
 
 \subsection*{S2.7 Dirichlet Concentration from the BDeu Prior}
 \label{sec:si-bdeu-prior}
@@ -2046,6 +2097,7 @@ M_{\mathrm{eq}} & 3\text{ consecutive epochs} & \text{S2.5.1} & \text{operationa
 \Sigma_{\mathrm{smooth}} & \tau I\ (\text{heat-kernel bridge, isotropic}) & \text{S2.5.4} & \text{convention}\\
 P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{operational}\\
 \theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
+\texttt{coarse\_anchored} & \text{true}\ (\text{coarsest split must persist}) & \text{S2.6.2} & \text{operational}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
 \beta_{\mathrm{prune}} & 0.5\ (\text{directed-floor share}) & \text{S3.1} & \text{operational}\\
 z_{\mathrm{Wilson}} & 1.2816\ (\text{alternative}) & \text{S3.1} & \text{statistical}\\

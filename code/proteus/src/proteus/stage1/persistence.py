@@ -27,14 +27,19 @@ The signal has two consumers, both acceptance-path (S2.6.2):
 Both are wired incrementally behind a flag while the legacy load-band selector
 remains the transition default.
 
-.. warning::
-   The recursion-timing consumer is **not yet a safe replacement** for the
-   S2.6.1 stand-ins.  Because the controller sweep is warm-started, a uniform
-   manifold's arc-partition can spuriously satisfy the two-point persistence rule
-   over an isolated fine-end interval (empirically: circle over-fragments to tens
-   of leaves when the stand-ins are removed and ``require_persistent_split`` is
-   on).  The stand-ins therefore remain load-bearing; see the "Known limitation"
-   note in SI S2.6.2 and OPEN_ISSUES #27 for the hardening directions.
+.. note::
+   The acceptance rule is **coarse-anchored** by default
+   (:attr:`PersistenceConfig.coarse_anchored`): the coarsest multi-cluster
+   partition must itself persist, which removes the warm-start fine-end false
+   positive that the bare two-point rule admitted on uniform manifolds (SI
+   S2.6.2).  With the stand-ins removed and ``require_persistent_split`` on, this
+   reduces the circle to a single leaf and keeps the hierarchical Gaussian at six
+   leaves.  It is **not yet** a full replacement for the S2.6.1 stand-ins: a
+   developable manifold (swiss roll) whose coarsest partition is a few arcs can
+   still produce a coarse-anchored run whose adjacent overlap sits just above
+   ``overlap_threshold``, so the stand-ins remain load-bearing for that residual.
+   The principled resolution is the Stage 2 DM evidence gate (S3.4, M4); see the
+   "residual limitation" note in SI S2.6.2 and OPEN_ISSUES #27.
 """
 
 from __future__ import annotations
@@ -123,9 +128,15 @@ class PersistenceResult:
         between grid points ``t`` and ``t+1`` (``nan`` when either side is not
         multi-cluster).
     tau_star_index / tau_star:
-        Coarsest grid index (and its ``tau``) whose multi-cluster partition
-        persists for at least ``min_persistence`` grid points, or ``None`` if no
-        partition persists (a terminal / single-feature region).
+        Selected characteristic-scale grid index (and its ``tau``), or ``None``
+        if no partition qualifies (a terminal / single-feature region).  Under
+        the canonical ``coarse_anchored=True`` rule this is the *coarsest
+        multi-cluster* grid index, accepted only if that partition itself
+        persists for ``min_persistence`` grid points --- so it can be ``None``
+        even when a finer, isolated persistent block exists (that block is judged
+        a warm-start artifact).  Under the legacy rule it is the coarsest grid
+        index whose block persists, scanning past non-persistent coarser
+        multi-cluster points.
     """
 
     run_lengths: np.ndarray
