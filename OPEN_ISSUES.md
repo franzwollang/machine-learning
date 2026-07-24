@@ -22,12 +22,6 @@ Next issue number: 40
 - §1.5 is prose-only; the intended citation list is tracked in §13 "References Prep."
 - Does not affect implementation.
 
-## 20. Document two-tier Hebbian edge semantics (shadow vs lifted)
-
-- The implemented design is two-tier (`links.py`): any routed co-activation may create or increment a **shadow** edge; only BMU_1 -> BMU_2 co-activation **lifts** an edge to the full (lifted) tier. Lifted edges define the topology used for clustering and (later) simplices; shadow edges retain low-grade adjacency evidence.
-- The previous issue text ("only BMU_1 -> BMU_2 creates edges") is superseded by this two-tier design, which the foundation tests now require.
-- Remaining: paper §3 and SI S2/S4 describe a single GNG-style edge convention. Document the shadow/lift/counter-update distinction explicitly, including which tier each consumer (AP clustering, pruning, flag complex) reads.
-
 ## 23. Reconcile tau / dimensionality notation across Paper 1 and SI
 
 - One reconciliation pass remains: confirm paper prose, notation tables, SI S2.4, S2.5, S2.6, S4.4, and S8.4 all use the same convention — region-level `tau` set at region entry, uniform `tau_local` within a scaffold run, per-node `d_final` as diagnostic only, cluster/recursion-level scale selection via scale response + AP.

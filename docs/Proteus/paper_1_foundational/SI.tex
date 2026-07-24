@@ -29,7 +29,8 @@ C,\ C_\ell,\ C' & \text{region, query-path region, child region} & \text{S0.2}\\
 \tau,\ \tau_C^\star & \text{candidate and selected variance cap} & \text{S2.4--S2.5.1}\\
 u_{\mathrm{global}},\ u_{\mathrm{local}} & \text{global and local tissue floors} & \text{S0.6}\\
 \Psi,\ \psi_i & \text{local noise tensor and node-level floor proxy} & \text{S2.5.2--S2.5.3}\\
-G_C=(\mathcal V_C,\mathcal E_C) & \text{Stage 1 scaffold graph} & \text{S2}\\
+G_C=(\mathcal V_C,\mathcal E_C) & \text{Stage 1 scaffold graph (shadow}\cup\text{lifted edges)} & \text{S2.3.3}\\
+C(i\to j) & \text{directed co-activation transition mass on an edge} & \text{S2.3.3,S3.1}\\
 \mathcal K_C,\ \mathcal S_C & \text{Stage 2 complex and simplex set} & \text{S4}\\
 S,\ |S|_d & \text{simplex and intrinsic }d\text{-volume} & \text{S4,S6}\\
 h_i,\ n_{i\to j} & \text{hit mass and directed transition count} & \text{S2,S3}\\
@@ -367,6 +368,21 @@ As $\mathbf u_i$ rotates, the shadow partition plane drifts. The shadow EWMAs us
 \paragraph{Cost.}
 Memory: one extra moment pair per node, i.e.\ $3\times$ per-node moment storage; still $O(d)$ and streaming-bounded. Compute: one extra dot product and one branched EWMA update per routed sample per node; no per-sample retention.
 
+\subsection*{S2.3.3 Two-Tier Hebbian Edges: Shadow and Lifted}
+\label{sec:si-two-tier-edges}
+The scaffold graph is two-tiered, separating raw adjacency evidence from committed topology. For each routed sample the ANN query returns rank-ordered neighbors $\mathcal N_k=(\mathrm{BMU}_1,\mathrm{BMU}_2,\dots)$, and edges update as follows.
+\begin{itemize}[leftmargin=1.5em]
+  \item \emph{Shadow tier (adjacency evidence).} Any routed co-activation between the BMU and a returned neighbor may create or increment a \emph{shadow} edge, accumulating the directed co-activation counters $C(i\!\to\! j)$ at the rank routing weight $\omega_r$ (S2.2). Shadow edges record low-grade adjacency evidence without asserting a topological bond.
+  \item \emph{Lifted tier (committed topology).} Only the $\mathrm{BMU}_1\!\to\!\mathrm{BMU}_2$ co-activation---the first- to second-nearest transition---promotes an edge to the \emph{lifted} tier. Lifting is monotone: once lifted, an edge stays lifted until explicitly demoted (S3.1). Both tiers keep the same directed counters; lifting only changes the edge's structural status.
+\end{itemize}
+The two tiers have distinct consumers:
+\begin{itemize}[leftmargin=1.5em]
+  \item the \emph{lifted} graph is the structural graph: it defines the degree-proxy intrinsic dimension $d_{\mathrm{final}}$ (S1.4), the flag complex of Stage~2 (S4.1), the connected components and internal/boundary edge sets used by clustering (S2.6.1), the peer-comparison stars for the post-clustering prune pass (S3.1), and the node-count / isolated-node stabilization diagnostics (S2.5.1);
+  \item the \emph{full} graph (shadow $\cup$ lifted) supplies the transition evidence read by Affinity Propagation exemplar similarity (S2.6.1), so weak-but-real adjacencies still inform the partition;
+  \item link pruning (S3.1) reads \emph{all} edges for the ambient directed-floor pass and the \emph{lifted} edges only for the post-clustering demotion pass; the Dirichlet--multinomial gate (S3.4) scores the directed transition counts on affected stars regardless of tier.
+\end{itemize}
+This refines the single GNG-style edge convention: ``create/refresh an edge on co-activation'' is the shadow-tier rule, and ``$\mathrm{BMU}_1\!\to\!\mathrm{BMU}_2$ defines topology'' is the lifting rule.
+
 \subsection*{S2.4 Scale Parameter and Control Normalization}
 The operational scale variable is the variance cap $\tau$ itself. The controller searches $\tau$ directly on the geometric grid of S2.5, and every downstream quantity ($\delta_{\min}$, $\tau_{\mathrm{local},i}$, and the split cap) reads $\tau$. For interpretability it is sometimes convenient to report a bounded, dimension-normalized progress variable $s_{\mathrm{control}}\in(0,1)$ through the monotone reparameterization
 \[
@@ -542,8 +558,9 @@ every child still satisfies coherence and extent at the current scale.
 
 At the selected scale $\tau_C^\star$, Stage~1 uses Affinity Propagation on the
 stabilized Hebbian graph to produce candidate exemplars and fragments.
-Similarities are computed only on graph edges using smoothed transition
-probabilities and a smoothed-PMI score. For directed Hebbian counter $C(i\to j)$, define
+Similarities are computed only on existing edges of the full graph (shadow
+$\cup$ lifted; S2.3.3) using smoothed transition probabilities and a
+smoothed-PMI score. For directed Hebbian counter $C(i\to j)$, define
 \[
 \widehat q(j\mid i)
 =
@@ -898,7 +915,7 @@ For finite-epoch training, $A_T<\infty$ over each epoch. Indefinite streaming is
 \section*{S4. Stage 2 Complex Construction}
 
 \subsection*{S4.1 Flag-Complex Invariant}
-For a fixed region $C$, Stage~2 represents topology as the top-dimensional flag complex of the current Hebbian graph. A $d$-simplex $\sigma=\{v_0,\dots,v_d\}$ is present exactly when every pair of vertices in $\sigma$ is a Hebbian edge and the local intrinsic-dimension rule permits a $d$-simplex in that star. Node and link edits therefore induce simplex edits automatically: deleting a link deletes every simplex containing that link, and deleting a node deletes its full star. Geometric motion alone does not change simplex membership.
+For a fixed region $C$, Stage~2 represents topology as the top-dimensional flag complex of the current \emph{lifted} Hebbian graph (S2.3.3). A $d$-simplex $\sigma=\{v_0,\dots,v_d\}$ is present exactly when every pair of vertices in $\sigma$ is a lifted Hebbian edge and the local intrinsic-dimension rule permits a $d$-simplex in that star. Node and link edits therefore induce simplex edits automatically: deleting a link deletes every simplex containing that link, and deleting a node deletes its full star. Geometric motion alone does not change simplex membership.
 
 This invariant avoids separate Delaunay or alpha-complex maintenance. The graph owns topology; the complex is the closure of that topology at the locally estimated dimension. Geometry-dependent caches are recomputed only when the affected simplex geometry changes.
 
