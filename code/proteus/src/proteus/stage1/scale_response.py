@@ -7,6 +7,8 @@ from typing import Any
 import numpy as np
 from scipy.special import gammaln
 
+from proteus.stage1.calibration import c_dk
+
 
 def _unit_ball_volume(d: int) -> float:
     """Volume of the unit ball in R^d."""
@@ -48,7 +50,11 @@ def node_response(scaffold: Any, tau: float, d_working: int) -> np.ndarray:
     r_k = np.maximum(r_k, 1e-12)
 
     rho_hat = hits * k * N_C / (V_d * r_k ** d)
-    scale_factor = (np.sqrt(tau_f)) ** d
+    # Lindeberg calibration sigma = sqrt(tau) / c_{d,k} (SI S2.5, S2.5.5): the
+    # calibrated constant converts the variance cap into the effective k-NN
+    # bandwidth. c_dk uses the scaffold's nominal neighbor count.
+    c = c_dk(d, int(getattr(scaffold, "k", k)))
+    scale_factor = (np.sqrt(tau_f) / c) ** d
     return scale_factor * rho_hat
 
 
