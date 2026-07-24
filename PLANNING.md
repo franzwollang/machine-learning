@@ -25,10 +25,14 @@ bodies below stay static descriptions.
 - **Stage 1 is implemented and test-backed** (~3.3k LOC in `code/proteus/src/`): fixed-tau
   scaffold (EWMA moments, Oja, deferred nudges, two-tier Hebbian links, splits with shadow
   inheritance, pruning, CV stabilization), warm-started scale-grid search, AP + Q-gated
-  clustering, T2 PCA transfer, and Q-gated recursion. Default test run: **110 passed,
-  31 xfailed** (strict "awaiting" markers for unimplemented modules).
-- **Stage 2, evidence, inference, diagnostics, and preprocessing are empty stubs** with
-  typed contracts (`tests/contracts/`) and awaiting tests already written against SI sections.
+  clustering, T2 PCA transfer, and Q-gated recursion. Default test run (post M0–M4 stack
+  merge, `main` @ 7fab454): **189 passed, 26 xfailed** (10 real-data deselected; strict
+  "awaiting" markers for unimplemented modules).
+- **Stage 2 core has begun**: `stage2/flag_complex.py` (Greedy Chaining, S4.1/S4.2/S4.5)
+  and the evidence gate (`evidence/dm_score.py`, `gate.py`, `star_matrix.py`; S3.4–S3.6,
+  S10.4) have landed as tested modules. **Inference, diagnostics, and preprocessing remain
+  empty stubs** with typed contracts (`tests/contracts/`) and awaiting tests written against
+  SI sections. The evidence gate is not yet wired into the Stage-1 runtime loop (see #27).
 - **Paper + SI are drafted** with two load-bearing spec gaps (Q-score canonicalization,
   characteristic-scale selection) and a set of documentation-sync debts where the
   implementation has already made the right call.
