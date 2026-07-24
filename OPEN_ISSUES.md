@@ -40,24 +40,42 @@ The AP -> Q-merge -> refine pipeline is implemented and passes the circle, swiss
 
 - **FINDING (cross-family validated): the constant-free single-scale null is under-determined.** Direct experiments plus an independent GPT audit (agent `0b462607`) establish that at a single scale the graph-local `Q(C)` and `InterLocal/LocalIntra` do **not** carry enough information to separate a uniform manifold that must be one cluster (circle/swiss ring arcs) from genuinely multi-modal structure that must stay split (hierarchical-Gaussian coarse blobs). Their per-cluster `Q` distributions overlap (circle arcs `Q≈0.55–1.18`; hierarchy coarse-blob clusters `Q≈0.58–0.88`), and the same overlap holds for extent ratios `v̂/v`, conductance, modularity, full-graph (shadow∪lifted) variants, and spectral gap. Separately, the partition-`Q` null is mathematically degenerate: a whole connected component has empty boundary → `BoundaryInter = 0` → `Q(null) → +∞`, so a same-criterion comparison trivially favours one cluster. The currently-passing pipeline distinguishes the cases only via **side channels** (lifted-component count, size imbalance). Conclusion: "one Q-improving merge-to-fixpoint + a single-cluster-null test, with no constants" is *not achievable with the present single-scale primitives* — and it is not a missing `K_v` term (the kernel is already in `W_v`).
 - **Canonical arbiter deferred to persistence (M2) / DM gate (M4).** The intrinsic-vs-composite distinction is a cross-scale statement (SI S2.6.2): a real partition persists across ≥ 2 adjacent τ grid points; a uniform manifold's arc-partition does not. The persistence arbiter now **exists** (`stage1/persistence.py`; #28), and independently reproduces the qualitative discrimination (circle → no persistent split; hierarchical → persistent 3-way split). SI S2.6.1 documents the scope and S2.6.2 the operational signal: single-scale `Q` is a proposal screen and the cleanup passes are provisional operational stand-ins for persistence. The alternative M4 S3.4 Dirichlet–multinomial gate supplies the complementary non-degenerate likelihood-ratio null.
-- **Remaining code work (blocked on wiring persistence into the accept path).** `clustering.py` still carries the provisional heuristics with dataset-motivated constants: boundary-refine `eta = 0.3` (`_refine_boundaries`), the tiny-satellite absorbers (`_absorb_tiny_clusters_into_dominant`, `_absorb_one_tiny_satellite`, `_absorb_full_graph_isolates`), and the `<= 3`-fragment collapse in `run_clustering`. The persistence signal exists but is not yet the acceptance arbiter inside `run_recursive_discovery` / `run_clustering`. Next step: gate a proposed split on persistence (accept only if it persists ≥ `P_persist` grid points), confirm the circle=1 / swiss≤3 / hierarchy(6-leaf) regressions hold under that gate, *then* delete the stand-in heuristics. Deleting them now (without the gate wired in) regresses circle→4 and swiss→4 (measured). The four previously-dead helpers are already removed.
+- **Persistence accept-gate is now wired into recursion (`RecursionConfig.require_persistent_split`, SI S2.6.2).** A region's split is accepted only if a multi-cluster partition persists across adjacent `tau` grid points (`persistence_result.tau_star_index is not None`); non-persistent fragmentation makes the region terminal. Two integration tests lock this in (`test_persistence_gate_circle_is_single_feature` → single leaf; `test_persistence_gate_hierarchy_matches_gt` → six leaves, fine ARI 1.0). Empirically validated (turn, cross-scale ablation): with the `clustering.py` stand-in heuristics **stripped**, the gate alone still yields circle→1 leaf and hierarchy→6 leaves (ARI_fine 1.0), while heuristic-free *without* the gate over-splits (hierarchy→8 leaves). The gate defaults **off** during the M2 migration.
+- **Remaining code work (delete the single-scale stand-ins — now unblocked at the recursion layer, but gated on a single-scale test re-scope).** `clustering.py` still carries the provisional heuristics with dataset-motivated constants: boundary-refine `eta = 0.3` (`_refine_boundaries`), the tiny-satellite absorbers (`_absorb_tiny_clusters_into_dominant`, `_absorb_one_tiny_satellite`, `_absorb_full_graph_isolates`), and the `<= 3`-fragment collapse in `run_clustering`. These are only reachable through **single-scale** `run_clustering`, which the cross-scale persistence gate cannot rescue. Deleting them breaks the single-scale assertions that the M1 finding shows are spec-inconsistent — chiefly `test_circle_clustering_produces_one_cluster` (asserts `n_clusters == 1` at one scale) and the single-scale scenario bounds (`test_swiss_roll_stage1_diagnostics_at_tau_star` `n_clusters <= 3`, `test_hierarchy_cluster_purity`). Next step (its own auditable change, per the M2 "one scenario at a time" mitigation): make the recursion gate the default, re-scope those single-scale tests to move the "one intrinsic feature" expectation to the multi-scale layer (or to the adjacency-gated Q-merge-to-fixpoint keeper), *then* delete the stand-ins. The four previously-dead helpers are already removed.
 - **Paper/SI prose** should describe the implemented AP -> Q-merge -> refine pipeline (the Leiden detour is obsolete). The S2.6.1 scope paragraph now covers why uniform manifolds and bump-on-background cases need different cleanup passes; paper §3 prose still needs a one-line pointer to S2.6.2 persistence as the cluster-count arbiter.
 
-## 28. Scale selection: retire the load-band heuristic (default flip remaining)
+## 28. Scale selection: remaining calibration and cleanup
 
-Deeper diagnosis than the original `c_{d,k}` framing: the raw Lindeberg response `R_i(tau) = (sqrt(tau)/c_{d,k})^d * rho_hat_i` is **self-normalizing at equilibrium** (a converged scaffold locks `r_k ~ c_{d,k} * sqrt(tau)`, cancelling the tau-dependence), so the characteristic-scale signal must come from quantities equilibration cannot normalize away.
+The load-band heuristic and most of the original exit criterion are resolved (see log).
+The default selector is now the variance-load `L = 1` up-crossing
+(`controller._select_load_crossover`), which carries no `band_lo` / one-step-coarser
+constant and lands tau* within one grid step of geometric truth (circle 8.0x -> 1.6x,
+swiss 3.9x -> 0.9x). Scale-search test tolerance tightened `10x -> 3x` (plus a swiss-roll
+analog); SI S2.5.1 and the S14.3 table rewritten to match; the legacy load-band selector
+is retained behind `ScaleSearchConfig.selector="load_band"` only for regression bisection.
+Q-partition persistence (`selector="persistence"`, `stage1/persistence.py`) remains the
+structural arbiter for recursion timing (`P_persist=2`, `theta_ovl=0.5`, SI S2.6.2).
 
-Landed behind the `selector` flag (SI S2.5.1 / S2.6.2 / S14.3 documented; default still `"load_band"`):
-- **Primary — variance-load crossing** (`selector="load_crossing"`): the scale where mean load `E[sigma^2/tau]` crosses the cap (`load = 1`, i.e. residual variance equals the cap), log-interpolated on the coarsest stabilized bracket. Target `1` is derived (it is the cap). Empirically dominates the band selector on tau* accuracy across circle/swiss/variable_density/nested_spheres (ratios ~0.7–1.9 vs the band's frequent ~8x overshoot); dedicated tests assert the dominance.
-- **Combined arbiter** (`selector="combined"`): persistence scale for a splittable multi-modal region, else the load-crossing operating scale, else the legacy fallback — unifying tau* selection with recursion timing (S2.6.2).
-- **Persistence** (`selector="persistence"`, `stage1/persistence.py`): sample-space partition tracking, Hungarian-matched cluster Jaccard, `P_persist=2`, `theta_ovl=0.5`. Discriminates uniform (circle → no persistent split) from multi-modal (hierarchical → persistent 3-way).
-- The compensated node-count / support trace `N(tau)*tau^{d/2}` is documented as a **diagnostic, not the selector**: it is confounded once node count saturates the operational budget `N_max` (observed: hierarchical caps immediately, swiss caps mid-grid), so it does not dominate universally — this is why the load-crossing is the primary signal.
+**Finding (cross-family audited, cold-start validated):** the proposed *primary* signal —
+knees/plateaus in the compensated node count `N(tau) * tau^{d/2}` (equivalently `V_C(tau)`)
+— is **not usable as an operational selector**. Warm-started it is path-dependent and its
+"peak" tracks the node budget `N_max`; cold-started with a high cap it is noisy (node count
+even goes non-monotone) and its log-log slope never settles at the theoretical `d/2`. This
+compounds the earlier self-normalization diagnosis (the raw Lindeberg response is flat at
+equilibrium). The knee proposal is therefore demoted to a diagnostic; persistence, not the
+compensated count, is the structural signal, and `L = 1` fixes each feature's resolution.
 
-Remaining:
-1. Migrate the recursion (`test_recursion.py`) and scenario (`test_circle.py`, `test_swiss_roll.py`, `test_hierarchy.py`) configs to `selector="combined"` one at a time, confirming tau*/leaf-count stability, then flip the `ScaleSearchConfig.selector` default from `"load_band"` to `"combined"`.
-2. Once nothing selects `load_band`, delete `_select_characteristic_scale` (`band_lo = 0.65` + one-step-coarser patch) and the dormant `_legacy_slope_selector` / `_detect_peak` helpers.
-3. `c_{d,k}` becomes a declared **calibration protocol** (uniform d-ball ensemble, median `r_k / sqrt(tau)` at equilibrium, tabulated over (d, k)) rather than an analytic constant.
-- Exit: `band_lo` and the one-step-coarser patch removed from the production path; scale-search/scenario tests pass with materially tighter tau* tolerance (target within one grid step of geometric truth).
+Remaining work:
+- **`c_{d,k}` calibration protocol.** Declare it as a calibration (uniform d-ball ensemble,
+  median `r_k / sqrt(tau)` at equilibrium, tabulated over (d, k)) rather than an analytic
+  constant, and ship the lookup table (couples to `C_Q(d)` #36 under the same ensemble).
+- **Persistence tau* is coarse-end.** The persistence selector lands tau* at the coarse end
+  of the persistent interval (hierarchical tau*=0.36 vs expected 0.0225); refine toward the
+  within-interval characteristic scale before making persistence the default for structured
+  regions.
+- **Delete the legacy load-band selector** (and now-dormant `_legacy_slope_selector`,
+  `_detect_peak` in `controller.py`) once `load_crossover` is validated to dominate across
+  every scenario/recursion regression — kept behind the flag until then (M2 mitigation).
 
 ## 31. Recursion vs hierarchical GT: remaining harness follow-ups
 

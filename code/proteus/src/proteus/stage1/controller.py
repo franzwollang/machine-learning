@@ -24,29 +24,17 @@ class ScaleSearchConfig:
     """Configuration for the geometric-grid scale search.
 
     ``selector`` chooses the characteristic-scale rule (SI S2.5.1 / S2.6.2):
-
-    * ``"load_band"`` --- legacy variance-load band heuristic (coarsest
-      stabilized grid point with ``band_lo <= load <= 1``, plus a one-step
-      patch).  Kept behind the flag as the transition default and for
-      regression bisection only (OPEN_ISSUES #28); its ``band_lo`` constant is
-      dataset-motivated and is being retired.
-    * ``"load_crossing"`` --- principled primary signal (SI S2.5.1): the scale
-      at which the mean variance load ``sigma^2/tau`` crosses the cap
-      (``load = 1``), i.e. equilibrium residual variance equals the variance
-      cap.  Found by log-interpolation between the coarsest stabilized adjacent
-      grid points that bracket the cap; falls back to ``load_band`` if the load
-      never crosses the cap between stabilized points.
-    * ``"persistence"`` --- Q-partition persistence (SI S2.6.2): the coarsest
-      ``tau`` at which a multi-cluster partition persists across adjacent grid
-      points.  Discriminates genuinely multi-modal regions from uniform
-      manifolds sampled into transient arcs.
-    * ``"combined"`` --- acceptance-path arbiter (SI S2.6.2): use the
-      persistence scale when a multi-cluster feature persists (a splittable
-      region), otherwise the ``load_crossing`` operating scale for a single
-      feature, otherwise the ``load_band`` fallback.
-
-    ``"persistence"`` and ``"combined"`` require the per-grid-point partitions,
-    so selecting either implies ``record_partitions``.
+    ``"load_crossover"`` (default) selects the grid point at the variance-load
+    ``load approx 1`` up-crossing --- the coarsest scale at which the mean
+    per-node variance first reaches the cap ``tau`` (SI S2.5.1).  ``"load_band"``
+    is the legacy ``0.65 <= load <= 1`` coarsest-in-band heuristic retained
+    behind this flag for regression bisection during the M2 transition
+    (OPEN_ISSUES #28).  ``"persistence"`` uses the Q-partition persistence signal
+    --- the coarsest ``tau`` at which a multi-cluster partition persists across
+    adjacent grid points --- for structural (recursion) timing, falling back to
+    the ``load_crossover`` resolution scale when no split persists.  Persistence
+    requires the per-grid-point partitions, so selecting it implies
+    ``record_partitions``.
     """
 
     grid_ratio: float = 1.0 / np.sqrt(2.0)
@@ -61,7 +49,7 @@ class ScaleSearchConfig:
     stabilization: StabilizationConfig = field(
         default_factory=StabilizationConfig,
     )
-    selector: str = "load_band"
+    selector: str = "load_crossover"
     record_partitions: bool = False
     persistence: PersistenceConfig = field(default_factory=PersistenceConfig)
     seed: int = 42
@@ -142,7 +130,7 @@ def run_scale_search(
     load_trace = np.full(len(tau_grid), np.nan)
     node_counts = np.zeros(len(tau_grid), dtype=float)
 
-    record_partitions = config.record_partitions or config.selector in ("persistence", "combined")
+    record_partitions = config.record_partitions or config.selector == "persistence"
     snapshots: list[PartitionSnapshot] | None = [] if record_partitions else None
 
     last_history: dict[str, list[float]] | None = None
@@ -173,40 +161,20 @@ def run_scale_search(
     if snapshots is not None:
         persistence_result = compute_persistence(snapshots, config.persistence)
 
-    # Legacy band selector doubles as the ultimate fallback for every rule.
-    peak_idx = _select_characteristic_scale(
-        load_trace, node_counts, tau_grid, stabilized,
-    )
-    tau_star = float(tau_grid[peak_idx])
-
-    persist_idx = (
-        int(persistence_result.tau_star_index)
-        if persistence_result is not None
-        and persistence_result.tau_star_index is not None
-        else None
-    )
-    crossing_tau, _crossing_bracket = _load_crossing(load_trace, tau_grid, stabilized)
-
-    selector = config.selector
-    if selector == "load_band":
-        pass
-    elif selector == "persistence":
-        if persist_idx is not None:
-            peak_idx = persist_idx
-            tau_star = float(tau_grid[peak_idx])
-    elif selector == "load_crossing":
-        if crossing_tau is not None:
-            tau_star = crossing_tau
-            peak_idx = int(np.argmin(np.abs(tau_grid - crossing_tau)))
-    elif selector == "combined":
-        if persist_idx is not None:
-            peak_idx = persist_idx
-            tau_star = float(tau_grid[peak_idx])
-        elif crossing_tau is not None:
-            tau_star = crossing_tau
-            peak_idx = int(np.argmin(np.abs(tau_grid - crossing_tau)))
+    if config.selector == "load_band":
+        peak_idx = _select_load_band(
+            load_trace, node_counts, tau_grid, stabilized,
+        )
     else:
-        raise ValueError(f"unknown scale-search selector {selector!r}")
+        peak_idx = _select_load_crossover(load_trace, stabilized)
+    if (
+        config.selector == "persistence"
+        and persistence_result is not None
+        and persistence_result.tau_star_index is not None
+    ):
+        peak_idx = int(persistence_result.tau_star_index)
+
+    tau_star = float(tau_grid[peak_idx])
     epochs_at_star = 0
     if last_history is not None and abs(float(scaffold.tau) - tau_star) <= 1e-12:
         epochs_at_star = len(last_history["cv"])
@@ -278,13 +246,62 @@ def _snapshot_partition(
     )
 
 
-def _select_characteristic_scale(
+def _select_load_crossover(
+    load_trace: np.ndarray,
+    stabilized: list[bool],
+) -> int:
+    """Select the characteristic scale at the variance-load ``load≈1`` up-crossing.
+
+    The grid is in descending ``tau`` order (coarse to fine), so the mean
+    per-node variance-to-cap ratio ``load = mean(sigma^2)/tau`` increases along
+    the grid: at coarse scales the scaffold under-resolves the support and sits
+    below the cap (``load < 1``); at fine scales the cap binds and ``load > 1``.
+    The characteristic scale is the coarsest point at which the mean variance
+    first reaches the cap --- the ``load = 1`` up-crossing (SI S2.5.1).
+
+    Rule (among stabilized grid points only):
+
+    * take the **coarsest** adjacent pair straddling ``load = 1`` (``load[i] <= 1
+      < load[i+1]``) and return whichever endpoint is nearer to ``1``;
+    * if the load never reaches ``1`` (over-coarse budget), return the finest
+      stabilized point (largest load, most resolved);
+    * if the load is always ``>= 1`` (over-fine grid), return the coarsest
+      stabilized point.
+
+    Unlike the legacy load-band heuristic this carries no ``band_lo`` constant
+    and no one-step-coarser patch: the up-crossing is scale-invariant and
+    self-locating (OPEN_ISSUES #28).
+    """
+
+    n = len(load_trace)
+    if n == 0:
+        return 0
+
+    eligible = np.array(stabilized, dtype=bool)
+    finite = np.where(np.isfinite(load_trace), load_trace, np.inf)
+    idx = [i for i in range(n) if eligible[i] and np.isfinite(load_trace[i])]
+    if not idx:
+        return int(np.argmin(np.abs(finite - 1.0)))
+
+    # Coarsest adjacent eligible pair straddling load = 1 (ascending load).
+    for a, b in zip(idx[:-1], idx[1:]):
+        if finite[a] <= 1.0 < finite[b]:
+            return a if abs(finite[a] - 1.0) <= abs(finite[b] - 1.0) else b
+
+    # No up-crossing: either always below the cap or always above it.
+    loads = np.array([finite[i] for i in idx], dtype=float)
+    if np.all(loads < 1.0):
+        return int(idx[int(np.argmax(loads))])  # finest / most resolved
+    return int(idx[0])  # coarsest stabilized (load already >= 1 everywhere)
+
+
+def _select_load_band(
     load_trace: np.ndarray,
     node_counts: np.ndarray,
     tau_grid: np.ndarray,
     stabilized: list[bool],
 ) -> int:
-    """Select characteristic scale near the load≈1.0 crossover.
+    """Legacy: select characteristic scale near the load≈1.0 crossover.
 
     The grid is in descending τ order (coarse to fine).  Among stabilized
     grid points with ``0.65 <= load <= 1.0``, take the **coarsest**
@@ -340,46 +357,6 @@ def _select_characteristic_scale(
         return best_idx
 
     return int(np.argmin(np.abs(finite_load - 1.0)))
-
-
-def _load_crossing(
-    load_trace: np.ndarray,
-    tau_grid: np.ndarray,
-    stabilized: list[bool],
-) -> tuple[Optional[float], Optional[int]]:
-    """Interpolated ``tau`` where the mean variance load crosses the cap (SI S2.5.1).
-
-    On the descending-``tau`` grid the mean load ``E[sigma_i^2/tau]`` rises from
-    below the cap at over-coarse scales (the cap is under-filled and the support
-    is over-smoothed) to above it at over-fine scales (residual variance can no
-    longer shrink to the shrinking cap within the node budget).  The
-    characteristic scale is the crossover ``load = 1``: equilibrium residual
-    variance equals the variance cap.  The target ``1`` is derived (it *is* the
-    cap), not a tuned constant.
-
-    Returns the log-interpolated ``tau`` at the **coarsest** stabilized adjacent
-    bracket ``[load_j < 1 <= load_{j+1}]`` (and that bracket's coarse index), or
-    ``(None, None)`` when the load never crosses the cap between two adjacent
-    stabilized grid points (e.g. a dense multi-modal region whose load exceeds
-    the cap everywhere --- handled by the persistence signal instead).
-    """
-
-    n = len(tau_grid)
-    log_tau = np.log(tau_grid)
-    for j in range(n - 1):
-        if not (stabilized[j] and stabilized[j + 1]):
-            continue
-        lo = float(load_trace[j])
-        hi = float(load_trace[j + 1])
-        if not (np.isfinite(lo) and np.isfinite(hi)):
-            continue
-        if lo < 1.0 <= hi:
-            frac = (1.0 - lo) / (hi - lo)
-            tau_star = float(
-                np.exp(log_tau[j] + frac * (log_tau[j + 1] - log_tau[j])),
-            )
-            return tau_star, j
-    return None, None
 
 
 def _legacy_slope_selector(

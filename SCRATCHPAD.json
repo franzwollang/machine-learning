@@ -1,23 +1,22 @@
 {
-  "updated_at": "2026-07-24T06:45Z",
+  "updated_at": "2026-07-24T06:55Z",
   "turn": 7,
-  "focus": { "milestone": "M2", "issue": 28, "goal": "retire the load-band heuristic; land a principled, dominant tau* selector" },
+  "focus": { "milestone": "M1", "issue": 27, "goal": "wire persistence accept-gate into recursion; unblock stand-in heuristic deletion" },
   "recent": [
-    "ff-merged chain head 7b9a into branch 6084 (M0 done, M1 in prog, M2 persistence). Env: pip install numpy scipy pytest scikit-learn; PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'. Baseline 119 passed/31 xfailed.",
-    "Instrumented traces: compensated node-count N*tau^{d/2} is confounded by N_max saturation (hierarchical caps at 128 everywhere, swiss caps mid-grid) -> NOT a universal selector.",
-    "variance-load=cap crossing (Lbar=1, log-interp of coarsest stabilized bracket) is clean & DOMINATES band on tau* (circle 8.0->1.13, swiss 1.88->0.73, var_density/nested ~1.9 vs 8.0). Added load_crossing+combined selectors behind flag; 5 tests assert dominance; SI+issues+S14.3 done; 124 passed. Commits pushed.",
-    "De-risk check: recursion on hierarchical GT with selector in {load_band,combined,load_crossing} all give IDENTICAL recovery (root.n_clusters=6, leaves=6, ari_c=0.582, root.tau*=0.36) -> combined is safe for the recursion path; default flip should not perturb the 6-leaf regression."
+    "Merged chain tip 9f6a (M0+M1A+M2 persistence+load-crossover) into branch 6aa1; baseline 121 passed/31 xfailed.",
+    "Wired persistence accept-gate: RecursionConfig.require_persistent_split (SI S2.6.2). Split accepted only if persistence_result.tau_star_index is not None; forces selector='persistence'+record_partitions. Added 2 gate tests. Full suite 123/31. Commit + push done.",
+    "Ablation (heuristics stripped via monkeypatch): gate ALONE gives circle->1 leaf, hierarchy->6 leaves ARI_f=1.0; heuristic-free WITHOUT gate over-splits (hierarchy->8). Confirms gate replaces stand-ins at recursion layer."
   ],
   "discoveries": [
-    "Primary tau* signal = Lbar(tau)=E[sigma^2/tau] crossing the cap (=1, derived not tuned); documented SI S2.5.1. Compensated node-count/support-trace is a budget-confounded diagnostic only (recorded in #28).",
-    "combined selector (SI S2.6.2): persistence scale if a multi-cluster feature persists (splittable region), else load-crossing operating scale, else legacy fallback -- unifies tau* selection with recursion timing.",
-    "run_scale_search off-grid tau_star is safe: recursion.py only reads tau_star + scaffold_at_star, which is re-converged at tau_star. peak_index set to nearest grid idx."
+    "Single-scale run_clustering heuristic-free: circle->4, swiss->[1,6,6..], hierarchy->[5,5,6,6,8,9,6,6]. Persistence still discriminates: circle/swiss tau_star_index=None, hierarchy=1. Gate is the correct arbiter.",
+    "Blocker to deleting clustering.py stand-ins is NOT recursion (gate handles it) but SINGLE-SCALE tests: test_circle_clustering_produces_one_cluster (==1) + swiss scenario n_clusters<=3 + hierarchy purity. Cross-scale gate cannot rescue single-scale run_clustering. Re-scope needed (spec-justified by M1 finding).",
+    "Env: PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'; deps reinstalled this VM. Full suite ~86s = 123 passed/31 xfailed."
   ],
   "open_threads": [
-    "#28 default flip: migrate test_recursion/test_circle/test_swiss_roll/test_hierarchy configs to selector='combined' one at a time (confirm tau*/leaf stability), THEN flip ScaleSearchConfig.selector default load_band->combined and delete _select_characteristic_scale/_legacy_slope_selector/_detect_peak (band_lo).",
-    "M1 #27 Part B still pending: wire persistence as the split accept-gate in recursion/clustering (accept split only if persists>=P_persist), confirm circle=1/swiss<=3/hierarchy 6-leaf, THEN delete clustering.py stand-in heuristics.",
-    "chain PRs off main all unmerged; branch 6084 now carries the full chain + this M2 primary-selector work."
+    "#27 NEXT turn: make recursion gate default, re-scope single-scale circle/swiss/hierarchy clustering tests (own auditable change; cross-family audit advised since it touches acceptance-path tests), THEN delete _refine_boundaries/_absorb_*/<=3-collapse.",
+    "#28 open: (a) c_{d,k} calibration protocol (uniform d-ball; couples C_Q(d) #36); (b) refine persistence tau* off coarse-end toward v*; (c) delete legacy load_band + dormant _legacy_slope_selector/_detect_peak once load_crossover dominates all scenarios.",
+    "chain: main -> 5413 -> 5511 -> eb8a -> 20e3 -> 7b9a -> 9f6a -> 6aa1(this). All draft PRs off main; 6aa1 stacks full chain + gate."
   ],
-  "next_step": "Migrate one scenario/recursion config to selector='combined', verify green, then proceed toward the default flip + band_lo deletion (#28 items 1-2).",
+  "next_step": "Re-scope single-scale clustering tests (spec-justified) + make gate default + delete clustering.py stand-ins (#27 Part B completion). Alternatively write c_{d,k} calibration protocol (#28).",
   "blockers": []
 }
