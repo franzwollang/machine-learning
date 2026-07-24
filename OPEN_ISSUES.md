@@ -22,11 +22,6 @@ Next issue number: 40
 - §1.5 is prose-only; the intended citation list is tracked in §13 "References Prep."
 - Does not affect implementation.
 
-## 21. Paper prose for soft-mean / hard-variance asymmetry
-
-- The SI is updated: S2.3.1 introduces the hard-Voronoi variance vs soft-routing mean asymmetry, S2.3.2 has the Steiner shift and the hard-Voronoi variance conservation law, and S4.4 T0 / S12.6 reference the shadow mechanism.
-- Remaining: paper §3.2–3.3 still describes moment updates without the asymmetry. Add a brief statement (or an explicit deferral to SI S2.3.1) so the paper does not imply the variance is soft-kernel-weighted.
-
 ## 23. Reconcile tau / dimensionality notation across Paper 1 and SI
 
 - One reconciliation pass remains: confirm paper prose, notation tables, SI S2.4, S2.5, S2.6, S4.4, and S8.4 all use the same convention — region-level `tau` set at region entry, uniform `tau_local` within a scaffold run, per-node `d_final` as diagnostic only, cluster/recursion-level scale selection via scale response + AP.
