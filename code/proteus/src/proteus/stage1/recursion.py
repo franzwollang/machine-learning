@@ -1,8 +1,8 @@
-"""Recursive scale-discovery orchestrator for Stage 1 (SI S2.5, S4.4)."""
+"""Recursive scale-discovery orchestrator for Stage 1 (SI S2.5, S4.4, S2.6.2)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional
 
 import numpy as np
@@ -16,13 +16,25 @@ from proteus.stage1.transfer import apply_t2_transfer
 
 @dataclass
 class RecursionConfig:
-    """Configuration for the recursive scale-discovery loop."""
+    """Configuration for the recursive scale-discovery loop.
+
+    ``require_persistent_split`` turns on the SI S2.6.2 **feature-persistence
+    accept-gate**: a region's proposed multi-cluster split is accepted only if a
+    multi-cluster partition *persists* across adjacent ``tau`` grid points (the
+    cross-scale arbiter), rather than trusting a single-scale partition alone.
+    When enabled the scale search is forced to record partitions and select the
+    persistence scale (``selector="persistence"``); a region whose split does not
+    persist is treated as terminal (a single intrinsic feature).  This is the
+    canonical replacement for the provisional single-scale cleanup heuristics of
+    S2.6.1 (OPEN_ISSUES #27).  Default off during the M2 transition.
+    """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
     min_samples: int = 100
     max_depth: int = 5
     r_min: int = 3
     explained_energy: float = 0.999
+    require_persistent_split: bool = False
     seed: int = 42
 
 
@@ -139,12 +151,31 @@ def run_recursive_discovery(
     if _level >= config.max_depth:
         return tree
 
-    result = run_scale_search(data_arr, dim, config.scale_search)
+    scale_search_config = config.scale_search
+    if config.require_persistent_split:
+        # The persistence accept-gate (SI S2.6.2) needs the per-grid-point
+        # partitions and the persistence-selected characteristic scale.
+        scale_search_config = replace(
+            scale_search_config,
+            selector="persistence",
+            record_partitions=True,
+        )
+
+    result = run_scale_search(data_arr, dim, scale_search_config)
     node.tau_star = result.tau_star
     scaffold = result.scaffold_at_star
 
     if scaffold is None or len(scaffold.nodes) < 2:
         return tree
+
+    if config.require_persistent_split:
+        # Accept a split only if a multi-cluster partition persists across
+        # adjacent scales; a region with no persistent split is a single
+        # intrinsic feature (terminal leaf), regardless of any transient
+        # single-scale fragmentation (SI S2.6.2, OPEN_ISSUES #27).
+        persistence = result.persistence_result
+        if persistence is None or persistence.tau_star_index is None:
+            return tree
 
     cluster_result = run_clustering(scaffold)
     node.n_clusters = cluster_result.n_clusters
@@ -194,6 +225,7 @@ def run_recursive_discovery(
             max_depth=config.max_depth,
             r_min=config.r_min,
             explained_energy=config.explained_energy,
+            require_persistent_split=config.require_persistent_split,
             seed=config.seed + region_id + label,
         )
 
