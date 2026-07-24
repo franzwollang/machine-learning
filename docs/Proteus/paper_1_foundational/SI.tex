@@ -31,6 +31,8 @@ u_{\mathrm{global}},\ u_{\mathrm{local}} & \text{global and local tissue floors}
 \Psi,\ \psi_i & \text{local noise tensor and node-level floor proxy} & \text{S2.5.2--S2.5.3}\\
 G_C=(\mathcal V_C,\mathcal E_C) & \text{Stage 1 scaffold graph (shadow}\cup\text{lifted edges)} & \text{S2.3.3}\\
 C(i\to j) & \text{directed co-activation transition mass on an edge} & \text{S2.3.3,S3.1}\\
+K_v,A_{\mathrm{sym}},W_v & \text{geometric kernel, co-activation evidence, edge weight} & \text{S2.6.1}\\
+Q(S;v),Q(\mathcal P;v) & \text{cluster and partition coherence scores} & \text{S2.6.1}\\
 \mathcal K_C,\ \mathcal S_C & \text{Stage 2 complex and simplex set} & \text{S4}\\
 S,\ |S|_d & \text{simplex and intrinsic }d\text{-volume} & \text{S4,S6}\\
 h_i,\ n_{i\to j} & \text{hit mass and directed transition count} & \text{S2,S3}\\
@@ -529,10 +531,52 @@ At a fixed variance scale $v$, define the effective correlation radius
 \[
 \ell(v)=\sqrt{d_{\mathrm{eff}}\,v}.
 \]
+
+\paragraph{Scale-conditioned edge evidence.}
 The scaffold graph at this scale carries edge evidence combining local geometry
-and routed co-activation. For a candidate node set $S$, define the mean
-internal evidence $\mathrm{LocalIntra}(S;v)$ and mean boundary evidence
-$\mathrm{BoundaryInter}(S;v)$, and set
+and routed co-activation. On lifted-graph nodes $i,j$ with positions
+$\mathbf x_i,\mathbf x_j$, define the Gaussian geometric kernel
+\[
+K_v(i,j)=\exp\!\left(-\frac{\lVert\mathbf x_i-\mathbf x_j\rVert^2}
+{2\,d_{\mathrm{eff}}\,v}\right),
+\]
+and, from the directed Hebbian counters $C(i\to j)$ and hit masses $h_i$, the
+symmetric co-activation evidence
+\[
+A_{\mathrm{sym}}(i,j)=\sqrt{\frac{C(i\to j)}{h_i+\varepsilon}\,
+\frac{C(j\to i)}{h_j+\varepsilon}}.
+\]
+The scale-conditioned edge weight is their product,
+\[
+W_v(i,j)=K_v(i,j)\,A_{\mathrm{sym}}(i,j),
+\]
+the primitive evidence for every Stage~1 clustering decision: $K_v$ supplies
+geometric scale-conditioning (Axiom~2 guarantees it operates on a density
+field), while $A_{\mathrm{sym}}$ supplies empirical co-activation evidence from
+the scaffold's learning dynamics.
+
+\paragraph{Internal, boundary, and pairwise evidence.}
+Let $E_v$ be the lifted-edge set at scale $v$. For a candidate node set $S$,
+the mean internal evidence and mean boundary evidence are the average
+scale-conditioned weights over the internal and boundary lifted edges,
+\[
+\mathrm{LocalIntra}(S;v)=
+\frac{\sum_{(i,j)\in E_v,\;i,j\in S}W_v(i,j)}
+{|\mathcal E_{\mathrm{in}}(S)|+\varepsilon},
+\qquad
+\mathrm{BoundaryInter}(S;v)=
+\frac{\sum_{(i,j)\in E_v,\;i\in S,\;j\notin S}W_v(i,j)}
+{|\mathcal E_{\mathrm{bdry}}(S)|+\varepsilon},
+\]
+where $\mathcal E_{\mathrm{in}}(S)$ and $\mathcal E_{\mathrm{bdry}}(S)$ are the
+internal and boundary lifted-edge sets of $S$. For an adjacent pair $S,T$ the
+pairwise inter-cluster coupling averages over the crossing lifted edges,
+\[
+\mathrm{InterLocal}(S,T;v)=
+\frac{\sum_{(i,j)\in E_v,\;i\in S,\;j\in T}W_v(i,j)}
+{|\mathcal E_{ST}|+\varepsilon}.
+\]
+The cluster coherence score is then
 \[
 Q(S;v)
 :=
