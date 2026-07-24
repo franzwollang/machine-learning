@@ -725,6 +725,28 @@ The parent begins to fail coherence or maximality at roughly the same scale at
 which its strongest child becomes independently detectable. Monitoring both
 signals makes recursion predictive rather than purely reactive.
 
+\paragraph{Operational persistence signal.}
+The scale controller (S2.5.1) already sweeps $\tau$ coarse-to-fine on the
+geometric grid. The persistence criterion is evaluated on this sweep by
+recording the accepted partition $\mathcal P(\tau_j)$ at each grid point and
+comparing adjacent partitions. Partitions are compared in \emph{sample space}:
+each accepted clustering induces a labeling of the region's samples, and samples
+retain a stable identity across grid points even though the scaffold's node set
+changes under splits and prunes. Two adjacent partitions are judged ``the same''
+when their optimally matched clusters (maximum-intersection assignment) have mean
+Jaccard overlap at least $\theta_{\mathrm{ovl}}$, averaged over
+$\max(K_j,K_{j+1})$ slots so that a change in cluster count is penalized. A
+multi-cluster partition is accepted only if it persists over at least
+$P_{\mathrm{persist}}=2$ adjacent grid points --- the minimal interval consistent
+with the persistence definition above, so this count is derived rather than
+tuned. The characteristic scale of an accepted feature is the coarsest grid point
+of its persistence interval (its coarse-end death $v_{\mathrm{death}}^+$); the
+threshold $\theta_{\mathrm{ovl}}$ only fixes partition identity and is
+backstopped by the persistence count. A uniform manifold sampled into transient
+arcs fails this test (its arc-partition does not recur across scales), whereas a
+genuinely multi-modal region passes, which is precisely the discrimination the
+single-scale $Q$ of S2.6.1 cannot make.
+
 \subsection*{S2.7 Dirichlet Concentration from the BDeu Prior}
 \label{sec:si-bdeu-prior}
 Let $J_i$ be the effective number of outgoing outcomes for node $i$, approximated by the local branching factor $d_{\mathrm{final},i}+1$. The BDeu convention assigns one equivalent pseudo-observation spread uniformly over these outcomes:
@@ -1885,6 +1907,8 @@ s_{\mathrm{control}}\ (\text{reporting only}) & 1-e^{-\tau/D_{\mathrm{subspace}}
 \beta_{\mathrm{cv}} & 1.5\ (\mathrm{CV}(\sigma^2)<\beta_{\mathrm{cv}}\sqrt{2/k}) & \text{S2.5.1} & \text{operational}\\
 M_{\mathrm{eq}} & 3\text{ consecutive epochs} & \text{S2.5.1} & \text{operational}\\
 \Phi_C\text{ peak floor} & 5\%\text{ of grid max} & \text{S2.5.1} & \text{empirical}\\
+P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{derived}\\
+\theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
 \beta_{\mathrm{prune}} & 0.5\ (\text{directed-floor share}) & \text{S3.1} & \text{operational}\\
 z_{\mathrm{Wilson}} & 1.2816\ (\text{alternative}) & \text{S3.1} & \text{statistical}\\
