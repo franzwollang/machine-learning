@@ -43,15 +43,38 @@ The AP -> Q-merge -> refine pipeline is implemented and passes the circle, swiss
 - **Remaining code work (blocked on wiring persistence into the accept path).** `clustering.py` still carries the provisional heuristics with dataset-motivated constants: boundary-refine `eta = 0.3` (`_refine_boundaries`), the tiny-satellite absorbers (`_absorb_tiny_clusters_into_dominant`, `_absorb_one_tiny_satellite`, `_absorb_full_graph_isolates`), and the `<= 3`-fragment collapse in `run_clustering`. The persistence signal exists but is not yet the acceptance arbiter inside `run_recursive_discovery` / `run_clustering`. Next step: gate a proposed split on persistence (accept only if it persists ≥ `P_persist` grid points), confirm the circle=1 / swiss≤3 / hierarchy(6-leaf) regressions hold under that gate, *then* delete the stand-in heuristics. Deleting them now (without the gate wired in) regresses circle→4 and swiss→4 (measured). The four previously-dead helpers are already removed.
 - **Paper/SI prose** should describe the implemented AP -> Q-merge -> refine pipeline (the Leiden detour is obsolete). The S2.6.1 scope paragraph now covers why uniform manifolds and bump-on-background cases need different cleanup passes; paper §3 prose still needs a one-line pointer to S2.6.2 persistence as the cluster-count arbiter.
 
-## 28. Scale selection: response degeneracy and the load-band heuristic
+## 28. Scale selection: remaining calibration and cleanup
 
-- Deeper diagnosis than the original `c_{d,k}` framing: the raw Lindeberg response `R_i(tau) = (sqrt(tau)/c_{d,k})^d * rho_hat_i` is **self-normalizing at equilibrium**. A converged scaffold equalizes hit masses and locks the k-NN radius to the cap (`r_k ~ c_{d,k} * sqrt(tau)`), so the tau-dependence cancels and the trace is flat/monotone regardless of how well `c_{d,k}` is calibrated. The characteristic-scale signal must come from quantities equilibration cannot normalize away.
-- Current selector (`stage1/controller.py`) is an empirical proxy: coarsest stabilized grid point with variance load in `[0.65, 1.0]`, plus a "one step coarser" patch when the band has a single member. Tests only require `0.5 < tau*/expected < 10`.
-- Rework direction:
-  1. Primary signal: the compensated node-count / support trace — on a d-dimensional support, equilibrium node count scales as `N(tau) ~ V_supp / tau^{d/2}`, so knees/plateaus in `N(tau) * tau^{d/2}` (equivalently `V_C(tau)`) mark characteristic scales. The dormant `_legacy_slope_selector` and the S2.5 support trace were both circling this.
-  2. Secondary signal: Q-partition persistence — the coarsest scale at which the AP+Q partition yields a coherent multi-cluster split that persists across >= 2 adjacent grid points. This operationalizes the S2.6.2 persistence theory and unifies tau* selection with recursion timing. **Implemented** (`stage1/persistence.py`; `controller.py` `selector="persistence"`, default still `"load_band"`): sample-space partition tracking with Hungarian-matched cluster Jaccard, `P_persist=2`, `theta_ovl=0.5` (SI S2.6.2 / S14.3). Verified discriminating: circle → no persistent split, hierarchical → persistent 3-way split.
-  3. `c_{d,k}` becomes a declared **calibration protocol** (uniform d-ball ensemble, measure median `r_k / sqrt(tau)` at equilibrium, tabulate over (d, k)) rather than an analytic constant.
-- Remaining: (a) primary signal — the compensated node-count / support trace knee detector (item 1) is not yet built; persistence currently picks the coarse-end of the persistence interval (`v_death^+`), so tau* still lands coarse relative to geometric `expected_tau`; (b) make persistence (or the combined signal) the default selector and remove `band_lo = 0.65` + the one-step-coarser patch; (c) tighten the scale-search tau* tolerance bands once (a)+(b) land; (d) rewrite SI S2.5/S2.5.1 to match.
+The load-band heuristic and most of the original exit criterion are resolved (see log).
+The default selector is now the variance-load `L = 1` up-crossing
+(`controller._select_load_crossover`), which carries no `band_lo` / one-step-coarser
+constant and lands tau* within one grid step of geometric truth (circle 8.0x -> 1.6x,
+swiss 3.9x -> 0.9x). Scale-search test tolerance tightened `10x -> 3x` (plus a swiss-roll
+analog); SI S2.5.1 and the S14.3 table rewritten to match; the legacy load-band selector
+is retained behind `ScaleSearchConfig.selector="load_band"` only for regression bisection.
+Q-partition persistence (`selector="persistence"`, `stage1/persistence.py`) remains the
+structural arbiter for recursion timing (`P_persist=2`, `theta_ovl=0.5`, SI S2.6.2).
+
+**Finding (cross-family audited, cold-start validated):** the proposed *primary* signal —
+knees/plateaus in the compensated node count `N(tau) * tau^{d/2}` (equivalently `V_C(tau)`)
+— is **not usable as an operational selector**. Warm-started it is path-dependent and its
+"peak" tracks the node budget `N_max`; cold-started with a high cap it is noisy (node count
+even goes non-monotone) and its log-log slope never settles at the theoretical `d/2`. This
+compounds the earlier self-normalization diagnosis (the raw Lindeberg response is flat at
+equilibrium). The knee proposal is therefore demoted to a diagnostic; persistence, not the
+compensated count, is the structural signal, and `L = 1` fixes each feature's resolution.
+
+Remaining work:
+- **`c_{d,k}` calibration protocol.** Declare it as a calibration (uniform d-ball ensemble,
+  median `r_k / sqrt(tau)` at equilibrium, tabulated over (d, k)) rather than an analytic
+  constant, and ship the lookup table (couples to `C_Q(d)` #36 under the same ensemble).
+- **Persistence tau* is coarse-end.** The persistence selector lands tau* at the coarse end
+  of the persistent interval (hierarchical tau*=0.36 vs expected 0.0225); refine toward the
+  within-interval characteristic scale before making persistence the default for structured
+  regions.
+- **Delete the legacy load-band selector** (and now-dormant `_legacy_slope_selector`,
+  `_detect_peak` in `controller.py`) once `load_crossover` is validated to dominate across
+  every scenario/recursion regression — kept behind the flag until then (M2 mitigation).
 
 ## 31. Recursion vs hierarchical GT: remaining harness follow-ups
 
