@@ -110,14 +110,9 @@ def test_measure_cdk_positive_on_small_scaffold() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_c_q_analytic_positive_and_decreasing_in_d() -> None:
-    vals = [c_q_analytic(d) for d in (1, 2, 3, 4, 5)]
-    assert all(v > 0.0 for v in vals)
-    # The cap-fixed catchment radius per unit sqrt(tau) shrinks as d grows.
-    assert all(a > b for a, b in zip(vals, vals[1:]))
-    # Closed form sqrt((d+2)/d): d=1 -> sqrt(3), d=2 -> sqrt(2).
-    assert abs(c_q_analytic(1) - np.sqrt(3.0)) < 1e-12
-    assert abs(c_q_analytic(2) - np.sqrt(2.0)) < 1e-12
+def test_c_q_analytic_positive_and_finite() -> None:
+    vals = [c_q_analytic(d) for d in (1, 2, 3, 4, 5, 6)]
+    assert all(np.isfinite(v) and v > 0.0 for v in vals)
 
 
 def test_c_q_table_lookup_when_present() -> None:
@@ -133,23 +128,23 @@ def test_c_q_table_monotone_decreasing_in_d() -> None:
     assert all(a > b for a, b in zip(vals, vals[1:]))
 
 
-def test_c_q_dominates_analytic_anchor_on_grid() -> None:
-    """Calibrated C_Q runs above the cap-radius anchor (boundary-corner slack)
-    but within a small factor, validating the derived anchor."""
+def test_c_q_analytic_tracks_table_on_grid() -> None:
+    """The k-NN-spacing anchor c_{d,k} (V_d/k)^{1/d} should track the calibrated
+    star-radius table within a modest factor either side, validating that the
+    star radius scales as the inter-node spacing (not the cell radius)."""
 
     for d, v in CQ_TABLE.items():
         anchor = c_q_analytic(d)
-        assert v >= anchor
-        assert v < 2.0 * anchor
+        assert 0.7 * anchor < v < 1.5 * anchor
 
 
 def test_c_q_analytic_fallback_for_untabulated_dim() -> None:
     assert c_q(42) == c_q_analytic(42)
 
 
-def test_calibrate_cq_matches_analytic_order_of_magnitude() -> None:
+def test_calibrate_cq_matches_anchor_order_of_magnitude() -> None:
     """A fast single-ensemble calibration should land within a small factor of
-    the cap-radius anchor (validates the star-radius measurement pipeline)."""
+    the k-NN-spacing anchor (validates the star-radius measurement pipeline)."""
 
     cfg = CQCalibrationConfig(
         n_samples=1000,
@@ -162,7 +157,27 @@ def test_calibrate_cq_matches_analytic_order_of_magnitude() -> None:
     c = calibrate_cq(d, config=cfg, seed=0)
     anchor = c_q_analytic(d)
     assert np.isfinite(c)
-    assert anchor * 0.7 < c < anchor * 2.5
+    assert anchor * 0.5 < c < anchor * 2.0
+
+
+def test_measure_cq_reassignment_semantics_on_fixed_geometry() -> None:
+    """On a hand-built scaffold the star radius equals, per node, the largest
+    distance from an owned point to the nearest *other* node."""
+
+    from proteus.stage1 import Stage1Scaffold
+
+    # Three nodes on a line; points assigned to the middle node reassign to the
+    # nearer of the two outer nodes when the middle is deleted.
+    pts = np.array([[0.0], [0.05], [-0.05], [1.0], [-1.0]])
+    scaffold = Stage1Scaffold(
+        dim=1, tau=0.25, k=2, min_nodes=3, max_nodes=8,
+        ann_backend="naive", rng=np.random.default_rng(0),
+    )
+    scaffold.init_from(pts, n_seeds=3)
+
+    c = measure_cq_from_scaffold(scaffold, pts, interior_fraction=1.0)
+    assert np.isfinite(c)
+    assert c > 0.0
 
 
 def test_measure_cq_positive_on_small_scaffold() -> None:

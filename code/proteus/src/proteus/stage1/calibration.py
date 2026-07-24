@@ -342,6 +342,10 @@ def measure_cq_from_scaffold(
     node owns. Only mature nodes contribute; the "regular interior" keeps the
     inner ``interior_fraction`` of them by distance from the ball center. Returns
     ``NaN`` if the scaffold is too small to estimate.
+
+    The max is taken over *sampled* points, so it is a lower-biased estimate of
+    the continuous cell maximum that converges from below as sampling density
+    grows; the bias is conservative for the S3.3 prune/merge guards it feeds.
     """
 
     nodes = list(getattr(scaffold, "nodes"))
@@ -471,19 +475,31 @@ def c_q(d: int) -> float:
     return c_q_analytic(d_i)
 
 
-def c_q_analytic(d: int) -> float:
-    """Cap-fixed catchment-radius anchor for ``C_Q(d)`` (SI S3.3 fallback).
+def c_q_analytic(d: int, k: int = 8) -> float:
+    """Inter-node-spacing anchor for ``C_Q(d)`` (SI S3.3 fallback).
 
-    A cap-equilibrated interior cell has variance ``tau``; modeling it as a
-    uniform ball of radius ``R`` gives ``d/(d+2) R^2 = tau``, i.e.
-    ``R = sqrt((d+2)/d) sqrt(tau)``. The worst-case reassignment distance is of
-    this order, so ``C_Q^{iso}(d) = sqrt((d+2)/d)`` is the analytic anchor; the
-    calibrated table runs a consistent factor above it (boundary-corner and
-    discretization corrections). Decreasing in ``d``.
+    The worst-case reassignment distance is achieved near the deleted node's
+    centroid, where the nearest *surviving* node sits one inter-node spacing
+    ``s`` away; so ``C_Q(d)`` tracks the equilibrium spacing, **not** the cell
+    radius. Under a locally uniform density the k-NN radius and the 1-NN spacing
+    are related by ``r_{k} = s (k / V_d)^{1/d}``, hence
+    ``s = r_{k} (V_d / k)^{1/d}``. Dividing by ``sqrt(tau)`` and substituting the
+    calibrated k-NN radius ``r_{k} = c_{d,k} sqrt(tau)`` gives the anchor
+    ``C_Q(d) ~ c_{d,k} (V_d / k)^{1/d}``.
+
+    Using the calibrated ``c_{d,k}`` (rather than its analytic form) is what makes
+    this track the measured table: the equilibrium catchment variance sits below
+    the cap, which a pure cell-radius argument (``sqrt((d+2)/d)``) would miss. For
+    dimensions outside the ``c_{d,k}`` grid this degrades to the analytic k-NN
+    spacing via :func:`c_dk`. Used only as the runtime fallback for untabulated
+    dimensions.
     """
 
-    d_f = float(d)
-    return float(np.sqrt((d_f + 2.0) / d_f))
+    from scipy.special import gammaln
+
+    d_f, k_f = float(d), float(k)
+    v_d = float(np.pi ** (d_f / 2.0) / np.exp(gammaln(d_f / 2.0 + 1.0)))
+    return c_dk(int(d), int(k)) * (v_d / k_f) ** (1.0 / d_f)
 
 
 def _regenerate_table(

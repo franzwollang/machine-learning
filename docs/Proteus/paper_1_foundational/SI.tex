@@ -1259,26 +1259,35 @@ take the median of the per-scaffold medians. The reference implementation is
 \texttt{proteus.stage1.calibration.calibrate\_cq}; the shipped table is
 \texttt{CQ\_TABLE}, regenerable via \texttt{python -m proteus.stage1.calibration}.
 
-A cap-equilibrated interior cell has variance $\tau$; modeling it as a uniform
-ball of radius $R$ gives $\tfrac{d}{d+2}R^2=\tau$, i.e.\ $R=\sqrt{(d+2)/d}\,\sqrt\tau$.
-The worst-case reassignment distance is of this order, so
+The worst-case reassignment distance is achieved near the deleted node's
+centroid, where the nearest \emph{surviving} node sits one inter-node spacing
+$s$ away; so $C_Q(d)$ tracks the equilibrium spacing, not the cell radius. Under
+a locally uniform density the $k$-NN radius and the $1$-NN spacing are related by
+$r_{k}=s\,(k/V_d)^{1/d}$, hence $s=r_{k}\,(V_d/k)^{1/d}$; substituting the
+calibrated $r_{k}=c_{d,k}\sqrt\tau$ (S2.5.5) gives the anchor
 \[
-C_Q^{\mathrm{iso}}(d)=\sqrt{\tfrac{d+2}{d}}
+C_Q^{\mathrm{knn}}(d)=c_{d,k}\Bigl(\tfrac{V_d}{k}\Bigr)^{1/d},
+\qquad V_d=\frac{\pi^{d/2}}{\Gamma(d/2+1)},
 \label{eq:si-cq-anchor}
 \]
-is the analytic anchor (used as the runtime fallback \texttt{c\_q\_analytic} for
-dimensions outside the tabulated grid). The calibrated values run a consistent
-factor above it from boundary-corner and discretization corrections. The shipped
-table (uniform $d$-ball ensemble, $n=3000$ samples, four ensembles,
-$N_\star=120$, $k=8$, interior fraction $0.5$; \texttt{CQ\_CALIBRATION\_META}) is
+used as the runtime fallback \texttt{c\_q\_analytic} for dimensions outside the
+tabulated grid. Using the \emph{calibrated} $c_{d,k}$ (not its analytic form) is
+what makes this track the measured table: the equilibrium catchment variance
+sits below the cap, which a bare cell-radius argument $R=\sqrt{(d+2)/d}\,\sqrt\tau$
+would miss (it both conflates the spacing with the cell radius and assumes a
+cap-saturated cell). The shipped table (uniform $d$-ball ensemble, $n=3000$
+samples, four ensembles, $N_\star=120$, $k=8$, interior fraction $0.5$;
+\texttt{CQ\_CALIBRATION\_META}) is
 \[
 \begin{array}{c|cccc}
 d & 1 & 2 & 3 & 4\\
 \hline
 C_Q(d) & 2.35 & 1.66 & 1.49 & 1.44\\
-C_Q^{\mathrm{iso}}(d) & 1.73 & 1.41 & 1.29 & 1.22\\
+C_Q^{\mathrm{knn}}(d) & 2.43 & 1.78 & 1.30 & 1.17\\
 \end{array}
 \]
+The anchor brackets the calibrated values within $\pm25\%$ across $d=1$--$4$,
+confirming that the interior star radius scales as the inter-node spacing.
 
 \subsection*{S3.4 Dirichlet--Multinomial Evidence Score}
 \label{sec:si-dm-evidence}
@@ -2244,7 +2253,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 z_{\mathrm{Wilson}} & 1.2816\ (\text{alternative}) & \text{S3.1} & \text{statistical}\\
 \text{node prune hit} & h_i<0.5\,\bar h_{\mathcal N(i)} & \text{S3.2} & \text{operational}\\
 \text{node prune variance} & \sigma_i^2<0.5\,\tau_i & \text{S3.2} & \text{operational}\\
-C_Q(d) & \text{uniform }d\text{-ball star radius (S3.3); }\sqrt{(d+2)/d}\text{ anchor} & \text{S3.3} & \text{calibrated}\\
+C_Q(d) & \text{uniform }d\text{-ball star radius (S3.3); }c_{d,k}(V_d/k)^{1/d}\text{ anchor} & \text{S3.3} & \text{calibrated}\\
 \rho_{\mathrm{merge}} & \le 2C_Q(d) & \text{S3.3} & \text{operational}\\
 p_{\mathrm{merge}} & \le \bar h/N & \text{S3.3} & \text{operational}\\
 v_{\mathrm{merge}} & \le 1 & \text{S3.3} & \text{operational}\\
