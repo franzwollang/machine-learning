@@ -209,8 +209,8 @@ Stage~1 separates fast statistical tracking from slower geometric movement. For 
 \paragraph{Node state.}
 Each node stores hit count $h_i$, residual mean $\mathbf m_i$, residual second moment $\mathbf s_i$, derived variance $\sigma_i^2$, an Oja direction $\mathbf u_i$ for dominant local variance, directed transition counts $n_{i\to j}$, and deferred nudge $\mathbf a_i$. A variance-cap violation $\sigma_i^2>\tau_{\mathrm{local},i}$ proposes additional local capacity, typically by splitting along $\mathbf u_i$ after evidence and budget checks. Low-hit, low-variance nodes or weak bilateral links become prune candidates. The variance cap is therefore both a geometric resolution target and a proposal generator; the evidence gate decides whether the proposed topology change is retained.
 
-\paragraph{Variance-correction rate.}
-Under local isotropy, the node variance satisfies $\sigma_i^2\approx \mathbb E\|x-w_i\|^2$ and a radial shift $\delta r$ changes the variance by $\Delta\sigma_i^2\approx 2\sqrt{\sigma_i^2}\,\delta r$. Spreading this correction over $H=k$ effective updates gives the GNG learning rate
+\paragraph{Effective radial drift rate (analysis quantity).}
+Under local isotropy, the node variance satisfies $\sigma_i^2\approx \mathbb E\|x-w_i\|^2$ and a radial shift $\delta r$ changes the variance by $\Delta\sigma_i^2\approx 2\sqrt{\sigma_i^2}\,\delta r$. Spreading this correction over $H=k$ effective updates gives the effective radial drift rate
 \[
 \eta_{\mathrm{GNG},i}
 \approx
@@ -219,6 +219,8 @@ Under local isotropy, the node variance satisfies $\sigma_i^2\approx \mathbb E\|
 \quad\text{or, with the half-life convention,}\quad
 \eta_{\mathrm{GNG},i}=\frac{\ln 2}{2k}\!\left(1-\frac{\sigma_i^2}{\tau}\right).
 \]
+The operational motion law is \emph{not} a per-update step of size $\eta_{\mathrm{GNG},i}$: Stage~1 moves nodes exclusively through the deferred-nudge mechanism below (centering rate $\eta_{\mathrm{cent}}$ committed at threshold $\delta_{\min}$), and the reference algorithm (S13.2) applies only $\eta_{\mathrm{cent}}$. The rate $\eta_{\mathrm{GNG},i}$ is retained solely as the effective radial drift rate on cap-satisfied intervals for the convergence analysis of S12: it expresses the self-limiting property that displacement vanishes as $\sigma_i^2\to\tau$, so a node at its resolution limit proposes a variance-cap split rather than continuing to move. It is a derived diagnostic, not part of the operational update.
+
 \paragraph{Centering rate.}
 The deferred nudge fires when $\|\mathbf a_i\|$ exceeds the resolution threshold
 \[
@@ -352,13 +354,13 @@ As $\mathbf u_i$ rotates, the shadow partition plane drifts. The shadow EWMAs us
 \paragraph{Cost.}
 Memory: one extra moment pair per node, i.e.\ $3\times$ per-node moment storage; still $O(d)$ and streaming-bounded. Compute: one extra dot product and one branched EWMA update per routed sample per node; no per-sample retention.
 
-\subsection*{S2.4 Control-to-Threshold Mapping}
-The global scale variable is the variance cap $\tau$. A bounded controller value $s_{\mathrm{control}}\in(0,1)$ is mapped to a variance threshold by
+\subsection*{S2.4 Scale Parameter and Normalization}
+The operational scale primitive is the variance cap $\tau$: it is the quantity carried by the controller, stored across recursion frames, and read by every downstream consumer. Where a bounded control knob $s_{\mathrm{control}}\in(0,1)$ is convenient (for instance, to sweep scale monotonically over a fixed $[0,1)$ interval), it maps to $\tau$ by the normalization remark
 \[
 \tau
-=-D_{\mathrm{subspace}}\log(1-s_{\mathrm{control}}),
+=-D_{\mathrm{subspace}}\log(1-s_{\mathrm{control}}).
 \]
-where $D_{\mathrm{subspace}}$ is the working dimensionality of the current region's coordinate frame (ambient dimension at the root; the retained PCA rank from S1.4 at child recursion levels). Within a single scaffold run, all nodes share the same cap: $\tau_{\mathrm{local},i}=\tau$ for every~$i$. Dimensional heterogeneity within a region is resolved by the scale-response machinery (S2.5--S2.6) peaking at different $\tau$ for clusters of different intrinsic dimension, and by recursion giving each cluster its own scale search after PCA transfer. The per-node intrinsic-dimension estimate $d_{\mathrm{final},i}$ is retained as a diagnostic input to junction detection (S8.4) and as the cluster-median aggregation target when a single $d_C$ is required for scale-response normalization, but it does not modulate the split-decision cap. Stationarity at a given $\tau$ is measured by $\mathrm{CV}(\sigma_i^2)$ over mature nodes; since $\tau$ is uniform, equilibrium means uniform-resolution evidence across the scaffold.
+This mapping is a change of variable only; $s_{\mathrm{control}}$ is not consumed anywhere in the scaffold, controller, or recursion, which operate on $\tau$ directly. Here $D_{\mathrm{subspace}}$ is the working dimensionality of the current region's coordinate frame (ambient dimension at the root; the retained PCA rank from S1.4 at child recursion levels). Within a single scaffold run, all nodes share the same cap: $\tau_{\mathrm{local},i}=\tau$ for every~$i$. Dimensional heterogeneity within a region is resolved by the scale-response machinery (S2.5--S2.6) peaking at different $\tau$ for clusters of different intrinsic dimension, and by recursion giving each cluster its own scale search after PCA transfer. The per-node intrinsic-dimension estimate $d_{\mathrm{final},i}$ is retained as a diagnostic input to junction detection (S8.4) and as the cluster-median aggregation target when a single $d_C$ is required for scale-response normalization, but it does not modulate the split-decision cap. Stationarity at a given $\tau$ is measured by $\mathrm{CV}(\sigma_i^2)$ over mature nodes; since $\tau$ is uniform, equilibrium means uniform-resolution evidence across the scaffold.
 
 \subsection*{S2.5 Scale Response $\Phi_C(\tau)$}
 \label{sec:si-scale-response}
@@ -892,7 +894,7 @@ The core convergence theory holds with a scalar variance tracker, but the recomm
 Recommended clipping defaults:
 \begin{itemize}[leftmargin=1.5em]
   \item Set $\varepsilon$ in $\rho_i=\|\mathbf m_i\|/(\sigma_i+\varepsilon)$ to between $10^{-8}$ and $10^{-6}$ depending on data scale.
-  \item Clip the GNG-style learning rate to $|\eta_{\mathrm{GNG}}|\le 0.3$ in Stage~1 and $|\eta_{\mathrm{GNG}}|\le 0.05$ in Stage~2 (where $k\approx d$ makes the per-update displacement larger).
+  \item Clip the per-update nudge increment $|\eta_{\mathrm{cent}}\rho_i|$ (equivalently the effective drift rate $\eta_{\mathrm{GNG}}$ of S2.3) to $\le 0.3$ in Stage~1 and $\le 0.05$ in Stage~2, where $k\approx d$ makes the per-update displacement larger.
   \item Constrain spline-flow slopes/bins to avoid near-singular Jacobians during warp fits.
   \item Bound $\|\mathbf a_i\|$ growth between deferred-nudge applications, so a single sample cannot push the accumulator above several $\delta_{\min}$.
 \end{itemize}

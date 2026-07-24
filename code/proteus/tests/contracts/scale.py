@@ -8,9 +8,13 @@ import numpy as np
 
 @dataclass
 class ScaleParameter:
-    """A single candidate or selected scale (SI S2.4)."""
-    s_control: float                 # s_control in [0, 1)
-    tau_global: float                # -D_subspace * log(1 - s_control)
+    """A single candidate or selected scale (SI S2.4).
+
+    ``tau_global`` is the operational scale primitive. The bounded controller value
+    ``s_control`` of SI S2.4 is a normalization remark only
+    (``tau = -d_subspace * log(1 - s_control)``) and is not stored or consumed.
+    """
+    tau_global: float                # variance cap tau (uniform within a run)
     d_subspace: int
 
 

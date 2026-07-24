@@ -204,12 +204,12 @@ For node $i$, Stage~1 tracks an exponentially weighted residual mean $\mathbf m_
 
 Node motion is split into fast distributional tracking and slower geometric adjustment. Moment estimates update continuously at the EWMA rate $\alpha=\ln 2/k$, but node positions move only through deferred nudges, and the rates governing that motion are tied directly to the variance cap.
 
-The adaptation speed at each node is set by how far its local variance is from the cap. Specifically, the variance-correction rate
+The adaptation speed at each node is self-limited by how far its local variance is from the cap. The effective radial drift rate
 \[
 \eta_{\mathrm{GNG},i}
 =\frac{\ln 2}{2k}\!\left(1-\frac{\sigma_i^2}{\tau}\right)
 \]
-is positive when the node is under-cap (the node can still absorb displacement) and zero at the cap boundary (the node is at its resolution limit and should propose a split rather than move). This makes adaptation self-regulating: nodes in well-resolved regions are nearly stationary, while nodes explaining too much heterogeneity adjust quickly.
+is positive when the node is under-cap (the node can still absorb displacement) and zero at the cap boundary (the node is at its resolution limit and should propose a split rather than move). Operationally, node motion is realized through the deferred nudge below rather than by applying this rate per sample; $\eta_{\mathrm{GNG},i}$ characterizes the self-regulating drift used in the convergence analysis (\hyperref[sec:si-dual-rate-motion]{SI~S2.3}). The net effect is self-regulating: nodes in well-resolved regions are nearly stationary, while nodes explaining too much heterogeneity adjust quickly.
 
 Position updates are further gated by a displacement threshold. The nudge accumulator is driven by the EWMA residual mean $\mathbf m_i$ rather than by each raw sample residual, so random per-sample directions are filtered before they can change geometry. Each node accumulates a deferred nudge $\mathbf a_i$, and the position $\mathbf w_i$ is updated only when $\|\mathbf a_i\|$ exceeds
 \[
@@ -569,8 +569,9 @@ We summarize the core symbols used throughout the paper. Full definitions live i
     \item $\mathbf m_i^\pm$, $\mathbf s_i^\pm$, $h_i^\pm$: partition-aligned shadow moments along $\mathbf u_i$ (\hyperref[sec:si-shadow-moments]{SI~S2.3.2}).
     \item $h_i$, $n_{i\to j}$: node hit mass and directed transition counts.
     \item $k$: rank-weighted neighborhood size (Stage 1: $k=8$; Stage 2: $k\approx d$).
-    \item $s_{\mathrm{control}}\in[0,1)$, $D_{\mathrm{subspace}}$, $d_{\mathrm{final},i}$: scale-control variable, working dimension, smoothed local intrinsic dimension (diagnostic).
-    \item $\tau=-D_{\mathrm{subspace}}\log(1-s_{\mathrm{control}})$: variance cap, uniform within a scaffold run; $\tau_{\mathrm{local},i}=\tau$ for all $i$.
+    \item $\tau$: variance cap and operational scale primitive, uniform within a scaffold run; $\tau_{\mathrm{local},i}=\tau$ for all $i$.
+    \item $D_{\mathrm{subspace}}$, $d_{\mathrm{final},i}$: working dimension, smoothed local intrinsic dimension (diagnostic).
+    \item $s_{\mathrm{control}}\in[0,1)$: optional bounded control knob mapped to $\tau=-D_{\mathrm{subspace}}\log(1-s_{\mathrm{control}})$ (normalization remark only; not consumed operationally, SI~S2.4).
     \item $\Phi_C(\tau)$, $R_i(\tau)$, $V_C(\tau)$: cluster-local scale response, per-node Lindeberg-normalized response, support trace (\hyperref[sec:si-scale-response]{SI~S2.5}).
     \item $\Omega_S=M^\top E-E^\top M$, $\kappa_S=\|\Omega_S\|_F$, $R_S=\kappa_S/\tau^\star$: simplex torsion form, scalar magnitude, dimensionless ratio.
     \item $m_S^{(C)}$, $\hat p_f^{(C)}$, $p_f^{(C)}$: simplex mass, online face-pressure tally, conservative face pressure (\hyperref[sec:si-dual-flow]{SI~S6}).
