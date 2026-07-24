@@ -7,9 +7,6 @@
 *.out
 *.synctex.gz
 
-SCRATCHPAD.json
-SCRATCHPAD_LOG.jsonl
-PLANNING.md
 code/tests/artifacts/*
 !code/tests/artifacts/.gitkeep
 docs/Proteus/reference

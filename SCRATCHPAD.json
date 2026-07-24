@@ -1,0 +1,10 @@
+{
+  "updated_at": null,
+  "turn": 0,
+  "focus": { "milestone": null, "issue": null, "goal": "" },
+  "recent": [],
+  "discoveries": [],
+  "open_threads": [],
+  "next_step": "",
+  "blockers": []
+}
