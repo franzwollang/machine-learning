@@ -7,12 +7,6 @@ from typing import Optional
 
 import numpy as np
 
-from proteus.intrinsic_dim import estimate_d_final
-from proteus.stage1.characteristic_scale import (
-    CharacteristicScaleConfig,
-    CharacteristicScaleResult,
-    select_characteristic_scale_by_node_count,
-)
 from proteus.stage1.persistence import (
     PartitionSnapshot,
     PersistenceConfig,
@@ -29,23 +23,12 @@ from proteus.stage1.stabilization import StabilizationConfig
 class ScaleSearchConfig:
     """Configuration for the geometric-grid scale search.
 
-    ``selector`` chooses the characteristic-scale rule (SI S2.5 / S2.5.1 /
-    S2.6.2):
-
-    * ``"load_band"`` --- the legacy variance-load heuristic kept as the
-      transition default (OPEN_ISSUES #28);
-    * ``"node_count"`` --- the **primary** compensated node-count knee
-      (``N(tau) * tau^{d/2}`` plateau, S2.5.1), falling back to ``load_band``
-      when the band never resolves;
-    * ``"persistence"`` --- the Q-partition persistence signal (S2.6.2): the
-      coarsest ``tau`` at which a multi-cluster partition persists across
-      adjacent grid points;
-    * ``"combined"`` --- the compensated node-count knee as the primary
-      characteristic scale with persistence as a structural cross-check
-      (S2.6.2), falling back to ``load_band`` when neither fires.
-
-    Selecting ``"persistence"`` or ``"combined"`` requires the per-grid-point
-    partitions, so it implies ``record_partitions``.
+    ``selector`` chooses the characteristic-scale rule (SI S2.5.1 / S2.6.2):
+    ``"load_band"`` is the legacy variance-load heuristic kept as the transition
+    default (OPEN_ISSUES #28), and ``"persistence"`` uses the Q-partition
+    persistence signal --- the coarsest ``tau`` at which a multi-cluster
+    partition persists across adjacent grid points.  Persistence requires the
+    per-grid-point partitions, so selecting it implies ``record_partitions``.
     """
 
     grid_ratio: float = 1.0 / np.sqrt(2.0)
@@ -63,9 +46,6 @@ class ScaleSearchConfig:
     selector: str = "load_band"
     record_partitions: bool = False
     persistence: PersistenceConfig = field(default_factory=PersistenceConfig)
-    characteristic_scale: CharacteristicScaleConfig = field(
-        default_factory=CharacteristicScaleConfig,
-    )
     seed: int = 42
 
 
@@ -82,10 +62,8 @@ class ScaleSearchResult:
     scaffold_at_star: Stage1Scaffold
     stabilized_flags: list[bool]
     epochs_at_tau_star: int = 0
-    node_count_trace: Optional[np.ndarray] = None
     partition_snapshots: Optional[list[PartitionSnapshot]] = None
     persistence_result: Optional[PersistenceResult] = None
-    characteristic_scale_result: Optional[CharacteristicScaleResult] = None
 
 
 def _build_tau_grid(config: ScaleSearchConfig) -> np.ndarray:
@@ -144,12 +122,8 @@ def run_scale_search(
 
     load_trace = np.full(len(tau_grid), np.nan)
     node_counts = np.zeros(len(tau_grid), dtype=float)
-    d_trace = np.full(len(tau_grid), float(dim), dtype=float)
 
-    record_partitions = config.record_partitions or config.selector in (
-        "persistence",
-        "combined",
-    )
+    record_partitions = config.record_partitions or config.selector == "persistence"
     snapshots: list[PartitionSnapshot] | None = [] if record_partitions else None
 
     last_history: dict[str, list[float]] | None = None
@@ -168,7 +142,6 @@ def run_scale_search(
         v_trace[idx] = v
         load_trace[idx] = load
         node_counts[idx] = float(len(scaffold.nodes))
-        d_trace[idx] = _estimated_intrinsic_dim(scaffold, dim)
         cv_vals = last_history["cv"]
         stabilized[idx] = len(cv_vals) < config.stabilization.max_epochs
 
@@ -181,42 +154,15 @@ def run_scale_search(
     if snapshots is not None:
         persistence_result = compute_persistence(snapshots, config.persistence)
 
-    characteristic_result: CharacteristicScaleResult | None = None
-    if config.selector in ("node_count", "combined"):
-        dims = d_trace if config.characteristic_scale.use_estimated_dim else (
-            np.full(len(tau_grid), float(dim), dtype=float)
-        )
-        characteristic_result = select_characteristic_scale_by_node_count(
-            node_counts, tau_grid, dims, stabilized, config.characteristic_scale,
-        )
-
     peak_idx = _select_characteristic_scale(
         load_trace, node_counts, tau_grid, stabilized,
     )
-    if config.selector == "persistence" and (
-        persistence_result is not None
+    if (
+        config.selector == "persistence"
+        and persistence_result is not None
         and persistence_result.tau_star_index is not None
     ):
         peak_idx = int(persistence_result.tau_star_index)
-    elif config.selector == "node_count" and (
-        characteristic_result is not None
-        and characteristic_result.knee_index is not None
-    ):
-        peak_idx = int(characteristic_result.knee_index)
-    elif config.selector == "combined":
-        # Primary: the compensated node-count knee (S2.5.1).  Persistence is a
-        # structural cross-check (S2.6.2); it is used only when the primary
-        # signal does not resolve the support within the searched band.
-        if (
-            characteristic_result is not None
-            and characteristic_result.knee_index is not None
-        ):
-            peak_idx = int(characteristic_result.knee_index)
-        elif (
-            persistence_result is not None
-            and persistence_result.tau_star_index is not None
-        ):
-            peak_idx = int(persistence_result.tau_star_index)
 
     tau_star = float(tau_grid[peak_idx])
     epochs_at_star = 0
@@ -245,31 +191,9 @@ def run_scale_search(
         scaffold_at_star=best_scaffold,
         stabilized_flags=stabilized,
         epochs_at_tau_star=epochs_at_star,
-        node_count_trace=node_counts,
         partition_snapshots=snapshots,
         persistence_result=persistence_result,
-        characteristic_scale_result=characteristic_result,
     )
-
-
-def _estimated_intrinsic_dim(scaffold: Stage1Scaffold, ambient_dim: int) -> float:
-    """Median degree-proxy intrinsic dimension over the current scaffold (S1.4).
-
-    Computed from the lifted-edge adjacency without mutating node state, so it is
-    side-effect free on the default (``load_band``) path.  Falls back to the
-    ambient dimension for a scaffold too small to have a graph.
-    """
-
-    if len(scaffold.nodes) < 2:
-        return float(ambient_dim)
-    d_final = estimate_d_final(
-        scaffold.neighbour_graph(),
-        dim_floor=1,
-        ambient_dim=ambient_dim,
-    )
-    if d_final.size == 0:
-        return float(ambient_dim)
-    return float(np.median(d_final))
 
 
 def _snapshot_partition(
