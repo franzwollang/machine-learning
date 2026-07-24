@@ -44,6 +44,7 @@ T_C & \text{optional region warp} & \text{S5,S7}\\
 \mu_C,\mu_C^{\mathrm{PL}},\boldsymbol\mu(\mathbf x) & \text{Gaussian, PL, and path memberships} & \text{S7}\\
 \Phi_C(\tau),R_i(\tau) & \text{cluster and node scale responses} & \text{S2.5}\\
 c_{d,k} & \text{variance-cap}\to k\text{-NN radius calibration constant} & \text{S2.5.5,S11.1}\\
+C_Q(d) & \text{interior star-radius (deletion-reassignment) calibration constant} & \text{S3.3}\\
 \Sigma_{\mathrm{smooth}} & \text{effective heat-kernel smoothing covariance }(=\tau I) & \text{S2.5.4}\\
 \alpha_{0,i} & \text{BDeu concentration} & \text{S2.7}\\
 F_{\mathrm{DM}},\tau_{\mathrm{BF}} & \text{evidence score and Bayes-factor margin} & \text{S3.4}\\
@@ -695,10 +696,10 @@ d{=}4 & 1.28 & 1.32 & 1.38 & 1.46\\
 \end{array}
 \]
 The strong decay in $d$ reflects that in low dimension the $k$-NN radius is large
-relative to $\sqrt\tau$. The same uniform-$d$-ball ensemble is the intended
-calibration vehicle for the interior star-radius constant $C_Q(d)$ of S3.3
-(OPEN\_ISSUES~\#36), which measures the expected star radius rather than the
-$k$-NN radius on the identical equilibrated scaffolds.
+relative to $\sqrt\tau$. The same uniform-$d$-ball ensemble is the calibration
+vehicle for the interior star-radius constant $C_Q(d)$ of S3.3, which measures
+the star radius rather than the $k$-NN radius on the identical equilibrated
+scaffolds.
 
 \subsection*{S2.6.1 Cluster Identification, Q-Score, and Cross-Scale Tracking}
 \label{sec:si-cluster-derivation}
@@ -1232,6 +1233,52 @@ p_{\mathrm{merge}}\bigl(\rho_{\mathrm{merge}}^2
 \label{eq:si-bp-jump}
 \]
 with $\tau_*=\max_i\tau_{\mathrm{local},i}$ and global bounded-support fallback $B_p\le R^2$.
+
+\paragraph{Interior star-radius constant $C_Q(d)$.}
+\label{par:si-cq-calibration}
+$C_Q(d)$ is the typical worst-case reassignment distance of a cap-equilibrated
+cell in the regular interior, normalized by $\sqrt\tau$. Writing
+\[
+\rho_{\mathrm{prune},j}=\max_{x\in V_j}\min_{s\ne j}\lVert x-w_s\rVert
+\]
+for the deletion-reassignment radius of node $j$ (the farthest a point owned by
+$j$ must travel to the nearest surviving node if $j$ is removed), $C_Q(d)$ is the
+median of $\rho_{\mathrm{prune},j}/\sqrt{\tau}$ over the regular interior. It is a
+\emph{calibrated} constant (S14.3), measured on the same uniform $d$-ball
+ensemble as $c_{d,k}$ (S2.5.5) --- the star radius rather than the $k$-NN radius
+on identical equilibrated scaffolds. For each dimension: run the fixed-$\tau$
+scaffold to equilibrium; assign each reference point to its nearest node; set
+$\rho_{\mathrm{prune},j}$ to the largest second-nearest-node distance among the
+points node $j$ owns; and record the median of
+$\rho_{\mathrm{prune},j}/\sqrt\tau$ over the inner half of mature nodes by
+distance from the ball center. The interior restriction excludes boundary cells
+whose star radius is inflated by the missing exterior neighbors, and the inner
+fraction (rather than an absolute radius) adapts to dimension, since in high $d$
+most nodes concentrate near the surface. Repeat over independent ensembles and
+take the median of the per-scaffold medians. The reference implementation is
+\texttt{proteus.stage1.calibration.calibrate\_cq}; the shipped table is
+\texttt{CQ\_TABLE}, regenerable via \texttt{python -m proteus.stage1.calibration}.
+
+A cap-equilibrated interior cell has variance $\tau$; modeling it as a uniform
+ball of radius $R$ gives $\tfrac{d}{d+2}R^2=\tau$, i.e.\ $R=\sqrt{(d+2)/d}\,\sqrt\tau$.
+The worst-case reassignment distance is of this order, so
+\[
+C_Q^{\mathrm{iso}}(d)=\sqrt{\tfrac{d+2}{d}}
+\label{eq:si-cq-anchor}
+\]
+is the analytic anchor (used as the runtime fallback \texttt{c\_q\_analytic} for
+dimensions outside the tabulated grid). The calibrated values run a consistent
+factor above it from boundary-corner and discretization corrections. The shipped
+table (uniform $d$-ball ensemble, $n=3000$ samples, four ensembles,
+$N_\star=120$, $k=8$, interior fraction $0.5$; \texttt{CQ\_CALIBRATION\_META}) is
+\[
+\begin{array}{c|cccc}
+d & 1 & 2 & 3 & 4\\
+\hline
+C_Q(d) & 2.35 & 1.66 & 1.49 & 1.44\\
+C_Q^{\mathrm{iso}}(d) & 1.73 & 1.41 & 1.29 & 1.22\\
+\end{array}
+\]
 
 \subsection*{S3.4 Dirichlet--Multinomial Evidence Score}
 \label{sec:si-dm-evidence}
@@ -2197,6 +2244,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 z_{\mathrm{Wilson}} & 1.2816\ (\text{alternative}) & \text{S3.1} & \text{statistical}\\
 \text{node prune hit} & h_i<0.5\,\bar h_{\mathcal N(i)} & \text{S3.2} & \text{operational}\\
 \text{node prune variance} & \sigma_i^2<0.5\,\tau_i & \text{S3.2} & \text{operational}\\
+C_Q(d) & \text{uniform }d\text{-ball star radius (S3.3); }\sqrt{(d+2)/d}\text{ anchor} & \text{S3.3} & \text{calibrated}\\
 \rho_{\mathrm{merge}} & \le 2C_Q(d) & \text{S3.3} & \text{operational}\\
 p_{\mathrm{merge}} & \le \bar h/N & \text{S3.3} & \text{operational}\\
 v_{\mathrm{merge}} & \le 1 & \text{S3.3} & \text{operational}\\
