@@ -177,6 +177,65 @@ where $D_C$ is the parent working dimension. Child samples and inherited node po
 
 The distance-preservation audit of S1.3 is still applied locally. If truncating to $r_{C'}$ materially degrades nearest-neighbor recall or local distance ranks, keep the full child PCA basis in the parent dimension and log the failed truncation; the mandatory operation is the child PCA reparameterization, while rank truncation remains guarded by neighbor preservation. Child-level marginal Gaussianization and all subsequent region or patch warp proposals are then fitted in this PCA frame. This makes those transforms cheaper because their input dimension is $r_{C'}$ rather than the parent dimension, while the explained-energy and neighbor-preservation guards ensure that no accepted child-level information is discarded by the rank choice. Along a root-to-leaf path, projections compose with the parent representation, so each child works inside the span made available by its ancestors and no downstream level invents directions outside the accepted parent frame.
 
+\subsection*{S1.4.1 Per-Node Intrinsic-Dimension Estimator}
+\label{sec:si-intrinsic-dim}
+The per-node intrinsic dimension $d_{\mathrm{final},i}$ used throughout Stage~1
+(the recursion PCA-rank summary of S1.4, the BDeu/DM branching prior
+$\alpha_{0,i}=1/(d_{\mathrm{final},i}+1)$ of S2.7, the AP self-preference of
+S2.6.1, the link-prune slot count of S3.1, and the junction diagnostics of
+S8.4) is, by default, a \emph{degree proxy} on the lifted structural graph.
+Writing $\mathcal N(i)$ for the lifted neighbors of node~$i$, the raw estimate
+is $\widetilde d_i=\max(1,\,\deg(i)-1)$ and the reported value is the
+neighbor-median smoothed integer
+\[
+d_{\mathrm{final},i}
+=\max\!\Big(1,\ \operatorname{round}\ \operatorname{median}
+\big\{\widetilde d_j:j\in\{i\}\cup\mathcal N(i)\big\}\Big),
+\]
+clipped to the ambient dimension. The intuition is that a locally
+$d$-dimensional cap-equilibrated cell has on the order of $d+1$ Delaunay
+neighbors, so $\deg-1$ tracks $d$.
+
+\paragraph{Validation.}
+On the uniform $d$-ball reference ensemble (the same ensemble that calibrates
+$c_{d,k}$ and $C_Q(d)$; S2.5.5, S3.3) the degree proxy is \emph{unbiased}: the
+per-node median equals the true dimension for $d\in\{1,2,3,4\}$. Its documented
+failure mode is an \emph{upward} bias on a thin curved manifold embedded in a
+higher ambient dimension: off-manifold lifted edges---the same high-dimensional
+Delaunay slivers that the directed-floor link pruning of S3.1--S3.2 is designed
+to suppress---inflate node degree. On a $1$-D circle embedded in $\mathbb R^3$
+the proxy reports a median of $2$ against a true dimension of $1$. Because the
+proxy over-reads only where the neighborhood mixes off-manifold adjacency, and
+the junction detector of S8.4 keys on the \emph{range} of $d_{\mathrm{final}}$
+across a neighborhood rather than its absolute value, a uniform over-read on a
+homogeneous thin manifold does not manufacture spurious junctions; the bias is
+conservative for the proposal-path consumers (larger $\alpha_{0,i}$, larger PCA
+rank floor) that it feeds.
+
+\paragraph{Levina--Bickel cross-check.}
+For absolute-dimension reporting we also provide the maximum-likelihood
+estimator of Levina and Bickel. From a point's sorted nearest-neighbor
+distances $T_1\le\cdots\le T_k$ (self excluded), the estimate at neighbor count
+$k$ is
+\[
+m_k(i)=\Big[\tfrac{1}{k-1}\textstyle\sum_{j=1}^{k-1}\log\!\big(T_k(i)/T_j(i)\big)\Big]^{-1},
+\]
+and, following MacKay--Ghahramani, the per-node estimate averages the inverses
+$1/m_k(i)$ over $k\in[k_{\min},k_{\max}]$ (defaults $6,12$) before inverting,
+then applies the same neighbor-median smoothing. Using geometry directly, this
+estimator is not inflated by structural edges: it recovers the true dimension
+on well-sampled (locally Poissonian) manifolds---exact on the dense $d$-ball for
+$d\in\{1,2,3,4\}$, and $d=1$ on the embedded circle where the proxy over-reads.
+It assumes Poisson local sampling, so it \emph{under-reads} on the near-regular
+node lattice of an equilibrated coarse scaffold at $d\gtrsim3$; it is therefore
+used on the dense routed sample set or as an independent validation estimator,
+not as a coarse-node drop-in. The scaffold exposes both via an
+\texttt{intrinsic\_dim\_method} selector (\texttt{"degree"} default,
+\texttt{"mle"} for Levina--Bickel). Dimension-sensitive acceptance consumers
+(junction detection S8.4, heterogeneous simplex dimension S4.2) should prefer
+the scale-consistent estimator rather than inherit a silent proxy bias; the
+$k_{\min},k_{\max}$ range is an operational default (S14.3).
+
 \section*{S2. Stage 1 Derivations}
 
 \subsection*{S2.1 Geometric Grid Spacing}
@@ -382,7 +441,7 @@ The scaffold graph is two-tiered, separating raw adjacency evidence from committ
 \end{itemize}
 The two tiers have distinct consumers:
 \begin{itemize}[leftmargin=1.5em]
-  \item the \emph{lifted} graph is the structural graph: it defines the degree-proxy intrinsic dimension $d_{\mathrm{final}}$ (S1.4), the flag complex of Stage~2 (S4.1), the connected components and internal/boundary edge sets used by clustering (S2.6.1), the peer-comparison stars for the post-clustering prune pass (S3.1), and the node-count / isolated-node stabilization diagnostics (S2.5.1);
+  \item the \emph{lifted} graph is the structural graph: it defines the degree-proxy intrinsic dimension $d_{\mathrm{final}}$ (S1.4.1), the flag complex of Stage~2 (S4.1), the connected components and internal/boundary edge sets used by clustering (S2.6.1), the peer-comparison stars for the post-clustering prune pass (S3.1), and the node-count / isolated-node stabilization diagnostics (S2.5.1);
   \item the \emph{full} graph (shadow $\cup$ lifted) supplies the transition evidence read by Affinity Propagation exemplar similarity (S2.6.1), so weak-but-real adjacencies still inform the partition;
   \item link pruning (S3.1) reads \emph{all} edges for the ambient directed-floor pass and the \emph{lifted} edges only for the post-clustering demotion pass; the Dirichlet--multinomial gate (S3.4) scores the directed transition counts on affected stars regardless of tier.
 \end{itemize}
@@ -2234,6 +2293,8 @@ Defaults are listed here for implementers while remaining defined in their ownin
 \hline
 r_{\min}\ (\text{T2 child PCA rank floor}) & 3 & \text{S1.4} & \text{operational}\\
 r_{0.999}\ (\text{PCA retained-energy rank}) & \text{cum.\ explained}\ge0.999 & \text{S1.4} & \text{operational}\\
+d_{\mathrm{final}}\text{ estimator} & \text{degree proxy (default); Levina--Bickel cross-check} & \text{S1.4.1} & \text{calibrated/diagnostic}\\
+k_{\min},k_{\max}\ (\text{Levina--Bickel }k\text{ range}) & 6,\ 12 & \text{S1.4.1} & \text{operational}\\
 \alpha & \ln2/k & \text{S2.1} & \text{theory/operational}\\
 d_{\mathrm{cut}} & 8\ (\text{Gaussian vs rank-decay routing}) & \text{S2.2} & \text{operational}\\
 \eta_{\mathrm{cent}} & \kappa(1-r)/k,\ \kappa=0.5 & \text{S2.2} & \text{operational}\\
