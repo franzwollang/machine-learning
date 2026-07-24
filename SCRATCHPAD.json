@@ -1,20 +1,22 @@
 {
-  "updated_at": "2026-07-24T05:05Z",
-  "turn": 4,
-  "focus": { "milestone": "M1", "issue": 27, "goal": "M1 #27 Part B: canonicalize null / purge clustering heuristics" },
+  "updated_at": "2026-07-24T05:20Z",
+  "turn": 5,
+  "focus": { "milestone": "M2", "issue": 28, "goal": "operationalize Q-partition persistence (S2.6.2) as the cross-scale arbiter" },
   "recent": [
-    "Converged branch 20e3 onto chain head eb8a (ff-merge; tree ==); PR #3 stack = M0+M1A+part-B-start",
-    "FINDING (cross-family validated by GPT audit 0b462607): single-scale graph-local Q CANNOT separate uniform manifolds (circle/swiss arcs, Q≈0.55–1.18) from multi-modal (hierarchy blobs, Q≈0.58–0.88); extent/conductance/modularity/spectral all overlap; partition-Q null degenerate (boundary=0→Q→+inf). NOT a missing K_v.",
-    "Recorded finding in SI S2.6.1 (scope paragraph), OPEN_ISSUES #27, PLANNING M1 exit + dependencies. Clustering/recursion regressions green (8 passed)."
+    "Adopted chain head 20e3 (M0 + M1A + Part-B start) into branch 7b9a via ff-merge; env set up (hnswlib needs libpython3.12-dev); baseline 110 passed/31 xfailed.",
+    "Implemented stage1/persistence.py: sample-space partition tracking, Hungarian-matched cluster Jaccard, compute_persistence -> run_lengths + coarsest persistent tau*. Behind controller selector='persistence' flag; default load_band untouched.",
+    "Verified discrimination: circle -> no persistent multi-cluster split (tau_star_index None); hierarchical -> 3-way split persists 6 grid pts. Full suite 120 passed/31 xfailed. Committed 8b6c81b + pushed."
   ],
   "discoveries": [
-    "#27 Part B (constant-free single-scale merge+null) is BLOCKED: arbiter must be cross-scale Q-partition persistence (M2/S2.6.2) or M4 S3.4 DM Bayes-factor gate. Do NOT delete clustering.py heuristics until arbiter exists (deleting now regresses circle→4, swiss→4, measured).",
-    "Env: run `PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'`; hnswlib needs libpython3.12-dev + pip --break-system-packages; no LaTeX toolchain (structural checks only)."
+    "Node indices are NOT stable across grid points (splits/prunes), so persistence is tracked in SAMPLE space (stable sample identity) rather than node-ID overlap; documented in SI S2.6.2 operational-persistence paragraph. Constants P_persist=2 (derived), theta_ovl=0.5 (operational) added to S14.3.",
+    "Persistence currently picks the coarse-END of the interval (v_death^+), so tau* lands coarse vs geometric expected_tau (hierarchical tau*=0.36 vs expected 0.0225). Fine for detection; tau* refinement toward v* is a follow-up.",
+    "Env: PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'; no LaTeX toolchain (SI edits are text-only, PDF stale)."
   ],
   "open_threads": [
-    "M1-Part-B and M2 persistence are COUPLED: build persistence (track AP/Q partitions across adjacent τ grid points by node-ID overlap; accept split only if it persists ≥2 grid pts) in M2, THEN complete clustering.py purge against it.",
-    "chain PRs #1(5413 M0), #2(5511 M1A), #3(eb8a) all DRAFT/unmerged off main; this branch 20e3 stacks on eb8a"
+    "M2 next: build the PRIMARY signal (compensated node-count / support-trace knee, N(tau)*tau^{d/2}); then make persistence/combined the DEFAULT selector and remove band_lo=0.65 + one-step-coarser patch (#28 exit).",
+    "#27 purge: wire persistence as the accept gate inside run_recursive_discovery/run_clustering (accept split only if persists >= P_persist), confirm circle=1/swiss<=3/hierarchy 6-leaf hold, THEN delete clustering.py stand-in heuristics.",
+    "chain PRs #1-#4 all DRAFT/unmerged off main; branch 7b9a now stacks the full chain + this M2 start."
   ],
-  "next_step": "Start M2: expose adjacent-grid scaffolds/partitions from controller and implement the Q-partition persistence signal (S2.6.2); keep legacy load-band selector behind a flag. This unblocks both tau* rebuild (#28) and the #27 heuristic purge.",
+  "next_step": "Implement the primary compensated node-count / support-trace knee selector (#28 item 1) and combine with persistence; then flip default selector and delete band_lo.",
   "blockers": []
 }
