@@ -1,22 +1,22 @@
 {
-  "updated_at": "2026-07-24T13:40Z",
-  "turn": 19,
-  "focus": { "milestone": "M5-prep", "issue": 26, "goal": "landed manifold-zoo generator (#26) as early diagnostic fixture; sharpened #25 topology finding" },
+  "updated_at": "2026-07-24T14:20Z",
+  "turn": 20,
+  "focus": { "milestone": "M4", "issue": 27, "goal": "landed flag-complex construction (S4.1/S4.2/S13.4) as first M4 step; topology recovery deferred to #41" },
   "recent": [
-    "CHAIN: git fetch --all; furthest = f06e (PR#18, 65 ahead, turn18). ff-merged into cursor/next-task-progression-a422 (was clean off main); diff vs head empty.",
-    "Ruled out M4 flag-complex + #25 topology as clean one-turn wins: EMPIRICALLY circle lifted graph at tau* is a triangulated band (b0=1; raw cycle rank 50; flag complex b1=6, not 1). Correct b1 needs persistence-filtered PH (gudhi/ripser, NOT installed). Recorded in #25.",
-    "#26 generator LANDED: make_manifold_zoo (circle+segment+plane+box, R^3, dims {1,1,2,3}, 3 junctions, per-comp GT+topology) + new AxisAlignedBoxFadedComponent. Diagnostic tests pass; S8.4/S4.2 scenario assertions deferred as @awaiting. Suite 162p/1skip/33xf. Committed + pushed.",
-    "#28 coarse-end refinement judged NOT clean this turn: persistence tau_star_index = coarsest multi-cluster index; refining within-interval is acceptance-path AND SI-underdetermined (record gap, don't invent). Deleting legacy load-band is premature (M2 in progress; PLANNING keeps flag as bisection net)."
+    "CHAIN: git fetch --all; furthest = a422 (PR#19, turn19, 70 ahead). ff-merged into cursor/next-task-progression-2076 (was clean off main); diff vs head empty.",
+    "M4 step1a LANDED: stage2/flag_complex.py = Greedy Chaining (S13.4) top-dim clique complex of lifted graph; homogeneous+heterogeneous d_final, canonical dedup, incidence junction signature, orphan detect, simplex d-volume (S4.5). flag_complex_from_scaffold wires T3. 9 foundation + 2 stage2 tests. Suite 163->174p, 33xf unchanged. Committed + pushed.",
+    "EMPIRICAL (turn20): sparse lifted-graph flag complex of fitted circle scaffold has 6 ESSENTIAL H1 loops (band holes never filled by lifted cliques) -> confirms #25; VR-PH on positions (S14.2) is the recovery route but tissue pollution births spurious loops at 1.5*sigma_star. Topology recovery = new issue #41.",
+    "SCOPE decision: landed CONSTRUCTION only (correct + tested). Did NOT flip nested_spheres/linked_tori (S4.1) topology tests (need robust PH per-region, #41) nor manifold_zoo (S4.2) heterogeneous-dim test (needs #40 d_final refresh, still working-dim). No test weakening; no acceptance-path change; no audit needed (construction + metric-adjacent)."
   ],
   "discoveries": [
-    "Existing faded-density fixtures normally run ~34-44% tissue (filament_sheet 0.34, mixed_dim 0.44); manifold-zoo 0.40 is in-family (elongated sparse scene -> large bounding box -> uniform-tissue mass term dominates). Not a bug.",
-    "tissue_fraction param on these generators controls SupportBox padding, NOT actual tissue mass (that emerges from the faded-density (1-lambda)*uniform term over support volume)."
+    "d_final==working-dim operationally (#40) => flag_complex_from_scaffold on circle (ambient 3) yields 12 tetrahedra + 15 triangles + 5 edges, all valid lifted cliques. Heterogeneous per-patch simplex dim needs the #40 refresh at its S8.4 consumer (M5).",
+    "gudhi installed fine in venv; RipsComplex/SimplexTree/expansion/persistence all available. tests/metrics/persistent_homology.py already provides VR Betti."
   ],
   "open_threads": [
-    "#26 remaining: flip @awaiting zoo tests (junction detection S8.4 [M5], heterogeneous simplex dim S4.2 [M4]) when those land.",
-    "M1 #27 Part B blocked SOLELY on M4 S3.4 DM evidence gate (cold-start recheck REFUTED; do not re-attempt).",
-    "M2 #28 remaining: within-interval persistence tau* refinement (acceptance-path + SI-underdetermined); delete legacy load_band + dormant _legacy_slope_selector/_detect_peak once load_crossover dominates all scenarios."
+    "#41 (NEW): Stage 2 topology recovery via VR-PH (S14.2) — filtration/persistence reading, tissue pollution (run per-region), multi-component assembly. Blocks nested_spheres/linked_tori S4.1 tests + circle #25 b1.",
+    "M4 next: (a) T3/T0 flow-conserving count transfer S4.3/S4.4 into the complex; (b) THE big lever = S3.4 DM evidence gate (unblocks M1 #27 Part B stand-in deletion + M1 default gate).",
+    "M2 #28 remaining (unchanged): within-interval persistence tau* refinement (acceptance-path + SI-underdetermined); delete legacy load_band once load_crossover dominates all scenarios."
   ],
-  "next_step": "Next turn (fetch --all + chain first): candidates = M4 step1 flag-complex core (S4.1 clique complex + persistence-filtered Betti; would unblock #25 + nested_spheres/linked_tori/coil20 + zoo S4.2; NOTE needs gudhi/ripser or a persistence impl + is a whole part) OR M2 #28 within-interval tau* refinement (acceptance-path, needs SI decision + cross-family audit).",
-  "blockers": ["#27 Part B blocked on M4 S3.4 DM evidence gate"]
+  "next_step": "Next turn (fetch --all + chain first): strongest lever is M4 S3.4 DM evidence gate (closed-form Dirichlet-multinomial score; unblocks M1 Part B + is 'the heart of the architecture' per PLANNING) — acceptance-path, REQUIRES cross-family GPT audit. Alternative smaller: #41 topology-recovery PH reading (evidence-path).",
+  "blockers": ["#27 Part B blocked on M4 S3.4 DM evidence gate", "#41 topology recovery blocks on robust per-region PH reading; #26 S4.2 heterogeneous-dim also blocks on #40"]
 }

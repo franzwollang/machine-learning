@@ -5,7 +5,7 @@ here. Numbering is historical and stable: resolved issues are deleted rather tha
 renumbered, so gaps in the sequence are expected. Each entry lists only the work that
 actually remains. See `PLANNING.md` for the suggested order of attack.
 
-Next issue number: 41
+Next issue number: 42
 
 ## 16. Fuzzy title decision
 
@@ -28,12 +28,14 @@ Next issue number: 41
 - Options: (a) Vietoris–Rips persistent homology on node positions (`giotto-tda` / `ripser`), (b) flag-complex Betti numbers via `gudhi`, (c) simple graph checks (connected components + cycle rank) on the lifted graph directly.
 - **FINDING (empirical, turn 19): option (c) is insufficient and even the bare flag complex over-reports `b1`.** On the standard circle fixture at `tau*` (64 nodes) the lifted graph is a single connected component with no isolates (so `b0 = 1` is recoverable), but it is a *triangulated band*, not a clean 1-ring: raw undirected cycle rank `E - V + 1 = 50` (E=113, max degree 7). Building the flag/clique complex on that same graph (55 triangles + 12 tetrahedra) collapses most but not all spurious loops, leaving `b1 = 6` — still not 1. So a correct `b1 = 1` requires either a *persistence-filtered* PH (take the single most-persistent H1 feature; needs `gudhi`/`ripser`, neither currently installed) or scaffold-mesh cleanup, not a fixed-threshold graph/clique-complex Betti count. `b0 = 1` (single connected 1-skeleton) is the only topology invariant robustly available at Stage 1.
 - Blocked on / naturally lands with Stage 2 flag-complex construction **plus a persistence filtration**; the naive Stage-1 graph check (c) cannot deliver the loop invariant. If a Stage-1 check lands, scope it to `b0 = 1`.
+- **UPDATE (turn 20): flag-complex construction has landed** (`stage2/flag_complex.py`; SI S4.1/S4.2/S13.4), and it confirms the finding. The *sparse lifted-graph* flag complex of the fitted circle scaffold (built to `d_final`, expanded to a clique complex) retains **6 essential (never-filled) `H1` loops** — the triangulated-band holes are not closed by any lifted clique, so no persistence threshold recovers `b1 = 1` from the lifted graph alone. Vietoris--Rips PH on the node *positions* (SI S14.2, dense pairwise) is the route that can fill the band holes, but on the tissue-polluted circle scaffold it also births spurious loops and does not cleanly separate `b1 = 1` at the fixed `1.5 sigma_star` filtration. The residual topology-recovery work (choosing the filtration/persistence reading that robustly recovers `b1 = 1` on real scaffolds) is tracked in **#41**; this issue keeps the sharpened `b0 = 1`-only Stage-1 scope.
 
 ## 26. Manifold-zoo junction test (circle + line + plane + box)
 
 - Classic GNG benchmark: 1D circle, 1D segment, 2D plane patch, and 3D box meeting at dimensional junctions.
 - **Generator has landed** (`tests/datasets/synthetic/manifold_zoo.py`, `make_manifold_zoo`): a connected R^3 scene of intrinsic dims {1,1,2,3} meeting at 1<->1 / 1<->2 / 2<->3 junctions, with full per-component intrinsic-dim ground truth, per-component topology (circle carries `b1 = 1`), and three `JunctionExpectation`s. Backed by a new `AxisAlignedBoxFadedComponent` (solid k-box signal). Diagnostic tests (`tests/scenarios/synthetic/test_manifold_zoo.py`, generator coverage in `test_dataset_scales.py`) pass now.
 - **Remaining (deferred scenario assertions, blocked on later milestones):** mesh quality per patch, `d_final` accuracy at junctions, junction detection (S8.4, M5) and Stage 2 heterogeneous simplex dimension (S4.2, M4). Placeholders wired as `@awaiting("diagnostics.junction", si="S8.4")` and `@awaiting("stage2.flag_complex", si="S4.2")`; flip them when those modules land.
+- **UPDATE (turn 20):** the flag-complex constructor now exists (`stage2/flag_complex.py`) and handles heterogeneous per-star `d_final` correctly (unit-tested). But `test_manifold_zoo_heterogeneous_simplex_dimension` cannot be flipped yet: the operational `d_final` is seeded to the working dimension and never refreshed (#40), so a fitted zoo scaffold carries uniform `d_final = 3` and the constructor produces uniform 3-simplices, not the ground-truth per-patch `{1,1,2,3}`. This test therefore additionally blocks on the #40 `d_final` refresh landing at its S8.4 junction-detection consumer (M5).
 
 ## 27. Clustering: canonicalize the Q-score and remove cleanup heuristics
 
@@ -79,3 +81,28 @@ Remaining work:
 - **Delete the legacy load-band selector** (and now-dormant `_legacy_slope_selector`,
   `_detect_peak` in `controller.py`) once `load_crossover` is validated to dominate across
   every scenario/recursion regression — kept behind the flag until then (M2 mitigation).
+
+## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
+
+The flag-complex *construction* has landed (`stage2/flag_complex.py`, SI S4.1/S4.2), but
+the *topology-recovery* scenario assertions that validate the learned object against
+ground-truth Betti numbers remain unimplemented. These are the `@awaiting("stage2.flag_complex", si="S4.1")`
+tests: `test_nested_spheres_topology` (per-shell `b0 = 1`, `b_{sphere_dim} = 1`),
+`test_linked_tori_betti_numbers` (`b1 >= 2` per torus), and the circle `b1 = 1` target of #25.
+
+- **Canonical tool:** Vietoris--Rips persistent homology on node positions up to dimension 2,
+  filtration to `1.5 sigma_star` (SI S14.2; `tests/metrics/persistent_homology.py`). The sparse
+  lifted-graph flag complex is *not* the right input — its band holes are essential (#25).
+- **Open problems to solve before flipping the tests (evidence-path, not acceptance-path):**
+  1. *Filtration / persistence reading.* At the fixed `1.5 sigma_star` cutoff the true loop may
+     not yet be born or the disk may already be filled; a persistence-lifetime reading (count
+     `H_k` bars whose lifetime exceeds a fraction of `sigma_star`, plus essential bars) is more
+     robust but needs a defensible operational threshold, logged in SI S14.2 / S14.3.
+  2. *Tissue pollution.* Faded-density tissue nodes in the scaffold seed spurious short loops;
+     recovery likely needs to run PH per accepted cluster/region (post-clustering) rather than on
+     the whole raw scaffold, or to restrict to signal nodes.
+  3. *Per-region assembly.* Nested spheres / linked tori are multi-component; the recovery
+     harness must build and score one complex per recovered region (their sibling
+     `@awaiting("stage1.controller")` component-separation tests must also be written).
+- **Dependency note:** heterogeneous per-patch simplex *dimension* (the S4.2 manifold-zoo test)
+  additionally blocks on the #40 operational `d_final` refresh; pure topology (b-numbers) does not.
