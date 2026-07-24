@@ -1,20 +1,20 @@
 {
-  "updated_at": "2026-07-24T04:45Z",
-  "turn": 3,
-  "focus": { "milestone": "M1", "issue": 27, "goal": "canonicalize Q-score (#27): primitives in SI S2.6.1 done; strip clustering.py heuristics to one merge-to-fixpoint + null test" },
+  "updated_at": "2026-07-24T05:05Z",
+  "turn": 4,
+  "focus": { "milestone": "M1", "issue": 27, "goal": "M1 #27 Part B: canonicalize null / purge clustering heuristics" },
   "recent": [
-    "Run eb8a initially duplicated M0 from main (missed branch-chain check); CONVERGED via merge onto chain head origin/5511 (tree ==), PR #3 now stacks M0+M1A",
-    "M1 #27 part B start: removed 3 dead helpers + stale PMI wrapper + KMeans import from clustering.py",
-    "Full default suite green: 110 passed / 31 xfailed (unchanged)"
+    "Converged branch 20e3 onto chain head eb8a (ff-merge; tree ==); PR #3 stack = M0+M1A+part-B-start",
+    "FINDING (cross-family validated by GPT audit 0b462607): single-scale graph-local Q CANNOT separate uniform manifolds (circle/swiss arcs, Q≈0.55–1.18) from multi-modal (hierarchy blobs, Q≈0.58–0.88); extent/conductance/modularity/spectral all overlap; partition-Q null degenerate (boundary=0→Q→+inf). NOT a missing K_v.",
+    "Recorded finding in SI S2.6.1 (scope paragraph), OPEN_ISSUES #27, PLANNING M1 exit + dependencies. Clustering/recursion regressions green (8 passed)."
   ],
   "discoveries": [
-    "SINGLE-CLUSTER NULL GOTCHA (#27): whole-graph null has zero boundary -> BoundaryInter=0 -> Q(null) degenerate; raw partition-Q favors null. Must use DM Bayes-factor (S3.4) or reformulate null (best single-cut). SOLVE before wiring null.",
-    "Env: run tests `PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'`; hnswlib needs libpython3.12-dev + pip --break-system-packages; no LaTeX toolchain"
+    "#27 Part B (constant-free single-scale merge+null) is BLOCKED: arbiter must be cross-scale Q-partition persistence (M2/S2.6.2) or M4 S3.4 DM Bayes-factor gate. Do NOT delete clustering.py heuristics until arbiter exists (deleting now regresses circle→4, swiss→4, measured).",
+    "Env: run `PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'`; hnswlib needs libpython3.12-dev + pip --break-system-packages; no LaTeX toolchain (structural checks only)."
   ],
   "open_threads": [
-    "M1 #27 part B remaining: active heuristics still in clustering.py = _refine_boundaries(eta=0.3), _absorb_tiny_clusters_into_dominant, _absorb_one_tiny_satellite, _absorb_full_graph_isolates, <=3 collapse in run_clustering. Replace with one Q-improving pairwise merge-to-fixpoint + null test; keep circle=1 / hierarchy=6 / swiss-roll regressions green",
-    "chain PRs #1 (5413 M0), #2 (5511 M1A), #3 (eb8a) all DRAFT/unmerged off main"
+    "M1-Part-B and M2 persistence are COUPLED: build persistence (track AP/Q partitions across adjacent τ grid points by node-ID overlap; accept split only if it persists ≥2 grid pts) in M2, THEN complete clustering.py purge against it.",
+    "chain PRs #1(5413 M0), #2(5511 M1A), #3(eb8a) all DRAFT/unmerged off main; this branch 20e3 stacks on eb8a"
   ],
-  "next_step": "Design single-cluster-null criterion (DM Bayes-factor per S3.4, or best-single-cut null) FIRST; then remove active clustering heuristics one at a time re-running clustering+scenario tests after each",
+  "next_step": "Start M2: expose adjacent-grid scaffolds/partitions from controller and implement the Q-partition persistence signal (S2.6.2); keep legacy load-band selector behind a flag. This unblocks both tau* rebuild (#28) and the #27 heuristic purge.",
   "blockers": []
 }

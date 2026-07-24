@@ -651,6 +651,37 @@ merges, boundary refinement, and residual cleanup so that the accepted
 partition satisfies the graph-local cluster definition rather than merely the AP
 objective.
 
+\paragraph{Scope of the single-scale criterion.}
+The graph-local score $Q(S;v)$ is a \emph{proposal-level} screen: it certifies
+that a candidate set is internally more coherent than its boundary is leaky at
+the single operating scale $v$. It is \emph{not}, on its own, a sufficient
+acceptance test for how many clusters a connected region contains, for two
+structural reasons. First, the region-weighted partition score
+$Q(\mathcal P;v)$ is degenerate against the single-cluster null: a whole
+connected component has an empty boundary edge set, so
+$\mathrm{BoundaryInter}=0$ and $Q\to+\infty$; the one-cluster ``partition''
+therefore dominates $Q(\mathcal P;v)$ trivially, and a same-criterion
+comparison against it cannot arbitrate a proposed split. Second, and more
+fundamentally, a uniform manifold sampled coarsely (e.g.\ a ring resolved into a
+handful of arcs) and a genuinely multi-modal region can present
+\emph{indistinguishable} single-scale statistics: their per-cluster $Q$,
+$\mathrm{InterLocal}/\mathrm{LocalIntra}$ ratios, extent ratios
+$\hat v_S/v$, conductances, and modularities overlap, because the distinction
+between an intrinsic feature of $\rho$ and a composite summary of unresolved
+children is a statement about behaviour \emph{across} scales, not at one. The
+canonical arbiter of this ambiguity is therefore feature persistence
+(S2.6.2): a multi-cluster partition is accepted only when the same coarse
+partition persists over an interval of adjacent scales, whereas the transient
+arc-partition of a uniform manifold does not. When the Stage~2 machinery is
+available, the Dirichlet--multinomial evidence gate (\hyperref[sec:si-dm-evidence]{S3.4})
+supplies the complementary likelihood-ratio null that $Q(\mathcal P;v)$ cannot.
+Accordingly, the boundary-refinement and residual-cleanup passes referenced
+above are \emph{provisional operational stand-ins} for the persistence signal:
+they approximate ``merge fragments that would not persist as independent
+features'' using single-scale side information (component structure, size
+balance), and are slated for replacement by the persistence criterion rather
+than for derivation as canonical single-scale constants.
+
 \subsection*{S2.6.2 Feature Persistence and Recursion Timing}
 \label{sec:si-feature-persistence}
 Every scale-space feature has a persistence interval: the range of scales over

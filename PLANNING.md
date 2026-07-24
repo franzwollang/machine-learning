@@ -71,18 +71,29 @@ genuine gaps visible instead of buried.
 The Q-score is acceptance-path and everything downstream (recursion timing, tau*-via-
 persistence in M2) depends on it. This lands before scale-selection work.
 
-- Promote the exact formulas for `W_v(i,j) = K_v(i,j) * A_sym(i,j)`, `LocalIntra`, and
-  `BoundaryInter` from `reference/stage1_clustering_and_resolution.md` into SI S2.6.1.
+- **DONE (Part A):** the exact formulas for `W_v(i,j) = K_v(i,j) * A_sym(i,j)`,
+  `LocalIntra`, `BoundaryInter`, `InterLocal` are promoted into SI S2.6.1 verbatim, with
+  symbols in SI S0.1 + paper notation.
 - Make the single-cluster null a first-class candidate: a partition is accepted only if it
   beats the null by a margin under the same criterion.
 - Replace the residual cleanup passes in `clustering.py` with one Q-improving pairwise
-  merge applied to fixpoint; delete dead helpers.
+  merge applied to fixpoint; delete dead helpers (4 dead helpers already removed).
 - Falsifiers (already in the suite): circle -> exactly one cluster without collapse logic;
-  hierarchical Gaussian -> six terminal leaves; swiss roll unchanged. If the single rule
-  cannot pass them, fix the Q definition (likely the kernel term), not the cleanup.
+  hierarchical Gaussian -> six terminal leaves; swiss roll unchanged.
 
-**Exit:** `clustering.py` contains no dataset-motivated constants; SI S2.6.1 is
-implementable verbatim; all current clustering/recursion regressions pass.
+**FINDING (cross-family validated, #27):** the last two bullets are **not achievable at a
+single scale** with the current Q primitives. Experiments + an independent GPT audit show
+circle/swiss ring-arc clusters and hierarchy coarse-blob clusters have *overlapping*
+single-scale `Q(C)` (and extent / conductance / modularity / spectral-gap) distributions,
+and the partition-`Q` null is degenerate (whole-component boundary = 0 → `Q → +∞`). It is
+**not** a missing kernel term — `K_v` is already in `W_v`. The constant-free acceptance
+rule and the null test are therefore **coupled to M2**: the arbiter is Q-partition
+persistence across adjacent τ grid points (SI S2.6.2), or the M4 S3.4 DM evidence gate.
+The `clustering.py` heuristic purge lands **with M2**, not before.
+
+**Exit (revised):** *(Part A, done)* SI S2.6.1 pins the Q primitives verbatim and documents
+the single-scale scope. *(Part B, deferred into M2)* `clustering.py` becomes heuristic-free
+once the persistence signal is available; all clustering/recursion regressions still pass.
 
 ## M2 — Characteristic-scale selection rebuild (#28, #32, #31)
 
@@ -167,15 +178,24 @@ green including the currently-awaiting performance envelopes.
 
 ## Dependencies and risks
 
-- **M1 before M2**: tau*-via-persistence needs a trustworthy Q. Doing scale selection first
-  would tune it against a partition criterion that is about to change.
+- **M1 and M2 are coupled (finding, #27)**: the theory iteration budgeted below has now run.
+  The Q primitives are trustworthy (Part A done), but the *cluster-count acceptance* — the
+  single-cluster null and the constant-free heuristic purge — provably cannot be settled at
+  a single scale: circle/swiss ring-arc clusters and hierarchy coarse blobs have overlapping
+  single-scale `Q` (and extent / conductance / modularity / spectral) distributions, and the
+  partition-`Q` null is degenerate. The arbiter is cross-scale Q-partition persistence, which
+  is M2's secondary signal (S2.6.2). So M1-Part-B and M2's persistence machinery should be
+  built **together**: implement persistence in M2, then complete the `clustering.py` purge
+  against it. tau* selection (M2 primary) still uses the trustworthy Q, so the ordering risk
+  the original note worried about is resolved in Part A.
 - **M2 is the riskiest milestone**: replacing the selector can destabilize every recursion
   and scenario test simultaneously. Mitigation: keep the legacy selector behind a flag,
   migrate tests one scenario at a time, and require the new selector to dominate the old
   one on tau* accuracy before deleting it.
-- **Q definition risk (M1)**: if the merge-to-fixpoint rule cannot reproduce the circle and
-  hierarchy regressions, the missing kernel term `K_v` must be added to the implemented
-  similarity — budget time for one theory iteration here.
+- **Q definition risk (M1) — RESOLVED as a spec/plan finding**: the merge-to-fixpoint rule
+  cannot reproduce circle/hierarchy at a single scale, but this is *not* a missing `K_v`
+  term (the kernel is already in `W_v`). The information needed is cross-scale (persistence),
+  so no single-scale Q redefinition fixes it; see the coupling note above.
 - **M4 step 2 (evidence gate) is the heart of the architecture**: everything after it
   ("geometry proposes, evidence decides") assumes it works. Its reduction tests
   (DM consistency) should be treated as blocking, not advisory.
