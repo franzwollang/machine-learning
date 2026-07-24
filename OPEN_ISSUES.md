@@ -78,8 +78,3 @@ Remaining work:
 - **Delete the legacy load-band selector** (and now-dormant `_legacy_slope_selector`,
   `_detect_peak` in `controller.py`) once `load_crossover` is validated to dominate across
   every scenario/recursion regression — kept behind the flag until then (M2 mitigation).
-
-## 31. Recursion vs hierarchical GT: remaining harness follow-ups
-
-- The structural bar and moment-matching harness are in place (`tests/harness/hierarchy_recovery.py`: Hungarian matching, Hotelling mean gate, Frobenius covariance gate; six-leaf regression passes).
-- Remaining: (a) use per-level tau from each recursion frame (not only the root) when comparing deeper trees; (b) tighten gates now that SI S2.5.4 declares `Sigma_smooth = tau * I` the canonical (no longer provisional) isotropic map — the harness's `tau * I` is now spec-backed, so the gate tolerances can be tightened against it.

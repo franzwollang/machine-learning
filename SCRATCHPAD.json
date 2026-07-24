@@ -1,23 +1,22 @@
 {
-  "updated_at": "2026-07-24T13:00Z",
-  "turn": 17,
-  "focus": { "milestone": "M3", "issue": null, "goal": "#40 resolved (SI S1.4.1 operational refresh semantics); M3 fully closed" },
+  "updated_at": "2026-07-24T13:20Z",
+  "turn": 18,
+  "focus": { "milestone": "M2", "issue": null, "goal": "#31 RESOLVED: per-frame tau in hierarchy-recovery harness + tighten gates vs canonical tau*I (S2.5.4)" },
   "recent": [
-    "CHAIN: git fetch --all first (per memory); chain head = b0ab (tip efa674d, 62 ahead). ff-merged into cursor/next-task-progression-0276 (was clean off main). diff vs head empty.",
-    "#40 RESOLVED via option (b): amended SI S1.4.1 'Operational refresh semantics' para — d_final seeded to working dim D_subspace, refreshed only diagnostically; all operational consumers (d_eff S2.6.1, alpha_0 S2.7, AP pref, d_hat S1.4, cluster_dim S3.1-2) evaluate at D_subspace within a run. Consistent with uniform-cap S2.4 + resolved #23.",
-    "Added SI-citing comments at 3 consumer sites (clustering.py:49, recursion.py:220, pruning.py:148). No behavior change. Suite 158p/1skip/31xf green; SI begin/end 40/40.",
-    "Chose (b) over acceptance-adjacent wiring (a): (a) changes AP prefs/alpha_0/d_hat/prune slots -> would need cross-family audit + regression re-validation; (b) is the low-risk spec-alignment."
+    "CHAIN: git fetch first; furthest branch = 0276 (PR#17, tip 044a4f8, turn17 M3-closed). ff-merged into cursor/next-task-progression-f06e (was clean off main). diff vs head empty.",
+    "#31 RESOLVED: assert_recursion_matches_gt_hierarchy_unimodal_levels now uses per-matched-node tau_star (resolve up parent chain; memoized _analytic_for per scale) instead of single global root tau. Hungarian matching kept at root-tau analytic (GT means are convolution-invariant).",
+    "Gates tightened vs canonical tau*I (S2.5.4, #32 done): mean_chi2_alpha 0.02->0.05, cov_fro_atol 0.55->0.45, cov_fro_rtol 0.28->0.12. Measured root margins: mean 2.6x, cov 3.7x. Docstrings drop 'provisional §32' -> S2.5.4 canonical.",
+    "Added unit test test_unimodal_harness_uses_per_frame_tau (test_recursion.py): synthetic 3-level GT + tree; raises at fine tau_leaf=0.01 (Hotelling~56), passes at coarse tau_leaf=1.0 (~1.1) -> locks per-frame tau. Suite 159p/1skip/31xf. GPT (gpt-5.4-high) cross-family audit LGTM."
   ],
   "discoveries": [
-    "d_final consumers all read node.d_final medians; since refresh_intrinsic_dim is never called operationally, these == region working dim self.dim today (verified in clustering.py/recursion.py/pruning.py).",
-    "SI line 457 (S2.4) already framed d_final as diagnostic + not modulating the cap; S1.4.1 was the divergence site (implied live estimate feeding consumers). Now aligned."
+    "Hierarchical-Gaussian recursion tree is FLAT (root->6 fine leaves at level 1); GT has 3 levels. So recursion leaves ~ GT FINE (L2), NOT GT coarse (L1). Level-indexed harness only aligns at root -> tests evaluate levels={0} only. Deeper end-to-end eval not exercisable on these fixtures (per-frame path validated by the unit test).",
+    "Fine-leaf single-component moment gates FAIL badly (Hotelling 30-229, cov rel 2-5x): BMU-partition boundary leakage, not a bug. So #31 was NOT about adding a fine-leaf gate (that'd need loosening); it's per-frame tau + tightening the aggregate root gate."
   ],
   "open_threads": [
     "M1 #27 Part B blocked SOLELY on M4 S3.4 DM evidence gate (cold-start recheck REFUTED; do not re-attempt).",
     "M2 #28 remaining: refine persistence tau* off coarse-END; delete legacy load_band + dormant _legacy_slope_selector/_detect_peak once load_crossover dominates all scenarios.",
-    "#31 harness follow-ups now UNBLOCKED (S2.5.4 makes tau*I canonical): (a) per-level tau; (b) tighten gates. Self-contained, low-risk — good next-turn candidate.",
-    "M5 S8.4/S4.2 must invoke refresh_intrinsic_dim explicitly on scale-consistent sample (now documented in SI S1.4.1)."
+    "M5 S8.4/S4.2 must invoke refresh_intrinsic_dim explicitly on scale-consistent sample (SI S1.4.1, #40)."
   ],
-  "next_step": "Next turn: fetch --all + chain onto furthest-ahead branch first. Then pick M4 step1 flag-complex (S4.1-4.2, whole part) as the critical-path lever, OR the low-risk #31 harness follow-ups, OR M2 cleanup.",
+  "next_step": "Next turn: fetch --all + chain onto furthest branch first. Candidates: M4 step1 flag-complex (S4.1-4.2, whole part; BIGGEST critical-path lever, unblocks M1 Part B via S3.4) OR M2 #28 cleanup (delete legacy load-band once dominance shown; persistence coarse-end refinement).",
   "blockers": ["#27 Part B blocked on M4 S3.4 DM evidence gate"]
 }
