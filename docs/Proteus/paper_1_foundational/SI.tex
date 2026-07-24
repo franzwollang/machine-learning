@@ -209,8 +209,8 @@ Stage~1 separates fast statistical tracking from slower geometric movement. For 
 \paragraph{Node state.}
 Each node stores hit count $h_i$, residual mean $\mathbf m_i$, residual second moment $\mathbf s_i$, derived variance $\sigma_i^2$, an Oja direction $\mathbf u_i$ for dominant local variance, directed transition counts $n_{i\to j}$, and deferred nudge $\mathbf a_i$. A variance-cap violation $\sigma_i^2>\tau_{\mathrm{local},i}$ proposes additional local capacity, typically by splitting along $\mathbf u_i$ after evidence and budget checks. Low-hit, low-variance nodes or weak bilateral links become prune candidates. The variance cap is therefore both a geometric resolution target and a proposal generator; the evidence gate decides whether the proposed topology change is retained.
 
-\paragraph{Variance-correction rate.}
-Under local isotropy, the node variance satisfies $\sigma_i^2\approx \mathbb E\|x-w_i\|^2$ and a radial shift $\delta r$ changes the variance by $\Delta\sigma_i^2\approx 2\sqrt{\sigma_i^2}\,\delta r$. Spreading this correction over $H=k$ effective updates gives the GNG learning rate
+\paragraph{Variance-correction rate (analysis quantity, not an applied update).}
+The operational motion law is the deferred-nudge (centering) path only: node positions move through the accumulator $\mathbf a_i$, and no per-update GNG rate is applied in the scaffold loop (S13.1--S13.2). It is nonetheless useful to name the \emph{effective} drift rate that the deferred nudge induces on cap-satisfied intervals, because the convergence analysis of S12 reasons in those terms. Under local isotropy, the node variance satisfies $\sigma_i^2\approx \mathbb E\|x-w_i\|^2$ and a radial shift $\delta r$ changes the variance by $\Delta\sigma_i^2\approx 2\sqrt{\sigma_i^2}\,\delta r$. Spreading this correction over $H=k$ effective updates gives the GNG-equivalent rate
 \[
 \eta_{\mathrm{GNG},i}
 \approx
@@ -219,6 +219,8 @@ Under local isotropy, the node variance satisfies $\sigma_i^2\approx \mathbb E\|
 \quad\text{or, with the half-life convention,}\quad
 \eta_{\mathrm{GNG},i}=\frac{\ln 2}{2k}\!\left(1-\frac{\sigma_i^2}{\tau}\right).
 \]
+This rate is a diagnostic and an analysis handle: it is the effective drift envelope used in S12.1--S12.2, \emph{not} a second update applied alongside the deferred nudge. Its vanishing at the cap ($\sigma_i^2\to\tau$) expresses the same self-regulation the deferred nudge realizes operationally---a cap-saturated node proposes a split rather than continuing to move. The reference implementation exposes $\eta_{\mathrm{GNG}}$ as a derived quantity (\texttt{rates.eta\_gng}) for this analysis role only.
+
 \paragraph{Centering rate.}
 The deferred nudge fires when $\|\mathbf a_i\|$ exceeds the resolution threshold
 \[
@@ -892,7 +894,7 @@ The core convergence theory holds with a scalar variance tracker, but the recomm
 Recommended clipping defaults:
 \begin{itemize}[leftmargin=1.5em]
   \item Set $\varepsilon$ in $\rho_i=\|\mathbf m_i\|/(\sigma_i+\varepsilon)$ to between $10^{-8}$ and $10^{-6}$ depending on data scale.
-  \item Clip the GNG-style learning rate to $|\eta_{\mathrm{GNG}}|\le 0.3$ in Stage~1 and $|\eta_{\mathrm{GNG}}|\le 0.05$ in Stage~2 (where $k\approx d$ makes the per-update displacement larger).
+  \item Bound the per-update centering contribution $\eta_{\mathrm{cent}}\rho_i\|\mathbf m_i\|$ so that a single sample cannot push the deferred accumulator by more than a small fraction of $\delta_{\min}$; the realized move is additionally gated by the $\delta_{\min}$ threshold and the $\|\mathbf a_i\|$ bound below. (The GNG-equivalent rate $\eta_{\mathrm{GNG}}$ of S2.3 is an analysis quantity, not an applied update, and needs no separate runtime clip.)
   \item Constrain spline-flow slopes/bins to avoid near-singular Jacobians during warp fits.
   \item Bound $\|\mathbf a_i\|$ growth between deferred-nudge applications, so a single sample cannot push the accumulator above several $\delta_{\min}$.
 \end{itemize}

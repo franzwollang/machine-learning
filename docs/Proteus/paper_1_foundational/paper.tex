@@ -204,12 +204,12 @@ For node $i$, Stage~1 tracks an exponentially weighted residual mean $\mathbf m_
 
 Node motion is split into fast distributional tracking and slower geometric adjustment. Moment estimates update continuously at the EWMA rate $\alpha=\ln 2/k$, but node positions move only through deferred nudges, and the rates governing that motion are tied directly to the variance cap.
 
-The adaptation speed at each node is set by how far its local variance is from the cap. Specifically, the variance-correction rate
+Node positions move only through the deferred-nudge dynamics detailed below, not through a separate per-sample learning rate. The adaptation speed is nonetheless self-regulating with respect to the cap, which is clearest in the \emph{effective} drift rate the deferred nudge induces on cap-satisfied intervals: under local isotropy it takes the Growing-Neural-Gas form
 \[
 \eta_{\mathrm{GNG},i}
-=\frac{\ln 2}{2k}\!\left(1-\frac{\sigma_i^2}{\tau}\right)
+=\frac{\ln 2}{2k}\!\left(1-\frac{\sigma_i^2}{\tau}\right),
 \]
-is positive when the node is under-cap (the node can still absorb displacement) and zero at the cap boundary (the node is at its resolution limit and should propose a split rather than move). This makes adaptation self-regulating: nodes in well-resolved regions are nearly stationary, while nodes explaining too much heterogeneity adjust quickly.
+positive when the node is under-cap (it can still absorb displacement) and zero at the cap boundary (the node is at its resolution limit and should propose a split rather than move). So nodes in well-resolved regions are nearly stationary, while nodes explaining too much heterogeneity adjust quickly. In the reference implementation $\eta_{\mathrm{GNG}}$ is retained only as this analysis quantity---it also appears in the convergence bounds of \hyperref[sec:si-dual-rate-motion]{SI~S2.3}---and the realized motion is the deferred nudge.
 
 Position updates are further gated by a displacement threshold. The nudge accumulator is driven by the EWMA residual mean $\mathbf m_i$ rather than by each raw sample residual, so random per-sample directions are filtered before they can change geometry. Each node accumulates a deferred nudge $\mathbf a_i$, and the position $\mathbf w_i$ is updated only when $\|\mathbf a_i\|$ exceeds
 \[
