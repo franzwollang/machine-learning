@@ -199,5 +199,6 @@ green including the currently-awaiting performance envelopes.
 - **M4 step 2 (evidence gate) is the heart of the architecture**: everything after it
   ("geometry proposes, evidence decides") assumes it works. Its reduction tests
   (DM consistency) should be treated as blocking, not advisory.
-- Packaging hygiene (#38 — move contract types out of `tests/`) can land any time; cheapest
-  before M4 starts adding new types.
+- Packaging hygiene (#38 — move contract types out of `tests/`) **done**: canonical shapes
+  now live in `proteus/types.py`; `tests/contracts/*` are re-export shims. `src/` no longer
+  imports from the test tree, so M4 can add new types directly in the package.

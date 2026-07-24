@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from proteus.moments import incoherence_ratio
-from tests.contracts.state import NodeState
+from proteus.types import NodeState
 
 
 def accumulate_nudge(

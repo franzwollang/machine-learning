@@ -29,7 +29,7 @@ from typing import Any
 import numpy as np
 
 from proteus.links import LinkCounters
-from tests.contracts.state import Link
+from proteus.types import Link
 
 
 @dataclass(frozen=True)

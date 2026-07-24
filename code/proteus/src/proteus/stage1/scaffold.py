@@ -27,7 +27,7 @@ from proteus.stage1.stabilization import (
     compute_variance_cv,
     is_stable,
 )
-from tests.contracts.state import Link, NodeState
+from proteus.types import Link, NodeState
 from tests.metrics.reconstruction import mean_min_distance
 
 

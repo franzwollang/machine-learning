@@ -1,24 +1,22 @@
 {
   "updated_at": "2026-07-24T09:20Z",
-  "turn": 11,
-  "focus": { "milestone": "M1", "issue": 27, "goal": "implement + evaluate the (ii') cold-start persistence recheck; unblock stand-in deletion if it works" },
+  "turn": 12,
+  "focus": { "milestone": "M4-prep", "issue": 38, "goal": "promote canonical SI-contract types out of tests/ into the package (pre-M4 packaging hygiene)" },
   "recent": [
-    "ff-merged chain head cd92 (turn-10 state) onto fresh branch 8fd0; installed deps (python3-dev+hnswlib via --break-system-packages); baseline 125p/31xf green.",
-    "Implemented (ii') cold-start recheck: PersistenceConfig.cold_start_recheck + controller._cold_start_recheck/_cold_start_snapshot + persistence.interval_is_persistent + PersistenceResult.cold_start_rejected.",
-    "REFUTED as a gate: cold single-tau fits have high resolution-level variance. Hierarchy warm anchor=stable 3-way (overlap 1.0) but cold refits=6-way vs 3-way (overlap 0.266<0.5) -> interval rejected. Full-strip recursion ablation w/ recheck ON: circle 1, swiss 1, hierarchy COLLAPSES to 1 (want 6).",
-    "Set cold_start_recheck default FALSE; documented refutation in SI S2.6.2 + S14.3 (label 'diagnostic') + OPEN_ISSUES #27 + PLANNING M1. Added 3 unit tests (interval_is_persistent) + 1 controller regression test. Suite 128p/31xf green.",
-    "GPT cross-family audit (gpt-5.4-high, agent f49edf2a) LGTM-with-caveats: reproduced 3/3 vs 6/3 overlap 0.266 exactly, no impl bug, agreed default-off+document is right, no cheap fix. Applied all 3 caveats (label, phrasing, controller test)."
+    "ff-merged chain head 8fd0 (turn-11 state) onto fresh branch 9378; installed deps (python3-dev+hnswlib --break-system-packages); baseline 129p/31xf green.",
+    "#38 RESOLVED: created proteus/types.py with all canonical SI-contract dataclasses; repointed the 5 src imports (scaffold/nodes/links/pruning/deferred) from tests.contracts.state -> proteus.types.",
+    "Rewrote all 8 tests/contracts/*.py as thin re-export shims from proteus.types (SI-section docstrings preserved); updated tests/contracts/__init__ + proteus-implementation.mdc Canonical-types note (staleness fix).",
+    "Verified shim identity (t.NodeState is state.NodeState etc.); full suite 129p/31xf — behavior-preserving. src/ no longer imports from tests/."
   ],
   "discoveries": [
-    "(ii') cold-start/reverse-sweep recheck is REFUTED as an acceptance gate: matched-Jaccard partition overlap conflates cross-scale resolution variance with absence-of-structure. Only the S3.4 DM Bayes-factor MARGIN (M4) can make this discrimination.",
-    "#27 stand-in deletion now blocks SOLELY on M4 S3.4 DM evidence gate (path (i)); (ii') and threshold-tightening both ruled out.",
-    "Load-bearing stand-ins: _refine_boundaries, _absorb_tiny_clusters_into_dominant, _absorb_one_tiny_satellite, _absorb_full_graph_isolates, and the <=3 collapse in run_clustering."
+    "Only NodeState+Link were actually consumed by src/ (5 imports); the other contract shapes (complex/evidence/geometry/membership/scale/clustering/diagnostics) were forward declarations imported nowhere yet.",
+    "#27 stand-in deletion remains blocked SOLELY on M4 S3.4 DM gate (path (i)); (ii') cold-start recheck and threshold-tightening both REFUTED earlier — do NOT re-attempt overlap-based rechecks."
   ],
   "open_threads": [
-    "#27 Part B fully blocked on M4 (S3.4 DM evidence gate). No self-contained Stage-1 path remains; do NOT re-attempt overlap-based path-independence rechecks.",
-    "#28 open: c_{d,k} calibration protocol (uniform d-ball; couples C_Q(d) #36); refine persistence tau* off coarse end; delete legacy load_band + dormant _legacy_slope_selector/_detect_peak once load_crossover dominates all scenarios.",
-    "chain head after this push = 8fd0. ALWAYS git fetch --all + reconcile onto newest chain head before any work next run."
+    "M1 #27 Part B fully blocked on M4 (S3.4 DM evidence gate). No self-contained Stage-1 path remains.",
+    "Next unblocked options: M4 step1 flag-complex (S4.1-4.2, unblocks #25 + eventually #27 DM gate; now clean to add types in proteus.types); M2 #28 c_{d,k} calibration protocol (couples C_Q(d) #36); M3 #37 constant audit.",
+    "chain head after this push = 9378. ALWAYS git fetch --all + reconcile onto newest chain head before any work next run."
   ],
-  "next_step": "M1 #27 is blocked on M4; pick the next unblocked task: either M2 #28 (write the c_{d,k} calibration protocol as an SI section + lookup table, couples C_Q(d) #36) or M3 constant-status audit (#37), or start M4 step 1 (flag complex S4.1-4.2) which unblocks #25 and eventually #27.",
+  "next_step": "Start M4 step 1 (flag complex S4.1-4.2 + T3 transfer S4.4 + simplex structures S4.5); new types go in proteus.types now. Alternatively M2 #28 c_{d,k} calibration SI section + lookup table.",
   "blockers": ["#27 Part B (stand-in deletion) blocked on M4 S3.4 DM evidence gate — no Stage-1-only path exists"]
 }
