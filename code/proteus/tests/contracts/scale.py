@@ -8,10 +8,15 @@ import numpy as np
 
 @dataclass
 class ScaleParameter:
-    """A single candidate or selected scale (SI S2.4)."""
-    s_control: float                 # s_control in [0, 1)
-    tau_global: float                # -D_subspace * log(1 - s_control)
+    """A single candidate or selected scale (SI S2.4).
+
+    ``tau_global`` is the operational scale primitive. ``s_control`` is a
+    reporting/normalization convention only -- ``1 - exp(-tau / d_subspace)``
+    -- with no operational consumer (OPEN_ISSUES #35).
+    """
+    tau_global: float                # operational scale primitive
     d_subspace: int
+    s_control: float | None = None   # reporting only; 1 - exp(-tau / d_subspace)
 
 
 @dataclass

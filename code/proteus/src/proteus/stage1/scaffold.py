@@ -83,7 +83,6 @@ class Stage1Scaffold:
         self.alpha = float(np.log(2.0) / self.k)
         self.eta_cent_value = eta_cent(self.kappa, self.grid_ratio, self.k)
         self.delta_min_value = delta_min(self.kappa, self.grid_ratio, self.tau)
-        self.s_control = 1.0 - float(np.exp(-self.tau / self.dim))
         self.rng = rng if rng is not None else np.random.default_rng()
         self.ann_backend = ann_backend
         self.ann: ANNIndex = make_ann(self.dim, backend=ann_backend)

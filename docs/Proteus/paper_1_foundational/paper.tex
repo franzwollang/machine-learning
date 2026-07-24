@@ -569,8 +569,9 @@ We summarize the core symbols used throughout the paper. Full definitions live i
     \item $\mathbf m_i^\pm$, $\mathbf s_i^\pm$, $h_i^\pm$: partition-aligned shadow moments along $\mathbf u_i$ (\hyperref[sec:si-shadow-moments]{SI~S2.3.2}).
     \item $h_i$, $n_{i\to j}$: node hit mass and directed transition counts.
     \item $k$: rank-weighted neighborhood size (Stage 1: $k=8$; Stage 2: $k\approx d$).
-    \item $s_{\mathrm{control}}\in[0,1)$, $D_{\mathrm{subspace}}$, $d_{\mathrm{final},i}$: scale-control variable, working dimension, smoothed local intrinsic dimension (diagnostic).
-    \item $\tau=-D_{\mathrm{subspace}}\log(1-s_{\mathrm{control}})$: variance cap, uniform within a scaffold run; $\tau_{\mathrm{local},i}=\tau$ for all $i$.
+    \item $\tau$: variance cap, the operational scale variable; uniform within a scaffold run, $\tau_{\mathrm{local},i}=\tau$ for all $i$ (\hyperref[sec:si-dual-rate-motion]{SI~S2.4}).
+    \item $D_{\mathrm{subspace}}$, $d_{\mathrm{final},i}$: working dimension of the region frame, smoothed local intrinsic dimension (diagnostic).
+    \item $s_{\mathrm{control}}=1-e^{-\tau/D_{\mathrm{subspace}}}\in[0,1)$: bounded dimension-normalized progress variable; a reporting/normalization convention only, with no operational consumer (\hyperref[sec:si-dual-rate-motion]{SI~S2.4}).
     \item $\Phi_C(\tau)$, $R_i(\tau)$, $V_C(\tau)$: cluster-local scale response, per-node Lindeberg-normalized response, support trace (\hyperref[sec:si-scale-response]{SI~S2.5}).
     \item $\Omega_S=M^\top E-E^\top M$, $\kappa_S=\|\Omega_S\|_F$, $R_S=\kappa_S/\tau^\star$: simplex torsion form, scalar magnitude, dimensionless ratio.
     \item $m_S^{(C)}$, $\hat p_f^{(C)}$, $p_f^{(C)}$: simplex mass, online face-pressure tally, conservative face pressure (\hyperref[sec:si-dual-flow]{SI~S6}).

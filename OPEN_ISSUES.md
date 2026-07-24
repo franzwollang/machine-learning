@@ -96,11 +96,6 @@ The AP -> Q-merge -> refine pipeline is implemented and passes the circle, swiss
 - Stage 1 `tau` is operationally a variance cap; the resolution theory (S2.8 and both paper propositions) treats it as a Gaussian convolution bandwidth on the latent density. The bridge is asserted, not derived, and the test harness uses provisional `Sigma_smooth = tau * I`.
 - Recommended minimal resolution for Paper 1: state an equilibrium lemma — each settled catchment-conditional density approximates the latent density smoothed at bandwidth ~tau, up to the `c_{d,k}` calibration factor and curvature terms (S2.5.2 has the expansion machinery) — and declare `Sigma_smooth = tau * I` as the convention. Anisotropic / intrinsic scale-space (PCA or tangent-space metric from T2, semigroup on covariances) is explicitly future work.
 
-## 35. s_control is vestigial
-
-- The mapping `tau = -D_subspace * log(1 - s_control)` (SI S2.4) is inverted and stored by the scaffold (`scaffold.py`) but nothing consumes `s_control`; `tau` is the operational primitive throughout the controller and recursion.
-- Decide: either remove `s_control` from the operational spec (keep the mapping as a normalization remark) or give it a real consumer. Update S2.4, the paper notation table, and `tests/contracts/scale.py` to match.
-
 ## 36. C_Q(d) is referenced but never defined
 
 - SI S3.3 uses `C_Q(d)` ("variance-cap star-radius constant in the regular interior") in the prune-radius guard and merge guard, and the S12 edit-budget argument leans on the resulting `B_p` jump bound — but no formula, derivation, or calibration is given anywhere.

@@ -354,13 +354,14 @@ As $\mathbf u_i$ rotates, the shadow partition plane drifts. The shadow EWMAs us
 \paragraph{Cost.}
 Memory: one extra moment pair per node, i.e.\ $3\times$ per-node moment storage; still $O(d)$ and streaming-bounded. Compute: one extra dot product and one branched EWMA update per routed sample per node; no per-sample retention.
 
-\subsection*{S2.4 Control-to-Threshold Mapping}
-The global scale variable is the variance cap $\tau$. A bounded controller value $s_{\mathrm{control}}\in(0,1)$ is mapped to a variance threshold by
+\subsection*{S2.4 Scale Parameter and Control Normalization}
+The operational scale variable is the variance cap $\tau$ itself. The controller searches $\tau$ directly on the geometric grid of S2.5, and every downstream quantity ($\delta_{\min}$, $\tau_{\mathrm{local},i}$, and the split cap) reads $\tau$. For interpretability it is sometimes convenient to report a bounded, dimension-normalized progress variable $s_{\mathrm{control}}\in(0,1)$ through the monotone reparameterization
 \[
-\tau
-=-D_{\mathrm{subspace}}\log(1-s_{\mathrm{control}}),
+s_{\mathrm{control}}=1-e^{-\tau/D_{\mathrm{subspace}}},
+\qquad\text{equivalently}\qquad
+\tau=-D_{\mathrm{subspace}}\log(1-s_{\mathrm{control}}),
 \]
-where $D_{\mathrm{subspace}}$ is the working dimensionality of the current region's coordinate frame (ambient dimension at the root; the retained PCA rank from S1.4 at child recursion levels). Within a single scaffold run, all nodes share the same cap: $\tau_{\mathrm{local},i}=\tau$ for every~$i$. Dimensional heterogeneity within a region is resolved by the scale-response machinery (S2.5--S2.6) peaking at different $\tau$ for clusters of different intrinsic dimension, and by recursion giving each cluster its own scale search after PCA transfer. The per-node intrinsic-dimension estimate $d_{\mathrm{final},i}$ is retained as a diagnostic input to junction detection (S8.4) and as the cluster-median aggregation target when a single $d_C$ is required for scale-response normalization, but it does not modulate the split-decision cap. Stationarity at a given $\tau$ is measured by $\mathrm{CV}(\sigma_i^2)$ over mature nodes; since $\tau$ is uniform, equilibrium means uniform-resolution evidence across the scaffold.
+where $D_{\mathrm{subspace}}$ is the working dimensionality of the current region's coordinate frame (ambient dimension at the root; the retained PCA rank from S1.4 at child recursion levels). This mapping is a reporting/normalization convention only: $s_{\mathrm{control}}$ has no operational consumer, and no scaffold or controller decision reads it. Within a single scaffold run, all nodes share the same cap: $\tau_{\mathrm{local},i}=\tau$ for every~$i$. Dimensional heterogeneity within a region is resolved by the scale-response machinery (S2.5--S2.6) peaking at different $\tau$ for clusters of different intrinsic dimension, and by recursion giving each cluster its own scale search after PCA transfer. The per-node intrinsic-dimension estimate $d_{\mathrm{final},i}$ is retained as a diagnostic input to junction detection (S8.4) and as the cluster-median aggregation target when a single $d_C$ is required for scale-response normalization, but it does not modulate the split-decision cap. Stationarity at a given $\tau$ is measured by $\mathrm{CV}(\sigma_i^2)$ over mature nodes; since $\tau$ is uniform, equilibrium means uniform-resolution evidence across the scaffold.
 
 \subsection*{S2.5 Scale Response $\Phi_C(\tau)$}
 \label{sec:si-scale-response}
@@ -1736,7 +1737,8 @@ Defaults are listed here for implementers while remaining defined in their ownin
 \hline
 \alpha & \ln2/k & \text{S2.1} & \text{theory/operational}\\
 \eta_{\mathrm{cent}} & \kappa(1-r)/k,\ \kappa=0.5 & \text{S2.2} & \text{operational}\\
-s_{\mathrm{control}}\mapsto\tau_i & -d_i\log(1-s_{\mathrm{control}}) & \text{S2.4} & \text{theory}\\
+\tau\ (\text{operational scale}) & \text{searched on grid; }\tau_{\mathrm{local},i}=\tau & \text{S2.4} & \text{operational}\\
+s_{\mathrm{control}}\ (\text{reporting only}) & 1-e^{-\tau/D_{\mathrm{subspace}}} & \text{S2.4} & \text{normalization}\\
 \text{scale grid} & r=1/\sqrt2 & \text{S2.5} & \text{operational}\\
 \Phi_C\text{ peak floor} & 5\%\text{ of grid max} & \text{S2.5.1} & \text{empirical}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
