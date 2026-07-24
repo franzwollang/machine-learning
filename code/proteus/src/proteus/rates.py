@@ -9,14 +9,15 @@ import math
 
 
 def eta_gng(sigma_sq: float, tau: float, k: int) -> float:
-    """Effective radial drift rate (SI S2.3, analysis quantity only).
+    """GNG-equivalent variance-correction rate (analysis quantity, SI S2.3).
 
     Returns ``(ln 2 / (2k)) * max(0, 1 - sigma_sq / tau)``.
 
-    This is *not* part of the operational motion law: Stage 1 moves nodes solely
-    through the deferred nudge (``eta_cent`` committed at ``delta_min``). ``eta_gng``
-    is retained as the effective drift rate on cap-satisfied intervals for the S12
-    convergence analysis and is intentionally not called by the scaffold loop.
+    This is the *effective* drift rate the deferred-nudge motion induces on
+    cap-satisfied intervals; it is the drift envelope used in the S12
+    convergence analysis. It is NOT applied as a per-update learning rate in
+    the scaffold loop -- operational node motion is the deferred nudge only
+    (``eta_cent`` + ``delta_min``). See OPEN_ISSUES resolution of #34.
     """
 
     _validate_tau(tau)

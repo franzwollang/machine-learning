@@ -26,11 +26,13 @@ The table below summarizes the recurring symbols used across the SI and points t
 \hline
 \mathbf x & \text{data sample} & \text{S0}\\
 C,\ C_\ell,\ C' & \text{region, query-path region, child region} & \text{S0.2}\\
-\tau,\ \tau_C^\star & \text{candidate and selected variance cap (uniform within a run)} & \text{S2.4--S2.5.1}\\
-D_{\mathrm{subspace}},\ d_{\mathrm{final},i} & \text{region working dimension; per-node intrinsic-dim estimate (diagnostic)} & \text{S2.4,S8.4}\\
+\tau,\ \tau_C^\star & \text{candidate and selected variance cap} & \text{S2.4--S2.5.1}\\
 u_{\mathrm{global}},\ u_{\mathrm{local}} & \text{global and local tissue floors} & \text{S0.6}\\
 \Psi,\ \psi_i & \text{local noise tensor and node-level floor proxy} & \text{S2.5.2--S2.5.3}\\
-G_C=(\mathcal V_C,\mathcal E_C) & \text{Stage 1 scaffold graph} & \text{S2}\\
+G_C=(\mathcal V_C,\mathcal E_C) & \text{Stage 1 scaffold graph (shadow}\cup\text{lifted edges)} & \text{S2.3.3}\\
+C(i\to j) & \text{directed co-activation transition mass on an edge} & \text{S2.3.3,S3.1}\\
+K_v,A_{\mathrm{sym}},W_v & \text{geometric kernel, co-activation evidence, edge weight} & \text{S2.6.1}\\
+Q(S;v),Q(\mathcal P;v) & \text{cluster and partition coherence scores} & \text{S2.6.1}\\
 \mathcal K_C,\ \mathcal S_C & \text{Stage 2 complex and simplex set} & \text{S4}\\
 S,\ |S|_d & \text{simplex and intrinsic }d\text{-volume} & \text{S4,S6}\\
 h_i,\ n_{i\to j} & \text{hit mass and directed transition count} & \text{S2,S3}\\
@@ -85,7 +87,6 @@ Several objects appear in multiple parts of Proteus. The following list identifi
   \item $\Phi_C(\tau)$ and $R_i(\tau)$: S2.5. $R_i$ is a scale diagnostic, not a within-cluster density signal.
   \item $\alpha_{0,i}$: S2.7, derived from the BDeu prior and reused by AP preferences and the evidence gate.
   \item $F_{\mathrm{DM}}$: S3.4, with consistency in S3.5.
-  \item Two-tier Hebbian edges (shadow vs.\ lifted) and directed transition counts $n_{i\to j}$: S2.3.3.
   \item The flag-complex invariant and transition-count policies: S4.1--S4.4.
   \item Torsion ratio $R_S$, edge-ratio fallback, and warp policies: S5.
   \item Face pressures $p_f$ and simplex-local density: S6.
@@ -197,12 +198,25 @@ the adaptive policy is driven by the local floor summaries of
 but the controller's confidence in each step becomes floor-aware rather than
 globally homoscedastic.
 
-\subsection*{S2.2 EWMA Weight from Neighborhood Size}
+\subsection*{S2.2 EWMA Weight and Neighbor Routing Weights}
+\label{sec:si-neighbor-weights}
 The EWMA recursion $m_{t+1}=(1-\alpha)m_t+\alpha x_{t+1}$ has half-life $T_{1/2}=\ln(0.5)/\ln(1-\alpha)\approx \ln 2/\alpha$ for small $\alpha$. Setting $T_{1/2}=k$ (one effective neighborhood of updates) yields
 \[
 \alpha=\frac{\ln 2}{k}.
 \]
 This ties estimator memory to the effective neighborhood support: changing $k$ scales the half-life by the same factor without altering the bias/variance interpretation of the moments. Equivalently, with effective neighborhood mass $\Heff$, the standard half-window rule $\alpha\approx 2/(\Heff+1)$ is recovered when $\Heff\approx 2k/\ln 2-1$.
+
+\paragraph{Neighbor routing weights.}
+Within the $k$-nearest set returned by the ANN query, each neighbor receives a routing weight $\omega_r$ that scales its EWMA moment update, its contribution to the deferred nudge, and its Hebbian tally. Two regimes are used, selected by the working dimension $D_{\mathrm{subspace}}$ of the current region frame:
+\begin{itemize}[leftmargin=1.5em]
+  \item \emph{Low dimension} ($D_{\mathrm{subspace}}\le d_{\mathrm{cut}}$, default $d_{\mathrm{cut}}=8$): \emph{relative Gaussian weights}. With squared distances $\{r_j^2\}$ and nearest squared distance $r_{(0)}^2$,
+  \[
+  \omega_j=\exp\!\Big(-\frac{r_j^2-r_{(0)}^2}{2\tau}\Big),
+  \]
+  so the nearest neighbor (BMU) has weight $1$ and the others decay by their squared-distance excess at bandwidth $\tau$. This uses the metric directly, which is reliable when low-dimensional distances are informative.
+  \item \emph{High dimension} ($D_{\mathrm{subspace}}>d_{\mathrm{cut}}$): \emph{rank-decay approximation} $\omega_r=2^{-(r-1)}$ for rank $r=1,\dots,k$ (BMU at rank $1$). Neighbor ranks stay stable under the distance concentration that degrades raw Gaussian weights in high dimension, and the geometric decay preserves the same qualitative BMU-dominated shape at lower cost.
+\end{itemize}
+The cutoff $d_{\mathrm{cut}}$ is an operational default (\texttt{routing\_weights.gaussian\_cutoff\_dim}) trading metric fidelity against high-dimensional distance concentration; it may be retuned per data regime. The rank-decay form is the one written out in the reference algorithms of S13.2--S13.3.
 
 \subsection*{S2.3 Dual-Rate Motion from Variance Correction}
 \label{sec:si-dual-rate-motion}
@@ -211,15 +225,8 @@ Stage~1 separates fast statistical tracking from slower geometric movement. For 
 \paragraph{Node state.}
 Each node stores hit count $h_i$, residual mean $\mathbf m_i$, residual second moment $\mathbf s_i$, derived variance $\sigma_i^2$, an Oja direction $\mathbf u_i$ for dominant local variance, directed transition counts $n_{i\to j}$, and deferred nudge $\mathbf a_i$. A variance-cap violation $\sigma_i^2>\tau_{\mathrm{local},i}$ proposes additional local capacity, typically by splitting along $\mathbf u_i$ after evidence and budget checks. Low-hit, low-variance nodes or weak bilateral links become prune candidates. The variance cap is therefore both a geometric resolution target and a proposal generator; the evidence gate decides whether the proposed topology change is retained.
 
-\paragraph{Routing weights.}
-Each routed sample updates the $k$ nearest nodes with a rank-indexed routing weight $\omega_r$ ($r=1,\dots,k$ in $k$-NN order). In low ambient dimension ($d\le d_{\mathrm{gauss}}$, default $d_{\mathrm{gauss}}=8$) the weights are \emph{Gaussian-relative} on the returned neighbor distances $\{\delta_r\}$,
-\[
-\omega_r=\exp\!\Big(-\tfrac{\delta_r^2-\min_s\delta_s^2}{2\tau}\Big),
-\]
-so the nearest neighbor receives weight $1$ and the others decay by squared-distance excess, using the metric information available when low-dimensional distances are reliable. In higher dimension, where pairwise distances concentrate and become unreliable, the implementation falls back to the scale-free \emph{rank-decay} approximation $\omega_r=2^{-(r-1)}$ used by the reference algorithm (S13.2). Both schemes give the BMU dominant weight and decay smoothly with rank; the cutoff $d_{\mathrm{gauss}}$ is an operational default (a high-dimensional performance approximation), not a derived threshold. The variance estimator updates only on the BMU (rank~0) under either scheme (S2.3.1).
-
-\paragraph{Effective radial drift rate (analysis quantity).}
-Under local isotropy, the node variance satisfies $\sigma_i^2\approx \mathbb E\|x-w_i\|^2$ and a radial shift $\delta r$ changes the variance by $\Delta\sigma_i^2\approx 2\sqrt{\sigma_i^2}\,\delta r$. Spreading this correction over $H=k$ effective updates gives the effective radial drift rate
+\paragraph{Variance-correction rate (analysis quantity, not an applied update).}
+The operational motion law is the deferred-nudge (centering) path only: node positions move through the accumulator $\mathbf a_i$, and no per-update GNG rate is applied in the scaffold loop (S13.1--S13.2). It is nonetheless useful to name the \emph{effective} drift rate that the deferred nudge induces on cap-satisfied intervals, because the convergence analysis of S12 reasons in those terms. Under local isotropy, the node variance satisfies $\sigma_i^2\approx \mathbb E\|x-w_i\|^2$ and a radial shift $\delta r$ changes the variance by $\Delta\sigma_i^2\approx 2\sqrt{\sigma_i^2}\,\delta r$. Spreading this correction over $H=k$ effective updates gives the GNG-equivalent rate
 \[
 \eta_{\mathrm{GNG},i}
 \approx
@@ -228,7 +235,7 @@ Under local isotropy, the node variance satisfies $\sigma_i^2\approx \mathbb E\|
 \quad\text{or, with the half-life convention,}\quad
 \eta_{\mathrm{GNG},i}=\frac{\ln 2}{2k}\!\left(1-\frac{\sigma_i^2}{\tau}\right).
 \]
-The operational motion law is \emph{not} a per-update step of size $\eta_{\mathrm{GNG},i}$: Stage~1 moves nodes exclusively through the deferred-nudge mechanism below (centering rate $\eta_{\mathrm{cent}}$ committed at threshold $\delta_{\min}$), and the reference algorithm (S13.2) applies only $\eta_{\mathrm{cent}}$. The rate $\eta_{\mathrm{GNG},i}$ is retained solely as the effective radial drift rate on cap-satisfied intervals for the convergence analysis of S12: it expresses the self-limiting property that displacement vanishes as $\sigma_i^2\to\tau$, so a node at its resolution limit proposes a variance-cap split rather than continuing to move. It is a derived diagnostic, not part of the operational update.
+This rate is a diagnostic and an analysis handle: it is the effective drift envelope used in S12.1--S12.2, \emph{not} a second update applied alongside the deferred nudge. Its vanishing at the cap ($\sigma_i^2\to\tau$) expresses the same self-regulation the deferred nudge realizes operationally---a cap-saturated node proposes a split rather than continuing to move. The reference implementation exposes $\eta_{\mathrm{GNG}}$ as a derived quantity (\texttt{rates.eta\_gng}) for this analysis role only.
 
 \paragraph{Centering rate.}
 The deferred nudge fires when $\|\mathbf a_i\|$ exceeds the resolution threshold
@@ -365,26 +372,27 @@ Memory: one extra moment pair per node, i.e.\ $3\times$ per-node moment storage;
 
 \subsection*{S2.3.3 Two-Tier Hebbian Edges: Shadow and Lifted}
 \label{sec:si-two-tier-edges}
-Stage~1 maintains a \emph{two-tier} edge convention on the Hebbian graph. (This ``shadow'' tier is a low-grade \emph{edge} status; it is unrelated to the partition-aligned shadow \emph{moments} of S2.3.2, which are a split-placement device.) For each routed sample with rank-ordered neighbors $\mathcal N_k$:
+The scaffold graph is two-tiered, separating raw adjacency evidence from committed topology. For each routed sample the ANN query returns rank-ordered neighbors $\mathcal N_k=(\mathrm{BMU}_1,\mathrm{BMU}_2,\dots)$, and edges update as follows.
 \begin{itemize}[leftmargin=1.5em]
-  \item the first-to-second nearest co-activation ($\mathrm{BMU}_1\!\to\!\mathrm{BMU}_2$) creates the edge if absent and \emph{lifts} it to the structural (\emph{lifted}) tier, incrementing its directed count $n_{\mathrm{BMU}_1\to\mathrm{BMU}_2}$ by the rank-1 routing weight;
-  \item every other co-activation $\mathrm{BMU}_1\!\to\! j$ ($j$ at rank $\ge2$) creates or increments a \emph{shadow} edge by $j$'s routing weight, without lifting it.
+  \item \emph{Shadow tier (adjacency evidence).} Any routed co-activation between the BMU and a returned neighbor may create or increment a \emph{shadow} edge, accumulating the directed co-activation counters $C(i\!\to\! j)$ at the rank routing weight $\omega_r$ (S2.2). Shadow edges record low-grade adjacency evidence without asserting a topological bond.
+  \item \emph{Lifted tier (committed topology).} Only the $\mathrm{BMU}_1\!\to\!\mathrm{BMU}_2$ co-activation---the first- to second-nearest transition---promotes an edge to the \emph{lifted} tier. Lifting is monotone: once lifted, an edge stays lifted until explicitly demoted (S3.1). Both tiers keep the same directed counters; lifting only changes the edge's structural status.
 \end{itemize}
-Each edge carries directed transition counts $n_{i\to j}$ in both orientations and a neonatal-guard deadline (S3.1). A lift is one-way and monotone: a shadow edge may later be promoted, and lifting never resets its accumulated counts. The two tiers serve different consumers:
+The two tiers have distinct consumers:
 \begin{itemize}[leftmargin=1.5em]
-  \item the \emph{lifted} graph is the structural topology --- it defines the intrinsic-dimension estimate $d_{\mathrm{final}}$, the flag complex and its simplices (S4.1), the node-pruning peer neighborhoods (S3.2), and the CV/stabilization statistics (S2.5.1);
-  \item the \emph{full} graph (lifted $\cup$ shadow) supplies the adjacency and co-activation evidence read by Affinity-Propagation clustering similarities (S2.6);
-  \item link pruning (S3.1) reads directed transition mass on \emph{all} edges for its Stage~1 ambient floor, and on lifted edges only for the post-clustering demotion.
+  \item the \emph{lifted} graph is the structural graph: it defines the degree-proxy intrinsic dimension $d_{\mathrm{final}}$ (S1.4), the flag complex of Stage~2 (S4.1), the connected components and internal/boundary edge sets used by clustering (S2.6.1), the peer-comparison stars for the post-clustering prune pass (S3.1), and the node-count / isolated-node stabilization diagnostics (S2.5.1);
+  \item the \emph{full} graph (shadow $\cup$ lifted) supplies the transition evidence read by Affinity Propagation exemplar similarity (S2.6.1), so weak-but-real adjacencies still inform the partition;
+  \item link pruning (S3.1) reads \emph{all} edges for the ambient directed-floor pass and the \emph{lifted} edges only for the post-clustering demotion pass; the Dirichlet--multinomial gate (S3.4) scores the directed transition counts on affected stars regardless of tier.
 \end{itemize}
-Shadow edges thus retain low-grade adjacency evidence that clustering can use, while the structural graph and its simplices stay restricted to the high-confidence $\mathrm{BMU}_1\!\to\!\mathrm{BMU}_2$ transitions.
+This refines the single GNG-style edge convention: ``create/refresh an edge on co-activation'' is the shadow-tier rule, and ``$\mathrm{BMU}_1\!\to\!\mathrm{BMU}_2$ defines topology'' is the lifting rule.
 
-\subsection*{S2.4 Scale Parameter and Normalization}
-The operational scale primitive is the variance cap $\tau$: it is the quantity carried by the controller, stored across recursion frames, and read by every downstream consumer. Where a bounded control knob $s_{\mathrm{control}}\in(0,1)$ is convenient (for instance, to sweep scale monotonically over a fixed $[0,1)$ interval), it maps to $\tau$ by the normalization remark
+\subsection*{S2.4 Scale Parameter and Control Normalization}
+The operational scale variable is the variance cap $\tau$ itself. The controller searches $\tau$ directly on the geometric grid of S2.5, and every downstream quantity ($\delta_{\min}$, $\tau_{\mathrm{local},i}$, and the split cap) reads $\tau$. For interpretability it is sometimes convenient to report a bounded, dimension-normalized progress variable $s_{\mathrm{control}}\in(0,1)$ through the monotone reparameterization
 \[
-\tau
-=-D_{\mathrm{subspace}}\log(1-s_{\mathrm{control}}).
+s_{\mathrm{control}}=1-e^{-\tau/D_{\mathrm{subspace}}},
+\qquad\text{equivalently}\qquad
+\tau=-D_{\mathrm{subspace}}\log(1-s_{\mathrm{control}}),
 \]
-This mapping is a change of variable only; $s_{\mathrm{control}}$ is not consumed anywhere in the scaffold, controller, or recursion, which operate on $\tau$ directly. Here $D_{\mathrm{subspace}}$ is the working dimensionality of the current region's coordinate frame (ambient dimension at the root; the retained PCA rank from S1.4 at child recursion levels). Within a single scaffold run, all nodes share the same cap: $\tau_{\mathrm{local},i}=\tau$ for every~$i$. Dimensional heterogeneity within a region is resolved by the scale-response machinery (S2.5--S2.6) peaking at different $\tau$ for clusters of different intrinsic dimension, and by recursion giving each cluster its own scale search after PCA transfer. The per-node intrinsic-dimension estimate $d_{\mathrm{final},i}$ is retained as a diagnostic input to junction detection (S8.4) and as the cluster-median aggregation target when a single $d_C$ is required for scale-response normalization, but it does not modulate the split-decision cap. Stationarity at a given $\tau$ is measured by $\mathrm{CV}(\sigma_i^2)$ over mature nodes; since $\tau$ is uniform, equilibrium means uniform-resolution evidence across the scaffold.
+where $D_{\mathrm{subspace}}$ is the working dimensionality of the current region's coordinate frame (ambient dimension at the root; the retained PCA rank from S1.4 at child recursion levels). This mapping is a reporting/normalization convention only: $s_{\mathrm{control}}$ has no operational consumer, and no scaffold or controller decision reads it. Within a single scaffold run, all nodes share the same cap: $\tau_{\mathrm{local},i}=\tau$ for every~$i$. Dimensional heterogeneity within a region is resolved by the scale-response machinery (S2.5--S2.6) peaking at different $\tau$ for clusters of different intrinsic dimension, and by recursion giving each cluster its own scale search after PCA transfer. The per-node intrinsic-dimension estimate $d_{\mathrm{final},i}$ is retained as a diagnostic input to junction detection (S8.4) and as the cluster-median aggregation target when a single $d_C$ is required for scale-response normalization, but it does not modulate the split-decision cap. Stationarity at a given $\tau$ is measured by $\mathrm{CV}(\sigma_i^2)$ over mature nodes; since $\tau$ is uniform, equilibrium means uniform-resolution evidence across the scaffold.
 
 \subsection*{S2.5 Scale Response $\Phi_C(\tau)$}
 \label{sec:si-scale-response}
@@ -423,17 +431,24 @@ The support trace $V_C(\tau)$ is a cheap secondary diagnostic: robust characteri
 \subsection*{S2.5.1 Scale Controller Procedure}
 Evaluate $\Phi_C(\tau)$ on a geometric grid in $\log \tau$. Candidate peaks are detected by sign changes in the centered second difference, then refined with a small number of additional evaluations near each bracket. A support trace, such as a summed local volume proxy $V_C(\tau)$, is logged as a cross-check: robust characteristic scales should coincide with the expected transition between unresolved support and redundant over-refinement. A grid point is eligible only if its Stage~1 scaffold stabilizes under the fixed-scale criteria. If no robust peak exists, the region is terminal for the searched band.
 
-The canonical fixed-$\tau$ stopping rule is the absolute CV threshold of S14.2:
-stop once $\mathrm{CV}(\sigma_i^2)<\beta_{\mathrm{cv}}\sqrt{2/k}$ over mature
-nodes holds for a few consecutive epochs (defaults $\beta_{\mathrm{cv}}=1.5$,
-three epochs). This is the operational default because it is cheap, has the
-EWMA noise-floor derivation of S14.2, and is what the reference scaffold loop
-implements; the neighbor-normalized incoherence CV $\mathrm{CV}(\widetilde\rho)$
-is retained as a diagnostic only.
+The fixed-$\tau$ stopping rule has a canonical operational default and a
+recommended hardening.
 
-A stronger confidence-based criterion is \emph{recommended as a hardening step}
-where the absolute threshold proves fragile (for instance under heavy
-neonatal-node transients). It has two layers:
+\emph{Operational default (implemented).} Stop when the coefficient of variation
+of the hard-Voronoi variance over mature nodes stays below the EWMA noise floor
+for $M_{\mathrm{eq}}$ consecutive epochs,
+\[
+\mathrm{CV}(\sigma_i^2)<\beta_{\mathrm{cv}}\sqrt{2/k},
+\qquad \beta_{\mathrm{cv}}=1.5,\quad M_{\mathrm{eq}}=3,
+\]
+whose derivation from the EWMA effective sample size is given in S14.2 (for
+$k=8$ the threshold is $\approx0.75$). This is the criterion used by the
+reference implementation (\texttt{stage1.stabilization}) and is sufficient for
+the synthetic suite.
+
+\emph{Recommended hardening (trend exhaustion).} Where a stronger guarantee is
+wanted, augment the absolute threshold with a two-layer confidence test and
+treat the threshold itself as a sanity bound rather than the sole signal:
 \begin{enumerate}[leftmargin=1.5em]
   \item \emph{Topology quiet:} over a trailing window of $W$ epochs, there are no
   accepted splits, no accepted node prunes, node count is unchanged, and the
@@ -444,11 +459,13 @@ neonatal-node transients). It has two layers:
   the mean load $\mathbb E[\sigma_i^2/\tau]$ is flat rather than still drifting
   toward the cap.
 \end{enumerate}
-The signal this hardening adds is \emph{trend exhaustion}: the scaffold has
-become structurally quiet and its moments are no longer evolving systematically.
-Absolute thresholds remain the default equilibrium criterion; the
-trend-exhaustion layers and any frozen-topology epochs are optional diagnostic
-hardening, not the default stopping rule.
+Under this hardening the primary stopping signal is \emph{trend exhaustion}: the
+scaffold has become structurally quiet and its moments are no longer evolving
+systematically. Optional frozen-topology epochs may be added as a further
+diagnostic check. In both regimes the incoherence-based
+$\mathrm{CV}(\widetilde\rho)$ criterion remains diagnostic-only (S14.2), because
+the incoherence ratio mixes hard-Voronoi $\sigma_i$ with soft-routing
+$\mathbf m_i$ and is fragile to neonatal-node transients.
 
 \subsection*{S2.5.2 Local Noise Estimation from Settled Catchments}
 \label{sec:si-local-noise}
@@ -514,10 +531,52 @@ At a fixed variance scale $v$, define the effective correlation radius
 \[
 \ell(v)=\sqrt{d_{\mathrm{eff}}\,v}.
 \]
+
+\paragraph{Scale-conditioned edge evidence.}
 The scaffold graph at this scale carries edge evidence combining local geometry
-and routed co-activation. For a candidate node set $S$, define the mean
-internal evidence $\mathrm{LocalIntra}(S;v)$ and mean boundary evidence
-$\mathrm{BoundaryInter}(S;v)$, and set
+and routed co-activation. On lifted-graph nodes $i,j$ with positions
+$\mathbf x_i,\mathbf x_j$, define the Gaussian geometric kernel
+\[
+K_v(i,j)=\exp\!\left(-\frac{\lVert\mathbf x_i-\mathbf x_j\rVert^2}
+{2\,d_{\mathrm{eff}}\,v}\right),
+\]
+and, from the directed Hebbian counters $C(i\to j)$ and hit masses $h_i$, the
+symmetric co-activation evidence
+\[
+A_{\mathrm{sym}}(i,j)=\sqrt{\frac{C(i\to j)}{h_i+\varepsilon}\,
+\frac{C(j\to i)}{h_j+\varepsilon}}.
+\]
+The scale-conditioned edge weight is their product,
+\[
+W_v(i,j)=K_v(i,j)\,A_{\mathrm{sym}}(i,j),
+\]
+the primitive evidence for every Stage~1 clustering decision: $K_v$ supplies
+geometric scale-conditioning (Axiom~2 guarantees it operates on a density
+field), while $A_{\mathrm{sym}}$ supplies empirical co-activation evidence from
+the scaffold's learning dynamics.
+
+\paragraph{Internal, boundary, and pairwise evidence.}
+Let $E_v$ be the lifted-edge set at scale $v$. For a candidate node set $S$,
+the mean internal evidence and mean boundary evidence are the average
+scale-conditioned weights over the internal and boundary lifted edges,
+\[
+\mathrm{LocalIntra}(S;v)=
+\frac{\sum_{(i,j)\in E_v,\;i,j\in S}W_v(i,j)}
+{|\mathcal E_{\mathrm{in}}(S)|+\varepsilon},
+\qquad
+\mathrm{BoundaryInter}(S;v)=
+\frac{\sum_{(i,j)\in E_v,\;i\in S,\;j\notin S}W_v(i,j)}
+{|\mathcal E_{\mathrm{bdry}}(S)|+\varepsilon},
+\]
+where $\mathcal E_{\mathrm{in}}(S)$ and $\mathcal E_{\mathrm{bdry}}(S)$ are the
+internal and boundary lifted-edge sets of $S$. For an adjacent pair $S,T$ the
+pairwise inter-cluster coupling averages over the crossing lifted edges,
+\[
+\mathrm{InterLocal}(S,T;v)=
+\frac{\sum_{(i,j)\in E_v,\;i\in S,\;j\in T}W_v(i,j)}
+{|\mathcal E_{ST}|+\varepsilon}.
+\]
+The cluster coherence score is then
 \[
 Q(S;v)
 :=
@@ -543,8 +602,9 @@ every child still satisfies coherence and extent at the current scale.
 
 At the selected scale $\tau_C^\star$, Stage~1 uses Affinity Propagation on the
 stabilized Hebbian graph to produce candidate exemplars and fragments.
-Similarities are computed only on graph edges using smoothed transition
-probabilities and a smoothed-PMI score. For directed Hebbian counter $C(i\to j)$, define
+Similarities are computed only on existing edges of the full graph (shadow
+$\cup$ lifted; S2.3.3) using smoothed transition probabilities and a
+smoothed-PMI score. For directed Hebbian counter $C(i\to j)$, define
 \[
 \widehat q(j\mid i)
 =
@@ -761,19 +821,25 @@ the graph-local bound is the operating margin.
 
 \subsection*{S3.1 Link Pruning}
 \label{sec:si-link-pruning}
-Link pruning uses a two-stage \emph{directed-floor} rule with bilateral agreement. The primitive it reads is the directed co-activation transition mass $n_{i\to j}$: this is what separates meaningful local adjacency from the high-dimensional Delaunay slivers that nearest-neighbor routing otherwise accumulates, where raw Euclidean proximity alone would keep many spurious edges.
+The pruning primitive is the directed \emph{co-activation transition mass} $C(i\!\to\! j)=n_{i\to j}$: how often local routing from node $i$ selects neighbor $j$ as a co-activated near-neighbor. This is the quantity that separates a meaningful adjacency from an incidental high-dimensional Delaunay sliver---a genuine manifold edge carries a substantial share of a node's outgoing routing traffic, whereas a sliver carries a vanishing share that shrinks as ambient dimension grows.
 
-\paragraph{Neonatal guard.} A new link is protected until it has aged past a neonatal window ($\texttt{protected\_until}$ compared against the scaffold iteration counter). Before then it can be neither deleted nor demoted, although it still contributes to the outgoing-mass totals below. This prevents transient low counts from deleting bridges before they have had a fair chance to accumulate evidence.
-
-\paragraph{Stage 1 (ambient) directed floor.} For each endpoint $i$ with total outgoing transition mass $T_i=\sum_j n_{i\to j}$ and working dimension $D$, define the directed floor
+\paragraph{Directed floor with bilateral agreement (default).}
+For each source node $i$ with total outgoing mass $T_i=\sum_j C(i\!\to\! j)$, define the directed floor
 \[
-m_{\mathrm{floor}}(i)=\frac{\beta_{\mathrm{prune}}}{2D}\,T_i .
+m_{\mathrm{floor},i}=\frac{\beta_{\mathrm{prune}}}{2\max(D,1)}\,T_i,
+\qquad \beta_{\mathrm{prune}}=0.5,
+\label{eq:si-directed-floor}
 \]
-Endpoint $i$ casts a prune vote on edge $i\to j$ when $n_{i\to j}<m_{\mathrm{floor}}(i)$. The scale is a uniform $2D$-slot null: if $i$'s outgoing mass were split evenly across $2D$ notional neighbor slots, each would carry $T_i/(2D)$, so the floor keeps edges whose directed share is at least $\beta_{\mathrm{prune}}$ times that slot mass ($\beta_{\mathrm{prune}}=0.5$ default). An edge is hard-deleted only under \emph{bilateral agreement} --- both endpoints vote to prune --- so a strongly directed bridge survives even when one side's share is thin. This rule applies to all edges, shadow and lifted alike.
+where $D$ is the working intrinsic dimension of node $i$'s neighborhood. The factor $2D$ is the number of notional adjacency slots a $D$-dimensional cell occupies (two per axis): under a uniform split of $T_i$ across $2D$ slots each slot carries $T_i/(2D)$, so $m_{\mathrm{floor},i}$ keeps edges whose directed share is at least $\beta_{\mathrm{prune}}$ times that reference slot mass. Source $i$ votes to prune edge $\{i,j\}$ when $C(i\!\to\! j)<m_{\mathrm{floor},i}$. An edge is deleted only under \emph{bilateral agreement}: both endpoints must vote to prune. This keeps the primitive symmetric on the undirected graph while the evidence itself stays directed.
 
-\paragraph{Stage 2 (post-clustering) lifted demotion.} After clustering, the same floor is applied to lifted edges only, with $D$ replaced by the cluster-median local intrinsic dimension $\operatorname{median}_i d_{\mathrm{final},i}$. Lifted edges failing the bilateral test are \emph{demoted} to the shadow tier rather than deleted, so low-grade adjacency evidence is retained (two-tier shadow/lifted edge semantics).
+\paragraph{Neonatal protection.}
+A newly created or newly lifted edge is protected from removal until its age exceeds a neonatal guard ($\texttt{protected\_until}$). It still contributes to the outgoing totals $T_i$ used to compute floors, but it cannot itself be deleted while protected. This prevents transient low counts from deleting a bridge before it has had a fair chance to accumulate evidence.
 
-\paragraph{Wilson alternative.} A one-sided Wilson upper bound on the link's relative transition proportion $p$ from count $n$,
+\paragraph{Post-clustering lifted-edge demotion.}
+After clustering (S2.6.1), the same floor rule is applied to the \emph{lifted} edges only, with $D$ taken as the per-cluster median $d_{\mathrm{final}}$; lifted edges failing the floor bilaterally are \emph{demoted} to shadow status rather than deleted, so their low-grade adjacency evidence is retained for later stages.
+
+\paragraph{Wilson-interval alternative.}
+An alternative gauntlet replaces the floor test with a one-sided Wilson upper bound on the link's relative transition proportion $p$ from count $n$,
 \[
 \nu^+
 =
@@ -785,7 +851,7 @@ p+z^2/(2n)+z\sqrt{p(1-p)/n+z^2/(4n^2)}
 \qquad z=1.2816
 \label{eq:si-wilson-link}
 \]
-(a 90\% one-sided comparison, voting to prune when $\nu^+$ is below the median peer significance in the same local star, with bilateral agreement) is an alternative in the same spirit. The reference implementation retains it as a utility but does not use it as the default: the directed floor is preferred because it reads the transition mass directly and needs no per-star significance calibration.
+(a 90\% one-sided comparison), protecting a new link until $n_{\mathrm{eff}}\ge n_{\mathrm{req}}$ from an analytic power calculation, then voting to prune when $\nu^+$ falls below the median peer significance in the local star, again with bilateral agreement. The Wilson rule is retained as a statistical alternative; the directed floor is the operational default because it is scale-free in $T_i$ and needs no per-link power calculation.
 
 \subsection*{S3.2 Node Pruning}
 A node is a prune candidate only if it is both statistically weak and geometrically unneeded. The default rule combines:
@@ -893,7 +959,7 @@ For finite-epoch training, $A_T<\infty$ over each epoch. Indefinite streaming is
 \section*{S4. Stage 2 Complex Construction}
 
 \subsection*{S4.1 Flag-Complex Invariant}
-For a fixed region $C$, Stage~2 represents topology as the top-dimensional flag complex of the current Hebbian graph. A $d$-simplex $\sigma=\{v_0,\dots,v_d\}$ is present exactly when every pair of vertices in $\sigma$ is a Hebbian edge and the local intrinsic-dimension rule permits a $d$-simplex in that star. Node and link edits therefore induce simplex edits automatically: deleting a link deletes every simplex containing that link, and deleting a node deletes its full star. Geometric motion alone does not change simplex membership.
+For a fixed region $C$, Stage~2 represents topology as the top-dimensional flag complex of the current \emph{lifted} Hebbian graph (S2.3.3). A $d$-simplex $\sigma=\{v_0,\dots,v_d\}$ is present exactly when every pair of vertices in $\sigma$ is a lifted Hebbian edge and the local intrinsic-dimension rule permits a $d$-simplex in that star. Node and link edits therefore induce simplex edits automatically: deleting a link deletes every simplex containing that link, and deleting a node deletes its full star. Geometric motion alone does not change simplex membership.
 
 This invariant avoids separate Delaunay or alpha-complex maintenance. The graph owns topology; the complex is the closure of that topology at the locally estimated dimension. Geometry-dependent caches are recomputed only when the affected simplex geometry changes.
 
@@ -939,7 +1005,7 @@ The core convergence theory holds with a scalar variance tracker, but the recomm
 Recommended clipping defaults:
 \begin{itemize}[leftmargin=1.5em]
   \item Set $\varepsilon$ in $\rho_i=\|\mathbf m_i\|/(\sigma_i+\varepsilon)$ to between $10^{-8}$ and $10^{-6}$ depending on data scale.
-  \item Clip the per-update nudge increment $|\eta_{\mathrm{cent}}\rho_i|$ (equivalently the effective drift rate $\eta_{\mathrm{GNG}}$ of S2.3) to $\le 0.3$ in Stage~1 and $\le 0.05$ in Stage~2, where $k\approx d$ makes the per-update displacement larger.
+  \item Bound the per-update centering contribution $\eta_{\mathrm{cent}}\rho_i\|\mathbf m_i\|$ so that a single sample cannot push the deferred accumulator by more than a small fraction of $\delta_{\min}$; the realized move is additionally gated by the $\delta_{\min}$ threshold and the $\|\mathbf a_i\|$ bound below. (The GNG-equivalent rate $\eta_{\mathrm{GNG}}$ of S2.3 is an analysis quantity, not an applied update, and needs no separate runtime clip.)
   \item Constrain spline-flow slopes/bins to avoid near-singular Jacobians during warp fits.
   \item Bound $\|\mathbf a_i\|$ growth between deferred-nudge applications, so a single sample cannot push the accumulator above several $\delta_{\min}$.
 \end{itemize}
@@ -1674,14 +1740,13 @@ The deterministic term decays with half-life $k$. Azuma--Hoeffding gives the dis
 \end{algorithm}
 
 \subsection*{S13.2 Rank-Weighted Neighbor Updates}
-The routing weight $\omega_r$ below is the rank-decay form $2^{-(r-1)}$; for ambient dimension $d\le d_{\mathrm{gauss}}$ (default $8$) it is instead the Gaussian-relative weight of S2.3. Only the BMU (rank~0) updates the variance estimator (S2.3.1).
 \begin{algorithm}[h]
 \caption{Rank-weighted neighbor updates}
 \label{alg:rank-weighted-updates}
 \begin{algorithmic}[1]
 \Procedure{ApplyRankWeightedUpdates}{$\mathbf x,G_C,\mathcal N_k$}
     \For{$r=1,\dots,k$ \textbf{in rank order}}
-        \State $i\gets\mathcal N_k[r]$; $\omega_r\gets 2^{-(r-1)}$ \Comment{Gaussian-relative (S2.3) when $d\le d_{\mathrm{gauss}}$}
+        \State $i\gets\mathcal N_k[r]$; $\omega_r\gets$ routing weight (S2.2: rank-decay $2^{-(r-1)}$, or Gaussian-relative if $D_{\mathrm{subspace}}\le d_{\mathrm{cut}}$)
         \State $\mathbf e_i\gets\mathbf x-\mathbf w_i$
         \State $\mathbf m_i\gets(1-\alpha\omega_r)\mathbf m_i+\alpha\omega_r\mathbf e_i$
         \State $\mathbf s_i\gets(1-\alpha\omega_r)\mathbf s_i+\alpha\omega_r(\mathbf e_i^{\circ2})$
@@ -1690,7 +1755,7 @@ The routing weight $\omega_r$ below is the rank-decay form $2^{-(r-1)}$; for amb
         \State \Call{UpdateOja}{$\mathbf u_i,\mathbf e_i$}
         \State $h_i\gets h_i+\omega_r$
     \EndFor
-    \State Update directed transition counters (S2.3.3): lift $\mathrm{BMU}_1\!\to\!\mathrm{BMU}_2$; shadow $\mathrm{BMU}_1\!\to\! j$ for $j$ at rank $\ge2$
+    \State Update directed transition counters for first/second nearest co-activation
 \EndProcedure
 \end{algorithmic}
 \end{algorithm}
@@ -1781,16 +1846,19 @@ Defaults are listed here for implementers while remaining defined in their ownin
 \textbf{Object} & \textbf{Default} & \textbf{Owner} & \textbf{Status}\\
 \hline
 \alpha & \ln2/k & \text{S2.1} & \text{theory/operational}\\
-d_{\mathrm{gauss}} & 8\ (\text{Gaussian vs.\ rank-decay routing}) & \text{S2.3} & \text{operational}\\
+d_{\mathrm{cut}} & 8\ (\text{Gaussian vs rank-decay routing}) & \text{S2.2} & \text{operational}\\
 \eta_{\mathrm{cent}} & \kappa(1-r)/k,\ \kappa=0.5 & \text{S2.2} & \text{operational}\\
-\tau(s_{\mathrm{control}}) & -D_{\mathrm{subspace}}\log(1-s_{\mathrm{control}}) & \text{S2.4} & \text{theory (normalization)}\\
+\tau\ (\text{operational scale}) & \text{searched on grid; }\tau_{\mathrm{local},i}=\tau & \text{S2.4} & \text{operational}\\
+s_{\mathrm{control}}\ (\text{reporting only}) & 1-e^{-\tau/D_{\mathrm{subspace}}} & \text{S2.4} & \text{normalization}\\
 \text{scale grid} & r=1/\sqrt2 & \text{S2.5} & \text{operational}\\
+\beta_{\mathrm{cv}} & 1.5\ (\mathrm{CV}(\sigma^2)<\beta_{\mathrm{cv}}\sqrt{2/k}) & \text{S2.5.1} & \text{operational}\\
+M_{\mathrm{eq}} & 3\text{ consecutive epochs} & \text{S2.5.1} & \text{operational}\\
 \Phi_C\text{ peak floor} & 5\%\text{ of grid max} & \text{S2.5.1} & \text{empirical}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
-\beta_{\mathrm{prune}} & 0.5\ (\text{directed floor }\tfrac{\beta_{\mathrm{prune}}}{2D}T_i) & \text{S3.1} & \text{operational}\\
-z_{\mathrm{Wilson}} & 1.2816\ (\text{Wilson alternative}) & \text{S3.1} & \text{statistical}\\
+\beta_{\mathrm{prune}} & 0.5\ (\text{directed-floor share}) & \text{S3.1} & \text{operational}\\
+z_{\mathrm{Wilson}} & 1.2816\ (\text{alternative}) & \text{S3.1} & \text{statistical}\\
 \text{node prune hit} & h_i<0.5\,\bar h_{\mathcal N(i)} & \text{S3.2} & \text{operational}\\
-\text{node prune variance} & \sigma_i^2<0.5\,\tau_{\mathrm{local},i} & \text{S3.2} & \text{operational}\\
+\text{node prune variance} & \sigma_i^2<0.5\,\tau_i & \text{S3.2} & \text{operational}\\
 \rho_{\mathrm{merge}} & \le 2C_Q(d) & \text{S3.3} & \text{operational}\\
 p_{\mathrm{merge}} & \le \bar h/N & \text{S3.3} & \text{operational}\\
 v_{\mathrm{merge}} & \le 1 & \text{S3.3} & \text{operational}\\

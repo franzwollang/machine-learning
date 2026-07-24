@@ -108,7 +108,6 @@ def run_scale_search(
         scaffold.tau = float(tau)
         scaffold.tau_local = np.full(len(scaffold.nodes), float(tau), dtype=float)
         scaffold.delta_min_value = scaffold.kappa * (1.0 - scaffold.grid_ratio) * np.sqrt(float(tau))
-        scaffold.s_control = 1.0 - float(np.exp(-float(tau) / dim))
 
         last_history = scaffold.run_until_stable(data_arr, config.stabilization)
 
@@ -138,7 +137,6 @@ def run_scale_search(
         scaffold.delta_min_value = (
             scaffold.kappa * (1.0 - scaffold.grid_ratio) * np.sqrt(tau_star)
         )
-        scaffold.s_control = 1.0 - float(np.exp(-tau_star / float(dim)))
         last_history = scaffold.run_until_stable(data_arr, config.stabilization)
         epochs_at_star = len(last_history["cv"])
 

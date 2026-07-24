@@ -1,19 +1,21 @@
 {
-  "updated_at": "2026-07-24T04:20Z",
-  "turn": 1,
-  "focus": { "milestone": "M1", "issue": 27, "goal": "canonicalize Q-score primitives in SI S2.6.1 and strip clustering.py cleanup heuristics" },
+  "updated_at": "2026-07-24T04:10Z",
+  "turn": 2,
+  "focus": { "milestone": "M1", "issue": 27, "goal": "canonicalize Q-score (#27); primitives promoted to SI S2.6.1, code heuristic-removal next" },
   "recent": [
-    "M0 complete: 8 doc-sync issues resolved across paper.tex/SI.tex + minor code",
-    "default suite 110 passed / 31 xfailed (baseline unchanged)",
-    "added S2.3.3 two-tier edges; d_gauss and beta_prune rows in S14.3"
+    "Branch built on M0: fast-forwarded 5511 onto origin/5413 (M0 doc-sync PR #1)",
+    "Hygiene: untracked 106 committed .pyc, added __pycache__/*.pyc[cod] to .gitignore",
+    "M1 #27 part A: promoted K_v, A_sym, W_v, LocalIntra, BoundaryInter, InterLocal formulas into SI S2.6.1 verbatim; added symbols to SI S0.1 + paper notation",
+    "Regressions green: clustering/recursion subset 14 passed 4 xfailed; full baseline 111 passed 41 xfailed"
   ],
   "discoveries": [
-    "no pipenv/setup.py; run tests via `PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'`",
-    "hnswlib build needs libpython3.12-dev + pip --break-system-packages; scipy/sklearn/pytest also user-installed"
+    "Single-cluster null degeneracy: whole-graph null has zero boundary -> BoundaryInter=0 -> Q(null)=log(LocalIntra/eps) huge; raw partition-Q cannot compare vs null. Use DM Bayes-factor (S3.4) or reformulate null. Recorded in #27.",
+    "Env: python3 only (no python); deps via pip3 --user; no hnswlib wheel; no LaTeX toolchain (structural checks only); paper.tex 15/14 [ ] grep mismatch is pre-existing false positive"
   ],
   "open_threads": [
-    "M1 #27: promote W_v=K_v*A_sym, LocalIntra, BoundaryInter into SI S2.6.1; add single-cluster null; replace clustering.py cleanup constants with one Q-improving pairwise merge to fixpoint"
+    "M1 #27 part B: replace clustering.py cleanup heuristics (tiny_max=14, eta=0.3, r>=0.22, collapse<=3, dead helpers) with one Q-improving pairwise merge to fixpoint + null test; update AP->Q-merge->refine prose (drop 'residual cleanup')",
+    "M0 PR #1 (branch 5413) still DRAFT/unmerged; my branch stacks on it"
   ],
-  "next_step": "read clustering.py + reference/stage1_clustering_and_resolution.md (S2.6.1 material) + current SI S2.6 to scope #27",
+  "next_step": "M1 #27 part B: resolve single-cluster-null criterion, then strip clustering.py heuristics to single merge-to-fixpoint; keep circle/hierarchy/swiss-roll regressions green",
   "blockers": []
 }

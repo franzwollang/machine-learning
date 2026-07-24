@@ -10,12 +10,13 @@ import numpy as np
 class ScaleParameter:
     """A single candidate or selected scale (SI S2.4).
 
-    ``tau_global`` is the operational scale primitive. The bounded controller value
-    ``s_control`` of SI S2.4 is a normalization remark only
-    (``tau = -d_subspace * log(1 - s_control)``) and is not stored or consumed.
+    ``tau_global`` is the operational scale primitive. ``s_control`` is a
+    reporting/normalization convention only -- ``1 - exp(-tau / d_subspace)``
+    -- with no operational consumer (OPEN_ISSUES #35).
     """
-    tau_global: float                # variance cap tau (uniform within a run)
+    tau_global: float                # operational scale primitive
     d_subspace: int
+    s_control: float | None = None   # reporting only; 1 - exp(-tau / d_subspace)
 
 
 @dataclass

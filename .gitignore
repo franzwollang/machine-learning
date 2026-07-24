@@ -7,10 +7,10 @@
 *.out
 *.synctex.gz
 
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
 code/tests/artifacts/*
 !code/tests/artifacts/.gitkeep
 docs/Proteus/reference
-
-__pycache__/
-*.pyc
-.pytest_cache/
