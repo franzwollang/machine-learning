@@ -13,9 +13,9 @@ bodies below stay static descriptions.
 | Milestone | Status |
 |---|---|
 | M0 — Spec/implementation sync pass | done |
-| M1 — Canonical clustering objective | in progress |
-| M2 — Characteristic-scale selection rebuild | in progress |
-| M3 — Constant audit & calibration tier | not started |
+| M1 — Canonical clustering objective | blocked (#27: coarse-anchoring fixes circle/hierarchy heuristic-free; cold-start recheck (ii') implemented + REFUTED as a gate — over-rejects genuine multi-level splits; stand-in deletion now blocks solely on the M4 S3.4 DM evidence gate) |
+| M2 — Characteristic-scale selection rebuild | in progress (load-crossover default; persistence signal + tau/heat bridge landed; c_{d,k} now calibrated + shipped as a lookup table, SI S2.5.5; remaining: persistence coarse-end refinement, delete legacy load-band selector) |
+| M3 — Constant audit & calibration tier | in progress (c_{d,k} and C_Q(d) both calibrated on the shared uniform-d-ball ensemble with written protocols; remaining: full S14.3 three-tier audit #37, intrinsic-dim estimator validation #39) |
 | M4 — Stage 2 core (complex, evidence gate, dual flow) | not started |
 | M5 — Inference interface & diagnostics | not started |
 | M6 — Evaluation, benchmarks, paper finalization | not started |
@@ -199,5 +199,6 @@ green including the currently-awaiting performance envelopes.
 - **M4 step 2 (evidence gate) is the heart of the architecture**: everything after it
   ("geometry proposes, evidence decides") assumes it works. Its reduction tests
   (DM consistency) should be treated as blocking, not advisory.
-- Packaging hygiene (#38 — move contract types out of `tests/`) can land any time; cheapest
-  before M4 starts adding new types.
+- Packaging hygiene (#38 — move contract types out of `tests/`) **done**: canonical shapes
+  now live in `proteus/types.py`; `tests/contracts/*` are re-export shims. `src/` no longer
+  imports from the test tree, so M4 can add new types directly in the package.

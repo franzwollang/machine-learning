@@ -1,22 +1,24 @@
 {
-  "updated_at": "2026-07-24T05:20Z",
-  "turn": 5,
-  "focus": { "milestone": "M2", "issue": 28, "goal": "operationalize Q-partition persistence (S2.6.2) as the cross-scale arbiter" },
+  "updated_at": "2026-07-24T11:00Z",
+  "turn": 14,
+  "focus": { "milestone": "M3", "issue": null, "goal": "C_Q(d) calibrated (#36 resolved); next is #37 S14.3 audit or #39 intrinsic-dim" },
   "recent": [
-    "Adopted chain head 20e3 (M0 + M1A + Part-B start) into branch 7b9a via ff-merge; env set up (hnswlib needs libpython3.12-dev); baseline 110 passed/31 xfailed.",
-    "Implemented stage1/persistence.py: sample-space partition tracking, Hungarian-matched cluster Jaccard, compute_persistence -> run_lengths + coarsest persistent tau*. Behind controller selector='persistence' flag; default load_band untouched.",
-    "Verified discrimination: circle -> no persistent multi-cluster split (tau_star_index None); hierarchical -> 3-way split persists 6 grid pts. Full suite 120 passed/31 xfailed. Committed 8b6c81b + pushed."
+    "ff-merged chain head aa97 (turn-13 state) onto fresh branch b824; deps installed; baseline 137p/31xf green.",
+    "#36 C_Q(d) calibrated: new proteus.stage1.calibration functions (measure_cq_from_scaffold = interior median rho_prune/sqrt(tau); calibrate_cq; CQ_TABLE d=1..4 -> 2.35,1.66,1.49,1.44; c_q lookup + c_q_analytic fallback). Factored _build_equilibrated_scaffold shared with calibrate_cdk (c_{d,k} unchanged).",
+    "SI: S3.3 defines C_Q(d) (star radius = worst-case reassignment) + calibration protocol reusing S2.5.5 ensemble; S14.3 row status=calibrated; S0.1 notation.",
+    "GPT cross-family audit (gpt-5.4-high, agent f379c81c) BLOCKING: analytic anchor was misidentified (star radius = inter-node SPACING, not cell radius sqrt((d+2)/d)). Fixed: c_q_analytic = c_{d,k}(V_d/k)^{1/d} spacing anchor (brackets table +/-25%); SI + tests rewritten. Suite 145p/31xf."
   ],
   "discoveries": [
-    "Node indices are NOT stable across grid points (splits/prunes), so persistence is tracked in SAMPLE space (stable sample identity) rather than node-ID overlap; documented in SI S2.6.2 operational-persistence paragraph. Constants P_persist=2 (derived), theta_ovl=0.5 (operational) added to S14.3.",
-    "Persistence currently picks the coarse-END of the interval (v_death^+), so tau* lands coarse vs geometric expected_tau (hierarchical tau*=0.36 vs expected 0.0225). Fine for detection; tau* refinement toward v* is a follow-up.",
-    "Env: PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'; no LaTeX toolchain (SI edits are text-only, PDF stale)."
+    "C_Q(d) star radius ~ equilibrium inter-node spacing s = r_k(V_d/k)^{1/d}, NOT the cap-saturated cell radius; equilibrium catchment variance sits BELOW the cap, so a bare sqrt((d+2)/d) argument mis-scales it. Using the CALIBRATED c_{d,k} in the anchor captures the sub-cap factor.",
+    "C_Q(d) is proposal-path (feeds S3.3 prune/merge guards; S3.4 DM gate is the acceptance arbiter) -> calibration-tier, audit-adjacent, not acceptance-path.",
+    "measure_cq uses sampled-max -> lower-biased estimate of the continuous cell max (converges from below); conservative for the guards."
   ],
   "open_threads": [
-    "M2 next: build the PRIMARY signal (compensated node-count / support-trace knee, N(tau)*tau^{d/2}); then make persistence/combined the DEFAULT selector and remove band_lo=0.65 + one-step-coarser patch (#28 exit).",
-    "#27 purge: wire persistence as the accept gate inside run_recursive_discovery/run_clustering (accept split only if persists >= P_persist), confirm circle=1/swiss<=3/hierarchy 6-leaf hold, THEN delete clustering.py stand-in heuristics.",
-    "chain PRs #1-#4 all DRAFT/unmerged off main; branch 7b9a now stacks the full chain + this M2 start."
+    "#37: full S14.3 three-tier audit — every constant in src/ (e.g. gaussian_cutoff_dim=8, split budget 2*h_prune, neonatal link_protection) classified derived/calibrated/operational.",
+    "#39: validate degree-proxy intrinsic-dim estimator vs synthetic ground truth (swiss d=2, circle d=1) or swap in Levina-Bickel behind the same interface (couples M3, wanted before M4).",
+    "M2 remaining: persistence tau* coarse-end refinement; delete legacy load-band + dormant _legacy_slope_selector/_detect_peak once load-crossover dominates all scenarios.",
+    "M1 #27 Part B still blocked SOLELY on M4 S3.4 DM gate (cold-start recheck REFUTED; do not re-attempt overlap-based rechecks)."
   ],
-  "next_step": "Implement the primary compensated node-count / support-trace knee selector (#28 item 1) and combine with persistence; then flip default selector and delete band_lo.",
-  "blockers": []
+  "next_step": "Pick #37 (full S14.3 constant audit; pure doc + code inventory, unblocked) or #39 (intrinsic-dim validation; needs synthetic GT harness). Both advance M3 and are M4-preparatory.",
+  "blockers": ["#27 Part B blocked on M4 S3.4 DM evidence gate"]
 }

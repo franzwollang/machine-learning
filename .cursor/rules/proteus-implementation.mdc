@@ -31,10 +31,12 @@ operational defaults and an issue entry.
 
 ## Canonical types
 
-Shared dataclasses (`NodeState`, `Link`, SI-contract shapes) currently live in
-`code/proteus/tests/contracts/` and are imported by `src/` (known smell, issue #38).
-Do not create duplicate type definitions in `src/`; reuse the contract types until the
-promotion happens.
+Shared dataclasses (`NodeState`, `Link`, and the SI-contract shapes) live in
+`code/proteus/src/proteus/types.py` (promoted out of the test tree, issue #38 resolved).
+Import them from `proteus.types`; the `tests/contracts/*` modules are thin re-export
+shims that preserve the SI-section grouping for test authors. Do not create duplicate
+type definitions — add new canonical shapes to `proteus/types.py` (or a per-module home)
+and re-export from the matching `tests/contracts` shim if a contract surface is wanted.
 
 ## Flipping awaiting tests
 

@@ -8,9 +8,12 @@ adjacent scales, whereas a genuinely multi-modal region does.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 
 from proteus.stage1.controller import ScaleSearchConfig, run_scale_search
+from proteus.stage1.persistence import PersistenceConfig
 from proteus.stage1.stabilization import StabilizationConfig
 from tests.datasets.synthetic.circles import make_circle
 from tests.datasets.synthetic.hierarchical_gaussian import make_hierarchical_gaussian
@@ -75,6 +78,53 @@ def test_multimodal_region_yields_persistent_split() -> None:
     assert result.partition_snapshots[idx].n_clusters >= 3
     # tau* was taken from the persistence signal, not the legacy fallback.
     assert result.tau_star == result.tau_grid[idx]
+
+
+def test_cold_start_recheck_rejects_genuine_hierarchy_split() -> None:
+    # Regression lock for the REFUTED cold-start recheck (SI S2.6.2, #27):
+    # turning it on clears the coarse-anchored candidate that the warm sweep
+    # (recheck off) correctly accepts on the hierarchical Gaussian, because
+    # independent cold refits of the anchor interval resolve to different levels
+    # (6-way vs 3-way).  This is why the flag ships default off; the test pins
+    # the mechanism's behavior so it is not silently re-enabled on the
+    # acceptance path.
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=0,
+    )
+    gt = dataset.ground_truth
+    tau_lo, tau_hi = gt.tau_grid_hint
+    base = ScaleSearchConfig(
+        tau_min=tau_lo,
+        tau_max=tau_hi,
+        max_grid_points=8,
+        k=8,
+        n_seeds=12,
+        min_nodes=8,
+        max_nodes=128,
+        ann_backend="naive",
+        selector="persistence",
+        stabilization=StabilizationConfig(min_equilibrium_epochs=2, max_epochs=12),
+        seed=42,
+    )
+
+    # Flag off (default): genuine split accepted.
+    off = run_scale_search(
+        dataset.points, dim=gt.ambient_dim,
+        config=replace(base, persistence=PersistenceConfig(cold_start_recheck=False)),
+    )
+    assert off.persistence_result is not None
+    assert off.persistence_result.tau_star_index is not None
+    assert off.persistence_result.cold_start_rejected is False
+
+    # Flag on: the recheck over-rejects the genuine split (documented failure).
+    on = run_scale_search(
+        dataset.points, dim=gt.ambient_dim,
+        config=replace(base, persistence=PersistenceConfig(cold_start_recheck=True)),
+    )
+    assert on.persistence_result is not None
+    assert on.persistence_result.tau_star_index is None
+    assert on.persistence_result.tau_star is None
+    assert on.persistence_result.cold_start_rejected is True
 
 
 def test_default_selector_ignores_persistence() -> None:
