@@ -5,7 +5,7 @@ here. Numbering is historical and stable: resolved issues are deleted rather tha
 renumbered, so gaps in the sequence are expected. Each entry lists only the work that
 actually remains. See `PLANNING.md` for the suggested order of attack.
 
-Next issue number: 44
+Next issue number: 45
 
 ## 16. Fuzzy title decision
 
@@ -53,6 +53,7 @@ The AP -> Q-merge -> refine pipeline is implemented and passes the circle, swiss
     - *FINDING (measured; matches the S2.6.1 cross-scale argument): single-scale DM alone over-fragments at every recursion level.* Recursion leaf counts (gt circle=1, hierarchy=6, swiss=1): `dm` alone → circle **56**, hierarchy **32**, swiss **76**; `persist` alone → 1/6/1; `default`(stand-ins) → 1/6/1; **`persist+dm` → 1/6/1**. A developable manifold's arcs have band-concentrated block rows the homogeneity test reads as heterogeneous, so no single-scale statistic (Q, conductance, block-BF) rejects them — the discrimination is inherently cross-scale. The DM margin is therefore *complementary* to persistence, not a standalone replacement.
     - *Consequence:* the validated heuristic-free path is **DM ∘ persistence** — persistence rejects uniform-manifold arc-partitions cross-scale; the DM-gated merge does the within-region partition with **no** S2.6.1 stand-ins, matching the default leaf counts on all three scenarios. The load-bearing stand-ins (`_refine_boundaries` eta=0.3, `_absorb_tiny_clusters_into_dominant`, `_absorb_one_tiny_satellite`, `_absorb_full_graph_isolates`, the `<= 3`-fragment collapse) are **retained**; deletion is still BLOCKED pending the fuller scenario suite (nested spheres, linked tori, manifold zoo) under `persist+dm` with stand-ins ablated. Only then: make `persist+dm` default, re-scope the single-scale tests (`test_circle_clustering_produces_one_cluster` ==1, `test_swiss_roll_stage1_diagnostics_at_tau_star` ≤3), and delete the stand-ins.
     - *Cross-family audit (gpt-5.4-high, agent 0419cc8a) reconciled.* Region-level BF confirmed exact (= `evaluate_edit` for K=2). Fixes applied: (a) `recursion.py` child configs now propagate `require_dm_split`/`dm_cluster` (were dropped below root — this is why dm-alone leaf counts rose after the fix); (b) `dm_gated_merge` now holds the outcome space **fixed** (flow matrix computed once over AP fragments, rows pooled on merge, columns never contract) so the pairwise homogeneity BF equals the exact `F_DM` partition-edit delta (locked by `test_dm_merge_pairwise_equals_exact_fixed_outcome_delta`); (c) merge adjacency now uses the full shadow+lifted graph, matching the tiers scored by `block_flow_matrix`. Residual design ambiguity noted: the block-level accept gate (`dm_partition_verdict`, J=K, exact homogeneity) and the fragment-level fixed-outcome merge use different (but each internally exact) outcome resolutions — acceptable since the merge is proposal-path with the verdict + persistence as acceptance-path backstops.
+    - *FINDING (fuller scenario suite, turn 25): persist+dm does NOT generalize to disconnected multi-component scenes, and the bottleneck is UPSTREAM of the acceptance gate.* Recursion leaves on the fuller suite (`/tmp/dm_validate_fuller.py`): nested_spheres (gt cc=2) → default **1**, persist 7, dm 66, **persist+dm 12**; linked_tori (gt cc=2) → default 1, persist 1, dm 68, **persist+dm 1**; manifold_zoo (gt cc=1 / 4 patches) → default 1, persist 1, dm 76, **persist+dm 1**. No path recovers the ground-truth component count. Direct scale probes (`/tmp/dm_probe.py`, `/tmp/dm_probe2.py`) show why: the `L=1` load-crossover picks **tau\*=0.81** (spheres) / **0.50** (tori), where single-scale connectivity clustering already returns **K=1** (the whole scene is one cluster); the two components only separate at **tau≈0.004** (spheres) / **≈0.006** (tori), ~80× finer than tau\* *and* ~80× finer than the ground-truth `expected_tau` (0.31 / 0.48, which themselves give K=1). So the root region is declared single-cluster before any gate runs, and recursion terminates — the DM/persistence gates are handed a scaffold whose structure the selected scale has already dissolved. This is a scale-selection defect, filed as **#44**, not a defect in the DM reduction. `persist+dm` remains validated on the canonical suite (circle=1, hierarchy=6, swiss=1); deletion of the S2.6.1 stand-ins stays **BLOCKED** — now gated on #44, since the fuller suite cannot fairly test a stand-in replacement while its structure never reaches the clustering stage.
 - **Paper/SI prose** should describe the implemented AP -> Q-merge -> refine pipeline (the Leiden detour is obsolete). SI S2.6.1/S2.6.2 now document the scope, the persistence signal, and its warm-start limitation; paper §3 prose still needs a one-line pointer to S2.6.2 persistence as the cluster-count arbiter.
 
 ## 28. Scale selection: remaining calibration and cleanup
@@ -84,6 +85,40 @@ Remaining work:
 - **Delete the legacy load-band selector** (and now-dormant `_legacy_slope_selector`,
   `_detect_peak` in `controller.py`) once `load_crossover` is validated to dominate across
   every scenario/recursion regression — kept behind the flag until then (M2 mitigation).
+
+## 44. Scale selection picks too-coarse tau* to separate disconnected components
+
+Surfaced by the M1-Part-B fuller-suite validation (#27, turn 25). On genuinely
+disconnected multi-component scenes the `L=1` load-crossover selector
+(`controller._select_load_crossover`, SI S2.5.1) lands `tau*` at a scale where
+Stage-1 connectivity clustering sees the whole scene as **one** cluster, so
+recursion terminates at a single leaf and *no* downstream acceptance gate
+(default stand-ins, persistence, DM) can recover the components.
+
+- **Evidence (`/tmp/dm_probe.py`, `/tmp/dm_probe2.py`):**
+  - nested_spheres (gt cc=2): selector `tau*=0.81`, `expected_tau=0.31`; single-scale
+    `default_K=1` at both; the shells separate (`default_K=2`) only at `tau≈0.004`
+    and re-fuse for `tau≳0.008`.
+  - linked_tori (gt cc=2): selector `tau*=0.50`, `expected_tau=0.48`; `default_K=1`
+    at both; the tori separate only at `tau≈0.006`.
+  - So the separating scale is ~80× finer than *both* the selected and the
+    ground-truth characteristic scale; disconnection is invisible at the
+    characteristic scale under the current single-scale connectivity clustering.
+- **Two candidate loci (needs a decision, likely both):**
+  1. *Selection:* the load-crossover (and persistence) anchor the coarse
+    characteristic scale of the whole scene; disconnected components need the
+    first split to occur at a finer scale (or a pre-pass that separates spatially
+    disconnected lifted-graph components before scale selection runs per region).
+  2. *Clustering:* even at `expected_tau` the single-scale connectivity clustering
+    returns K=1 for cleanly-separated shells/tori — investigate whether the
+    Hebbian lifted graph is bridging the inter-component gap at the characteristic
+    kernel width, or whether the 64-node budget under-resolves the gap.
+- **Relation to #28:** #28 covers the load-band cleanup and the persistence
+  coarse-end tau*; this is the distinct failure that the coarse anchor is
+  *too coarse to expose disconnection at all*. Fixing it unblocks the #27 stand-in
+  deletion (the fuller suite currently cannot test a stand-in replacement because
+  its structure never reaches the clustering stage) and the `@awaiting("stage1.controller")`
+  component-separation scenarios for nested_spheres / linked_tori (#41).
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 

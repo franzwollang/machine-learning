@@ -1,22 +1,22 @@
 {
-  "updated_at": "2026-07-24T16:55-05:00",
-  "turn": 24,
-  "focus": { "milestone": "M1", "issue": 27, "goal": "DM cluster-acceptance reduction: implemented behind a flag, validated, cross-family audited + fixes applied; stand-ins retained" },
+  "updated_at": "2026-07-24T17:40-05:00",
+  "turn": 25,
+  "focus": { "milestone": "M1", "issue": 27, "goal": "fuller-suite validation of persist+dm; result: blocked upstream by scale selection (#44), not the gate" },
   "recent": [
-    "Implemented the DM->clustering reduction the SI never specified (block-model homogeneity BF) as stage1/dm_cluster.py + RecursionConfig.require_dm_split (default off), proposed SI S2.6.3. Region BF = evaluate_edit for K=2 (verified).",
-    "Cross-family audit (gpt-5.4-high, agent 0419cc8a) reconciled. Fixes: (a) recursion child configs now propagate require_dm_split/dm_cluster (were dropped below root); (b) dm_gated_merge holds outcome space FIXED (compute N once over fragments, pool rows only) so pairwise BF = exact F_DM edit delta; (c) merge adjacency uses full shadow+lifted graph (matches block_flow_matrix tiers).",
-    "VALIDATED after fixes (recursion leaves; gt c1/h6/s1): dm-alone=56/32/76 (over-fragments at EVERY level - worse once flag propagates), persist+dm=1/6/1 (robust). Finding: single-scale DM inherits S2.6.1 cross-scale under-determination; complementary to persistence, not a replacement.",
-    "7 tests in tests/stage1/test_dm_cluster.py green (added exact-edit-delta lock); recursion + dm_consistency green. SI S2.6.3 / #27 / PLANNING updated with corrected numbers."
+    "Ran persist+dm across fuller suite (/tmp/dm_validate_fuller.py): nested_spheres(gt2)->default1/persist7/dm66/persist+dm12; linked_tori(gt2)->1/1/68/1; manifold_zoo(gt1cc)->1/1/76/1. NO path recovers gt component count.",
+    "Root cause found via scale probes (/tmp/dm_probe.py,2.py): L=1 crossover picks tau*=0.81(spheres)/0.50(tori) where single-scale default_K=1; components separate only at tau~0.004/0.006 (~80x finer than tau* AND than expected_tau). Recursion terminates at root before any gate runs.",
+    "Filed #44 (scale selection too coarse to expose disconnected components). #27 stand-in deletion now gated on #44. persist+dm still validated on canonical suite (circle1/hier6/swiss1)."
   ],
   "discoveries": [
-    "SI S3.4 DM gate is Stage-2 node/star-edit; the partition-into-K reduction was NEVER specified (spec gap, now proposed S2.6.3). Faithful form = block-model homogeneity BF over J=K outcomes = evaluate_edit(keep=pooled, edit=per-block).",
-    "With FIXED outcome columns, the pairwise merge homogeneity BF equals the exact partition-edit delta (other rows cancel) - the correct non-degenerate merge; contracting columns (audit's first suggestion) is degenerate/ambiguous.",
-    "persist+dm gives c1/h6/s1 with within-region partition heuristic-free (DM merge); persistence does the uniform-manifold rejection, DM does merge + acceptance margin."
+    "The fuller-suite failure is UPSTREAM of the acceptance gate: at the characteristic/selected scale the whole disconnected scene clusters as K=1, so DM/persistence never see multi-component structure. Separation needs ~80x finer tau.",
+    "dm-alone catastrophically over-fragments (66-76 leaves) on all fuller scenes, consistent with the canonical-suite single-scale under-determination finding.",
+    "Even at ground-truth expected_tau, single-scale connectivity clustering returns K=1 for cleanly-separated shells/tori (#44 locus 2: possible Hebbian graph bridging or 64-node under-resolution)."
   ],
   "open_threads": [
-    "Do NOT delete stand-ins / flip default yet: needs fuller scenario suite (nested spheres, linked tori, manifold zoo) under persist+dm with stand-ins ablated (#27).",
-    "#43 dual-subgraph connectivity blocks on S6 dual graph; M4 remaining T3/T0 count transfer, #41 PH."
+    "#44: decide fix locus - finer-scale first split / disconnected-component pre-pass (selection) vs Hebbian-graph bridging / node budget (clustering).",
+    "#27 stand-in deletion + default flip BLOCKED on #44; canonical-suite validation of persist+dm holds.",
+    "#43 dual-subgraph connectivity blocks on S6 dual graph; #41 PH Betti recovery."
   ],
-  "next_step": "Checkpoint commit (flag-gated, non-default, stand-ins retained). Next lever for #27: run persist+dm on nested spheres / linked tori / manifold zoo with stand-ins ablated.",
+  "next_step": "Checkpoint the tracking updates. Next lever: #44 - probe whether a disconnected-lifted-component pre-pass or a finer first-split scale recovers nested_spheres/linked_tori cc=2.",
   "blockers": []
 }
