@@ -1,22 +1,22 @@
 {
-  "updated_at": "2026-07-24T05:20Z",
-  "turn": 5,
-  "focus": { "milestone": "M2", "issue": 28, "goal": "operationalize Q-partition persistence (S2.6.2) as the cross-scale arbiter" },
+  "updated_at": "2026-07-24T06:40Z",
+  "turn": 6,
+  "focus": { "milestone": "M2", "issue": 28, "goal": "retire the load-band heuristic; land a principled, dominant tau* selector" },
   "recent": [
-    "Adopted chain head 20e3 (M0 + M1A + Part-B start) into branch 7b9a via ff-merge; env set up (hnswlib needs libpython3.12-dev); baseline 110 passed/31 xfailed.",
-    "Implemented stage1/persistence.py: sample-space partition tracking, Hungarian-matched cluster Jaccard, compute_persistence -> run_lengths + coarsest persistent tau*. Behind controller selector='persistence' flag; default load_band untouched.",
-    "Verified discrimination: circle -> no persistent multi-cluster split (tau_star_index None); hierarchical -> 3-way split persists 6 grid pts. Full suite 120 passed/31 xfailed. Committed 8b6c81b + pushed."
+    "ff-merged chain head 7b9a into branch 6084 (M0 done, M1 in prog, M2 persistence). Env: pip install numpy scipy pytest scikit-learn; PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'. Baseline 119 passed/31 xfailed.",
+    "Instrumented traces: compensated node-count N*tau^{d/2} is confounded by N_max saturation (hierarchical caps at 128 everywhere, swiss caps mid-grid) -> NOT a universal selector.",
+    "variance-load=cap crossing (Lbar=1, log-interp of coarsest stabilized bracket) is clean & DOMINATES band on tau* (circle 8.0->1.13, swiss 1.88->0.73, var_density/nested ~1.9 vs 8.0). Added load_crossing+combined selectors behind flag; 5 tests assert dominance; SI+issues+S14.3 done; 124 passed. Commits pushed."
   ],
   "discoveries": [
-    "Node indices are NOT stable across grid points (splits/prunes), so persistence is tracked in SAMPLE space (stable sample identity) rather than node-ID overlap; documented in SI S2.6.2 operational-persistence paragraph. Constants P_persist=2 (derived), theta_ovl=0.5 (operational) added to S14.3.",
-    "Persistence currently picks the coarse-END of the interval (v_death^+), so tau* lands coarse vs geometric expected_tau (hierarchical tau*=0.36 vs expected 0.0225). Fine for detection; tau* refinement toward v* is a follow-up.",
-    "Env: PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'; no LaTeX toolchain (SI edits are text-only, PDF stale)."
+    "Primary tau* signal = Lbar(tau)=E[sigma^2/tau] crossing the cap (=1, derived not tuned); documented SI S2.5.1. Compensated node-count/support-trace is a budget-confounded diagnostic only (recorded in #28).",
+    "combined selector (SI S2.6.2): persistence scale if a multi-cluster feature persists (splittable region), else load-crossing operating scale, else legacy fallback -- unifies tau* selection with recursion timing.",
+    "run_scale_search off-grid tau_star is safe: recursion.py only reads tau_star + scaffold_at_star, which is re-converged at tau_star. peak_index set to nearest grid idx."
   ],
   "open_threads": [
-    "M2 next: build the PRIMARY signal (compensated node-count / support-trace knee, N(tau)*tau^{d/2}); then make persistence/combined the DEFAULT selector and remove band_lo=0.65 + one-step-coarser patch (#28 exit).",
-    "#27 purge: wire persistence as the accept gate inside run_recursive_discovery/run_clustering (accept split only if persists >= P_persist), confirm circle=1/swiss<=3/hierarchy 6-leaf hold, THEN delete clustering.py stand-in heuristics.",
-    "chain PRs #1-#4 all DRAFT/unmerged off main; branch 7b9a now stacks the full chain + this M2 start."
+    "#28 default flip: migrate test_recursion/test_circle/test_swiss_roll/test_hierarchy configs to selector='combined' one at a time (confirm tau*/leaf stability), THEN flip ScaleSearchConfig.selector default load_band->combined and delete _select_characteristic_scale/_legacy_slope_selector/_detect_peak (band_lo).",
+    "M1 #27 Part B still pending: wire persistence as the split accept-gate in recursion/clustering (accept split only if persists>=P_persist), confirm circle=1/swiss<=3/hierarchy 6-leaf, THEN delete clustering.py stand-in heuristics.",
+    "chain PRs off main all unmerged; branch 6084 now carries the full chain + this M2 primary-selector work."
   ],
-  "next_step": "Implement the primary compensated node-count / support-trace knee selector (#28 item 1) and combine with persistence; then flip default selector and delete band_lo.",
+  "next_step": "Migrate one scenario/recursion config to selector='combined', verify green, then proceed toward the default flip + band_lo deletion (#28 items 1-2).",
   "blockers": []
 }
