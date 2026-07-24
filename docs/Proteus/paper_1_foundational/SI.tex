@@ -26,7 +26,8 @@ The table below summarizes the recurring symbols used across the SI and points t
 \hline
 \mathbf x & \text{data sample} & \text{S0}\\
 C,\ C_\ell,\ C' & \text{region, query-path region, child region} & \text{S0.2}\\
-\tau,\ \tau_C^\star & \text{candidate and selected variance cap} & \text{S2.4--S2.5.1}\\
+\tau,\ \tau_C^\star & \text{candidate and selected variance cap (uniform within a run)} & \text{S2.4--S2.5.1}\\
+D_{\mathrm{subspace}},\ d_{\mathrm{final},i} & \text{region working dimension; per-node intrinsic-dim estimate (diagnostic)} & \text{S2.4,S8.4}\\
 u_{\mathrm{global}},\ u_{\mathrm{local}} & \text{global and local tissue floors} & \text{S0.6}\\
 \Psi,\ \psi_i & \text{local noise tensor and node-level floor proxy} & \text{S2.5.2--S2.5.3}\\
 G_C=(\mathcal V_C,\mathcal E_C) & \text{Stage 1 scaffold graph} & \text{S2}\\
@@ -1782,14 +1783,14 @@ Defaults are listed here for implementers while remaining defined in their ownin
 \alpha & \ln2/k & \text{S2.1} & \text{theory/operational}\\
 d_{\mathrm{gauss}} & 8\ (\text{Gaussian vs.\ rank-decay routing}) & \text{S2.3} & \text{operational}\\
 \eta_{\mathrm{cent}} & \kappa(1-r)/k,\ \kappa=0.5 & \text{S2.2} & \text{operational}\\
-s_{\mathrm{control}}\mapsto\tau_i & -d_i\log(1-s_{\mathrm{control}}) & \text{S2.4} & \text{theory}\\
+\tau(s_{\mathrm{control}}) & -D_{\mathrm{subspace}}\log(1-s_{\mathrm{control}}) & \text{S2.4} & \text{theory (normalization)}\\
 \text{scale grid} & r=1/\sqrt2 & \text{S2.5} & \text{operational}\\
 \Phi_C\text{ peak floor} & 5\%\text{ of grid max} & \text{S2.5.1} & \text{empirical}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
 \beta_{\mathrm{prune}} & 0.5\ (\text{directed floor }\tfrac{\beta_{\mathrm{prune}}}{2D}T_i) & \text{S3.1} & \text{operational}\\
 z_{\mathrm{Wilson}} & 1.2816\ (\text{Wilson alternative}) & \text{S3.1} & \text{statistical}\\
 \text{node prune hit} & h_i<0.5\,\bar h_{\mathcal N(i)} & \text{S3.2} & \text{operational}\\
-\text{node prune variance} & \sigma_i^2<0.5\,\tau_i & \text{S3.2} & \text{operational}\\
+\text{node prune variance} & \sigma_i^2<0.5\,\tau_{\mathrm{local},i} & \text{S3.2} & \text{operational}\\
 \rho_{\mathrm{merge}} & \le 2C_Q(d) & \text{S3.3} & \text{operational}\\
 p_{\mathrm{merge}} & \le \bar h/N & \text{S3.3} & \text{operational}\\
 v_{\mathrm{merge}} & \le 1 & \text{S3.3} & \text{operational}\\

@@ -22,11 +22,6 @@ Next issue number: 40
 - §1.5 is prose-only; the intended citation list is tracked in §13 "References Prep."
 - Does not affect implementation.
 
-## 23. Reconcile tau / dimensionality notation across Paper 1 and SI
-
-- One reconciliation pass remains: confirm paper prose, notation tables, SI S2.4, S2.5, S2.6, S4.4, and S8.4 all use the same convention — region-level `tau` set at region entry, uniform `tau_local` within a scaffold run, per-node `d_final` as diagnostic only, cluster/recursion-level scale selection via scale response + AP.
-- None of these sections should imply per-node `d_final` rescales the split cap.
-
 ## 25. Circle mesh topology test
 
 - The circle scaffold passes node-count and reconstruction-error assertions but lacks an explicit topology check that the lifted-edge graph is a single connected 1-ring (Betti_0 = 1, Betti_1 = 1).
