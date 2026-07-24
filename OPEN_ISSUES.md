@@ -1,327 +1,127 @@
-# Proteus Paper 1 — Open Issues (Implementation-Guide View)
+# Proteus Paper 1 — Open Issues
 
-_This document tracks mathematical and architectural issues in the foundational paper (`paper.tex` + `SI.tex`) that could cause **implementation showstoppers or theoretical dead-ends** during development. It is not oriented toward external publication. The goal is to nail down the maths tightly enough that a first implementation has a reasonable chance of converging and being debuggable._
+Current, active issues only — resolution history lives in `OPEN_ISSUES_LOG.jsonl`, never
+here. Numbering is historical and stable: resolved issues are deleted rather than
+renumbered, so gaps in the sequence are expected. Each entry lists only the work that
+actually remains. See `PLANNING.md` for the suggested order of attack.
 
-_Scope: specification gaps, under-determined algorithms, identifiability / conditioning risks, and convergence concerns. Out of scope: submission formatting, venue positioning, baselines, empirical benchmarks, and pure parameter-tuning discussions (those live in `bnp_design_implications.md` and `bnp_upgrades_math.tex`)._
+Next issue number: 40
 
----
+## 16. Fuzzy title decision
 
-## Priority 1 — Showstopper risks (must resolve before first implementation)
+- Title emphasizes "fuzzy manifold memberships." §6.3 has an operational anchor, but this is not central.
+- Revisit only when the paper moves toward submission.
 
-These are points where the current maths is either (a) not concrete enough to code, or (b) has a plausible failure mode that would invalidate a naive implementation.
+## 17. Architectural overview figure
 
-### 3. Dynamic convergence: variance-cap NG monotonicity (foundational lemma; Lemma 1 of S15.1)
+- The paper has several owned objects and stages without a unifying diagram (placeholder figures exist in `paper.tex`).
+- Produce once the reference implementation stabilizes, so the figure reflects the real pipeline.
 
-_Status: only foundational lemma open; auxiliary lemmas 2--4 proved in SI §S15.1. Does not block first implementation._
+## 18. Formal citations
 
-#### Architectural status
+- §1.5 is prose-only; the intended citation list is tracked in §13 "References Prep."
+- Does not affect implementation.
 
-The Lyapunov framework is fully identified and three of four supporting lemmas are now proved in SI §S15.1. The single remaining foundational result is **Lemma 1**: that the dual-rate motion of S2.3 produces monotone decrease in the vector-quantization energy
+## 19. Document dimension-dependent Stage 1 routing weights
 
-```text
-L_vertex({w_i}) = Σ_i ∫_{V_i} ||x - w_i||² p(x) dx
-```
+- Implementation uses relative Gaussian weights over the returned k-neighbor set when the working dimension is <= 8, and rank-decay weights as the high-dimensional performance approximation (`stage1/routing_weights.py`, cutoff `gaussian_cutoff_dim = 8`).
+- Paper/SI still describe rank-weighted routing as the default without distinguishing the theoretical Gaussian neighborhood kernel from the rank-based approximation (SI S2.3.1 gestures at it; the algorithm boxes in S13 show only rank decay).
+- Remaining: update the Stage 1 routing/moment sections (paper §3, SI S2.3, S13.2) so implementation and theory match, including whether the `<= 8` cutoff is operational or derived.
 
-between split events. This is the variance-cap variant of the classical Neural Gas convergence theorem.
+## 20. Document two-tier Hebbian edge semantics (shadow vs lifted)
 
-#### Precise statement to prove
+- The implemented design is two-tier (`links.py`): any routed co-activation may create or increment a **shadow** edge; only BMU_1 -> BMU_2 co-activation **lifts** an edge to the full (lifted) tier. Lifted edges define the topology used for clustering and (later) simplices; shadow edges retain low-grade adjacency evidence.
+- The previous issue text ("only BMU_1 -> BMU_2 creates edges") is superseded by this two-tier design, which the foundation tests now require.
+- Remaining: paper §3 and SI S2/S4 describe a single GNG-style edge convention. Document the shadow/lift/counter-update distinction explicitly, including which tier each consumer (AP clustering, pruning, flag complex) reads.
 
-> **Lemma 1.** Under the dual-rate motion of S2.3 with EWMA half-life `k` (S2.2), within a fixed topology `M` and between split events, `L_vertex(t)` is a stochastic Lyapunov function: there exist `c_t ≥ 0` with `Σ_t c_t = ∞` (driving condition) and step-size sequences satisfying the Robbins–Monro conditions `Σ η_t = ∞` and `Σ η_t² < ∞`, such that
->
-> ```text
-> E[L_vertex(t+1) | F_t] ≤ L_vertex(t) - c_t.
-> ```
+## 21. Paper prose for soft-mean / hard-variance asymmetry
 
-Granting this, Lemmas 2–4 (already proved in SI §S15.1) together establish that the joint potential `L = L_vertex + F_DM` is a Lyapunov function for the full variance-cap + evidence-gated dynamics.
+- The SI is updated: S2.3.1 introduces the hard-Voronoi variance vs soft-routing mean asymmetry, S2.3.2 has the Steiner shift and the hard-Voronoi variance conservation law, and S4.4 T0 / S12.6 reference the shadow mechanism.
+- Remaining: paper §3.2–3.3 still describes moment updates without the asymmetry. Add a brief statement (or an explicit deferral to SI S2.3.1) so the paper does not imply the variance is soft-kernel-weighted.
 
-#### Background and prior art
+## 23. Reconcile tau / dimensionality notation across Paper 1 and SI
 
-**Classical Neural Gas (Martinetz & Schulten 1991).** Original NG uses a fixed annealing schedule for both the neighborhood-decay parameter `λ_t` and the learning rate `η_t`:
+- One reconciliation pass remains: confirm paper prose, notation tables, SI S2.4, S2.5, S2.6, S4.4, and S8.4 all use the same convention — region-level `tau` set at region entry, uniform `tau_local` within a scaffold run, per-node `d_final` as diagnostic only, cluster/recursion-level scale selection via scale response + AP.
+- None of these sections should imply per-node `d_final` rescales the split cap.
 
-```text
-λ_t = λ_0 (λ_T / λ_0)^(t/T)
-η_t = η_0 (η_T / η_0)^(t/T)
-```
+## 24. Stabilization: implemented CV threshold vs SI trend-exhaustion criterion
 
-Convergence is proved in expectation under standard stochastic-approximation conditions (Robbins–Monro): `Σ η_t = ∞` and `Σ η_t² < ∞`. The Lyapunov function is exactly `L_vertex` — the quantization energy.
+- Implemented (`stage1/stabilization.py`): stop when `CV(sigma^2) < beta_cv * sqrt(2/k)` over mature nodes for 3 consecutive epochs, `beta_cv = 1.5`. This matches SI S14.2.
+- SI S2.5.1 now prescribes a stronger two-layer confidence-based criterion as primary — *topology quiet* (no accepted splits/prunes, stable node count over a trailing window) plus *moment flatness* (near-zero CV slope, flat mean load, non-trending reconstruction error) — with absolute thresholds demoted to sanity bounds.
+- Remaining: pick one as canonical. Either implement trend-exhaustion in the scaffold loop, or amend S2.5.1 to state the CV threshold is the operational default and trend-exhaustion is the recommended hardening. The old incoherence-based `CV(rho_tilde)` remains diagnostic-only in both cases.
 
-**Growing Neural Gas (Fritzke 1995).** Adds discrete topology changes (insertion of new nodes when accumulated error exceeds a threshold). Convergence is asserted by simulation and analogy to NG; a formal Lyapunov argument is not given because the discrete events are heuristically gated.
+## 25. Circle mesh topology test
 
-**Other adaptive variants.** "Online k-means with adaptive learning rates" (e.g., Bottou & Bengio 1995; Sato 1999) use diminishing step sizes tied to per-cluster sample counts. Convergence proofs follow the standard SA template.
+- The circle scaffold passes node-count and reconstruction-error assertions but lacks an explicit topology check that the lifted-edge graph is a single connected 1-ring (Betti_0 = 1, Betti_1 = 1).
+- Options: (a) Vietoris–Rips persistent homology on node positions (`giotto-tda` / `ripser`), (b) flag-complex Betti numbers via `gudhi`, (c) simple graph checks (connected components + cycle rank) on the lifted graph directly.
+- Blocked on / naturally lands with Stage 2 flag-complex construction; option (c) could land earlier as a Stage 1 test.
 
-**What's different about Proteus.** The variance cap replaces both the annealing schedule and the discrete error threshold:
+## 26. Manifold-zoo junction test (circle + line + plane + box)
 
-```text
-η_GNG,i(t) = (ln 2 / 2k) (1 - σ_i²(t) / τ)         [S2.3]
-η_cent     = κ (1 - r) / k                          [S2.3]
-```
+- Classic GNG benchmark: 1D circle, 1D segment, 2D plane patch, and 3D box meeting at dimensional junctions.
+- Tests mesh quality per patch, `d_final` accuracy at junctions, junction detection (S8.4), and Stage 2 heterogeneous simplex dimension (S4.2).
+- Needs a dataset generator in `tests/datasets/synthetic/` with per-component intrinsic-dim ground truth. Generator can land early as a diagnostic fixture; scenario assertions are deferred until S8.4 is implemented.
 
-Here `η_GNG,i(t) → 0` as `σ_i²(t) → τ_local,i` automatically, without an explicit time-dependent schedule. The challenge is that `σ_i²(t)` is itself a stochastic process (an EWMA of squared residuals), not a deterministic decreasing schedule.
+## 27. Clustering: canonicalize the Q-score and remove cleanup heuristics
 
-#### Why the standard NG proof doesn't directly apply
+The AP -> Q-merge -> refine pipeline is implemented and passes the circle, swiss-roll, and hierarchical-Gaussian regressions (six terminal leaves). Recursion is Q-gated (`recursion.py`: leaf when `n_clusters <= 1` or `partition_q_score <= 0`). What remains is making the spec canonical and the implementation heuristic-free:
 
-The Robbins–Monro analysis of NG uses the schedule `η_t` directly: shrinking `η_t` deterministically guarantees the second-moment condition `Σ η_t² < ∞`. In the variance-cap variant, `η_GNG,i` depends on `σ_i²(t)`, which:
+- **SI S2.6.1 must pin down the Q primitives.** `LocalIntra`, `BoundaryInter`, and the scale-conditioned edge evidence `W_v(i,j) = K_v(i,j) * A_sym(i,j)` are currently prose-level; the exact formulas live only in `reference/stage1_clustering_and_resolution.md` and in code. Promote them into the SI so the implementation is verbatim-checkable.
+- **Single-cluster null as first-class candidate.** Uniform single-component manifolds (circle) currently rely on isolate absorption plus a final "collapse if <= 3 fragments" pass. The principled form: any proposed partition must beat the one-cluster null by a margin under the same Q (or DM-evidence) criterion.
+- **Replace residual cleanup passes with one rule.** `clustering.py` carries dataset-motivated constants (`tiny_max = 14`, boundary-refine `eta = 0.3`, imbalance `r >= 0.22`, final collapse when `<= 3` clusters) plus several apparently dead helpers (`_merge_tiny_lifted_into_full_graph_neighbor`, `_coalesce_if_marginal_k_way_split`, `_maybe_rebalance_two_cluster_partition`, `_legacy_slope_selector`, `_detect_peak`). Target: a single Q-improving pairwise merge applied to fixpoint plus the null test. If the existing regressions cannot pass under that single rule, the Q definition (likely the missing kernel term `K_v`) is what needs fixing — not more cleanup.
+- **Paper/SI prose** should describe the implemented AP -> Q-merge -> refine pipeline (the Leiden detour is obsolete), and explain why uniform manifolds and bump-on-background cases previously needed different cleanup passes.
 
-- Decreases on average as variance reduces toward the cap (the dynamics drive `σ_i² → τ`).
-- Has stochastic fluctuations that, in principle, could cause `η_GNG,i` to remain bounded away from zero indefinitely if the EWMA never cleanly stabilizes.
+## 28. Scale selection: response degeneracy and the load-band heuristic
 
-Establishing `Σ η²_GNG,i(t)² < ∞` therefore requires showing that `σ_i²(t)` **converges to** `τ_local,i` rather than merely fluctuating around it. This is a self-referential statement: the proof needs `η → 0` to establish convergence, but `η → 0` requires convergence to be established.
+- Deeper diagnosis than the original `c_{d,k}` framing: the raw Lindeberg response `R_i(tau) = (sqrt(tau)/c_{d,k})^d * rho_hat_i` is **self-normalizing at equilibrium**. A converged scaffold equalizes hit masses and locks the k-NN radius to the cap (`r_k ~ c_{d,k} * sqrt(tau)`), so the tau-dependence cancels and the trace is flat/monotone regardless of how well `c_{d,k}` is calibrated. The characteristic-scale signal must come from quantities equilibration cannot normalize away.
+- Current selector (`stage1/controller.py`) is an empirical proxy: coarsest stabilized grid point with variance load in `[0.65, 1.0]`, plus a "one step coarser" patch when the band has a single member. Tests only require `0.5 < tau*/expected < 10`.
+- Rework direction:
+  1. Primary signal: the compensated node-count / support trace — on a d-dimensional support, equilibrium node count scales as `N(tau) ~ V_supp / tau^{d/2}`, so knees/plateaus in `N(tau) * tau^{d/2}` (equivalently `V_C(tau)`) mark characteristic scales. The dormant `_legacy_slope_selector` and the S2.5 support trace were both circling this.
+  2. Secondary signal: Q-partition persistence — the coarsest scale at which the AP+Q partition yields a coherent multi-cluster split that persists across >= 2 adjacent grid points. This operationalizes the S2.6.2 persistence theory and unifies tau* selection with recursion timing.
+  3. `c_{d,k}` becomes a declared **calibration protocol** (uniform d-ball ensemble, measure median `r_k / sqrt(tau)` at equilibrium, tabulate over (d, k)) rather than an analytic constant.
+- Exit criterion: `band_lo = 0.65` and the one-step-coarser patch removed; scale-search tests pass with materially tighter tau* tolerance bands; SI S2.5/S2.5.1 rewritten to match.
 
-#### Proof template (suggested approach)
+## 29. Link pruning: SI/paper update for directed floor + bilateral agreement
 
-The natural template is the **two-time-scale stochastic approximation** framework of Borkar (2008, _Stochastic Approximation: A Dynamical Systems Viewpoint_) or Kushner & Yin (2003). Two-time-scale SA handles exactly this self-referential structure: position updates (slow time scale, governed by `η_GNG,i`) and variance estimates (fast time scale, governed by EWMA half-life `k`).
+- Implemented and stable: Stage 1 `prune_links` applies a directed floor `m_floor = (prune_beta / (2 max(D,1))) * T` on all edges with bilateral agreement required for deletion; post-clustering `demote_lifted_by_cluster` applies the same floor to lifted edges (cluster-median `d_final` as `D`) and demotes instead of deleting; `Link.protected_until` provides the neonatal guard. `wilson_upper` remains an unused utility.
+- Remaining: SI S3.1/S3.2 still specify the Wilson-interval gauntlet as the default. Rewrite for the two-stage floor rule (Wilson noted as an alternative), and update paper §3.5 accordingly. Include the motivation already developed in `reference/stage1_clustering_and_resolution.md`: co-activation transition mass as the primitive that separates meaningful edges from high-dimensional Delaunay slivers.
 
-Outline:
+## 31. Recursion vs hierarchical GT: remaining harness follow-ups
 
-1. **Identify the two time scales.** Position `w_i(t)` evolves on a slow time scale set by `η_GNG,i ∝ (1 - σ_i²/τ)/k`. Variance estimate `σ_i²(t)` evolves on a fast time scale with EWMA half-life `k`. The slow → fast separation is by a factor of `(1 - σ_i²/τ)`, which is small near equilibrium (key insight).
+- The structural bar and moment-matching harness are in place (`tests/harness/hierarchy_recovery.py`: Hungarian matching, Hotelling mean gate, Frobenius covariance gate; six-leaf regression passes).
+- Remaining: (a) use per-level tau from each recursion frame (not only the root) when comparing deeper trees; (b) tighten gates once #32 fixes the canonical `tau -> Sigma_smooth` map (the harness currently uses provisional isotropic `tau * I`).
 
-2. **Fast-scale ODE limit.** Under the slow-scale freeze, the EWMA `σ_i²(t)` has a deterministic ODE limit `dσ_i²/dt = -(σ_i² - σ_i,*²)/k`, where `σ_i,*²` is the local conditional second moment at fixed `w_i`. This converges geometrically, half-life `k`.
+## 32. tau and Gaussian scale-space: the variance-cap / heat-kernel bridge
 
-3. **Slow-scale ODE limit.** With `σ_i² ≈ σ_i,*²(w)` (fast variable equilibrated), position updates follow `dw_i/dt = E[a_i(t) | w] · constant`. The right-hand side is the gradient of `L_vertex` with respect to `w_i`, scaled by `(1 - σ_i,*²(w)/τ)/k`.
+- Stage 1 `tau` is operationally a variance cap; the resolution theory (S2.8 and both paper propositions) treats it as a Gaussian convolution bandwidth on the latent density. The bridge is asserted, not derived, and the test harness uses provisional `Sigma_smooth = tau * I`.
+- Recommended minimal resolution for Paper 1: state an equilibrium lemma — each settled catchment-conditional density approximates the latent density smoothed at bandwidth ~tau, up to the `c_{d,k}` calibration factor and curvature terms (S2.5.2 has the expansion machinery) — and declare `Sigma_smooth = tau * I` as the convention. Anisotropic / intrinsic scale-space (PCA or tangent-space metric from T2, semigroup on covariances) is explicitly future work.
 
-4. **Lyapunov on the slow ODE.** `L_vertex` is decreasing along the slow ODE except at fixed points (gradient flow). At fixed points, either `σ_i,*²(w) = τ_local,i` (stable equilibrium) or the gradient vanishes for other reasons.
+## 34. eta_GNG is derived but orphaned
 
-5. **Discrete jumps from splits.** Splits are bounded jumps in topology with bounded effect on `L_vertex`. Standard SA-with-jumps theory (Borkar 2008, Ch. 11) handles these: the Lyapunov decrease is preserved across jumps if each jump satisfies a bounded-perturbation condition (which the S3.4 acceptance gate plus shape-quality safeguards ensures).
+- The variance-correction rate `eta_GNG = (ln2 / 2k)(1 - sigma^2/tau)` is derived in SI S2.3, implemented and unit-tested in `rates.py`, but never used by the scaffold loop: node motion is deferred-nudge only (`a_i += eta_cent * rho_i * m_i`, fired at `delta_min`).
+- Decide the canonical motion law. Recommended: declare the deferred-nudge path canonical and demote `eta_GNG` to the S12 convergence analysis (as the effective drift rate on cap-satisfied intervals), removing it from the operational spec. Alternative: wire it in as a multiplicative gate on the nudge. Either way, S2.3, S13.2, and S14.3 must match the choice.
 
-6. **Combine via averaging.** Two-time-scale SA gives that the joint trajectory `(w(t), σ²(t))` converges almost surely to the slow-ODE attractor, which is a local minimum of `L_vertex`.
+## 35. s_control is vestigial
 
-#### Required prerequisites
+- The mapping `tau = -D_subspace * log(1 - s_control)` (SI S2.4) is inverted and stored by the scaffold (`scaffold.py`) but nothing consumes `s_control`; `tau` is the operational primitive throughout the controller and recursion.
+- Decide: either remove `s_control` from the operational spec (keep the mapping as a normalization remark) or give it a real consumer. Update S2.4, the paper notation table, and `tests/contracts/scale.py` to match.
 
-- Verify Robbins–Monro conditions for the dual-rate prescription: `η_cent = κ(1-r)/k` is constant (so `Σ η = ∞` is automatic but `Σ η² = ∞` would fail in the strict sense; need to argue via the EWMA-driven `η_GNG,i` decrease instead).
-- Verify the soft-assignment connection to S14 (Gaussian-weighted local PCA limit): in the limit `α → 0`, large `k`, slow geometry, the dynamics reduce to the deterministic ODE used in step 3 above.
-- Verify boundedness of `L_vertex`: trivially, `L_vertex ≥ 0` and `L_vertex ≤ data_diameter² · N_samples`, finite.
+## 36. C_Q(d) is referenced but never defined
 
-#### Estimated effort
+- SI S3.3 uses `C_Q(d)` ("variance-cap star-radius constant in the regular interior") in the prune-radius guard and merge guard, and the S12 edit-budget argument leans on the resulting `B_p` jump bound — but no formula, derivation, or calibration is given anywhere.
+- Derive it (expected star radius of a cap-equilibrated Voronoi cell under local isotropy) or define it via the same uniform-d-ball calibration ensemble as `c_{d,k}` (#28), and add it to S14.3 with the appropriate status label.
 
-This is paper-length work on its own:
+## 37. Constant-status audit of S14.3
 
-- **Two-time-scale SA setup + ODE derivation:** ~5 pages.
-- **Lyapunov analysis of the slow ODE:** ~3 pages (mostly bookkeeping once the ODE is in hand).
-- **Bounded-jump treatment of splits:** ~2 pages, citing Borkar Ch. 11.
-- **Connection to S14 limit:** ~2 pages.
-- **Total:** ~12 pages, plus ~5 pages of preliminaries / setup.
+- Extend the S14.3 defaults table into a complete three-tier classification: **derived** (follows from a derivation; e.g. `alpha = ln2/k`, grid ratio, BDeu `alpha_0`), **calibrated** (measured on a declared reference ensemble with a written protocol; e.g. `c_{d,k}`, `C_Q(d)`, equilibrium load target), and **free operational default** (tunable, logged, backstopped by the evidence gate; e.g. torsion ladder bands, `kappa = 0.5`, `rho_max = 10`, prune floors).
+- Every constant in `src/` should appear in the table with its status; constants that exist only in code (e.g. `gaussian_cutoff_dim = 8`, split budget `2 * h_prune`, neonatal `link_protection`) currently do not.
 
-This is in scope for either a standalone technical paper or a substantial appendix in a future Proteus paper. It does not block a first implementation, since:
+## 38. Promote canonical types out of tests/
 
-- All four lemmas have plausible heuristic justification.
-- The implementation can detect Lyapunov-violation symptoms empirically (e.g., increasing `L` over a long window) and apply hysteresis as an engineering workaround if needed.
-- Lemmas 2--4 are already proved (SI §S15.1), so the implementation framework is on solid footing.
+- `src/proteus/` imports canonical dataclasses (`NodeState`, `Link`, and the SI-contract shapes) from `tests/contracts/`. Production code depending on the test tree is a packaging smell and blocks eventual distribution.
+- Move the contract types into the package (e.g. `proteus/types.py` or per-module homes) and have the test contracts import from the package, not the reverse.
 
-#### Workaround for implementation
+## 39. Intrinsic-dimension estimator is a degree proxy
 
-If Lemma 1 is genuinely violated in practice (e.g., `L` increases for an extended window), an engineering safeguard exists:
-
-- **Hysteresis on accepted edits.** Require that an edit, once accepted, cannot be reversed by a subsequent edit for at least `T_hysteresis` samples. This prevents oscillation regardless of the Lyapunov guarantee.
-- **Global edit budget per epoch.** Cap the total number of accepted topology edits per training epoch to `O(N / log N)`. Once exhausted, freeze topology and let `L_vertex` settle.
-- **Termination by evidence-rate threshold.** Stop the dynamics when the average per-sample `F_DM` decrease drops below `ε / (training_epoch_length)` for some small `ε`. This is an empirical check that the gate has stopped finding profitable edits.
-
-These are engineering safeguards, not theoretical guarantees, but they suffice for a first implementation. The architectural framework (Lyapunov candidate identified, Lemmas 2--4 proved) provides confidence that the safeguards are addressing edge cases rather than masking a fundamental problem.
-
----
-
-## Priority 2 — Specification gaps (concrete but under-documented)
-
-These won't cause failure but will cause confusion and rework if not pinned down.
-
-### 8. Dual-flow weights (λ, μ) and their coupling to prior strengths
-
-- Main text §6.2 writes the objective; no default values given.
-- §5.3 mentions "dual-flow hyperparameter tying" as a future refinement — at minimum there should be a starting baseline.
-- **Needed**:
-  - Default `λ, μ` (e.g., `λ = 1`, `μ = 0.1`, or normalized to count-averages).
-  - An explicit tying rule `λ ∝ (α₀ + n_S)`, `μ ∝ τ` as an option.
-
-### 9. Transition count bookkeeping across recursion levels
-
-- Stage 1 controller recurses on partitions. What happens to `n_{i → j}` from the parent scale when recursing into a sub-partition?
-  - Option A: reset (child starts from zero counts).
-  - Option B: inherit (aggregate upward).
-  - Option C: inherit with decay.
-- Each option changes the meaning of `N_eff, R` in §S3.4 for the child level.
-- **Needed**: pick one, document in SI §S9 or §S11.
-
-### 10. Torsion ladder thresholds — initial values
-
-- The text now labels `0.05, 0.30, 0.60` as empirical. For a first implementation:
-  - These values need to hold together with the shape-quality threshold `Q_min = 0.25` and the variance-cap `τ_local`.
-  - A scale-aware rescaling might be appropriate (they're dimensionless, but still).
-- **Needed**: a starting set of values that are explicitly marked as "first-implementation defaults, retune later"; enumerate variants tried so far (if any).
-
-### 11. Boundary handling in dual flow
-
-- SI §S9 mentions Neumann-like boundary conditions; SI §S5 now says boundary-face columns are zeroed in `A_S`.
-- For open meshes with manifold-with-boundary geometry, this is necessary but may cause mass leakage.
-- **Needed**:
-  - An explicit statement of what the solver does at three kinds of boundary:
-    1. True manifold boundary (flux = 0).
-    2. Computational-only boundary from finite sampling (should allow flux).
-    3. Non-orientable regions (local orientation patches — how stitched?).
-  - A diagnostic for mass conservation after solve: `Σ_S m_S = 1 ± ε`.
-
-### 12. Mini-NSF patch size and training budget
-
-- SI §S7 gives rough figures (2–3 layers, 64–128 hidden, 8–12 bins, `P_max = 64` simplices) but doesn't justify them.
-- Also: what happens when `P_max` is exceeded — split the patch? Use a shallower flow?
-- **Needed**: decision rule for patch-size exceedance and default training budget tied to routed sample count.
-
----
-
-## Priority 3 — Mathematical risks flagged by current theoretical analysis
-
-These are known open questions in SI §S15. They are less urgent than Priority 1 because workarounds exist, but each has implementation consequences.
-
-### 13. Stuck-junction behavior (SI §S15.2)
-
-- At a dimensionality junction (e.g., 1D filament meeting 2D sheet), the paper argues the system exhibits a stable signature (bimodal simplex activity, divergent link significance, etc.).
-- Informal argument only; no quantitative guarantee.
-- **Implementation risk**: the mesh may oscillate at junctions without a sharp termination criterion for "we've reached a junction, stop refining."
-- **Needed**: a detector for stuck-junction regime (the signature statistics in SI §S12.2 are candidates) and a rule to freeze further refinement locally when detected.
-
-### 14. Expressivity budgets (SI §S15.3)
-
-- SI §S12.1 asserts that finite budgets suffice but doesn't give explicit budget functions as a function of `ε`, Lipschitz constants, and dimension.
-- **Implementation risk**: no stopping criterion beyond empirical observation; first implementation may not know when "good enough" is.
-- **Needed**: even a crude upper-bound estimate tied to observable quantities (e.g., `max R_S` and `CV`) would help decide run-time budgets.
-
-### 15. Mass-field identifiability (SI §S15.5)
-
-- Related to Priority 1 #1 but at the mesh level: given all transition counts over the whole complex, is `m` uniquely determined?
-- If not, different solvers could converge to different `m` fields with equal data fit.
-- **Needed**: for the canonical `κ` choice, prove or empirically verify that the global Jacobian `∂q/∂m` has full column rank; if not, identify the null-space structure and whether it's benign.
-
----
-
-## Priority 4 — Writing / framing (lowest priority; deferred)
-
-These do not affect implementation. Keep as notes for any eventual external release.
-
-### 16. Fuzzy title decision
-
-- Title emphasizes "fuzzy manifold memberships." §6.3 now has an operational anchor for this, but not central.
-- **Deferred**: revisit only if paper moves toward submission.
-
-### 17. Architectural overview figure
-
-- Six owned objects without a diagram.
-- **Deferred**: does not block implementation; useful for documentation once code exists.
-
-### 18. Formal citations
-
-- §1.5 is prose-only. §13 "References Prep" tracks the intended list.
-- **Deferred**: does not affect implementation.
-
----
-
-## Implementation-readiness checklist
-
-Before starting the first implementation, at minimum the following should be resolved (drawn from Priority 1 items):
-
-- [x] **Canonical `κ` defined and identifiability theorem stated** (item #1; resolved in SI §S13.1 + §S13.7).
-- [x] **MAP settle protocol resolved** (item #2): `F_DM` (closed-form, no settle) is the sole evidence score (SI §S3.4); the MAP-on-`m` alternative was removed as unused dead code.
-- [x] **Lyapunov framework identified; auxiliary lemmas proved** (item #3, downgraded from showstopper): `L = L_vertex + F_DM` decomposes the dynamics into a continuous side governed by NG/GNG and a discrete side governed by S3.4 acceptance. Voronoi-Delaunay duality makes the two terms complementary. Lemmas 2 (joint monotonicity), 3 (cross-scale inheritance), and 4 (EWMA noise control) are now proved by direct calculation in SI §S15.1, conditional on Lemma 1. Lemma 1 (variance-cap NG monotonicity for `L_vertex`) is the only foundational result still open; full prep, prior art, proof template, and engineering workarounds are documented in this item. Does not block first implementation.
-- [x] **Greedy Chaining pseudocode resolved** (item #4): node-seeded BFS algorithm with clique-only verification and canonical-form deduplication; cost `O(N · d²)` (SI §S8.1).
-- [x] **Dual-flow solver conditioning resolved** (item #5): canonical solver is loopy Gaussian BP; sliver simplexes (`Q_S < Q_min`) get `μ_S = 0` (conservation factor dropped), making the stencil well-conditioned by construction (SI §S5).
-- [x] **A concrete per-cluster `Φ_C(τ)` formula** (item #6; resolved in SI §S2.5).
-- [x] **Stage 1 cluster identification fully specified** (AP on Hebbian graph; resolved in SI §S2.6).
-- [x] **Dirichlet concentration derived** (`α_{0,i}=1/(d_{\mathrm{final},i}+1)`; resolved in SI §S2.7).
-
-Priority 2 items can be pinned to starting defaults and iterated during implementation.
-
----
-
-## Recently closed
-
-### This session (Lyapunov framework + auxiliary lemmas proved)
-
-- [x] **Priority 1 #3 — Dynamic convergence: 3 of 4 supporting lemmas proved.**
-  - SI §S15.1 now contains explicit proofs (by direct calculation, conditional on Lemma 1) for:
-    - **Lemma 2 (joint monotonicity):** continuous and discrete updates yield `E[ΔL | F_t] ≤ -c_t + b(t)` with bounded data-accumulation drift `b(t) ≤ log J`. Robbins–Siegmund convergence theorem applies. Accepted edits give `ΔL ≤ -log τ + ε_topo` with `ε_topo` small relative to `log τ` for recommended thresholds.
-    - **Lemma 3 (cross-scale inheritance):** warm-start at scale `s+1` inherits a finite `L` from scale `s`; transition contributes `O(log d · |ΔV|)` for nodes whose intrinsic dimension estimate updates, exact equality otherwise.
-    - **Lemma 4 (EWMA noise control):** transient perturbation after a split decays at rate `1/k` (half-life `k`); martingale fluctuation bounded by Azuma–Hoeffding at `O(τ √(α log(2/δ)))` with high probability. Total integrated transient is finite and does not accumulate across splits (split rate is sub-linear by the `log τ` budget).
-  - SI §S15.6 summary restructured to a 4-tier classification with explicit "Conditionally rigorous, foundational result open" tier for the joint convergence story.
-  - Item #3 in this document expanded with full background on the open foundational result (Lemma 1: variance-cap NG monotonicity), including: precise statement, prior art (Martinetz–Schulten 1991; Fritzke 1995; Bottou–Bengio 1995; Sato 1999), why standard NG proof doesn't directly apply, two-time-scale SA proof template (Borkar 2008; Kushner–Yin 2003), required prerequisites, estimated effort (~12 pages plus preliminaries), and engineering workarounds for first implementation.
-
-### Previous session (Lyapunov candidate identified)
-
-- [x] **Initial Lyapunov candidate identification (preceded the lemma proofs above).**
-
-### Previous session (Greedy Chaining specification)
-
-- [x] **Priority 1 #4 — Greedy Chaining algorithm.**
-  - SI §S8.1 now contains a full pseudocode specification for initial $d$-simplex discovery: node-seeded BFS, leveraging the structural fact that a node with degree $\approx d{+}1$ has at most $d{+}1$ incident $d$-simplexes.
-  - Verification uses only graph operations: clique check ($\mathcal{O}(d^2)$ adjacency lookups) and canonical-form deduplication ($\mathcal{O}(d\log d)$ hashset insert). No Cayley--Menger / Gram-determinant / shape-quality computation during initialization --- runtime mechanisms (S4 torsion-aligned splits, S5 $\mu_S=0$ rule, S3.3 simplex-arbitrated pruning) handle whatever pathologies survive.
-  - Cost: $\mathcal{O}(N \cdot d^2)$ amortized per recursion level (cost envelope in S8.2 updated). Each simplex is paid once across its $d{+}1$ discoverable vertices via canonical-form dedup. BFS ordering compounds the speedup: most simplexes touching a node are already in the set by the time it's visited.
-  - Heterogeneous intrinsic dimension handled by per-node enumeration; cross-junction simplexes naturally fail the clique test.
-  - Orphans deferred to runtime ``Continuous Simplex Discovery'' rule (`stage_2.md` §3.3.2) for eventual coverage.
-  - Built-in junction diagnostic: `incident_count` distribution after chaining matches the addendum's bimodality signature for free.
-
-### Previous session (evidence gate + dual-flow solver simplification)
-
-- [x] **Priority 1 #2 — MAP settle protocol for evidence scoring.**
-  - $F_{\mathrm{DM}}$ (the closed-form Dirichlet--multinomial marginal under the BDeu prior of S2.7) is now the sole evidence score in SI §S3.4. No iterative MAP settle on $m$ is required: the Dirichlet posterior over each per-node $q(\cdot\mid i)$ is closed-form, the marginal likelihood is analytic, and the Occam factor is intrinsic to the BDeu prior volume. Topology candidates are directly comparable with no protocol-dependent biases.
-  - The MAP-on-$m$ alternative (with Laplace/BIC + projected gradient settle protocol) was removed as unused dead code: per-node $q$ smoothing is already handled by BDeu; the $n_C \ge \max(10d,1000)$ recursion floor (S9) keeps regions away from the genuinely low-evidence regime where logistic-GMRF spatial smoothing on $m$ would matter; no application path consumes posterior uncertainty on $m$.
-  - WAIC/PSIS-LOO retained as predictive-accuracy diagnostics; default deployment is $F_{\mathrm{DM}}$ alone.
-  - Main paper §5.3, abstract, contributions bullet, and SI §S13 intro updated accordingly.
-
-- [x] **Priority 1 #5 — Dual-flow solver numerical conditioning.**
-  - Canonical solver in SI §S5 is now loopy Gaussian belief propagation on the face/simplex factor graph (face variables; per-face data factors weighted by $\lambda$; per-simplex conservation factors weighted by $\mu_S$). Gauss--Seidel was dropped --- it added no architectural value and was the source of the ill-conditioning concern.
-  - Sliver simplexes ($Q_S < Q_{\min}=0.25$) now have $\mu_S = 0$, i.e.\ they contribute a data factor only and no conservation factor. This is principled (the discrete divergence theorem is geometrically meaningless on a degenerate simplex) and removes the dominant numerical-conditioning failure mode by construction: ill-conditioned $A_S^{\top}A_S$ blocks no longer enter message precisions.
-  - Loopy BP convergence safeguarded by damped Gaussian message updates if non-walk-summable spectra are detected; vanilla loopy BP otherwise.
-
-### Previous session (canonical cluster-scale search)
-
-- [x] **Priority 1 #6 — Concrete per-cluster `Φ_C(τ)` formula.**
-  - Replaced the earlier slope-anomaly overcorrection with the canonical reference-doc formula in SI §S2.5: $\Phi_C(\tau)=\sum_{i\in C}R_i(\tau)$ with $R_i(\tau)=(\sqrt{\tau}/c_{d,k})^d h_i k N_C/(V_d r_{k,i}^d)$.
-  - Added support trace $V_C(\tau)=\sum_i \widehat V_i$ as a cheap cross-validation signal; robust characteristic scales exhibit both a peak in $\Phi_C$ and a nearby plateau transition in $V_C$.
-  - Peak detection now uses the centered second difference $\Delta^2\Phi_C$ with Bayesian refinement inside the bracket.
-  - Main text §3.4, §3.5, Algorithm 2, and Appendix notation updated to match the canonical per-cluster response.
-- [x] **Cluster identification specified.**
-  - SI §S2.6 now specifies Affinity Propagation on the Hebbian graph using smoothed-PMI similarities built from the Dirichlet-smoothed posterior predictive $\widehat q(j\mid i)$.
-  - Per-node AP preference is derived, not tuned: $s(i,i)=-2\log(d_{\mathrm{final},i}+1)$.
-  - Directional asymmetry $A(i,j)$ is retained as a junction diagnostic and not used for clustering.
-  - Cross-scale tracking uses persistent graph identity / node-ID overlap after warm-start.
-- [x] **Dirichlet concentration `α₀` closed.**
-  - SI §S2.7 derives $\alpha_{0,i}=1/(d_{\mathrm{final},i}+1)$ from the BDeu prior: one equivalent pseudo-observation spread uniformly over the local branching factor.
-  - This same $\alpha_{0,i}$ is used for transition smoothing (S2.6), Dirichlet--multinomial evidence (S3.4), and the BNP view (S13), eliminating a separate tuning knob.
-
-### Previous session (router identifiability)
-
-- [x] **Priority 1 #1 — Router identifiability and conditioning.**
-  - **Canonical κ committed** in SI §S13.1: uniform facet-share, $\kappa_{iS}=A_{iS}$ (opposite-facet area), $\kappa_{ijS}=A_{iS}/d$ for $j\in S$. Choice is positive, scale-covariant, orientation-invariant, cheap to compute, and yields a clean linear star structure.
-  - **Star Matrix Identifiability Theorem** added in SI §S13.7. Under (A1) local star-rank and (A2) connected dual graph, $m$ is uniquely determined (up to the simplex constraint) by the transition probabilities $\{q(\cdot\mid i;m)\}_i$. Proof proceeds via local scalar factorization + connected-dual propagation.
-  - **Runtime conditioning check** defined: $\sigma_{\min}(K_i)/\sigma_{\max}(K_i) < \rho_{\min}=10^{-4}$ flags the star as ill-conditioned; MAP settle skips that node's likelihood contribution and the evidence gate falls back to geometric-only acceptance for edits in that region. Strictly conservative — never accepts an edit that would otherwise be rejected.
-  - **Fisher-information connection** noted: $K_i$ is (up to normalization) the Jacobian of $q(\cdot\mid i;m)$; (A1) is precisely Fisher nonsingularity on the probability simplex, giving asymptotic MLE consistency as $n_i\to\infty$.
-  - **Residual open point**: static identifiability is proved; dynamic preservation (identifiability along trajectories of the variance-cap + evidence loop) left open in SI §S15.5 residual.
-  - SI §S15.5 marked RESOLVED (static); SI §S15.6 summary updated to include S13.7 in the "Rigorous" tier.
-
-### Prior session (framing and presentational cleanup)
-
-- [x] **"Free-energy proxy" → "local evidence score"** renamed throughout (paper §5.3, abstract, contributions, §1.5; SI §S3.4 heading + body). "Free-energy proxy" retained as explanatory parenthetical; explicitly distinguished from variational free energy (ELBO) in SI §S3.4.
-- [x] **BIC / Laplace framing clarified**: SI §S3.4 now states the evidence score is a leading-order Laplace approximation of the log marginal likelihood, with full Laplace, Dirichlet–multinomial marginals, and WAIC/PSIS-LOO listed as principled substitutes. Paper §5.3 updated correspondingly.
-- [x] **Intrinsic vs. ambient dimension** explicit in §4.2.
-- [x] **DEC framing for `Ω_S`** clarified in §4.2.
-- [x] **Greedy Chaining exposure** mentioned in main text §4.2 (though the algorithm itself is still only named, not specified — now tracked as Priority 1 #4).
-- [x] **`A_S` definition** explicit in SI §S5 as discrete-divergence stencil with boundary handling.
-
-### From prior sessions
-
-- [x] Dead `SI~S15` references (retargeted to `SI~S10`).
-- [x] Scalar vs. vector `σ_i^2` ambiguity (standardized to trace form).
-- [x] Dropped-vertex convention in `E, M` unexplained (now clarified in §4.2).
-- [x] `Ω_S` interpretation overclaiming Jacobian antisymmetric part (now clarified as quadratic form).
-- [x] `Φ(τ)` deferred entirely to SI without main-text definition (now briefly defined).
-- [x] Appendix notation inconsistent with body (aligned).
-- [x] `m` vs. `p_f` relationship implicit (now explicit in §6.1).
-- [x] "Fuzzy" framing with no operational anchor in body (§6.3 now has the anchor; title decision still open).
-- [x] BIC regularity caveat unacknowledged (footnote added in §5.3).
-- [x] Node-vs-simplex equilibrium correspondence overclaimed (now labelled heuristic in §4.5 and SI S12.2).
-- [x] Torsion Ladder thresholds appearing as universal constants (now labelled empirical in §4.3).
-- [x] Scale controller termination condition incomplete (now lists 3 conditions in §3.6).
-
----
-
-## Notes
-
-- Re-evaluate this list before starting each major implementation phase (Stage 1 alone, Stage 2 alone, end-to-end pipeline).
-- Items in Priority 1 that become too costly to resolve formally can be downgraded to "engineering workaround" — but the workaround must be documented in the SI.
-- Pure parameter-tuning discussions (e.g., the BNP streaming / node-overgrowth thread) continue to live in `bnp_design_implications.md` and `bnp_upgrades_math.tex`; only items that affect mathematical correctness of the pipeline belong here.
+- `intrinsic_dim.py` estimates `d_final` from graph degree (degree − 1, neighbor-median smoothed); Levina–Bickel is deferred by design. The proxy feeds AP preferences, PMI smoothing, T2 rank selection, and (later) simplex dimension and junction detection — a lot of load for an uncalibrated proxy.
+- Before Stage 2 lands: validate the proxy against ground truth on the synthetic suite (swiss roll d=2, circle d=1, mixed-dim and junction datasets), and either calibrate a correction or implement Levina–Bickel behind the same interface. S8.4 junction detection should not inherit silent bias from the estimator.

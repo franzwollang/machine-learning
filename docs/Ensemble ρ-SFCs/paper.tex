@@ -1,103 +1,346 @@
-\documentclass[sigconf]{acmart}
-
-\usepackage{amsmath}
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts}
 \usepackage{graphicx}
-\usepackage{hyperref}
-\usepackage{algorithm2e}
+\usepackage{bm}
+\usepackage{mathtools}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 \usepackage{booktabs}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{xr-hyper}
+\usepackage{fancyhdr}
 
-% --- TODO: ACM-specific metadata commands will go here ---
-% \copyrightyear{2024}
-% ...etc.
+\externaldocument{SI}
+
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[L]{\small Draft --- version posted to Zenodo on 2025-??-??}
+\fancyfoot[R]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\newcommand{\sectionsubtitle}[1]{\vspace{-0.25em}\noindent\textit{#1}\par\vspace{0.75em}}
+\newcommand{\kappaf}{\kappa_{\mathcal F}}
+\newcommand{\rhophi}{\rho_{\phi}}
+\newcommand{\unitd}{[0,1]^d}
+
+\title{Ensemble $\rho$-SFCs: A Framework for Manifold-Aware, High-Dimensional Indexing (\textit{Draft})}
+\author{Franz Wollang\\ \small Independent Researcher}
+\date{\small Dated: 2025-??-??}
 
 \begin{document}
-\title{Ensemble $\Omega$-SFCs: A Framework for Manifold-Aware, High-Dimensional Indexing}
-
-% --- TODO: Author information ---
-% \author{G.K. Chesterton}
-% \affiliation{%
-%   \institution{The Flying Stars}
-%   \streetaddress{P.O. Box 1212}
-%   \city{London}
-%   \country{UK}}
-% \email{gk@chesterton.com}
-
-\begin{abstract}
-We present \textbf{Ensemble $\rho$-SFCs}, a framework that unifies the geometric theory of adaptive, density-guided curves with a practical system architecture for high-dimensional indexing. The framework's theoretical foundation is a \textbf{density-guided generation method}, where a tunable "closure" parameter, $\sigma$, adapts the curve's path to a target shape derived from the structure of a pre-existing data cluster. To overcome the intractable complexity of a naive implementation, we introduce a \textbf{novel functional architecture} that replaces materialized data grids with compact \textbf{"recipe trees"}. These store a procedural representation of the curve and are combined with a \textbf{hierarchical cascade} of lower-dimensional indexes to manage high-dimensional embeddings. This architecture drastically reduces storage requirements and enables on-the-fly metric adjustments. The framework ensures that with high probability, data points belonging to a single cluster occupy a single, contiguous range in the 1D index. The final global metric provides a holistic, cluster-aware measure of similarity that approximates the data's underlying manifold structure. We prove worst-case clustering bounds and provide a detailed analysis to demonstrate the theoretical feasibility of the architecture for indexing massive datasets like Wikipedia on a single machine.
-\end{abstract}
 
 \maketitle
 
+\begin{center}
+\setlength{\fboxsep}{8pt}%
+\fbox{\parbox{0.92\textwidth}{\centering\bfseries DRAFT --- NOT FOR CITATION\\[4pt]
+This is a preliminary working version posted for discussion and feedback. Content may change significantly before formal submission.}}
+\end{center}
+\vspace{1em}
+
+\begin{abstract}
+We present \textbf{Ensemble $\rho$-SFCs}, a framework that unifies the geometric theory of adaptive, density-guided curves with a practical system architecture for high-dimensional indexing. The framework's theoretical foundation is a \textbf{density-guided generation method}, where a tunable ``closure'' parameter, $\sigma$, adapts the curve's path to a target shape derived from the structure of a pre-existing data cluster. To overcome the intractable complexity of a naive implementation, we introduce a \textbf{novel functional architecture} that replaces materialized data grids with compact \textbf{recipe trees}. These store a procedural representation of the curve and are combined with a \textbf{hierarchical cascade} of lower-dimensional indexes to manage high-dimensional embeddings. This architecture drastically reduces storage requirements and enables on-the-fly metric adjustments. The framework ensures that with high probability, data points belonging to a single cluster occupy a single, contiguous range in the 1D index. The final global metric provides a holistic, cluster-aware measure of similarity that approximates the data's underlying manifold structure. We prove worst-case clustering bounds and provide a detailed analysis to demonstrate the theoretical feasibility of the architecture for indexing massive datasets like Wikipedia on a single machine.
+\end{abstract}
+
 \section{Introduction}
-Space-filling curves (SFCs) are a fundamental tool for linearizing multidimensional data. The query performance of an SFC-based index depends on how many disjoint 1-D key intervals are required to cover a query region. The Hilbert curve is widely used for its excellent locality-preserving properties, yet its fixed traversal path cannot adapt to the geometry of individual objects.
+\label{sec:introduction}
+\sectionsubtitle{Motivation, dependency on upstream clustering, and contributions}
 
-This paper introduces the Ensemble $\rho$-SFC framework, an indexing architecture designed to leverage the output of an upstream clustering algorithm to overcome this limitation. The core idea is to create specialized "expert" curves, where each curve is guided by a target density derived from a specific data cluster (e.g., its convex hull in 2D or its statistical distribution in high dimensions). We then unify these expert curves into a single, continuous \textbf{global metric}, defined as a weighted consensus.
+Space-filling curves (SFCs) are a fundamental tool for linearizing multidimensional data. The query performance of an SFC-based index depends on how many disjoint 1D key intervals are required to cover a query region. The Hilbert curve is widely used for its locality-preserving properties, yet its fixed traversal path cannot adapt to the geometry of individual objects.
 
-However, the power of this model is predicated on a critical prerequisite: the availability of high-quality, multi-scale cluster metadata. The Ensemble $\rho$-SFC framework is not a clustering algorithm itself; rather, it is a uniquely powerful indexing architecture designed to leverage the output of an upstream clustering process. The challenge of discovering these foundational clusters in high-dimensional space is significant and is addressed by the author in a companion paper on the Proteus framework (in preparation). This paper assumes such a clustering is available—a prerequisite naturally satisfied in many 2D and 3D domains like GIS, where objects of interest serve as pre-defined clusters. The primary focus of this paper is therefore on the subsequent, universal challenge: building a feasible indexing architecture that can translate that cluster structure into a queryable, manifold-aware metric without succumbing to the curse of dimensionality.
+The concept of modifying a space-filling curve's traversal path based on the properties of the underlying space or data is well established. Researchers have developed adaptive or density-guided curves that alter the recursive subdivision process to concentrate more of the curve's length in important regions, with applications in surface sampling, tool-path planning, spatial indexing, scientific visualization, and medical imaging \cite{quinn2006adaptive,sun2015toolpath,tian2013density,zhou2021data,sakoglu2020space}. Since this literature does not use one consistent name, this paper uses \emph{$\rho$-SFC} as shorthand for a density-guided SFC.
 
-Our solution is twofold. First, we replace vast, materialized data grids with compact \textbf{functional "recipe trees"}, which store a procedural recipe for generating the curve on demand. Second, to handle very high-dimensional data like modern AI embeddings, we employ a \textbf{hierarchical cascade} of lower-dimensional indexes. This architecture not only makes the system feasible but also unlocks powerful new capabilities, including real-time, dynamic exploration of complex data and deep integration into AI model training loops.
+This paper introduces the Ensemble $\rho$-SFC framework, an indexing architecture that takes a different approach. Instead of creating a single $\rho$-SFC, we leverage the output of an upstream clustering algorithm to create an ensemble of specialized expert $\rho$-SFCs. Each expert curve is guided by a target density derived from a specific data cluster, such as a convex hull in 2D or a statistical distribution in high dimensions. We then unify these expert curves into a single global metric, defined as a weighted consensus. The ensemble is designed to build a holistic, manifold-aware metric that captures the structure of the entire dataset across multiple semantic contexts simultaneously.
 
-\section{The Ensemble $\Omega$-SFC Framework}
+However, the power of this model is predicated on a critical prerequisite: the availability of high-quality, multi-scale cluster metadata. The Ensemble $\rho$-SFC framework is not a clustering algorithm itself. It is an indexing architecture designed to leverage the output of an upstream clustering process. The challenge of discovering these foundational clusters in high-dimensional space is addressed by the companion Proteus framework \cite{wollang2025proteus}. This paper assumes such a clustering is available, a prerequisite naturally satisfied in many 2D and 3D domains such as GIS, where objects of interest serve as pre-defined clusters. The focus here is the subsequent problem: translating cluster structure into a queryable, manifold-aware metric without succumbing to the curse of dimensionality.
+
+Our solution is twofold. First, we replace vast, materialized data grids with compact functional recipe trees, which store a procedural recipe for generating the curve on demand. Second, to handle very high-dimensional data such as modern AI embeddings, we employ a hierarchical cascade of lower-dimensional indexes. This architecture makes the system feasible and enables dynamic exploration of complex data through query-time metric adjustments.
+
+\begin{figure}[t]
+    \centering
+    \fbox{\parbox{0.9\linewidth}{\centering Framework overview placeholder: high-dimensional data $\rightarrow$ Proteus clustering engine $\rightarrow$ set of $N$ clusters $\rightarrow$ Ensemble $\rho$-SFC builder $\rightarrow$ $N$ recipe trees $\rightarrow$ query-time synthesizer $\rightarrow$ global metric $\kappaf$.}}
+    \caption{End-to-end architecture. The Ensemble $\rho$-SFC framework is the indexing stage that consumes upstream cluster metadata and exports queryable 1D keys.}
+    \label{fig:framework-overview}
+\end{figure}
+
+\subsection{Contributions}
+This paper makes four claims. First, a density-guided curve family can be parameterized so that the canonical Hilbert curve is recovered as a base case while expert curves adapt to cluster-specific target densities. Second, a weighted ensemble of such curves defines a usable global metric. Third, recipe trees and a hierarchical cascade make this metric practical for high-dimensional indexing. Fourth, a hierarchical composite key can preserve cluster topology and fuzzy boundary behavior in a form suitable for succinct backends such as wavelet trees.
+
+\section{Related Work}
+\label{sec:related-work}
+\sectionsubtitle{Positioning against SFCs, adaptive spatial indexes, and succinct backends}
+
+The Hilbert and Z-order curves are standard baselines for multidimensional indexing because they map points to one dimension while preserving locality well enough for range and nearest-neighbor search. The Hilbert curve has especially strong clustering behavior among fixed, general-purpose SFCs, and its interval decomposition properties have been studied in detail \cite{moon2001analysis}. The limitation is that a single canonical traversal cannot know that one region should be treated as a coherent object while another should be traversed at a different orientation or density.
+
+Adaptive spatial structures such as R-trees, quadtrees, and k-d trees respond to data distribution by changing cell layout, split placement, or bounding regions \cite{guttman1984rtree,bentley1975kdtree,samet1984quadtree}. These structures are powerful, but their adaptation usually lives in the tree partition rather than in a continuous, density-aware 1D metric. Ensemble $\rho$-SFCs target a complementary design point: the learned structure changes the ordering itself, so downstream systems can use ordinary sorted ranges or compressed sequence indexes.
+
+Prior adaptive SFC work is closest in spirit. Wierum's $\beta\rho$-indexing method explicitly relates SFC traversal to density and clustering \cite{wierum2002betarho}, and later application-specific methods adjust curve paths for sampling, tool-path planning, spatial search, visualization, and imaging \cite{quinn2006adaptive,sun2015toolpath,tian2013density,zhou2021data,sakoglu2020space}. The contribution here is not merely another single adaptive curve. It is an ensemble architecture: many cluster-specialized $\rho$-curves are synthesized into a global metric, stored procedurally, and deployed in a high-dimensional cascade.
+
+Succinct data structures provide the natural backend for the resulting ordering. Wavelet trees support rank, select, quantile, and range queries over compressed sequences \cite{grossi2003wavelet,navarro2014wavelet}. In the proposed system, recipe trees act as a semantic sorter that assigns cluster-aware keys; wavelet trees can then index payloads ordered by those keys. The hierarchical composite key strengthens this connection because semantic subtrees become contiguous intervals, allowing analytical queries over a cluster and its descendants.
+
+\section{Problem Statement and Framework}
+\label{sec:framework}
+\sectionsubtitle{Density-guided expert curves and their global consensus metric}
+
 \subsection{Problem Statement}
-Let $P \subset [0,1]^2$ be a convex polygon, and let $[0,1]^2$ be the unit square. For a space-filling curve $f: [0,1] \to [0,1]^2$, we define the \textbf{cluster number} as:
+Let $P \subset [0,1]^2$ be a convex polygon. For a space-filling curve $f:[0,1]\to[0,1]^2$, define the cluster number
 \begin{equation}
- c(f,P) = \min\{k : P \subseteq \bigcup_{j=1}^k f(I_j) \text{ where each } I_j \text{ is a contiguous interval in } [0,1]\}
+c(f,P)=\min\left\{k:\; P\subseteq \bigcup_{j=1}^k f(I_j),\ \text{where each }I_j\text{ is a contiguous interval in }[0,1]\right\}.
+\label{eq:cluster-number}
 \end{equation}
-We seek to define a family of curves $\{f^{(\phi)}\}_{\phi\in\Phi}$ and a supporting system architecture such that:
-\begin{enumerate}
-    \item Every curve $f^{(\phi)}$ is continuous and its image is the full unit square, $[0,1]^2$.
-    \item The family contains the standard Hilbert curve as a base case.
-    \item For any convex polygon $P$ with perimeter $p$, there exists a parameter set $\phi^*$ that provides a provably excellent clustering bound of $c(f^{(\phi^*)}, P) \leq 2 + \left\lceil \frac{p \cdot 2^n}{8} \right\rceil$.
-    \item The system architecture is computationally feasible for high-dimensional, large-scale datasets, breaking the exponential complexity barrier of naive implementations.
-    \item The system supports dynamic, query-time adjustments to the metric without costly rebuilds.
-\end{enumerate}
-
-\subsection{Theoretical Foundation: Density-Guided Curves}
-Instead of a fixed recursive motif, an $\Omega$-Curve is generated from a \textbf{tunable target density function}. The parameters for a curve are $\phi = (\theta, \sigma, n, P)$, where $P$ is a target convex polygon or statistical distribution, $\theta$ is a rotation, $n$ is the recursion depth, and $\sigma \in [0,1)$ is the \textbf{closure parameter}.
-
-To ensure that all curves in the ensemble share a common baseline behavior, the density function $\rho_{\phi}$ for a curve $f_i$ is formally defined as a \textbf{mixture model}. It blends a baseline uniform density $U(z)$ with a target Gaussian density $G_i(z)$ centered on the cluster shape $P_i$. The closure parameter $\sigma \in [0,1)$ acts as the mixing weight:
+The goal is to define a family of curves $\{f^{(\phi)}\}_{\phi\in\Phi}$ and a supporting architecture such that: every curve is continuous and space filling; the canonical Hilbert curve appears as a base case; for any convex polygon $P$ with perimeter $p$ there exists a parameter setting $\phi^*$ with
 \begin{equation}
- \rho_{\phi}(z) = (1 - \sigma) \cdot U(z) + \sigma \cdot G_i(z)
+c(f^{(\phi^*)},P)\leq 2+\left\lceil \frac{p\,2^n}{8}\right\rceil;
+\label{eq:perimeter-bound}
 \end{equation}
-This ensures the crucial property that \textbf{all expert curves $f_i$ revert to the exact same canonical Hilbert curve} in regions of space far from their respective cluster supports. This shared background is what allows the global metric $\kappa_F$ to be well-behaved.
+the implementation remains feasible in high-dimensional, large-scale settings; and the metric can be adjusted at query time without full rebuilds.
 
-\subsection{Theoretical Foundation: The Global Metric}
-We unify these specialized curves into a \textbf{Global Metric}, $\kappa_{\mathcal{F}}: [0,1]^2 \to [0,1]$, defined as a weighted consensus of an ensemble of $N$ base curves:
+\begin{table}[t]
+\centering
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.32\linewidth}p{0.58\linewidth}}
+\toprule
+\textbf{Term} & \textbf{Meaning}\\
+\midrule
+Ensemble $\rho$-SFC framework & The complete indexing architecture: expert curves, recipe trees, cascade, and key synthesis.\\
+$\rho$-Curve & A single density-guided curve within the ensemble.\\
+$\rho$-index & An index built using one or more $\rho$-curves, such as one tier in the cascade.\\
+\bottomrule
+\end{tabular}
+\caption{Naming conventions used throughout the paper and SI.}
+\label{tab:naming}
+\end{table}
+
+\subsection{Density-Guided Expert Curves}
+Instead of using a fixed recursive motif, a $\rho$-curve is generated from a tunable target density. The parameters for one curve are $\phi=(\theta,\sigma,n,P)$, where $P$ is a target convex polygon or statistical distribution, $\theta$ is a rotation, $n$ is the recursion depth, and $\sigma\in[0,1)$ is the closure parameter.
+
+For expert curve $f_i$, the target density is defined as a mixture of a uniform baseline $U(z)$ and a cluster-specific density $G_i(z)$:
 \begin{equation}
- \kappa_{\mathcal{F}}(x,y) = \sum_{i=1}^N w_i \cdot (f_i)^{-1}(x,y)
+\rhophi(z)=(1-\sigma)U(z)+\sigma G_i(z).
+\label{eq:density-mixture}
 \end{equation}
-where $(f_i)^{-1}(x,y)$ is the inverse mapping of the curve $f_i$. This creates a single, continuous, and statistically-informed metric space where a point's 1-D coordinate is determined by a weighted average of its position in multiple specialized traversals.
+This formulation provides three guarantees. When $\sigma=0$, the density is uniform and the generation algorithm returns the tier's canonical baseline curve, which in the low-dimensional case is the standard Hilbert curve. As $\sigma$ approaches one, the target density dominates and the curve adapts to the desired cluster shape. Away from the target cluster, $G_i(z)$ is negligible and the curve reverts to the shared canonical baseline. This shared behavior is essential because the ensemble metric must compare coordinates produced by different experts. The SI gives the target-density conventions for geometric and high-dimensional statistical data in \hyperref[sec:si-density]{SI~S1}.
 
-\subsection{Average-Case Performance: The Argument for c=1}
-[Content continues as specified in the sections, including probabilistic argument for $c=1$, generalization to higher dimensions, and the core advantage of the unified, manifold-aware metric.]
+\subsection{Stencil Variants and the Tier-Local Canonical Curve}
+\label{sec:framework-stencils}
+The ``ideal'' density allocation refines each cell into its $2^d$ orthants and assigns child time intervals proportional to their target mass. This is the canonical Hilbert generator and is the right model for low $d$, but it requires $2^d$ ratios per node and is infeasible above roughly $d\approx 8$. The framework therefore admits a small family of \emph{stencil variants} that share the same density-allocation principle while using bounded local fanout. Each tier of the index commits to one stencil.
 
-\section{System Architecture and Implementation}
-\subsection{The Feasibility Challenge: The Curse of Dimensionality}
-The power of this framework comes at a cost. To make queries efficient, the inverse maps $(f_i)^{-1}$ must be pre-calculated. A naive implementation would build a grid of $(2^n)^d$ cells, where $d$ is the dimension and $n$ is the bit depth. The build time and storage for this grid scale as $O((2^d)^n)$. For any non-trivial dimension or precision, this exponential complexity makes a direct implementation computationally intractable.
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Orthant Hilbert ($b=d$).} A node refines into all $2^d$ orthants. Fanout $B=2^d$, traversal depth to reach axis resolution $2^n$ is $n$. Suitable for $d\leq 8$ where $B\leq 256$.
+    \item \textbf{Blockwise Hilbert ($1\leq b<d$).} The $d$ coordinates are partitioned into $\lceil d/b\rceil$ blocks of width $\leq b$. A node refines one block at a time using a $2^b$-orthant Hilbert step within the active block. Fanout $B=2^b$, traversal depth $n\cdot\lceil d/b\rceil$. The canonical baseline at $\sigma=0$ is the corresponding blockwise Hilbert product.
+    \item \textbf{Sparse-stencil with uniform remainder.} A node materializes ratios only for a sparse set of active branches and groups the remaining children under one uniform-mass remainder. Fanout is bounded by the active-set size. The baseline at $\sigma=0$ is the canonical curve of the underlying full stencil, with off-stencil children assigned exactly uniform mass.
+\end{itemize}
 
-\subsection{Architectural Solution I: Functional "Recipe Trees"}
-[Inline the recipe tree structure, fast path optimization, and Algorithm~\ref{alg:sfc_inverse} from the section.]
+Each stencil defines its own \emph{tier-local canonical curve} $H_{\mathrm{tier}}$. The base-case property of Section~\ref{sec:framework} is therefore: when $\sigma=0$, every expert in the tier reduces to $H_{\mathrm{tier}}$. The classical Hilbert curve is the special case $H_{\mathrm{tier}}=H$ when the tier uses the orthant stencil. All expert curves in one tier must commit to the same stencil and sibling-order convention so that their inverse keys are comparable; this is a tier-wide invariant rather than a per-curve choice. \hyperref[sec:si-stencils]{SI~S1.4} fixes the stencil family and \hyperref[sec:si-stencil-invariants]{SI~S3.5} records the resulting consequences.
 
-\subsection{Architectural Solution II: The Hierarchical Cascade}
-[Inline the hierarchical cascade description and Algorithm~\ref{alg:hierarchical_knn} from the section.]
+\subsection{The Global Metric}
+Let $\mathcal F=\{f_i\}_{i=1}^N$ be an ensemble of expert curves with nonnegative weights $w_i$ satisfying $\sum_i w_i=1$. The global metric is the weighted consensus
+\begin{equation}
+\kappaf(x)=\sum_{i=1}^N w_i f_i^{-1}(x),
+\label{eq:global-metric}
+\end{equation}
+where $x\in[0,1]^d$ and $f_i^{-1}(x)$ denotes the 1D coordinate assigned to $x$ by expert $i$. In low dimensions this metric can be tuned toward a particular geometric region. In high dimensions its primary value is semantic: the ordering reflects a point's relationship to many learned clusters simultaneously rather than only its coordinate position under a fixed traversal.
+
+\paragraph{Metric base-case property.}
+If all expert curves in a tier converge to the tier-local canonical curve $H_{\mathrm{tier}}$ as $\sigma_i\to0$, then $\kappaf$ converges to the inverse key $H_{\mathrm{tier}}^{-1}(x)$. With the orthant stencil this is the classical Hilbert key. The full continuity and base-case argument is given in \hyperref[sec:si-global-metric]{SI~S2}. The main operational consequence is that query-time weights can move smoothly between specialized and nearly canonical behavior.
+
+\section{System Architecture}
+\label{sec:architecture}
+\sectionsubtitle{Recipe trees, cascaded search, and key synthesis}
+
+\subsection{Feasibility Challenge}
+The power of the framework comes at a cost. If every inverse map $f_i^{-1}$ were materialized on a grid, a $d$-dimensional index with $n$ bits per axis would require $(2^n)^d$ cells. Build time and storage would scale as $O((2^d)^n)$, which is infeasible even for moderate dimension and precision. The architecture therefore stores procedures and sparse summaries, not dense grids.
+
+\subsection{Functional Recipe Trees}
+For each expert curve, the system stores a recipe tree: a compact representation of the recursive density allocation process. Each internal node corresponds to a spatial cell, but the node does \emph{not} need to branch over all $2^d$ orthants of a high-dimensional tier. That full fanout is useful as the low-dimensional theoretical model; it is infeasible for a 32D tier. Operational recipe trees use one of the stencil variants of Section~\ref{sec:framework-stencils}: orthant Hilbert for small $d$, blockwise Hilbert with block size $b$ for intermediate $d$, or a sparse active-child stencil for high $d$. A warped node stores only $B$ ratios for its local branching stencil, with $B=2^b$ in the blockwise case. To reach axis resolution $2^n$ the traversal therefore visits $n\cdot\lceil d/b\rceil$ levels of bounded-arity nodes, so per-curve query cost is $O\bigl(n\cdot\lceil d/b\rceil\bigr)$: logarithmic in spatial resolution and linear in dimension at fixed block size.
+
+The tree is stored as a contiguous level-order array. Each node starts with a tag byte. A \textsc{WarpedTag} node stores custom child ratios for its bounded local stencil. A \textsc{UniformTag} node marks a uniform subtree and stores no child ratios, because the remainder of the traversal is identical to the canonical Hilbert curve or to the canonical blockwise Hilbert product used by that tier. This tag dispatch creates a fast path: most expert curves are warped only near their target clusters, so queries usually spend a few levels in warped mode and then switch to optimized integer Hilbert-key computation.
+
+\begin{algorithm}[t]
+\caption{\textsc{SFCInverse}: recipe-tree inverse lookup}
+\label{alg:sfc-inverse}
+\begin{algorithmic}[1]
+\Procedure{SFCInverse}{$x,T,n$}
+    \State $time \gets 0$; $interval \gets 1$; $node \gets 0$
+    \For{$depth \gets 0$ \textbf{to} $n-1$}
+        \State $tag \gets T[node].tag$
+        \If{$tag=\textsc{UniformTag}$}
+            \State $h \gets \Call{HilbertSuffix}{x,depth,n,d}$
+            \State \Return $time + interval \cdot h$
+        \EndIf
+        \State $q \gets \Call{BranchIndex}{x,T[node],depth}$
+        \State $ratios \gets T[node].ratios$
+        \State $time \gets time + interval\sum_{r<q} ratios[r]$
+        \State $interval \gets interval \cdot ratios[q]$
+        \State $node \gets \Call{ChildIndex}{node,q}$
+    \EndFor
+    \State \Return $time$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+Recipe-tree lookups are independent across expert curves. Computing $\kappaf$ is therefore embarrassingly parallel: query every expert tree, multiply by weights, and sum. The detailed storage layout and build/query protocol are given in \hyperref[sec:si-recipe-tree]{SI~S3}.
+
+\subsection{Hierarchical Cascade}
+A single high-dimensional recipe tree is still too expensive for 768D embeddings. The proposed system uses a cascade of lower-dimensional $\rho$-indexes built on progressive projections, such as 8D, 16D, and 32D PCA views. The low-dimensional tiers act as a coarse-to-fine funnel: the first tier cheaply identifies a broad candidate set, later tiers rerank and shrink it, and the final step evaluates the full-fidelity vectors only for a small survivor set.
+
+Each tier $\ell$ commits to a stencil that balances fanout against depth at its dimension $d_\ell$. The default heuristic is:
+\begin{itemize}[leftmargin=1.5em]
+    \item $d_\ell\leq 8$: orthant Hilbert ($b=d_\ell$, $B\leq 256$). Per-node ratio cost is small, traversal depth is just $n$.
+    \item $8<d_\ell\leq 32$: blockwise Hilbert with $b=8$ (so $B=256$ and depth multiplier $\lceil d_\ell/8\rceil\in\{2,3,4\}$). At $b=8$ the ratio table is one cache line per node.
+    \item $d_\ell>32$: blockwise with $b=4$--$6$, or a sparse stencil with uniform remainder when target densities are tightly concentrated. The choice is data-dependent and is logged in the index schema.
+\end{itemize}
+A worked sizing argument and the constraints driving these switch points are in \hyperref[sec:si-cascade]{SI~S4}. Each tier's index schema records its $(b,\text{sibling order},\text{sparse-stencil parameters})$, and all expert curves in that tier share that schema so their inverse keys can be averaged into $\kappaf$.
+
+\begin{algorithm}[t]
+\caption{\textsc{HierarchicalKNN}: cascaded $\rho$-index query}
+\label{alg:hierarchical-knn}
+\begin{algorithmic}[1]
+\Procedure{HierarchicalKNN}{$q,k,\{I_\ell,P_\ell,k_\ell\}_{\ell=1}^L,X$}
+    \State $C \gets$ all item identifiers
+    \For{$\ell \gets 1$ \textbf{to} $L$}
+        \State $q_\ell \gets P_\ell(q)$
+        \If{$\ell=1$}
+            \State $C \gets \Call{RangeKNN}{I_\ell,q_\ell,k_\ell}$
+        \Else
+            \State Score each $c\in C$ by distance between $P_\ell(X_c)$ and $q_\ell$
+            \State $C \gets$ top $k_\ell$ scored candidates
+        \EndIf
+    \EndFor
+    \State Score each $c\in C$ by full-fidelity distance between $X_c$ and $q$
+    \State \Return top $k$ candidates
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\begin{figure}[t]
+    \centering
+    \fbox{\parbox{0.9\linewidth}{\centering Hierarchical cascade placeholder: query point and full dataset $\rightarrow$ Tier 1 8D $\rho$-index $\rightarrow k_1$ candidates $\rightarrow$ Tier 2 16D rerank $\rightarrow k_2$ candidates $\rightarrow$ Tier 3 32D rerank $\rightarrow k$ candidates $\rightarrow$ final 768D rerank.}}
+    \caption{Coarse-to-fine high-dimensional query funnel.}
+    \label{fig:hierarchical-cascade}
+\end{figure}
+
+For a Wikipedia-scale collection, the intended funnel is: 7.5B tokens to roughly 1M candidates in the 8D tier, then to roughly 10,000 candidates in the 16D tier, then to $k=200$ candidates in the 32D tier, followed by exact reranking in the original embedding space. \hyperref[sec:si-cascade]{SI~S4} gives the full cascade contract.
 
 \subsection{Key Generation Strategies}
-[Inline Strategy 1 and Strategy 2 descriptions, including the membership-weighted fuzzy key formula.]
+The architecture supports two keying modes.
+
+\paragraph{Global Average Metric.}
+The simplest key is the scalar $\kappaf(x)$ from Equation~\ref{eq:global-metric}. It is compatible with ordinary sorted indexes and B-tree-like backends because it is a single 1D coordinate. Its cost is that the semantic signal from any one cluster can be diluted by the ensemble average.
+
+\paragraph{Hierarchical Composite Key.}
+For systems with a multi-scale cluster hierarchy, a composite key offers better fidelity. At each level, the key stores a tuple identifying the child cluster and the SFC value within that parent context. The value can be made fuzzy by interpolating between a stable centroid anchor and the point's own location:
+\begin{equation}
+\mathrm{FuzzyVal}_C(P)=\mu(P,L)\, f_C^{-1}(\mathrm{centroid}(L))+\bigl(1-\mu(P,L)\bigr) f_C^{-1}(P),
+\label{eq:fuzzy-key}
+\end{equation}
+where $P$ is a point assigned to child $L$ of parent $C$, and $\mu(P,L)$ is its fuzzy membership in $L$. Core points are dominated by the centroid anchor; boundary or outlier points are allowed to sort closer to their geometric neighbors. The fuzziness depth $d_f$ controls how many upper levels use this interpolation.
+
+\begin{figure}[t]
+    \centering
+    \fbox{\parbox{0.9\linewidth}{\centering Hierarchical composite key placeholder: $[(child_0,value_0)\ |\ (child_1,value_1)\ |\ (child_2,value_2)]$, where upper-level values may use $\mathrm{FuzzyVal}_C(P)$.}}
+    \caption{Composite keys namespace each SFC value by cluster ancestry, making semantic subtrees contiguous.}
+    \label{fig:hierarchical-key}
+\end{figure}
+
+This structure is a natural match for wavelet-tree backends: semantic subtrees correspond to key ranges, so rank/select/quantile queries can be restricted to a learned cluster and its descendants. The full derivation appears in \hyperref[sec:si-composite-key]{SI~S5} and \hyperref[sec:si-wavelet]{SI~S10}.
 
 \section{Analysis and Properties}
-\subsection{Worst-Case Bound}
-[Inline the theorem and proof as provided.]
+\label{sec:analysis}
+\sectionsubtitle{Clustering bounds and the shift from geometry to semantics}
 
-\subsection{The Asymptotic Nature of the Geometric Advantage}
-[Inline the discussion; emphasize shift to semantic optimization in high dimensions.]
+\subsection{Worst-Case Clustering Bound}
+For every convex polygon $P\subset[0,1]^2$, one can select parameters $\phi^*=(\theta^*,\sigma^*,n,P)$, where $\theta^*$ aligns the polygon with the grid and $\sigma^*$ approaches one, such that Equation~\ref{eq:perimeter-bound} holds. The proof strategy is to choose a target density concentrated near $P$, rotate it to reduce grid-crossing inefficiency, and allocate curve time so that entries and exits are controlled by the boundary length rather than by a generic traversal. \hyperref[sec:si-worst-case]{SI~S6} gives the full proof sketch.
+
+\subsection{Average-Case Contiguity}
+The worst-case bound must tolerate needle-like and adversarial polygons. In typical data, the expected behavior is stronger: for sufficiently high $\sigma$, a cluster should usually occupy one contiguous range. The intuition is an error budget. As $\sigma\to1$, almost all curve length is concentrated in a thin tube around the target region. A cluster number greater than one requires an in-out-in transition built from the small fraction of curve length outside that tube. The probability of such a transition becomes a high-order function of the off-target mass, and therefore becomes small as the off-target mass approaches zero. \hyperref[sec:si-c-one]{SI~S7} records the full argument and its assumptions.
+
+\subsection{High-Dimensional Interpretation}
+The geometric advantage of boundary alignment is strongest in low dimensions. A heuristic $d/(d-1)$ improvement factor is large in 2D but approaches one as $d$ grows: approximately $2\times$ for $d=2$, $1.11\times$ for $d=10$, and $1.03\times$ for $d=32$. The high-dimensional value proposition is therefore not primarily a geometric constant-factor improvement over Hilbert. It is semantic optimization. The ensemble metric uses learned clusters to define which differences matter for a query, and the cascade makes that metric operational in low-dimensional projections. \hyperref[sec:si-dimensions]{SI~S8} gives the dimension-independent continuity and surjectivity argument.
 
 \section{Feasibility Study: Indexing Wikipedia}
-[Inline the detailed feasibility calculation and conclusions.]
+\label{sec:wikipedia}
+\sectionsubtitle{A first-principles sizing estimate}
+
+The Wikipedia scenario is a preliminary feasibility estimate, not an empirical result. Start with 7.5B tokens embedded into 768D float16 vectors. The raw vector store would be
+\[
+7.5\times10^9 \cdot 768 \cdot 2\ \mathrm{bytes} \approx 11.52\ \mathrm{TB}.
+\]
+The proposed index relies on quantization and semantic repetition: after projection and 8-bit quantization, many contextual vectors map to the same effective point. Assuming a conservative effective vocabulary of $M_{\mathrm{eff}}=500$M unique quantized points, the information-theoretic leaf cost is
+\[
+M_{\mathrm{eff}}\log_2 M_{\mathrm{eff}}\approx 500\mathrm{M}\cdot 29\ \mathrm{bits}\approx 1.81\ \mathrm{GB}.
+\]
+Using a conservative $1.5\times$ adaptive-tree overhead gives roughly 2.72GB per tier. Three tiers then require about 8.16GB, or comfortably under 10GB.
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Component} & \textbf{Assumption} & \textbf{Estimated size}\\
+\midrule
+Raw 768D float16 vectors & 7.5B tokens & 11.52TB\\
+Effective quantized leaf data & 500M points, 29 bits each & 1.81GB\\
+Single $\rho$-index tier & $1.5\times$ overhead & 2.72GB\\
+Three-tier cascade & 8D, 16D, 32D & 8.16GB\\
+\bottomrule
+\end{tabular}
+\caption{Back-of-the-envelope Wikipedia index sizing. The full derivation and caveats are in \hyperref[sec:si-wikipedia]{SI~S9}.}
+\label{tab:wikipedia-size}
+\end{table}
+
+The hierarchical key changes compressibility through its fuzziness depth $d_f$. Sharp keys ($d_f=0$) should compress better because many prefixes are shared. The recommended default ($d_f=1$) should remain close to the estimate above because entropy is localized near cluster boundaries. Larger $d_f$ values increase key entropy and should be treated as a fidelity/build-cost knob rather than a default.
 
 \section{Conclusion}
-The Ensemble $\Omega$-SFC framework, when combined with a modern system architecture, provides a principled and practical way to create adaptive, high-performance indexes. The framework is flexible, supporting two primary keying strategies. The first, a \textbf{Global Average Metric}, ensures broad compatibility with existing B-Tree-based systems. The second, a more advanced \textbf{Hierarchical Composite Key}, offers state-of-the-art performance and fidelity for bespoke systems by leveraging cluster centroids and fuzzy membership scores to create a robust, data-driven key structure that is a perfect match for modern succinct data structures like Wavelet Trees. This tunable, hierarchical approach represents a new frontier in building indexes that are deeply aware of a dataset's intrinsic semantic structure.
+\label{sec:conclusion}
+The Ensemble $\rho$-SFC framework, when combined with a modern system architecture, provides a principled and practical way to create adaptive, high-performance indexes. The framework is flexible, supporting two primary keying strategies. The first, a \textbf{Global Average Metric}, ensures broad compatibility with existing B-tree-based systems. The second, a more advanced \textbf{Hierarchical Composite Key}, offers state-of-the-art performance and fidelity for bespoke systems by leveraging cluster centroids and fuzzy membership scores to create a robust, data-driven key structure that is a strong match for modern succinct data structures such as wavelet trees. This tunable, hierarchical approach represents a new frontier in building indexes that are deeply aware of a dataset's intrinsic semantic structure.
 
-\bibliographystyle{ACM-Reference-Format}
+\subsection*{Provisional Performance Claim}
+\label{sec:provisional-claim}
+The following claim is \emph{provisional} and conditional on a working Proteus pipeline plus a successful proof-of-concept implementation; it is recorded here to make the architectural prediction explicit before empirical validation. The intent is that the proof-of-concept measure raw $k$-NN latency, hybrid filtered-query latency, structural-update behavior, and memory footprint relative to tuned HNSW and IVF-PQ baselines at the same recall and dimensionality.
+
+\paragraph{B-tree backend (Global Average Metric).}
+With $\kappaf$ deployed as a scalar 1D key in a B-tree-class index, raw $k$-NN latency is expected to be within a small constant factor of a well-tuned HNSW baseline at matched recall. The structural wins are memory footprint (recipe trees are expected to be $5{-}20\times$ smaller than product-quantized HNSW graph data, and substantially smaller than uncompressed HNSW), $O(\log n)$ insertions without graph-quality drift, and compatibility with existing relational tooling.
+
+\paragraph{Wavelet-tree backend (Hierarchical Composite Key).}
+With composite keys stored in a wavelet tree over a hierarchy-bounded alphabet $\Sigma$, the structural-seek cost of a $k$-NN query becomes $O(\log|\Sigma|)$ cache-friendly rank/select operations rather than $O(\log n)$ random B-tree pointer chases or $O(M\cdot L)$ random HNSW graph hops. The provisional prediction is that on billion-scale workloads the structural-seek portion runs roughly an order of magnitude faster than HNSW on raw $k$-NN, with the gap widening as $n$ grows because HNSW becomes more random-walk-bound while the wavelet tree stays $O(\log|\Sigma|)$. On filtered, hierarchical, and analytical queries (rank, select, quantile over a semantic subtree), the same backend changes the asymptotic complexity class rather than just the constant, with order-of-magnitude or larger expected improvements at selective filter conditions.
+
+\paragraph{Risks and caveats.}
+The predictions above depend on six conditions, listed here in approximate order of risk. Empirical validation of each is a central objective of the planned proof of concept.
+
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Proteus stability at production cost (moderate--high risk).} The strongest claims (hierarchical composite keys, fuzzy membership interpolation, multiscale subtree queries) require a cluster hierarchy that is deep enough, stable under streaming ingestion, and equipped with reliable fuzzy memberships. Proteus is designed to deliver these, but its own convergence results are conditional in places (streaming/editing convergence depends on standard stochastic-approximation regularity and operational edit budgets). A simpler upstream algorithm such as hierarchical $k$-means or HDBSCAN can supply a usable hierarchy as a fallback, but it would reduce the richness of the keys and weaken the filtered-query advantage.
+
+    \item \textbf{Pareto fairness against IVF-PQ (moderate risk).} Most of the memory and latency comparisons above use HNSW as the baseline. IVF-PQ is the closest existing system on the memory axis. On raw $k$-NN at matched memory budget, IVF-PQ is a stronger competitor than HNSW, and the $\rho$-SFC advantage on pure $k$-NN against IVF-PQ may be inside the implementation-maturity factor for a first version. The honest differentiation against IVF-PQ leans on hybrid queries, structural updates, the absence of quantizer retraining, and the wavelet-tree analytical primitives rather than on raw seek latency alone.
+
+    \item \textbf{Dynamic wavelet-tree update constants (moderate risk).} Static wavelet trees are very fast at rank/select. Dynamic variants that support insertions have meaningfully higher per-operation constants. The ``$O(\log n)$ inserts with no drift'' claim is asymptotically correct, but high-throughput ingestion workloads will likely require the usual mitigation: mostly-static segments with periodic batch merges or LSM-style layering of wavelet trees. This introduces compaction overhead that has not been analyzed in this paper.
+
+    \item \textbf{Cascade projection quality (low--moderate risk).} The cascade projection family is not limited to PCA. PCA is the simplest baseline, but the framework runs on top of Proteus output that already exposes per-region local intrinsic dimension, dominant residual directions, simplex tangent frames, and (where present) explicit non-linear warps. A Proteus-informed projection family that splices these per-region frames is the natural upgrade and should track local manifold geometry better than a single global PCA whenever the embedding's signal is not concentrated in a single linear subspace. The residual risk is workload-specific: embedding families whose useful signal lives above the chosen tier dimension will see degraded recall and a wider rerank set.
+
+    \item \textbf{Hierarchy maintenance under distribution shift (low--moderate risk).} If the embedding distribution drifts over months, the Proteus hierarchy will need to adapt. Recipe trees are tied to specific cluster supports, so a cluster split or merge upstream forces a rebuild of the corresponding recipe trees. The ``no rebuild'' advantage is relative to insertions whose hierarchy assignment is stable. If the hierarchy itself shifts, partial rebuilds are necessary. This cost is expected to be smaller than HNSW's periodic full rebuilds, but it is not zero.
+
+    \item \textbf{Small alphabet per key position (low risk).} Each composite-key position encodes a $(\text{child-index},\,\text{SFC-value})$ pair where the child-index ranges over a single parent's children and the SFC-value ranges over the per-level quantized resolution, so $|\Sigma|$ at each position is bounded by branching factor times per-level resolution and is independent of $n$. Pathological hierarchies that collapse to a single level would erode this bound, but Proteus's evidence-gated growth and bounded branching produce hierarchies that satisfy it by construction.
+\end{enumerate}
+
+\section*{Appendix: Notation}
+\begin{itemize}[leftmargin=1.5em]
+    \item $\phi=(\theta,\sigma,n,P)$: expert-curve parameter tuple.
+    \item $\sigma\in[0,1)$: closure or mixture parameter controlling target-density influence.
+    \item $\rhophi$: density used to generate an expert $\rho$-curve.
+    \item $U(z)$ and $G_i(z)$: uniform baseline density and cluster-specific target density.
+    \item $\kappaf$: weighted global metric synthesized from the expert ensemble.
+    \item $c(f,P)$: cluster number, the number of contiguous 1D intervals needed to cover $P$.
+    \item $d_f$: fuzziness depth for hierarchical composite keys.
+    \item $\mu(P,L)$: fuzzy membership of point $P$ in child cluster $L$.
+    \item $w_i$: weight assigned to expert curve $f_i$ in the global metric.
+\end{itemize}
+
+\bibliographystyle{plain}
 \bibliography{references}
 
 \end{document}

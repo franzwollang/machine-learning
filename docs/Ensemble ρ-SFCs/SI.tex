@@ -1,0 +1,400 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts,mathtools}
+\usepackage{bm}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{hyperref}
+
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+
+\newcommand{\kappaf}{\kappa_{\mathcal F}}
+\newcommand{\rhophi}{\rho_{\phi}}
+\newcommand{\unitd}{[0,1]^d}
+
+\title{Supplementary Information for\\ Ensemble $\rho$-SFCs: A Framework for Manifold-Aware, High-Dimensional Indexing}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{S0. Notation and Pipeline Contract}
+\label{sec:si-notation}
+
+\subsection*{S0.1 Global Notation}
+The table below summarizes the recurring symbols used across the paper and SI.
+\[
+\begin{array}{lll}
+\textbf{Symbol} & \textbf{Meaning} & \textbf{Owner}\\
+\hline
+x,z & \text{point in the indexed domain} & \text{S0,S1}\\
+d & \text{working dimension of one index tier} & \text{S0,S4}\\
+P,R & \text{target region in 2D or }d\text{ dimensions} & \text{S1,S6,S8}\\
+\phi=(\theta,\sigma,n,P) & \text{expert-curve parameter tuple} & \text{S1}\\
+\sigma & \text{closure or mixture parameter} & \text{S1}\\
+U,G_i,\rho_\phi & \text{uniform, target, and mixed densities} & \text{S1}\\
+f_i,\mathcal F & \text{expert curve and ensemble of curves} & \text{S2}\\
+w_i,\kappaf & \text{expert weight and global metric} & \text{S2}\\
+c(f,P) & \text{cluster number} & \text{S6}\\
+T & \text{recipe tree} & \text{S3}\\
+d_f & \text{hierarchical-key fuzziness depth} & \text{S5}\\
+\mu(P,L) & \text{membership of point }P\text{ in child }L & \text{S5}\\
+M_{\mathrm{eff}} & \text{effective vocabulary after quantization} & \text{S9}
+\end{array}
+\]
+
+\subsection*{S0.2 Pipeline Contract}
+The Ensemble $\rho$-SFC framework is the final indexing stage in a larger data-processing pipeline.
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{High-dimensional clustering.} An upstream process discovers a hierarchy of semantically meaningful regions. Proteus is the intended companion mechanism, but the indexing framework can consume clusters from other sources when they provide centroids, covariance summaries, memberships, and hierarchy metadata.
+    \item \textbf{Target density definition.} Each cluster becomes a target density. Low-dimensional geometric clusters can use convex hulls or boundary-concentrated densities. High-dimensional semantic clusters usually use statistical summaries such as a centroid and covariance matrix.
+    \item \textbf{$\rho$-index build.} Each target density produces a compact recipe tree. Query-time synthesis combines expert trees into scalar keys or hierarchical composite keys.
+\end{enumerate}
+This contract keeps the paper's scope clear: the framework indexes known or learned structure; it does not itself claim to discover the clustering hierarchy.
+
+\section*{S1. Density Functions and Targets}
+\label{sec:si-density}
+
+\subsection*{S1.1 Mixture Definition}
+For an expert curve $f_i$, the target density is
+\[
+\rho_{\phi_i}(z)=(1-\sigma_i)U(z)+\sigma_iG_i(z),
+\qquad \sigma_i\in[0,1).
+\]
+The uniform component $U$ is always present. It ensures every open subset receives nonzero mass, which is the operational condition that keeps the finite-resolution inverse key defined across the full domain. The target component $G_i$ encodes the cluster geometry or statistics.
+
+The parameter $\sigma_i$ has two roles. At $\sigma_i=0$, the density is exactly uniform and the generation rule returns the canonical Hilbert traversal. As $\sigma_i$ approaches one, the target component dominates and the curve concentrates more traversal resolution around the cluster. The strict upper bound $\sigma_i<1$ preserves the uniform background and prevents the expert curve from degenerating into a curve that ignores off-cluster regions.
+
+\subsection*{S1.2 Low-Dimensional Geometric Targets}
+For 2D or 3D spatial data, a cluster often represents an object with an explicit geometric shape: a building footprint, a region boundary, a parcel, or a physical component. In those cases $G_i$ may be concentrated near the convex hull or boundary of the region. This is the setting used in the perimeter-bound analysis of S6.
+
+The rotation parameter $\theta_i$ is part of the curve parameterization because grid crossings depend on orientation. Choosing $\theta_i$ to align the region with the grid reduces boundary-crossing inefficiency before the recursive density allocation is applied.
+
+\subsection*{S1.3 High-Dimensional Statistical Targets}
+For abstract embeddings, exact convex hulls are usually infeasible and often less meaningful than distributional summaries. The default target density for cluster $i$ is therefore a multivariate Gaussian summary,
+\[
+G_i(z)=\mathcal N(z;\mu_i,\Sigma_i),
+\]
+where $\mu_i$ is the cluster centroid and $\Sigma_i$ is the covariance matrix, possibly regularized or low-rank in practice. This captures center, spread, and orientation without requiring expensive high-dimensional computational geometry.
+
+When the upstream clustering method exports fuzzy memberships, those memberships are not part of $G_i$ itself. They are consumed later by the hierarchical composite key in S5. This separation prevents the density target and the key interpolation rule from encoding the same uncertainty twice.
+
+\subsection*{S1.4 Stencil Family for Density Allocation}
+\label{sec:si-stencils}
+The mathematical definition of $\rhophi$ does not commit to a particular recursive branching scheme. The operational generator does. We fix a small family of stencils and require each index tier to commit to one. Let $d$ be the tier dimension, $b$ a block size with $1\leq b\leq d$, and let $\pi:\{1,\dots,d\}\to\{1,\dots,d\}$ be a fixed coordinate ordering.
+
+\paragraph{Orthant stencil.}
+The orthant stencil refines a cell into all $2^d$ orthants in one step and stores ratios for all of them. This recovers the textbook $2^d$-tree generator and, at $\sigma=0$, the canonical $d$-dimensional Hilbert curve under the standard sibling order. Fanout $B=2^d$, depth $n$ to reach axis resolution $2^n$. Use only for $d$ small enough that $B$ is comfortable in cache (typically $d\leq 8$).
+
+\paragraph{Blockwise stencil with block size $b$.}
+Partition $\{1,\dots,d\}$ into $\lceil d/b\rceil$ blocks $B_1,B_2,\dots$ according to $\pi$. A node at depth $j$ refines the active block $B_{(j\bmod \lceil d/b\rceil)+1}$ using a $2^{|B_k|}$-orthant Hilbert step; coordinates outside the active block are unchanged at that level. Fanout $B=2^b$, depth to reach axis resolution $2^n$ is $n\cdot\lceil d/b\rceil$. At $\sigma=0$ this recovers a blockwise Hilbert product, which is the tier-local canonical curve $H_{\mathrm{tier}}$ for the chosen $b$ and ordering $\pi$.
+
+\paragraph{Sparse stencil with uniform remainder.}
+At each node, select a subset $S\subseteq\{1,\dots,2^d\}$ of active children with $|S|\leq B_{\max}$. Compute integrated target masses for those children; lump the complement under one uniform-remainder branch whose mass equals the residual target plus the full uniform-baseline mass of those orthants. At $\sigma=0$, the remainder mass is exactly uniform, so the stencil reduces to the canonical blockwise or orthant baseline that the implementation uses to traverse off-stencil children. The sparse stencil is therefore an approximation: the recipe tree encodes a truncated density $\hat\rhophi$ that agrees with $\rhophi$ on $S$ and is uniform on $S^c$. The pointwise error is bounded by the off-stencil target mass, which is small whenever the target is well-concentrated.
+
+The tier-local canonical curve is denoted $H_{\mathrm{tier}}$ in the rest of the SI. The classical Hilbert curve is the special case where the tier uses the orthant stencil.
+
+\section*{S2. Global Metric Properties}
+\label{sec:si-global-metric}
+
+Let $\mathcal F=\{f_i\}_{i=1}^N$ be an ensemble of finite-resolution expert curves and let $\sum_iw_i=1$. The operational inverse key for expert $i$ is denoted $K_i(x)=f_i^{-1}(x)$, with ties resolved by the implementation's fixed cell-order convention. The global key is
+\[
+\kappaf(x)=\sum_{i=1}^N w_iK_i(x).
+\]
+
+\subsection*{S2.1 Finite-Resolution Continuity Convention}
+At finite depth $n$, each $K_i$ is a key over cells of side length $2^{-n}$. The implementation uses the cell containing $x$ and returns the associated time interval midpoint or interval coordinate. Under this finite-resolution convention, the key is stable under perturbations that do not cross a cell boundary, and boundary behavior is controlled by the common tie-breaking rule. As $n$ increases, the key becomes the limiting inverse-coordinate representation used by the index.
+
+This is the object meant by the global metric in the system architecture. A topological inverse of a continuous space-filling curve from $[0,1]$ to $[0,1]^d$ is not the operational object used by the index. The index uses finite-depth inverse keys and their limiting refinements.
+
+\subsection*{S2.2 Tier-Local Canonical Curve Base-Case Limit}
+Let the tier commit to a stencil from S1.4 with tier-local canonical curve $H_{\mathrm{tier}}$. Assume each expert generator in the tier satisfies
+\[
+\lim_{\sigma_i\to0} K_i(x)=H_{\mathrm{tier}}^{-1}(x)
+\]
+for every point $x$ outside implementation tie boundaries, where $H_{\mathrm{tier}}^{-1}$ is the inverse key of the tier-local canonical curve at the corresponding resolution. Then
+\[
+\lim_{\forall i,\sigma_i\to0}\kappaf(x)
+=\lim_{\forall i,\sigma_i\to0}\sum_{i=1}^Nw_iK_i(x)
+=\sum_{i=1}^Nw_iH_{\mathrm{tier}}^{-1}(x)
+=H_{\mathrm{tier}}^{-1}(x).
+\]
+Thus the ensemble smoothly reduces to the tier-local canonical ordering when every expert is returned to the uniform-density case. With the orthant stencil this is the classical Hilbert key.
+
+\subsection*{S2.3 Weighted Consensus Interpretation}
+The scalar key $\kappaf$ is best understood as a consensus coordinate rather than a replacement for exact high-dimensional distance. Query-time weights can emphasize one cluster family, de-emphasize another, or revert toward the canonical baseline. Because expert lookups are independent, the consensus can be evaluated in parallel and adjusted without rebuilding the recipe trees.
+
+\section*{S3. Recipe Tree Storage Layout}
+\label{sec:si-recipe-tree}
+
+\subsection*{S3.1 Node Format}
+Each expert curve stores a recipe tree $T$ in level-order layout. The important implementation invariant is bounded local branching. A literal $2^d$ fanout is acceptable only for very small $d$; at $d=32$ it would require more than four billion child ratios at one warped node and is not the intended data structure. Instead, each node owns a local branching stencil of size $B$, commonly $B=2^b$ for a small block dimension $b\leq 8$, or a sparse set of active children plus a uniform remainder. A node begins with a tag byte:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textsc{WarpedTag}: the node stores $B$ floating-point ratios for its local branching stencil. The ratios sum to one and partition the current 1D time interval among those branches.
+    \item \textsc{UniformTag}: the node and all descendants are uniform. No ratio payload is stored, and lookup switches to the canonical fast path for the tier, such as a Hilbert key or blockwise Hilbert product.
+\end{itemize}
+
+\subsection*{S3.2 Build Protocol}
+The build protocol recursively integrates the target density over the node's bounded local branching stencil. If the branch masses are all within a uniformity tolerance of $1/B$, the node is emitted as \textsc{UniformTag}. Otherwise, the normalized branch masses are emitted as ratios under \textsc{WarpedTag}, and the build recurses into branches whose density remains nonuniform or whose target error exceeds tolerance.
+
+\begin{algorithm}[t]
+\caption{\textsc{BuildRecipeTree}: density-ratio recipe construction}
+\label{alg:si-build-recipe-tree}
+\begin{algorithmic}[1]
+\Procedure{BuildRecipeTree}{$cell,depth,n,\rho_\phi,stencil$}
+    \If{$depth=n$}
+        \State \Return leaf marker
+    \EndIf
+    \State Generate the bounded branch cells specified by $stencil(cell,depth)$
+    \For{each branch $q$}
+        \State $mass[q]\gets \int_{branch(q)}\rho_\phi(z)\,dz$
+    \EndFor
+    \State $ratios\gets mass/\sum_qmass[q]$
+    \If{$ratios$ are uniform within tolerance}
+        \State Emit \textsc{UniformTag}
+    \Else
+        \State Emit \textsc{WarpedTag} and $ratios$
+        \For{each branch $q$}
+            \State \Call{BuildRecipeTree}{$branch(q),depth+1,n,\rho_\phi,stencil$}
+        \EndFor
+    \EndIf
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection*{S3.3 Query Protocol}
+The query protocol maintains a current 1D interval. At a warped node, it determines which child cell contains the point, adds the ratio mass of earlier children to the time coordinate, scales the interval by the selected child ratio, and descends. At a uniform node, it computes the remaining Hilbert suffix by the integer fast path and returns immediately.
+
+\begin{algorithm}[t]
+\caption{\textsc{QueryRecipeTree}: full lookup protocol}
+\label{alg:si-query-recipe-tree}
+\begin{algorithmic}[1]
+\Procedure{QueryRecipeTree}{$x,T,n$}
+    \State $time\gets0$; $interval\gets1$; $node\gets0$
+    \For{$depth\gets0$ \textbf{to} $n-1$}
+        \If{$T[node].tag=\textsc{UniformTag}$}
+            \State $suffix\gets \Call{HilbertSuffix}{x,depth,n,d}$
+            \State \Return $time+interval\cdot suffix$
+        \EndIf
+        \State $q\gets\Call{BranchIndex}{x,T[node],depth}$
+        \State $r\gets T[node].ratios$
+        \State $time\gets time+interval\sum_{j<q}r[j]$
+        \State $interval\gets interval\cdot r[q]$
+        \State $node\gets\Call{ChildIndex}{node,q}$
+    \EndFor
+    \State \Return $time$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection*{S3.4 Synthesis}
+Given $N$ recipe trees, synthesis evaluates all $N$ independent lookups and computes
+\[
+\kappaf(x)=\sum_{i=1}^Nw_i\,\Call{QueryRecipeTree}{x,T_i,n}.
+\]
+Only the weights need change for most query-time metric adjustments. If an expert's density target changes, only that expert's recipe tree needs to be rebuilt.
+
+\subsection*{S3.5 Stencil Invariants and Consequences}
+\label{sec:si-stencil-invariants}
+Choosing a stencil from S1.4 is operational, but it carries four invariants that the rest of the framework depends on.
+
+\paragraph{Shared stencil per tier.}
+$\kappaf$ is the weighted sum of inverse keys $K_i(x)$. These keys are only comparable when they index space along the same recursive partition with the same sibling ordering. The tier's index schema must therefore fix $(b,\pi,\text{sparse-stencil parameters})$ once at build time. All expert curves in that tier are built and queried against that schema.
+
+\paragraph{Redefined base case.}
+The $\sigma=0$ limit produces the tier-local canonical curve $H_{\mathrm{tier}}$, not necessarily the classical orthant Hilbert curve. The uniform fast path therefore evaluates the canonical key for the chosen stencil. With the orthant stencil this is the standard Hilbert key; with a blockwise stencil it is the blockwise Hilbert product. The proofs of S2 are stated in this generalized form.
+
+\paragraph{Sparse-stencil approximation.}
+A sparse stencil with uniform remainder encodes a truncated density $\hat\rhophi$, equal to $\rhophi$ on the active set $S$ and uniform on $S^c$. The pointwise error is bounded by the off-stencil target mass. The Hilbert-limit property is unaffected because $\rhophi=U$ on $S^c$ at $\sigma=0$. The worst-case and average-case cluster bounds remain valid if $\rhophi$ is replaced by $\hat\rhophi$; bound constants depend on the truncation budget.
+
+\paragraph{Depth multiplier and uniformity granularity.}
+With block size $b$ a query visits $n\cdot\lceil d/b\rceil$ levels to reach axis resolution $2^n$, so per-curve cost is $O(n\cdot\lceil d/b\rceil)$. Uniformity detection at a warped node tests $B$ block-marginal ratios against $1/B$. A node can therefore be marked \textsc{UniformTag} in the block-marginal sense even when joint density across blocks is not uniform; this is by design and gives the fast path additional opportunities to fire.
+
+\section*{S4. Hierarchical Cascade}
+\label{sec:si-cascade}
+
+\subsection*{S4.1 Setup}
+Choose target tier dimensions $d_1<d_2<\cdots<d_L$, such as $8,16,32$. For each tier $\ell$, fit a projection $P_\ell$ from the full representation to $\mathbb R^{d_\ell}$, choose a stencil from S1.4, and build a complete $\rho$-index on the projected data. The tier dimension is not the recipe-tree fanout dimension: a 32D tier is represented by bounded-arity or blockwise recipe nodes, not by a single $2^{32}$-child split. The projections are computational devices; final fidelity is recovered by reranking in the original space.
+
+\subsection*{S4.1.1 Tier Stencil Selection}
+The two relevant quantities for a tier of dimension $d_\ell$ with block size $b_\ell$ are the per-node ratio table size $B_\ell=2^{b_\ell}$ and the depth multiplier $\lceil d_\ell/b_\ell\rceil$. Storage scales like $B_\ell$ per warped node; traversal cost scales like $\lceil d_\ell/b_\ell\rceil$. The heuristic default is:
+\begin{itemize}[leftmargin=1.5em]
+    \item $d_\ell\leq 8$: orthant stencil, $b_\ell=d_\ell$, $B_\ell=2^{d_\ell}\leq 256$, depth multiplier $1$.
+    \item $8<d_\ell\leq 32$: blockwise stencil, $b_\ell=8$, $B_\ell=256$, depth multiplier $\lceil d_\ell/8\rceil\in\{2,3,4\}$. At $b_\ell=8$ one warped node fits in roughly one cache line (256 floats $=$ 1KB), which keeps the fast path cache-resident.
+    \item $d_\ell>32$: $b_\ell\in\{4,5,6\}$, $B_\ell\in\{16,32,64\}$, depth multiplier $\lceil d_\ell/b_\ell\rceil$. Alternatively a sparse stencil whose active-set size is bounded by a tunable $B_{\max}$.
+\end{itemize}
+These are defaults, not theorems. Implementations should log $(b_\ell,\pi_\ell)$ and the empirical fast-path fire rate; if uniform regions dominate, raising $b_\ell$ trades storage for shorter traversals. The recommended values reflect the constraints $B_\ell\leq 256$ (fits in one cache line for float ratios), depth multiplier $\leq d_\ell/4$ (keeps query cost within roughly $4\times$ the orthant baseline at the same $n$), and a soft preference for $b_\ell\geq 4$ so that block-marginal uniformity remains informative.
+
+\subsection*{S4.2 Query Funnel}
+For a query point $q$, Tier 1 searches the broadest projected index and returns an expanded candidate set of size $k_1$. Later tiers rerank only the surviving candidates and keep $k_\ell$ items, typically with $k_1\gg k_2\gg k$. The final step retrieves full-fidelity vectors and returns the top $k$ under the desired exact distance.
+
+\begin{algorithm}[t]
+\caption{\textsc{CascadeQuery}: SI-level cascade specification}
+\label{alg:si-cascade-query}
+\begin{algorithmic}[1]
+\Procedure{CascadeQuery}{$q,k$}
+    \State $C_1\gets \Call{RhoIndexKNN}{I_1,P_1q,k_1}$
+    \For{$\ell\gets2$ \textbf{to} $L$}
+        \State Score each $c\in C_{\ell-1}$ by $\|P_\ell X_c-P_\ell q\|$
+        \State $C_\ell\gets$ top $k_\ell$ scored candidates
+    \EndFor
+    \State Score each $c\in C_L$ by full-fidelity distance $\|X_c-q\|$
+    \State \Return top $k$ candidates
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection*{S4.3 Candidate Sizing}
+Candidate sizes are workload-dependent. The paper's Wikipedia example uses an illustrative funnel: 7.5B items to about 1M, then about 10,000, then $k=200$, followed by exact reranking. These numbers are not guarantees; they are the operating targets that make the feasibility estimate concrete.
+
+\subsection*{S4.4 Cost of the High-Dimensional Tier}
+\label{sec:si-cascade-cost}
+Stencilling does not save memory or time relative to an orthant-Hilbert recipe tree at $d=32$, because that baseline is not realizable: one orthant warped node at $d=32$ would store $4\cdot 2^{32}\approx 17\,\mathrm{GB}$ of ratios. The architectural value of the stencil family is that it allows the cascade to include a tier with $d>10$ at all. This subsection records the per-query budget that justifies including such a tier.
+
+\paragraph{Marginal value of a 32D tier.}
+Without a 32D tier, the cascade is $8\mathrm{D}\to16\mathrm{D}\to$ rerank, and roughly $10^4$ candidates reach the exact-distance stage. With a 32D tier, the cascade is $8\mathrm{D}\to16\mathrm{D}\to32\mathrm{D}\to$ rerank, and roughly $k=200$ candidates reach exact distance. The saving is approximately $10^4-200\approx 9{,}800$ exact distance evaluations per query.
+
+\paragraph{Cost of an exact 768D distance.}
+A 768D float16 distance is about $1{,}500$ floating-point operations. With SIMD, throughput is typically $1{-}2\,\mu\mathrm{s}$ per pair. Rerank of $10^4$ candidates therefore costs about $10{-}20\,\mathrm{ms}$ per query; rerank of $200$ candidates costs about $0.2{-}0.4\,\mathrm{ms}$. The added tier saves $\sim 10\,\mathrm{ms}$ per query at the rerank stage.
+
+\paragraph{Cost of a 32D recipe-tree query with $b=8$.}
+At axis precision $n=8$ bits and block size $b=8$, one expert curve visits at most $n\cdot\lceil d/b\rceil=8\cdot 4=32$ bounded-arity nodes per query. Each uniform-tag node is a one-byte read; each warped node scans a 1\,KB ratio table. Worst-case memory traffic per expert is $\sim 32\,\mathrm{KB}$, which fits in L2 cache and runs in $\sim 1{-}10\,\mu\mathrm{s}$. With the fast path dominating in regions far from the expert's target, the typical cost is much smaller.
+
+\paragraph{Ensemble cost.}
+For an ensemble of $N$ experts queried at the 32D tier, the per-query cost is $\sim N\cdot 1{-}10\,\mu\mathrm{s}$ serially, e.g.\ $\sim 0.1{-}1\,\mathrm{ms}$ at $N=100$. Independent expert lookups are embarrassingly parallel, so on a GPU or with SIMD batching the wall-clock cost is closer to $1{-}10\,\mu\mathrm{s}$ even at large $N$.
+
+\paragraph{Budget summary.}
+The 32D tier saves on the order of $10\,\mathrm{ms}$ per query in rerank work and costs on the order of $0.01{-}1\,\mathrm{ms}$ per query in recipe-tree traversal, a one- to three-order-of-magnitude net win. The block-size knob $b$ controls how this cost trades against per-node ratio storage: $b=8$ keeps each warped node within a single cache line, $b=4$ reduces per-node storage by $16\times$ at the cost of doubling traversal depth. The point is that this entire budget exists only because stencilling makes the 32D tier representable in the first place.
+
+\section*{S5. Hierarchical Composite Key Derivation}
+\label{sec:si-composite-key}
+
+\subsection*{S5.1 Why Values Need Namespaces}
+A composite key cannot be a simple concatenation of SFC values. A value from an animal-cluster curve is not directly comparable to a value from a plant-cluster curve unless the key says which cluster supplied the value. The atomic component is therefore a pair: a child identifier and a value.
+
+A fixed global cluster identifier would solve comparability but would not encode hierarchy. The preferred identifier is a variable-length path: at each level, store the child index within its parent. This makes the key self-describing and makes subtree queries natural.
+
+\subsection*{S5.2 Centroid Prefix}
+At parent cluster $C$, child clusters should be ordered by a property of the child as a whole, not by arbitrary individual points. The stable anchor is the child centroid. A sharp prefix for a point $P$ in child $L$ therefore uses
+\[
+f_C^{-1}(\mathrm{centroid}(L)).
+\]
+This creates robust blocks but also creates hard boundaries between siblings.
+
+\subsection*{S5.3 Membership-Weighted Fuzzy Value}
+To soften those boundaries, the value component for a configurable number of upper levels is
+\[
+\mathrm{FuzzyVal}_C(P)=
+\mu(P,L)f_C^{-1}(\mathrm{centroid}(L))
+\;+\;
+\bigl(1-\mu(P,L)\bigr)f_C^{-1}(P).
+\]
+Core points with $\mu(P,L)\approx1$ remain dominated by the centroid and keep the cluster block stable. Boundary or outlier points with smaller memberships are allowed to move toward their own geometric location.
+
+\subsection*{S5.4 Fuzziness Depth}
+The fuzziness depth $d_f$ controls how many levels above the leaf use the fuzzy value. At $d_f=0$, keys are sharp and highly compressible. At $d_f=1$, the most common boundary problem is addressed with one extra SFC traversal per point during build. Higher $d_f$ values increase fidelity but also increase key entropy and build cost.
+
+\section*{S6. Worst-Case Clustering Bound}
+\label{sec:si-worst-case}
+
+\subsection*{S6.1 Statement}
+For every convex polygon $P\subset[0,1]^2$ with perimeter $p$, there exists a parameter setting $\phi^*=(\theta^*,\sigma^*,n,P)$ such that
+\[
+c(f^{(\phi^*)},P)\leq 2+\left\lceil\frac{p\,2^n}{8}\right\rceil.
+\]
+
+\subsection*{S6.2 Proof Sketch}
+The parameter choice is constructive at the level of the density target.
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Target selection.} Set the target region to $P$ itself and choose $\theta^*$ to align the polygon with the grid in the orientation that minimizes avoidable boundary crossings.
+    \item \textbf{Closure.} Choose $\sigma^*=1-\epsilon$ for small $\epsilon>0$. The target density then concentrates the curve in a narrow band around the polygon while retaining a uniform background.
+    \item \textbf{Boundary crossing count.} For a fixed depth $n$, the grid has cell width $2^{-n}$. A traversal that is attracted to the boundary of $P$ can align its entries and exits with the boundary band. The number of such crossings is controlled by the perimeter measured in grid units.
+    \item \textbf{Constant-factor improvement.} Relative to a generic Hilbert traversal, the target density removes the main orientation mismatch. The resulting bound replaces the generic perimeter constant with the improved $1/8$ factor, plus the two endpoint intervals that cover entrance and exit effects.
+\end{enumerate}
+This is a worst-case geometric bound. It does not claim that typical clusters require this many intervals; S7 gives the average-case contiguity argument.
+
+\section*{S7. Probabilistic Argument for $c=1$}
+\label{sec:si-c-one}
+
+The deterministic bound in S6 must hold for adversarial or highly elongated polygons. For typical clusters, the expected cluster number should often be one.
+
+\paragraph{Error budget.}
+As $\sigma\to1$, the density forces most traversal mass into a tube $T$ around the target region. Let $\epsilon$ be the fraction of curve length allowed outside this tube. By choosing $\sigma$ close enough to one, $\epsilon$ can be made small while preserving the uniform background.
+
+\paragraph{Cause of non-contiguity.}
+A cluster number greater than one requires an in-out-in event: the curve enters the cluster, leaves it, and re-enters later. Such an event must be supported by off-tube segments, because the dominant in-tube path is aligned with the target.
+
+\paragraph{Probability heuristic.}
+Let the total curve length be $L$. The off-tube length is $\epsilon L$, while the target-aligned length is $(1-\epsilon)L$. For the small off-tube path to sever the contiguity of the dominant path, several unlikely placements must coincide. The probability of a segment being off-tube is proportional to $\epsilon$, and the probability of a sequence that creates an in-out-in split is a higher-order function of $\epsilon$. Thus, for any confidence level $1-\alpha$, the model expects a sufficiently high $\sigma<1$ to make $\Pr[c>1]<\alpha$ under non-adversarial generation assumptions.
+
+\section*{S8. Generalization to $d$ Dimensions}
+\label{sec:si-dimensions}
+
+\subsection*{S8.1 Recursive Domain}
+At the theoretical level, the generation process can be described as extending from quadtrees to $2^d$-trees over $\unitd$, where the density mass in each child hypercube determines the time-interval split. This is a mathematical existence model, not the high-dimensional storage layout. Operational high-dimensional tiers approximate the same density allocation with bounded-arity blockwise, binary, or sparse stencils. The strict positivity of $\rho_\phi$ for $\sigma<1$ gives every open set nonzero allocation at every finite resolution under either description.
+
+\subsection*{S8.2 Surjectivity and Continuity}
+At the continuous idealization level, the recursive construction has dense image in $\unitd$ because every open cell receives nonzero time allocation. The image of a continuous map from compact $[0,1]$ is compact. In the Hausdorff domain $\unitd$, a compact dense subset is the full space, so the idealized curve is surjective. Continuity follows from the recursive connection rule that joins neighboring child traversals without jumps.
+
+\subsection*{S8.3 Clustering Bound Intuition}
+In $d$ dimensions, the boundary term controlling cluster fragmentation is the $(d-1)$-dimensional surface area $A(\partial R)$. A density concentrated near $\partial R$ aligns the traversal with that boundary and should therefore improve the constant in a surface-area-proportional bound. The exact constant is not derived here; the important point is that the same boundary-alignment principle carries over while its relative geometric advantage shrinks as dimension grows.
+
+The constant in such a bound also depends on the chosen stencil from S1.4. The idealized orthant model gives the strongest geometric advantage, while blockwise and sparse stencils introduce additional grid-aligned crossings between blocks and pay a stencil-dependent constant. The qualitative claim, that boundary-aligned density yields a surface-area-proportional cluster count with a better constant than a generic curve at the same stencil, survives in all variants.
+
+\section*{S9. Wikipedia Feasibility Derivation}
+\label{sec:si-wikipedia}
+
+\textbf{Status.} This section is a preliminary theoretical analysis intended to establish plausible feasibility for a large-scale scenario. The empirical study and implementation have not yet been performed.
+
+\subsection*{S9.1 Baseline Parameters}
+\begin{itemize}[leftmargin=1.5em]
+    \item Dataset: English Wikipedia text corpus.
+    \item Total tokens: $M=7.5$B.
+    \item Embedding model: 768D vectors with float16 precision.
+    \item Raw vector size: $7.5\mathrm{B}\times768\times2$ bytes $=11.52$TB.
+\end{itemize}
+
+\subsection*{S9.2 Effective Vocabulary}
+Language embeddings are not uniformly random points. Token repetition, semantic clustering, projection to 32D, and 8-bit quantization cause many tokens to share quantized coordinates. The working assumption is an effective vocabulary
+\[
+M_{\mathrm{eff}}=500\mathrm{M}
+\]
+unique quantized points.
+
+\subsection*{S9.3 Leaf Information Bound}
+The minimum number of bits required to distinguish one of $M_{\mathrm{eff}}$ items is
+\[
+\log_2(500\times10^6)\approx29.
+\]
+Thus the leaf information content is
+\[
+500\mathrm{M}\times29\text{ bits}=14.5\times10^9\text{ bits}\approx1.81\text{GB}.
+\]
+
+\subsection*{S9.4 Tree Overhead and Tier Total}
+Assume the adaptive recipe-tree overhead is $1.5\times$ the leaf information size. A single tier is then
+\[
+1.81\text{GB}\times1.5=2.72\text{GB}.
+\]
+With three tiers, the full cascade estimate is
+\[
+3\times2.72\text{GB}=8.16\text{GB}.
+\]
+This is below 10GB and corresponds to about $0.07\%$ of the 11.52TB raw vector store.
+
+\subsection*{S9.5 Hierarchical-Key Caveat}
+The estimate above assumes a generic locality-preserving ordering. Hierarchical keys depend on $d_f$. Sharp keys ($d_f=0$) should compress strongly because prefixes repeat. The recommended $d_f=1$ should remain near the 8--10GB estimate. Larger $d_f$ values increase entropy and may increase index size, though the fixed recipe-tree cost remains the dominant term.
+
+\section*{S10. Relationship to Wavelet Trees}
+\label{sec:si-wavelet}
+
+The recipe-tree system and wavelet-tree backend have complementary roles. The Ensemble $\rho$-SFC framework is the semantic sorter: it maps high-dimensional points to 1D keys whose order reflects learned cluster structure. A wavelet tree is the compressed payload index: once items are sorted by semantic key, it supports rank, select, quantile, and range-style analytical queries over payload fields.
+
+The hierarchical composite key makes this relationship stronger. Because a parent cluster and its descendants occupy a contiguous key range, a wavelet-tree query can be restricted to a semantic subtree by targeting that key interval. For example, a system could ask for a quantile statistic over all items in a learned cluster and its descendants using the same compressed sequence operations used for global queries.
+
+\end{document}

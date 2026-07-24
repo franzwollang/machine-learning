@@ -1,0 +1,3 @@
+# Real-data cache directory (downloaded on demand, not committed)
+.data_cache/
+!.data_cache/.gitkeep

@@ -1,0 +1,63 @@
+---
+description: Proteus test conventions, markers, and reporting
+globs: code/proteus/tests/**/*.py
+alwaysApply: false
+---
+
+# Proteus Testing Conventions
+
+## Test markers
+
+Every test is automatically labeled by `tests/conftest.py` based on its directory and xfail target. Do not add markers manually unless adding a new category.
+
+Registered markers (defined in `code/proteus/pytest.ini`):
+
+| Marker | Meaning |
+|---|---|
+| `foundation` | Unit tests for low-level primitives (moments, ANN, nodes, rates, links, deferred, Oja, splits, pruning, stabilization, intrinsic dim) |
+| `property` | SI-formula invariant tests |
+| `reduction` | Theorem-reduction numerical checks |
+| `stage1` | Stage 1 scaffold, scale, and controller tests |
+| `stage2` | Stage 2 complex, torsion, dual-flow, and density tests |
+| `evidence` | Evidence gate, DM score, and star-matrix tests |
+| `inference` | Membership, sampling, and query-interface tests |
+| `diagnostics` | Junction detector, expressivity ledger, and boundary tests |
+| `scenario` | End-to-end scenario tests (synthetic or real) |
+| `synthetic` | Synthetic dataset scenarios |
+| `real_data` | Real-data scenarios requiring cached external datasets |
+| `benchmark` | Performance and memory benchmark tests |
+| `awaiting` | Test is expected to xfail until a named implementation module lands |
+
+## xfail convention
+
+Tests awaiting unimplemented modules use the `@awaiting` decorator from `tests.harness.markers`:
+
+```python
+from tests.harness.markers import awaiting
+
+@awaiting("stage1.controller", si="S2.5")
+def test_circle_scale_recovery():
+    pytest.fail("Not implemented")
+```
+
+When the module lands, remove the decorator and replace the body with real assertions.
+
+## Marker summary
+
+Every `pipenv run pytest` run ends with a marker-grouped summary table showing passed/xfailed/failed counts per marker. This is produced by `pytest_terminal_summary` in `tests/conftest.py`.
+
+## Running subsets
+
+```bash
+pipenv run pytest -m foundation        # only foundation tests
+pipenv run pytest -m "stage1 and not awaiting"  # only passing stage1 tests
+pipenv run pytest -m "not real_data"    # skip real-data tests (default)
+pipenv run pytest -m benchmark          # only benchmarks
+```
+
+## Reporting to user
+
+When reporting test results, always include:
+1. Total passed / xfailed / failed counts.
+2. The marker summary table from the end of the run.
+3. For any failures, the full test name, marker, and xfail reason if applicable.

@@ -1,0 +1,52 @@
+---
+description: Periodic checkpoint commits for agent-recoverable history
+alwaysApply: true
+---
+
+# Git Checkpoint Workflow
+
+This rule is the user's **standing authorization** to make periodic checkpoint commits
+without asking each time. Purpose: keep history granular enough that agents can diff
+against, check out, or revert to an earlier state if work paints itself into a corner —
+without committing on every turn.
+
+## When to checkpoint
+
+Commit when uncommitted changes exist AND any of these triggers fires:
+
+1. An `OPEN_ISSUES.md` issue is resolved or a `PLANNING.md` milestone item lands.
+2. The test suite returns to green after being red.
+3. You are about to start a **risky operation**: multi-file refactor, spec (SI/paper)
+   restructuring, scale-selection or clustering changes, dependency updates.
+4. Accumulated drift: ~8 working turns since the last commit (adjustable 3–15 per the
+   rule-governance rule).
+5. The session is ending with substantive uncommitted work.
+
+At most one checkpoint commit per turn. Do not commit mid-edit states that would not
+parse/import; finish the file first.
+
+## Message convention
+
+- `checkpoint: <one-line summary>` — coherent state, default suite green or unchanged.
+- `wip: <one-line summary>` — intentionally incomplete or red-test state (e.g. trigger 3
+  or 5 fired mid-task); say what is broken in the body.
+- Body (optional, brief): issues touched (`#27`), milestone (`M1`), test summary if it
+  changed.
+
+## What gets committed
+
+`git add -A` is fine: local working memory (`PLANNING.md`, `SCRATCHPAD.json`,
+`SCRATCHPAD_LOG.jsonl`) is already gitignored, and `OPEN_ISSUES.md` +
+`OPEN_ISSUES_LOG.jsonl` are meant to be tracked. Never commit credentials/secrets;
+never commit generated artifacts outside their sanctioned paths (`code/proteus/tests/`
+artifacts conventions).
+
+## Using and recovering from checkpoints
+
+- **Compare:** `git diff <sha> -- <path>`, `git show <sha>:<path>`, or a throwaway
+  worktree (`git worktree add /tmp/ckpt <sha>`) — never check out over a dirty tree.
+- **Undo:** prefer forward fixes; else `git revert <sha>` (history-preserving); else
+  branch from the last good checkpoint and continue there.
+- **PROTECTED (explicit user approval required):** `reset --hard`, `push --force`,
+  history rewriting (rebase/amend of existing commits), branch deletion, and any `push`
+  at all. Recovery must be additive, not destructive.

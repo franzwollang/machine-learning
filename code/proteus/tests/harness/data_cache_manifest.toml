@@ -1,0 +1,32 @@
+# Dataset manifest for the real-data cache harness.
+# Each entry specifies a URL, expected filename, SHA-256 checksum,
+# license, and citation.  Per-dataset loader modules read from here
+# rather than hard-coding URLs.
+
+[pbmc3k]
+url = "https://cf.10xgenomics.com/samples/cell-exp/1.1.0/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz"
+filename = "pbmc3k_filtered_gene_bc_matrices.tar.gz"
+sha256 = "PLACEHOLDER_CHECKSUM_UPDATE_AFTER_FIRST_DOWNLOAD"
+license = "CC0"
+citation = "10x Genomics (2016) PBMC 3k dataset"
+
+[coil20]
+url = "https://www.cs.columbia.edu/CAVE/databases/SLAM_coil-20_20obj_comp.tar.gz"
+filename = "coil-20.tar.gz"
+sha256 = "PLACEHOLDER_CHECKSUM_UPDATE_AFTER_FIRST_DOWNLOAD"
+license = "Research use"
+citation = "Nene, Nayar, Murase (1996) Columbia Object Image Library"
+
+[cmu_mocap]
+url = "http://mocap.cs.cmu.edu/subjects.php"
+filename = "cmu_mocap_subset.tar.gz"
+sha256 = "PLACEHOLDER_CHECKSUM_UPDATE_AFTER_FIRST_DOWNLOAD"
+license = "Research use (academic)"
+citation = "CMU Graphics Lab Motion Capture Database"
+
+[openface_ck_plus]
+url = "REQUIRES_MANUAL_EXTRACTION"
+filename = "openface_ck_plus_aus.npz"
+sha256 = "PLACEHOLDER_CHECKSUM_UPDATE_AFTER_FIRST_DOWNLOAD"
+license = "CK+ license required (Pitt/CMU)"
+citation = "Lucey et al. (2010) CK+; Baltrusaitis et al. (2018) OpenFace 2.0"

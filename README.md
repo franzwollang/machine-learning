@@ -38,7 +38,9 @@ But what are the intermediate layers responsible for this transport? They are th
 
 #### A note on residual connections
 
-Residual (skip) connections are invaluable for optimization stability and gradient flow, but they do not create hard modular boundaries or guarantee protected signal transport. They additively combine an identity path with a mixing path. Downstream blocks still receive a high-capacity mixture and remain free to remap, overwrite, or entangle the carried signal. In other words, skips tame the symptoms of deep training, like vanishing gradients, without changing the underlying coupling. There is no selective routing, no isolation contract, and no invariant that preserves specific features across depth. As a result, residualized stacks still face the same cross-scale interference problem. They are better behaved, but not modular. Fixing the root issue would require architectural mechanisms that explicitly preserve and compose information—such as protected channels or invertible transports—rather than relying on unconstrained mixing plus additive shortcuts.
+Residual (skip) connections are invaluable for optimization stability and gradient flow, but plain fixed-weight skips do not create hard modular boundaries or guarantee selective, contribution-preserving transport. They additively combine an identity path with a mixing path. Downstream blocks still receive a high-capacity mixture and remain free to remap, overwrite, or entangle the carried signal. In other words, skips tame the symptoms of deep training, like vanishing gradients, without changing the underlying coupling. There is no isolation contract, and in the vanilla design there is no selective routing or invariant that preserves specific features across depth. As a result, residualized stacks still face the same cross-scale interference problem. They are better behaved, but not modular. 
+
+More fundamentally, plain additive skips can suffer from **contribution dilution**. Even when gradients remain stable, an additive residual stack accumulates an ever-larger main path against which the relative contribution of deeper blocks becomes harder to preserve. Recent work addresses this explicitly from within the standard Transformer paradigm: SiameseNorm analyzes it as a scale/gradient tradeoff between Pre-Norm and Post-Norm, while Attention Residuals argues that fixed unit-weight accumulation progressively dilutes each layer's contribution and proposes content-dependent depth-wise selection instead ([`arxiv:2602.08064`](https://arxiv.org/html/2602.08064v1), [`arxiv:2603.15031`](https://arxiv.org/abs/2603.15031)). These proposals are best read as targeted repairs to this depth-path problem inside the standard stack, not as a full solution to the broader question of stable, factored representation. Fixing that broader issue would require architectural mechanisms that explicitly preserve and compose information—such as protected channels or invertible transports—rather than relying on unconstrained mixing plus additive shortcuts.
 
 <small><em>Footnote:</em> Skips make deep nets trainable by improving gradient/information flow but do not isolate features—downstream mixing remains unconstrained [He et al., 2016](https://arxiv.org/abs/1603.05027). When true preservation is needed, architectures impose invertibility (e.g., i‑RevNets)—useful but restrictive—confirming that plain residuals don’t provide protected channels [Jacobsen et al., 2018](https://arxiv.org/abs/1802.07088).</small>
 
@@ -79,9 +81,19 @@ This FER/UFR contrast is an empirical instantiation of the same syndrome discuss
 
 DeepSeek’s **mHC: Manifold-Constrained Hyper-Connections** can be read as a direct architectural response to one slice of the critique above: the difficulty of **preserving and transporting useful signals across depth** in the presence of repeated mixing operations. Rather than relying only on a plain identity skip, mHC introduces a learnable residual-space mapping that is explicitly constrained to remain well-behaved by projecting it onto the manifold of **doubly-stochastic matrices** (the Birkhoff polytope) via Sinkhorn-Knopp iterations. This constraint provides a principled, “mass-preserving” notion of routing/mixing intended to improve propagation stability and scalability while retaining flexibility ([`arxiv:2512.24880`](https://arxiv.org/abs/2512.24880), [HTML version](https://arxiv.org/html/2512.24880)).
 
-mHC is an important data point: it acknowledges that _plain residuals are not enough_, and it tries to add **learnable routing** without destroying gradient behavior. In principle, this can create "bypass lanes" that preserve certain signals through depth, reducing cross-scale interference by letting low-level features persist until they are needed.
+mHC is an important data point: it acknowledges that _plain residuals are not enough_, and it tries to add **learnable routing** without destroying gradient behavior. In principle, this can create "bypass lanes" that preserve certain signals through depth, reducing cross-scale interference by letting low-level features persist until they are needed. Together with SiameseNorm and Attention Residuals, it is evidence that the field is actively patching narrower depth-path issues like contribution dilution and transport interference from within the standard stack.
 
 However, improving signal transport does not guarantee **unified, factored representations** (UFR). By introducing a learnable routing matrix at every layer, mHC expands the space of possible internal wiring patterns: the optimizer can reach similar behavior through many functionally equivalent but structurally different routings. This flexibility may worsen the "lottery" effect at the level of representation: while training is more stable, the internal basis can become more path-dependent, making stable, reusable concepts harder to pin down. In other words, a constrained residual mixer expands what is _expressible and trainable_ within the end-to-end paradigm, but it does not by itself incentivize the simple, modular geometry required for strong interpretability.
+
+### 10. Summary: Distinguishing the Faces of the Syndrome
+
+Having toured these architectural limitations and the recent attempts to patch them, it is worth pausing to explicitly separate the distinct but related failure modes that make up this syndrome. While they are often bundled together in practice, the preceding sections point to three distinguishable problems:
+
+1. **Contribution dilution** is the narrowest: as residual streams accumulate, later updates become progressively weaker in relative terms even when optimization remains stable (the depth-path scaling issue).
+2. **Transport interference** is the difficulty of preserving and selectively carrying subtle features through repeated high-capacity mixing layers (the "blue ink" problem).
+3. **Semantic entanglement** is the broadest: the learned internal features themselves remain composite, diffuse, and poorly modular (the representation problem).
+
+Keeping these distinctions in view helps separate what recent architectural repair papers (like SiameseNorm, Attention Residuals, or mHC) actually address, versus what they still leave unresolved. The narrower mechanics of dilution and transport can be mitigated within the standard stack, but the deeper concern of semantic entanglement motivates the foundational geometric approach of Proteus.
 
 ## Why Are Architectures Like This? A Pragmatic Response to a Hard Problem
 
@@ -287,7 +299,7 @@ I have been working on these problems since 2017. I taught myself computer scien
 
 Draft-first, iterate quickly: prefer conservative, high-signal edits that reduce ambiguity and add empirical hooks.
 
-Save generated visualizations under `code/tests/` by default; avoid interactive displays in commits.
+Save generated visualizations under `code/tests/` by default (stale instruction); avoid interactive displays in commits.
 
 ## Citation (placeholder)
 

@@ -1,0 +1,42 @@
+---
+description: Default model choices and delegation patterns for subagents in this repo
+alwaysApply: true
+---
+
+# Subagent Model Selection
+
+Model slugs in the table are agent-adjustable per the rule-governance rule (availability
+and pricing shift); the cross-family audit rule below is PROTECTED.
+
+Default choices balancing cost and capability. Start at the cheapest tier that fits the
+task; escalate only when a cheaper attempt fails or the task is acceptance-path critical
+(spec math, evidence gate, scale/cluster selection).
+
+| Task | Model | Why |
+|---|---|---|
+| Codebase exploration, file finding, "where is X" | `composer-2.5-fast` | Cheap, fast; exploration is retrieval, not reasoning |
+| Long-document skims (SI, transcripts), summarization | `gemini-3.5-flash` | Cheap with long context |
+| General implementation (well-specified module, tests exist) | `claude-sonnet-5-thinking-high` or `gpt-5.6-terra-medium` | Solid mid-cost coders; enough for spec-following work |
+| Parallel best-of-N implementation variants | `gpt-5.6-sol-medium` / `gpt-5.6-terra-medium` | Cheap enough to run several attempts |
+| Hard features, tricky refactors, math-heavy spec work (DM gate, dual flow, Q-score, tau* selection) | `claude-fable-5-thinking-high` or `claude-opus-4-8-thinking-high` | Frontier reasoning; acceptance-path code must be right the first time |
+| Auditing, red-teaming, reviewing math or proofs | `gpt-5.4-high` or `cursor-grok-4.5-high` | **Cross-family rule below** |
+| Whole-corpus consistency passes (paper vs SI vs code vs OPEN_ISSUES) | `gemini-3.1-pro` | Long-context deep analysis across many large files |
+
+## Cross-family audit rule
+
+Never audit an artifact with the same model family that produced it. The parent agent is
+Claude, so reviews of Claude-written code/math go to GPT (`gpt-5.4-high`) or Grok
+(`cursor-grok-4.5-high`); if a GPT subagent wrote it, review with Claude or Gemini.
+For high-stakes derivations (SI lemmas, evidence-gate math), use two independent
+reviewers from different families and reconcile disagreements yourself.
+
+## Delegation patterns for this repo
+
+- Broad context gathering: launch `explore` subagents (specify quick/medium/very thorough);
+  parallelize independent areas (e.g. one on `code/proteus/src`, one on the SI).
+- Narrow questions (one file, one symbol): do it directly; don't spawn a subagent.
+- Implementation subagents must be told: the owning SI section, the relevant rules
+  (repo-workflow, proteus-implementation, testing-integrity), the `@awaiting` tests they
+  should flip, and the exact pytest subset to run. Subagents don't see this conversation.
+- Test-weakening is never an acceptable subagent outcome (testing-integrity rule); state
+  that explicitly in red-team and implementation prompts.

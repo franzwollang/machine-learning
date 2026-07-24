@@ -1,0 +1,43 @@
+---
+description: Conventions for editing the Proteus paper and Supplementary Information LaTeX sources
+globs: docs/Proteus/**/*.tex
+alwaysApply: false
+---
+
+# Paper / SI Editing Conventions
+
+## Ownership: paper interprets, SI defines
+
+The paper gives the reader-facing interpretation; the SI owns the canonical math,
+algorithms, defaults, and proofs. Do not duplicate full derivations in both. Each shared
+object has one canonical definition site (listed in SI S0.5) — edit the owner and make
+other mentions defer to it via cross-reference.
+
+## Cross-references and labels
+
+- Paper -> SI links use `xr-hyper`: `\hyperref[sec:si-dual-flow]{SI~S6}`. Label
+  conventions: `sec:si-*` for SI sections, `eq:si-*` for SI equations, `lem:si-*` for
+  lemmas. When adding an SI section, add a `\label` immediately and keep the anchor names
+  stable — the paper references them.
+- SI section numbering (S0–S14) is load-bearing: tests, code docstrings, `OPEN_ISSUES.md`,
+  and `PLANNING.md` all cite section numbers. Do not renumber sections; append subsections
+  instead (e.g. S2.5.2, S2.5.3).
+
+## Notation and defaults
+
+- New or renamed symbols must be added to **both** the paper's Appendix: Notation and the
+  SI S0.1 global notation table, with the owning section listed.
+- Any changed default or new constant must be reflected in the SI S14.3 defaults table
+  with a status label (theory / statistical / operational / empirical / calibrated).
+- Per-region superscript discipline follows SI S0.2.1: unsuperscripted within a fixed
+  region, superscripted `(C)` when ranging over the recursion tree.
+
+## Content discipline
+
+- Follow `paper_author_notes.md`: each figure has exactly one narrative job; no figures
+  that merely restate algorithm boxes.
+- The paper carries a DRAFT banner and Zenodo-date footer; leave placeholders
+  (`2025-??-??`) intact until a release pass.
+- After edits that change specified behavior, check `OPEN_ISSUES.md` for doc-sync entries
+  that the edit resolves or should create (divergence protocol in the repo-workflow rule).
+- Build with latexmk / the editor's LaTeX plugin; outputs stay next to the sources.

@@ -1,0 +1,50 @@
+---
+description: Implementation conventions for the Proteus reference implementation
+globs: code/proteus/src/**/*.py
+alwaysApply: false
+---
+
+# Proteus Implementation Conventions
+
+## Read the owning SI section first
+
+Before implementing or modifying any module, read the SI section it implements
+(`docs/Proteus/paper_1_foundational/SI.tex`). Module and function docstrings must cite
+the owning section, e.g. `"""Scale-grid search controller for Stage 1 (SI S2.5.1)."""`.
+If the SI is ambiguous or underdetermined for what you need, stop and record the gap in
+`OPEN_ISSUES.md` rather than inventing an undocumented heuristic.
+
+## Style (follow existing modules, e.g. rates.py, moments.py, controller.py)
+
+- Pure functions over `numpy` arrays; state in plain dataclasses; configuration in
+  `@dataclass(frozen=True)` config objects with defaulted fields.
+- `from __future__ import annotations`; type hints throughout; no heavy dependencies
+  beyond numpy/scipy without discussion.
+
+## Constants
+
+No new inline magic numbers. Every new constant must be (a) a named, defaulted config
+field, (b) classified derived / calibrated / operational (see repo-workflow rule), and
+(c) reflected in SI S14.3 or flagged in `OPEN_ISSUES.md` (#37 constant audit). Empirically
+tuned values found during debugging are allowed only with a comment naming them as
+operational defaults and an issue entry.
+
+## Canonical types
+
+Shared dataclasses (`NodeState`, `Link`, SI-contract shapes) currently live in
+`code/proteus/tests/contracts/` and are imported by `src/` (known smell, issue #38).
+Do not create duplicate type definitions in `src/`; reuse the contract types until the
+promotion happens.
+
+## Flipping awaiting tests
+
+When a module lands, find its `@awaiting("<module key>", si=...)` tests
+(`tests/harness/markers.py`), remove the decorator, replace placeholder bodies with real
+assertions, and run that marker subset. Never leave a landed module with strict-xfail
+tests still pointing at it.
+
+## Environment
+
+`pipenv` from `code/proteus/`; editable install (`pip install -e .[test]`). Default test
+run excludes `real_data` and `slow`. See the proteus-testing rule for markers and
+reporting format.

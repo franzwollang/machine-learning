@@ -97,7 +97,7 @@ Instead of one intractable 768-D index, we build three separate, feasible ρ-ind
 
 A key question is whether the "on-the-fly" query process is fast enough for practical applications. A detailed analysis reveals that the query performance is not only fast, but is significantly accelerated in "uninteresting" regions of the space due to a "fast path" optimization.
 
-The baseline `QueryRecipeTree` algorithm is already efficient, involving `n` iterations of simple floating-point arithmetic. However, we can do better. In a region of space far from a curve's target cluster `P_i`, the mixture-model density `ρ_φ` is uniform. Consequently, the ratios stored in the recipe tree for any node in this region will be uniform: `[1/2^d, 1/2^d, ..., 1/2^d]`.
+The baseline `QueryRecipeTree` algorithm is already efficient, involving `n` iterations of simple floating-point arithmetic. However, we can do better. In a region of space far from a curve's target cluster `P_i`, the mixture-model density `ρ_φ` is uniform. Consequently, the ratios stored in the recipe tree for any node in this region will be uniform over the node's **bounded local branching stencil**. A literal `[1/2^d, 1/2^d, ..., 1/2^d]` fanout is only a low-dimensional theoretical model; a 32-D tier must use bounded-arity blockwise, binary, or sparse stencils rather than one node with `2^32` children.
 
 This allows for a crucial optimization:
 
@@ -119,7 +119,7 @@ A query against a high-dimensional collection is executed as a multi-stage funne
 
 1.  Define a set of target dimensions for the cascade, e.g., `[d_1, d_2, d_3] = [8, 16, 32]`.
 2.  For each target dimension `d_k`, use a dimensionality reduction technique like PCA to create a `d_k`-dimensional projection of the full dataset.
-3.  Build a complete Ensemble ρ-SFC index (an `ρ-index`) on each of these projected datasets. These are the tiers of the cascade.
+3.  Build a complete Ensemble ρ-SFC index (a `ρ-index`) on each of these projected datasets. These are the tiers of the cascade.
 
 **Query Algorithm: `Hierarchical_kNN(query_point, k)`**
 The query is a multi-stage filtering and re-ranking process.
@@ -186,11 +186,11 @@ For any convex polygon `P` and any desired confidence level `1-α`, one can sele
 
 ### 4.3. Generalization to Higher Dimensions
 
-While the proofs and examples in this paper focus on the 2D case for clarity, the underlying theory is dimension-independent. Here we sketch the arguments for why the core properties of the ρ-SFC framework remain valid in `d` dimensions.
+While the proofs and examples in this paper focus on the 2D case for clarity, the underlying theory is dimension-independent. Here we sketch the arguments for why the core properties of the ρ-SFC framework remain valid in `d` dimensions. The theoretical description may refer to a `2^d` hypercube split, but the implementation must use bounded-arity or factorized branching for high-dimensional tiers.
 
 **Continuity and Surjectivity in `[0,1]^d`**
 
-The generation process generalizes directly to higher dimensions by replacing the quadtree with a `2^d`-tree that recursively partitions the `[0,1]^d` hypercube. The key properties are preserved:
+The generation process generalizes directly to higher dimensions by replacing the quadtree, at the mathematical level, with recursive partitions of the `[0,1]^d` hypercube. The operational recipe tree need not materialize a `2^d` fanout; it can approximate the same allocation by composing bounded-size block splits or sparse active-child stencils. The key properties are preserved:
 
 1.  **Surjectivity ("Onto"):** The density function `ρ_φ` is defined over the `d`-dimensional hypercube and remains strictly positive for any `σ < 1`. Any recursive algorithm that allocates "time" proportionally to the density mass within each sub-hypercube will necessarily assign a non-zero time interval to every open set. The image of the curve `f^{(\phi)}` is therefore dense in `[0,1]^d`. Because the curve is a continuous mapping from a compact set `[0,1]`, its image is also compact. In a Hausdorff space like `[0,1]^d`, a subset that is both dense and compact must be the space itself. Thus, the curve is surjective.
 2.  **Continuity:** The continuity of the curve is an inherent property of the recursive generation method, which ensures that the paths within neighboring sub-hypercubes are connected without jumps.
@@ -253,21 +253,22 @@ The resulting index inherently understands that, for this specific task, a categ
 
 The efficiency of the "on-the-fly" query process is critical for practical applications. While the baseline `O(n)` traversal is inherently fast, its performance is massively accelerated in "uninteresting" regions of the space through a "fast path" implementation based on an optimized storage format for the recipe tree.
 
-Instead of storing `2^d` ratios for every node, each node is prefixed with a **tag byte**. The tree is stored as a single, contiguous array representing a level-order traversal, making it extremely cache-friendly.
+Instead of storing a dense materialized grid, each node is prefixed with a **tag byte**. The tree is stored as a single, contiguous array representing a level-order traversal, making it extremely cache-friendly. Crucially, high-dimensional tiers do not store `2^d` ratios per node. They use a bounded local branching arity, such as `2^b` for a small block dimension `b <= 8`, or a sparse active-child stencil plus a uniform remainder.
 
-- **`WARPED_TAG (1 byte)`:** Indicates the node represents a custom geometry. The tag is followed by the `2^d` floating-point ratios that determine how the 1D interval (`time`) is partitioned among its children.
+- **`WARPED_TAG (1 byte)`:** Indicates the node represents a custom geometry. The tag is followed by `B` floating-point ratios, where `B` is the bounded branching arity of the node's local stencil. These ratios determine how the 1D interval (`time`) is partitioned among the node's branches.
 - **`UNIFORM_TAG (1 byte)`:** Indicates the density is uniform in this node and all descendants. This tag is the only data stored for the node; no ratios follow.
 
 The query algorithm leverages this tag-based dispatch to map a `d`-dimensional point to its 1-D coordinate (`time`).
 
 1.  **Initialize:** Start with `time = 0.0`, `interval_size = 1.0`, and `node_index = 0`.
 2.  **For each `depth` from 0 to `n-1`:**
-3.                     Read the `tag` from the tree array at the current `node_index`.
-4.                     **Dispatch:**
-    - If the tag is `WARPED_TAG`, determine which of the `2^d` child-quadrants the query point falls into (`quadrant_index`). Read the subsequent `ratios` array. Update the `time` by adding the sum of ratios for preceding quadrants, and scale the `interval_size` by the ratio for the current quadrant. Update `node_index` to point to the correct child.
+3.                      Read the `tag` from the tree array at the current `node_index`.
+4.                      **Dispatch:**
+
+    - If the tag is `WARPED_TAG`, determine which branch of the node's bounded local stencil the query point falls into (`branch_index`). Read the subsequent `ratios` array. Update the `time` by adding the sum of ratios for preceding branches, and scale the `interval_size` by the ratio for the current branch. Update `node_index` to point to the correct child.
     - If the tag is `UNIFORM_TAG`, the algorithm knows the path from this point forward is identical to the canonical Hilbert curve. It immediately abandons the recipe tree traversal and switches to a **specialized, hyper-optimized, integer-based bit-manipulation algorithm** for calculating the remaining `n - current_depth` levels of the Hilbert key. The resulting partial time is scaled by the current `interval_size` and added to `time`, and the function returns.
 
-This implementation has two major benefits. First, it makes the query process exceptionally fast, as most of the traversal for any given `f_i` will occur in the optimized "Hilbert Mode." Second, it dramatically compresses the recipe trees, as the vast majority of nodes (those in uniform regions) are reduced from storing `2^d` floats to a single byte.
+This implementation has two major benefits. First, it makes the query process exceptionally fast, as most of the traversal for any given `f_i` will occur in the optimized "Hilbert Mode." Second, it dramatically compresses the recipe trees, as the vast majority of nodes (those in uniform regions) are reduced from storing a bounded ratio payload to a single byte.
 
 #### 5.4. The Hierarchical Cascade in Action
 
@@ -309,7 +310,7 @@ This pipeline perspective correctly frames the Ensemble ρ-SFC framework not as 
 
 #### 7.1. The "Recipe Tree": Data Structure and Algorithms
 
-The recipe tree for a base curve is stored as a single, contiguous array representing a level-order traversal, making it extremely cache-friendly. For a `d`-dimensional space, each internal node stores `2^d` floating-point ratios that determine how the 1D time interval is partitioned among its children; this is reduced to one byte per node for the "fast-path optimization" for uninteresting regions.
+The recipe tree for a base curve is stored as a single, contiguous array representing a level-order traversal, making it extremely cache-friendly. For a high-dimensional tier, each internal node stores ratios only for a bounded local branching stencil (for example `2^b` branches for a small block dimension `b <= 8`, or a sparse active-child set plus a uniform remainder). A dense `2^d` ratio payload is infeasible at 32-D and is not the intended implementation. Uniform regions are reduced to one byte per node by the fast-path optimization.
 
 - **Build Algorithm:** The tree is built in a single recursive pass. At each node, the algorithm calculates the density mass of the target polygon within its spatial bounds, subdivides, computes the mass in each child region, and stores the resulting ratios. An update to a curve's parameters only requires rebuilding its single, corresponding recipe tree.
 - **Query Algorithm:** Querying involves an `O(n)` traversal of the implicit tree. At each level, the algorithm determines which child quadrant the query point falls into and uses the pre-stored ratios to narrow the 1D time interval, yielding a final 1D coordinate.

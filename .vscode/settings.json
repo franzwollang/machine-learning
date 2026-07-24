@@ -64,5 +64,6 @@
 	"explorer.fileNesting.expand": false,
 	"explorer.fileNesting.patterns": {
 		"*.tex": "${capture}.aux, ${capture}.log, ${capture}.out, ${capture}.fdb_latexmk, ${capture}.fls, ${capture}.synctex.gz, ${capture}.toc, ${capture}.bbl, ${capture}.blg, ${capture}.nav, ${capture}.snm, ${capture}.vrb, ${capture}.lof, ${capture}.lot"
-	}
+	},
+	"python.languageServer": "None"
 }

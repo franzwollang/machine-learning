@@ -1,0 +1,27 @@
+# Performance budgets per module, scaled by data-size class.
+# Tests read these via tests.harness.budgets.load_budgets().
+# Times are in seconds; memory in MiB.
+
+[small]  # N ~ 1000, d ~ 3-10
+stage1_wall_time = 10.0
+scale_grid_time = 60.0
+evidence_gate_time = 1.0
+dual_flow_max_iters = 200
+membership_query_time = 0.01
+peak_memory_mib = 256
+
+[medium]  # N ~ 10_000, d ~ 10-50
+stage1_wall_time = 60.0
+scale_grid_time = 300.0
+evidence_gate_time = 5.0
+dual_flow_max_iters = 500
+membership_query_time = 0.05
+peak_memory_mib = 1024
+
+[large]  # N ~ 100_000, d ~ 50-200
+stage1_wall_time = 600.0
+scale_grid_time = 1800.0
+evidence_gate_time = 30.0
+dual_flow_max_iters = 1000
+membership_query_time = 0.1
+peak_memory_mib = 4096

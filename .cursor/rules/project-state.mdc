@@ -1,0 +1,117 @@
+---
+description: How to use the project-state and continuity artifacts (OPEN_ISSUES, PLANNING, SCRATCHPAD, and append-only logs)
+alwaysApply: true
+---
+
+# Project State & Continuity Artifacts
+
+Five files at the repo root track project state. Know which is durable spec-adjacent
+record versus local working memory, and respect each one's write cadence.
+
+| File | Role | Tracked in git? | Write pattern |
+|---|---|---|---|
+| `OPEN_ISSUES.md` | Current, active issues ONLY — zero history | yes | edit in place |
+| `PLANNING.md` | Milestone plan with status board and exit criteria | no (gitignored) | edit in place |
+| `SCRATCHPAD.json` | Compact live snapshot of current focus | no (gitignored) | overwrite in place |
+| `OPEN_ISSUES_LOG.jsonl` | Append-only history of all issue changes | yes | append, ≤1/turn |
+| `SCRATCHPAD_LOG.jsonl` | Append-only changelog of work/state per turn | no (gitignored) | append, ≤1/turn |
+
+## OPEN_ISSUES.md — current and active only, never history
+
+The file contains **only issues that are open right now**. No resolved lists, no
+"recently fixed" notes, no progress narratives, no status updates inside entries. All
+history — openings, edits, resolutions with a one-line note — lives exclusively in
+`OPEN_ISSUES_LOG.jsonl`.
+
+- **Resolving:** delete the entire entry and record the resolution in the log the same
+  turn. Do not leave tombstones or header mentions.
+- **Numbering:** stable and historical — numbers are never reused or renumbered. The
+  header carries a single `Next issue number: N` counter; when adding an issue, take `N`
+  and increment the counter. Gaps in the sequence are expected and carry no meaning.
+- **Entry content:** only the remaining work, its motivation, and pointers (SI sections,
+  file paths). If an entry starts accumulating "done so far" prose, move that to the log
+  and trim the entry back to what remains.
+
+## PLANNING.md
+
+The milestone sequence, exit criteria, and a **status board** near the top (one line per
+milestone: `not started` / `in progress` / `blocked` / `done`). Update the board when a
+milestone starts, blocks, or lands — statuses live only on the board, not scattered in
+milestone bodies. Reference issue numbers; never restate issue text. When exit criteria
+are met, mark `done` and resolve the corresponding issues (via the OPEN_ISSUES protocol
+above) in the same turn.
+
+## SCRATCHPAD.json
+
+Minimal, compact, agent-facing continuity memory — NOT a document for humans. Its job is
+to let the orchestrator (and any subagent handed it) recover context after a compaction,
+distraction, network failure, or fresh resume. The orchestrator owns and maintains it;
+subagents primarily read it (pass the relevant slice into subagent prompts). It is a
+snapshot, not a log: overwrite in place, and keep it valid JSON at all times.
+
+**Hard limits (enforced at every write; numeric values are agent-adjustable within the
+ranges in the rule-governance rule — the *existence* of the limits is not):**
+
+- Total file size ≤ **4,000 characters** (~1k tokens — cheap to inject into any prompt).
+- Each array (`recent`, `discoveries`, `open_threads`, `blockers`) ≤ **5 items**,
+  newest last; adding a sixth evicts the oldest.
+- Each string item ≤ **200 characters**. Summarize; don't paste.
+- Increment `turn` on every write. Run a **compaction pass every 10 turns** (i.e. when
+  `turn % 10 == 0`) *and* immediately whenever the size cap is breached: re-justify every
+  item, drop anything stale, merge duplicates, and **promote durable content out** —
+  discoveries to `OPEN_ISSUES.md` or the SI, finished work to `SCRATCHPAD_LOG.jsonl`.
+  Nothing should survive two consecutive compactions unchanged; promote it or delete it.
+
+### Template
+
+```json
+{
+  "updated_at": "2026-07-23T21:04-05:00",
+  "turn": 17,
+  "focus": { "milestone": "M1", "issue": 27, "goal": "canonicalize Q-score in SI S2.6.1" },
+  "recent": ["promoted W_v formulas from reference note", "circle regression still green"],
+  "discoveries": ["Lindeberg response is self-normalizing at equilibrium (see #28)"],
+  "open_threads": ["null-hypothesis test not yet wired into clustering.py"],
+  "next_step": "add single-cluster null as first-class candidate",
+  "blockers": []
+}
+```
+
+### Keys
+
+| Key | Type | Purpose / justification |
+|---|---|---|
+| `updated_at` | string (ISO 8601) | Staleness check — a reader can tell if the snapshot predates recent work. |
+| `turn` | integer | Monotone write counter; drives the every-10-turns compaction cadence and shows snapshot age. |
+| `focus` | object | The one thing in progress; the anchor after a disruption. |
+| `focus.milestone` | string | `PLANNING.md` milestone id (e.g. `"M1"`); ties work to the plan. |
+| `focus.issue` | integer \| null | Active `OPEN_ISSUES.md` number, or `null` if none. |
+| `focus.goal` | string | The immediate objective in one phrase. |
+| `recent` | string[] | Last few meaningful actions/decisions, newest last; rebuilds momentum. |
+| `discoveries` | string[] | Non-obvious findings expensive to rediscover; cite issue/SI refs. |
+| `open_threads` | string[] | Started-but-unfinished work and unresolved questions. |
+| `next_step` | string | The single next action — what to do first on resume. |
+| `blockers` | string[] | Pending user choices or external blocks; empty `[]` when clear. |
+
+## The append-only logs
+
+Both `.jsonl` files are append-only and written **at most once per turn**. Append a single
+consolidated entry near the end of a turn only if something changed; if nothing changed,
+write nothing. Never rewrite or delete prior lines. Keep entries compact (one line each).
+
+- `OPEN_ISSUES_LOG.jsonl` — the **sole** history of `OPEN_ISSUES.md`: issues added,
+  edited, and resolved (with a one-line resolution note). If you need to know what was
+  fixed and when, look here — never in `OPEN_ISSUES.md` itself.
+- `SCRATCHPAD_LOG.jsonl` — summarizes the turn's work / notable state changes (the running
+  trail behind the ephemeral `SCRATCHPAD.json`; also the destination for finished-work
+  items evicted during scratchpad compaction).
+
+Suggested compact schema (keep to one line):
+
+```json
+{"ts":"2026-07-23T21:04-05:00","summary":"Q-score canonicalized in SI S2.6.1","added":[],"edited":[27],"resolved":[{"n":30,"note":"dip test replaced by Q-gated recursion"}]}
+```
+
+```json
+{"ts":"2026-07-23T21:04-05:00","focus":"M1 clustering","summary":"promoted W_v formulas from reference note; circle regression still green","next":"wire null-hypothesis test"}
+```

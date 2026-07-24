@@ -1,0 +1,30 @@
+---
+description: Enforce test integrity and prohibit weakening tests to pass
+globs: **/tests/**/*.py,**/test_*.py,**/pytest.ini,**/pyproject.toml
+alwaysApply: false
+---
+
+# Testing Integrity
+
+Test parameters, thresholds, assertions, fixtures, xfail markers, and benchmark
+budgets must never be changed just to make tests pass.
+
+If a test fails, treat it as evidence first. Investigate whether the failure is
+caused by:
+
+- a real implementation bug;
+- a mismatch between the test and the current specification;
+- excessive flakiness or an invalid statistical assumption;
+- a stale test that no longer matches the intended behavior.
+
+Only change a test after a dedicated analysis concludes that the test itself is
+wrong, stale, too loose, too strict, or poorly scoped. That analysis should be
+summarized in the change description or assistant response.
+
+When changing tests, prefer tightening or clarifying them. Weakening a threshold,
+removing an assertion, adding broad skips, or converting a test to xfail requires
+explicit justification. Never silently modify tests to hide implementation
+problems.
+
+For Proteus specifically, failures against SI-derived tests should be treated as
+possible specification or implementation gaps until proven otherwise.

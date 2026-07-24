@@ -1,0 +1,23 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+numpy = "*"
+scipy = "*"
+hnswlib = "*"
+matplotlib = "*"
+
+[dev-packages]
+pytest = "*"
+pytest-benchmark = "*"
+umap-learn = "*"
+gudhi = "*"
+persim = "*"
+torch = "*"
+scikit-learn = "*"
+tomli = "*"
+
+[requires]
+python_version = "3.12"

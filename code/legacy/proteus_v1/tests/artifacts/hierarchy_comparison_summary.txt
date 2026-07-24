@@ -1,0 +1,8 @@
+Proteus hierarchy summary
+Proteus nodes: 7
+Proteus depth: 2
+Leaf count: 4
+Quantisation ratio: 0.100
+Min leaf purity: 0.995
+Leaf recall: 1.000
+Max centre error ratio: 0.119

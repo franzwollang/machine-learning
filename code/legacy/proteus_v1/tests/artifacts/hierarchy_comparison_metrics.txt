@@ -1,0 +1,12 @@
+Proteus hierarchy metrics
+Samples: 2809
+Proteus nodes: 7
+Proteus depth: 2
+Proteus leaves: 4
+Ground truth leaves: 4
+Quantisation error: 0.346689
+Quantisation ratio: 0.100194
+Mean leaf purity: 0.998437
+Min leaf purity: 0.995246
+Leaf recall: 1.000000
+Max centre error ratio: 0.118797

@@ -1,0 +1,45 @@
+---
+description: Source-of-truth, issue tracking, and planning discipline for the Proteus research monorepo
+alwaysApply: true
+---
+
+# Repo Workflow: Spec Is the Source of Truth
+
+This is a research monorepo: `docs/` holds papers (the specification), `code/` holds the
+reference implementation that follows them.
+
+- **Canonical spec:** `docs/Proteus/paper_1_foundational/paper.tex` (reader-facing) and
+  `SI.tex` (canonical math, defaults, algorithms). Code implements SI sections and cites
+  them in docstrings (e.g. "SI S2.3").
+- **Supporting theory notes** live in `docs/Proteus/paper_1_foundational/reference/`;
+  they are drafts feeding the SI, not canonical themselves.
+- `code/legacy/` is frozen history. Never modify it unless explicitly asked.
+- Active implementation is `code/proteus/` (src layout, pipenv, pytest).
+
+## Divergence protocol
+
+Never let code and spec diverge silently. When an implementation choice improves on or
+contradicts the spec:
+
+1. Implement it (if justified), and
+2. Record it as an entry in `OPEN_ISSUES.md` describing the mismatch and the remaining
+   paper/SI update.
+
+## State artifacts
+
+`OPEN_ISSUES.md`, `PLANNING.md`, `SCRATCHPAD.json`, and the two append-only `.jsonl` logs
+track project state and continuity. See the **project-state** rule for their roles, write
+cadences, and formats. In brief: issues use stable historical numbering; work maps to a
+`PLANNING.md` milestone; keep `SCRATCHPAD.json` as a compact live snapshot; append to each
+log at most once per turn.
+
+## Constant discipline
+
+Every constant is one of three tiers (SI S14.3): **derived** (from a derivation),
+**calibrated** (measured via a declared protocol on a reference ensemble), or **free
+operational default** (tunable, logged, backstopped by the evidence gate). Key principle:
+only **acceptance-path** quantities (tau* selection, Q-score acceptance, DM evidence gate,
+stopping criteria) require derivation or calibration; **proposal-path** constants (torsion
+bands, prune floors, nudge thresholds) may remain operational defaults. Do not burn effort
+deriving proposal-path constants, and do not leave acceptance-path constants as unlabeled
+magic numbers.

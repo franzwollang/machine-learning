@@ -20,7 +20,7 @@ The protocol is designed from the ground up to support both simple kNN similarit
 - A **`cluster_density`**: A precise measure of how populated that concept is, derived from the model's converged `face_pressures`, which represent the probability flux across the boundaries of the local manifold geometry.
 - A **linearized subspace**: A local, low-dimensional "flat" view of the manifold in that specific region.
 
-**Why is this essential for Learned Predictive Routing?** This rich, geometric output is the key that unlocks the entire protocol. Traditional distributed search methods require building an explicit, all-to-all graph of data items, which is computationally expensive and difficult to maintain. Learned Predictive Routing bypasses this entirely. The Proteus model provides a pre-computed "map and compass" of the data. The routing protocol simply consults this map to determine the direction of "steepest descent" for any given query, turning distributed search into a simple problem of following a learned gradient downhill. The `Proteus-M` instance (described in `paper_final.md`) provides the foundation for a shared understanding. A separate **Common Vocabulary Reconciliation** protocol allows agents to align their individual `Proteus-M` models. This process ensures that, ideally, all agents share a very similar conceptual map—or at least possess a way to translate between them—which is what makes the learned gradients coherent across the network.
+**Why is this essential for Learned Predictive Routing?** This rich, geometric output is the key that unlocks the entire protocol. Traditional distributed search methods require building an explicit, all-to-all graph of data items, which is computationally expensive and difficult to maintain. Learned Predictive Routing bypasses this entirely. The Proteus model provides a pre-computed "map and compass" of the data. The routing protocol simply consults this map to determine the direction of "steepest descent" for any given query, turning distributed search into a simple problem of following a learned gradient downhill. The `Proteus-M` instance (described in `Mimir`) provides the foundation for a shared understanding. A separate **Common Vocabulary Reconciliation** protocol allows agents to align their individual `Proteus-M` models. This process ensures that, ideally, all agents share a very similar conceptual map—or at least possess a way to translate between them—which is what makes the learned gradients coherent across the network.
 
 ### 2.2. The Potential Field Analogy
 
@@ -43,7 +43,6 @@ The protocol operates in a continuous, three-phase cycle of surveying, learning,
 Agents build a local picture of their neighborhood by periodically exchanging compact summaries of their state using a gossip protocol.
 
 1.  **The "Belief" Packet:** Each agent `A` periodically generates a `Belief` packet summarizing its state. This packet contains:
-
     - **Conceptual Summary:** A list of tuples describing its most prominent local data clusters, derived directly from its local Proteus model: `[(cluster_centroid_vector, cluster_density, object_count), ...]`. The `cluster_density` is a measure of how strong or well-populated that concept is locally, derived from the refined `face_pressures` in the Stage 2 model.
     - **Network Cost Summary:** A list of the agent's directly measured round-trip times (RTT) to its own immediate peers: `[(peer_B_id, RTT), (peer_C_id, RTT), ...]`.
 
@@ -56,7 +55,6 @@ Each agent uses the incoming `Belief` packets from its peers to train a local, p
 1.  **The Local Routing Model:** Each agent `B` maintains a model whose goal is to calculate a `Score` for each of its peers, given a query. This score represents the predicted "steepness" of the gradient towards that peer for that specific query. The model's objective is to learn a function: `Score(Query, Peer)`.
 
 2.  **The Learned Metric:** The `Score` function intelligently combines conceptual relevance with network cost. When `Agent B` evaluates sending a `Query` to `Agent A`, it calculates:
-
     - **Conceptual Gain:** How much "closer" to the answer does `Agent A` appear to be? This is calculated using `A`'s cached `ConceptualSummary`. The specific calculation depends on the query type (see Section 4).
     - **Network Cost:** The measured `RTT` from `B` to `A`.
 
@@ -120,7 +118,6 @@ This unified approach makes the **Common Vocabulary Reconciliation** protocol, a
 A new, high-level Proteus instance (`Proteus-SocioTech`) is trained, either by designated aggregator agents or through federated learning across all peers. This instance learns the structure of the combined manifold.
 
 1.  **Input Vector Construction:** The fundamental event to be modeled is a potential query path from a source agent to a destination agent for a specific concept. The input vector for the `Proteus-SocioTech` model captures this event by concatenating:
-
     - **A Concept Vector (`v_C`):** The fuzzy membership vector for a prominent cluster centroid, taken from a peer's gossiped `ConceptualSummary`.
     - **Agent Embeddings (`embed_src`, `embed_dest`):** Learned, fixed-size vector representations for the source and destination agents.
 
@@ -169,7 +166,6 @@ The first goal is for the network to collaboratively create a "Network Manifold,
 1.  **State (Probabilistic Belief):** Each agent `A` maintains a probability distribution, `P(coord_A)`, representing its belief about its own absolute position in the Network Manifold. This is initialized as a wide, uninformative Gaussian.
 
 2.  **Message Passing:** Agents iteratively refine their beliefs based on messages from their neighbors.
-
     - **Message Calculation:** A message `m_{B->A}(coord_A)` represents agent `B`'s belief about `A`'s position. It's calculated from `B`'s own belief `P(coord_B)` and the measured `RTT_AB`. The message effectively describes a "fuzzy sphere" of probability around `B`'s believed position.
     - **Belief Update (Product-Sum):** Agent `A` updates its belief by multiplying its prior belief with the incoming messages from all its neighbors: `P_new(coord_A) ∝ P_old(coord_A) * m_{B->A}(coord_A) * m_{C->A}(coord_A) * ...`. This is the "product" step.
 
@@ -257,7 +253,6 @@ The most dangerous lie is claiming an impossibly _low_ latency, as this can make
 Real-world networks are not perfect metric spaces, making a simple triangle inequality check a fragile basis for trust. To handle both legitimate network non-linearities and potential Byzantine attacks, the audit protocol is refined into a multi-stage process based on skeptical damping and final validation against the global consensus.
 
 1.  **Skeptical Damping for Uncertain Claims:** When agent `A` observes an apparent violation of the triangle inequality from its direct measurements involving peer `B`, it does not immediately distrust `B`. Instead, it flags the incoming message from `B` as "Uncertain" and applies a **Skeptical Damping Factor** during its belief update. Assuming an honest majority (`f < 1/2`), a principled choice for this factor is **`T_u = 1/2`**.
-
     - **Justification:** Applying the trust score as an exponent (`message^T`), a score of `1/2` effectively halves the evidentiary weight of the uncertain message. This requires that a claim be corroborated by at least one other independent (and equally uncertain) peer to have the same influence as a single, fully trusted message. It ensures that the larger, more coherent set of messages from the honest majority will always overwhelm isolated, inconsistent claims from either network quirks or malicious actors during convergence.
 
 2.  **Final Audit via Manifold Consistency:** The "Uncertain" status is temporary. The definitive judgment of trust happens only after the Network Manifold has started to converge. Agent `A` can then perform the true audit of `B`'s contentious report.
@@ -330,7 +325,6 @@ While the system can function with a simple, iterative learning process, it can 
 1.  **From Coordinate to Concept:** After an initial bootstrap, each agent `A` possesses both its raw `embed_net_A` coordinate and a richer fuzzy membership vector, `fuzz_net_A`, describing its fractional membership across the clusters of the `Proteus-Net` manifold.
 
 2.  **Proteus-Accelerated Belief Propagation:** This `fuzz_net_A` vector can be used as a powerful topological prior to supercharge subsequent runs of the Belief Propagation (BP) algorithm (e.g., after a consolidation or during continuous refinement).
-
     - **Without Acceleration:** A node's initial belief `P(coord_A)` is a single, wide, uninformative Gaussian.
     - **With Acceleration:** A node can use `fuzz_net_A` to create a much more intelligent initial belief. Knowing its primary cluster memberships and the locations of those clusters from the `Proteus-Net` model, it can initialize its belief `P(coord_A)` as a **Gaussian Mixture Model (GMM)**. Each component of the GMM corresponds to a cluster, weighted by the agent's membership in it.
 
