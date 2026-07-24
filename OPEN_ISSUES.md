@@ -75,11 +75,6 @@ The AP -> Q-merge -> refine pipeline is implemented and passes the circle, swiss
   3. `c_{d,k}` becomes a declared **calibration protocol** (uniform d-ball ensemble, measure median `r_k / sqrt(tau)` at equilibrium, tabulate over (d, k)) rather than an analytic constant.
 - Exit criterion: `band_lo = 0.65` and the one-step-coarser patch removed; scale-search tests pass with materially tighter tau* tolerance bands; SI S2.5/S2.5.1 rewritten to match.
 
-## 29. Link pruning: SI/paper update for directed floor + bilateral agreement
-
-- Implemented and stable: Stage 1 `prune_links` applies a directed floor `m_floor = (prune_beta / (2 max(D,1))) * T` on all edges with bilateral agreement required for deletion; post-clustering `demote_lifted_by_cluster` applies the same floor to lifted edges (cluster-median `d_final` as `D`) and demotes instead of deleting; `Link.protected_until` provides the neonatal guard. `wilson_upper` remains an unused utility.
-- Remaining: SI S3.1/S3.2 still specify the Wilson-interval gauntlet as the default. Rewrite for the two-stage floor rule (Wilson noted as an alternative), and update paper §3.5 accordingly. Include the motivation already developed in `reference/stage1_clustering_and_resolution.md`: co-activation transition mass as the primitive that separates meaningful edges from high-dimensional Delaunay slivers.
-
 ## 31. Recursion vs hierarchical GT: remaining harness follow-ups
 
 - The structural bar and moment-matching harness are in place (`tests/harness/hierarchy_recovery.py`: Hungarian matching, Hotelling mean gate, Frobenius covariance gate; six-leaf regression passes).

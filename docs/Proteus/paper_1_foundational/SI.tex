@@ -736,7 +736,20 @@ the graph-local bound is the operating margin.
 \section*{S3. Structure Selection and Statistical Gates}
 
 \subsection*{S3.1 Link Pruning}
-A new link is protected until it has enough effective observations for a meaningful comparison: $n_{\mathrm{eff}}\ge n_{\mathrm{req}}$ from the analytic power calculation for proportions. After this shield expires, compute a one-sided Wilson upper bound for the link's relative transition proportion $p$ from count $n$:
+\label{sec:si-link-pruning}
+Link pruning uses a two-stage \emph{directed-floor} rule with bilateral agreement. The primitive it reads is the directed co-activation transition mass $n_{i\to j}$: this is what separates meaningful local adjacency from the high-dimensional Delaunay slivers that nearest-neighbor routing otherwise accumulates, where raw Euclidean proximity alone would keep many spurious edges.
+
+\paragraph{Neonatal guard.} A new link is protected until it has aged past a neonatal window ($\texttt{protected\_until}$ compared against the scaffold iteration counter). Before then it can be neither deleted nor demoted, although it still contributes to the outgoing-mass totals below. This prevents transient low counts from deleting bridges before they have had a fair chance to accumulate evidence.
+
+\paragraph{Stage 1 (ambient) directed floor.} For each endpoint $i$ with total outgoing transition mass $T_i=\sum_j n_{i\to j}$ and working dimension $D$, define the directed floor
+\[
+m_{\mathrm{floor}}(i)=\frac{\beta_{\mathrm{prune}}}{2D}\,T_i .
+\]
+Endpoint $i$ casts a prune vote on edge $i\to j$ when $n_{i\to j}<m_{\mathrm{floor}}(i)$. The scale is a uniform $2D$-slot null: if $i$'s outgoing mass were split evenly across $2D$ notional neighbor slots, each would carry $T_i/(2D)$, so the floor keeps edges whose directed share is at least $\beta_{\mathrm{prune}}$ times that slot mass ($\beta_{\mathrm{prune}}=0.5$ default). An edge is hard-deleted only under \emph{bilateral agreement} --- both endpoints vote to prune --- so a strongly directed bridge survives even when one side's share is thin. This rule applies to all edges, shadow and lifted alike.
+
+\paragraph{Stage 2 (post-clustering) lifted demotion.} After clustering, the same floor is applied to lifted edges only, with $D$ replaced by the cluster-median local intrinsic dimension $\operatorname{median}_i d_{\mathrm{final},i}$. Lifted edges failing the bilateral test are \emph{demoted} to the shadow tier rather than deleted, so low-grade adjacency evidence is retained (two-tier shadow/lifted edge semantics).
+
+\paragraph{Wilson alternative.} A one-sided Wilson upper bound on the link's relative transition proportion $p$ from count $n$,
 \[
 \nu^+
 =
@@ -748,7 +761,7 @@ p+z^2/(2n)+z\sqrt{p(1-p)/n+z^2/(4n^2)}
 \qquad z=1.2816
 \label{eq:si-wilson-link}
 \]
-corresponding to a 90\% one-sided comparison. Vote to prune when $\nu^+$ is below the median peer significance in the same local star, and require bilateral agreement from both endpoints. This prevents transient low counts from deleting bridges before they have had a fair chance to accumulate evidence.
+(a 90\% one-sided comparison, voting to prune when $\nu^+$ is below the median peer significance in the same local star, with bilateral agreement) is an alternative in the same spirit. The reference implementation retains it as a utility but does not use it as the default: the directed floor is preferred because it reads the transition mass directly and needs no per-star significance calibration.
 
 \subsection*{S3.2 Node Pruning}
 A node is a prune candidate only if it is both statistically weak and geometrically unneeded. The default rule combines:
@@ -1748,7 +1761,8 @@ s_{\mathrm{control}}\mapsto\tau_i & -d_i\log(1-s_{\mathrm{control}}) & \text{S2.
 \text{scale grid} & r=1/\sqrt2 & \text{S2.5} & \text{operational}\\
 \Phi_C\text{ peak floor} & 5\%\text{ of grid max} & \text{S2.5.1} & \text{empirical}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
-z_{\mathrm{Wilson}} & 1.2816 & \text{S3.1} & \text{statistical}\\
+\beta_{\mathrm{prune}} & 0.5\ (\text{directed floor }\tfrac{\beta_{\mathrm{prune}}}{2D}T_i) & \text{S3.1} & \text{operational}\\
+z_{\mathrm{Wilson}} & 1.2816\ (\text{Wilson alternative}) & \text{S3.1} & \text{statistical}\\
 \text{node prune hit} & h_i<0.5\,\bar h_{\mathcal N(i)} & \text{S3.2} & \text{operational}\\
 \text{node prune variance} & \sigma_i^2<0.5\,\tau_i & \text{S3.2} & \text{operational}\\
 \rho_{\mathrm{merge}} & \le 2C_Q(d) & \text{S3.3} & \text{operational}\\
