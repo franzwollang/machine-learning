@@ -1,21 +1,20 @@
 {
-  "updated_at": "2026-07-24T04:10Z",
-  "turn": 2,
-  "focus": { "milestone": "M1", "issue": 27, "goal": "canonicalize Q-score (#27); primitives promoted to SI S2.6.1, code heuristic-removal next" },
+  "updated_at": "2026-07-24T04:45Z",
+  "turn": 3,
+  "focus": { "milestone": "M1", "issue": 27, "goal": "canonicalize Q-score (#27): primitives in SI S2.6.1 done; strip clustering.py heuristics to one merge-to-fixpoint + null test" },
   "recent": [
-    "Branch built on M0: fast-forwarded 5511 onto origin/5413 (M0 doc-sync PR #1)",
-    "Hygiene: untracked 106 committed .pyc, added __pycache__/*.pyc[cod] to .gitignore",
-    "M1 #27 part A: promoted K_v, A_sym, W_v, LocalIntra, BoundaryInter, InterLocal formulas into SI S2.6.1 verbatim; added symbols to SI S0.1 + paper notation",
-    "Regressions green: clustering/recursion subset 14 passed 4 xfailed; full baseline 111 passed 41 xfailed"
+    "Run eb8a initially duplicated M0 from main (missed branch-chain check); CONVERGED via merge onto chain head origin/5511 (tree ==), PR #3 now stacks M0+M1A",
+    "M1 #27 part B start: removed 3 dead helpers + stale PMI wrapper + KMeans import from clustering.py",
+    "Full default suite green: 110 passed / 31 xfailed (unchanged)"
   ],
   "discoveries": [
-    "Single-cluster null degeneracy: whole-graph null has zero boundary -> BoundaryInter=0 -> Q(null)=log(LocalIntra/eps) huge; raw partition-Q cannot compare vs null. Use DM Bayes-factor (S3.4) or reformulate null. Recorded in #27.",
-    "Env: python3 only (no python); deps via pip3 --user; no hnswlib wheel; no LaTeX toolchain (structural checks only); paper.tex 15/14 [ ] grep mismatch is pre-existing false positive"
+    "SINGLE-CLUSTER NULL GOTCHA (#27): whole-graph null has zero boundary -> BoundaryInter=0 -> Q(null) degenerate; raw partition-Q favors null. Must use DM Bayes-factor (S3.4) or reformulate null (best single-cut). SOLVE before wiring null.",
+    "Env: run tests `PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'`; hnswlib needs libpython3.12-dev + pip --break-system-packages; no LaTeX toolchain"
   ],
   "open_threads": [
-    "M1 #27 part B: replace clustering.py cleanup heuristics (tiny_max=14, eta=0.3, r>=0.22, collapse<=3, dead helpers) with one Q-improving pairwise merge to fixpoint + null test; update AP->Q-merge->refine prose (drop 'residual cleanup')",
-    "M0 PR #1 (branch 5413) still DRAFT/unmerged; my branch stacks on it"
+    "M1 #27 part B remaining: active heuristics still in clustering.py = _refine_boundaries(eta=0.3), _absorb_tiny_clusters_into_dominant, _absorb_one_tiny_satellite, _absorb_full_graph_isolates, <=3 collapse in run_clustering. Replace with one Q-improving pairwise merge-to-fixpoint + null test; keep circle=1 / hierarchy=6 / swiss-roll regressions green",
+    "chain PRs #1 (5413 M0), #2 (5511 M1A), #3 (eb8a) all DRAFT/unmerged off main"
   ],
-  "next_step": "M1 #27 part B: resolve single-cluster-null criterion, then strip clustering.py heuristics to single merge-to-fixpoint; keep circle/hierarchy/swiss-roll regressions green",
+  "next_step": "Design single-cluster-null criterion (DM Bayes-factor per S3.4, or best-single-cut null) FIRST; then remove active clustering heuristics one at a time re-running clustering+scenario tests after each",
   "blockers": []
 }
