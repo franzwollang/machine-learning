@@ -13,7 +13,7 @@ bodies below stay static descriptions.
 | Milestone | Status |
 |---|---|
 | M0 — Spec/implementation sync pass | done |
-| M1 — Canonical clustering objective | blocked (#27: coarse-anchoring landed — fixes circle/hierarchy heuristic-free; stand-in deletion now blocked only on swiss residual, pending cold-start/reverse-sweep recheck (ii') or M4 DM gate) |
+| M1 — Canonical clustering objective | blocked (#27: coarse-anchoring fixes circle/hierarchy heuristic-free; cold-start recheck (ii') implemented + REFUTED as a gate — over-rejects genuine multi-level splits; stand-in deletion now blocks solely on the M4 S3.4 DM evidence gate) |
 | M2 — Characteristic-scale selection rebuild | in progress |
 | M3 — Constant audit & calibration tier | not started |
 | M4 — Stage 2 core (complex, evidence gate, dual flow) | not started |

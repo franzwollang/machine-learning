@@ -913,19 +913,34 @@ whose adjacent overlap sits just above $\theta_{\mathrm{ovl}}$ ($\approx0.57$),
 so coarse-anchoring admits it and the region over-fragments without the
 boundary-refinement and tiny-cluster-absorption stand-ins. The residual is thus
 narrowed from a fine-end warm-start artifact (now resolved) to \emph{marginal
-coarse-scale arc-persistence on developable manifolds}. Hardening directions for
-this residual, in decreasing order of principled-ness: (i) require the
-complementary Stage~2 Dirichlet--multinomial evidence gate
-(\hyperref[sec:si-dm-evidence]{S3.4}) as the acceptance null --- an arc-partition
-of a connected manifold fails a Bayes-factor margin test where a marginal
-overlap does not; (ii$'$) require the candidate coarse-anchored interval to
-survive an independent \emph{cold-start} (or reverse-sweep) recomputation of the
-same grid interval, so acceptance rests on path-\emph{independent} persistence
-rather than a single warm-start trajectory --- a self-contained check that
-directly targets the marginal-overlap artifact without a new threshold; (iii)
-require a longer minimal run or a higher \emph{mean} interval overlap.
-Threshold-only tightening of $\theta_{\mathrm{ovl}}$ is brittle and is not
-recommended. Both (i) and (ii$'$) are viable; until one lands,
+coarse-scale arc-persistence on developable manifolds}. Hardening directions
+considered for this residual: (i) require the complementary Stage~2
+Dirichlet--multinomial evidence gate (\hyperref[sec:si-dm-evidence]{S3.4}) as the
+acceptance null --- an arc-partition of a connected manifold fails a Bayes-factor
+margin test where a marginal overlap does not; (ii$'$) require the candidate
+coarse-anchored interval to survive an independent \emph{cold-start}
+recomputation of the same grid interval, so acceptance rests on
+path-\emph{independent} persistence; (iii) require a longer minimal run or a
+higher \emph{mean} interval overlap. Threshold-only tightening of
+$\theta_{\mathrm{ovl}}$ (iii) is brittle and is not recommended.
+
+Direction (ii$'$) was implemented (\texttt{PersistenceConfig.cold\_start\_recheck},
+default off) and \emph{empirically refuted as an acceptance gate}. The
+refutation is instructive: cold single-$\tau$ fits have high
+\emph{resolution-level} variance, because an independently seeded scaffold at a
+coarse cap may settle at a different level of the recursion hierarchy than the
+warm sweep reaches there. On the $3$-coarse/$6$-fine hierarchical Gaussian the
+warm coarse anchor is a stable $3$-way partition, but independent cold-start
+refits of the two anchoring grid points return a $6$-way and a $3$-way partition
+(matched overlap $\approx0.27<\theta_{\mathrm{ovl}}$), so the interval ``fails''
+the recheck and the genuine root split is rejected; under a full removal of the
+S2.6.1 stand-ins with the recheck on, the hierarchy collapses to a single leaf.
+The matched-Jaccard overlap of independently fit partitions therefore cannot
+separate a true absence of structure from ordinary cross-scale resolution
+variance --- which is precisely the discrimination the Bayes-factor \emph{margin}
+of the S3.4 evidence gate provides. This refutes the specific overlap-based
+recheck, not every conceivable path-independence diagnostic; but direction (i)
+is the only currently validated resolution, so until it lands
 $P_{\mathrm{persist}}$ is an operational default and the S2.6.1 stand-ins remain
 the operating acceptance path.
 
@@ -2098,6 +2113,7 @@ M_{\mathrm{eq}} & 3\text{ consecutive epochs} & \text{S2.5.1} & \text{operationa
 P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{operational}\\
 \theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
 \texttt{coarse\_anchored} & \text{true}\ (\text{coarsest split must persist}) & \text{S2.6.2} & \text{operational}\\
+\texttt{cold\_start\_recheck} & \text{false}\ (\text{refuted gate; see S2.6.2}) & \text{S2.6.2} & \text{diagnostic}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
 \beta_{\mathrm{prune}} & 0.5\ (\text{directed-floor share}) & \text{S3.1} & \text{operational}\\
 z_{\mathrm{Wilson}} & 1.2816\ (\text{alternative}) & \text{S3.1} & \text{statistical}\\

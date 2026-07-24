@@ -1,24 +1,24 @@
 {
-  "updated_at": "2026-07-24T08:00Z",
-  "turn": 10,
-  "focus": { "milestone": "M1", "issue": 27, "goal": "land coarse-anchored persistence rule (hardening ii) + narrow the stand-in-deletion blocker" },
+  "updated_at": "2026-07-24T09:20Z",
+  "turn": 11,
+  "focus": { "milestone": "M1", "issue": 27, "goal": "implement + evaluate the (ii') cold-start persistence recheck; unblock stand-in deletion if it works" },
   "recent": [
-    "ff-merged chain head 135e (39 commits) onto clean branch cd92; baseline 122p/1s/31xf green.",
-    "Implemented PersistenceConfig.coarse_anchored (default True): coarsest multi-cluster partition must itself persist (else terminal). persistence.py tau_star selection + 2 unit tests. Suite 124p (all current tests run WITH stand-ins so tau* identical to legacy).",
-    "Full-strip recursion ablation (stand-ins->identities, gate on): circle 37->1, hierarchy 12->6 (both CORRECT), swiss 32->12 (still fragments). Swiss root coarsest 3-arc partition marginally persists (overlap 0.568 > theta_ovl 0.5).",
-    "GPT cross-family audit (gpt-5.4-high, agent e8eef21f): LAND WITH CAVEAT. impl correct, swiss conclusion correct; justification is motivational not a theorem (transient-blip FN + grid-sensitivity); DM gate is NOT the only fix -- cold-start/reverse-sweep (ii') is self-contained. All caveats folded into SI + #27.",
-    "SI S2.6.2 (coarse-anchoring para + caveats + ii'), S14.3 (coarse_anchored row), OPEN_ISSUES #27, docstrings updated. Committed aed8ae1 + 856ba7b, pushed. Chain head now cd92."
+    "ff-merged chain head cd92 (turn-10 state) onto fresh branch 8fd0; installed deps (python3-dev+hnswlib via --break-system-packages); baseline 125p/31xf green.",
+    "Implemented (ii') cold-start recheck: PersistenceConfig.cold_start_recheck + controller._cold_start_recheck/_cold_start_snapshot + persistence.interval_is_persistent + PersistenceResult.cold_start_rejected.",
+    "REFUTED as a gate: cold single-tau fits have high resolution-level variance. Hierarchy warm anchor=stable 3-way (overlap 1.0) but cold refits=6-way vs 3-way (overlap 0.266<0.5) -> interval rejected. Full-strip recursion ablation w/ recheck ON: circle 1, swiss 1, hierarchy COLLAPSES to 1 (want 6).",
+    "Set cold_start_recheck default FALSE; documented refutation in SI S2.6.2 + S14.3 (label 'diagnostic') + OPEN_ISSUES #27 + PLANNING M1. Added 3 unit tests (interval_is_persistent) + 1 controller regression test. Suite 128p/31xf green.",
+    "GPT cross-family audit (gpt-5.4-high, agent f49edf2a) LGTM-with-caveats: reproduced 3/3 vs 6/3 overlap 0.266 exactly, no impl bug, agreed default-off+document is right, no cheap fix. Applied all 3 caveats (label, phrasing, controller test)."
   ],
   "discoveries": [
-    "Coarse-anchoring FIXES the fine-end warm-start false positive (circle+hierarchy heuristic-free) but NOT swiss roll -- residual narrowed to marginal coarse-scale arc-persistence on developable manifolds.",
-    "Two viable next hardenings for the swiss residual: (i) S3.4 DM gate [M4]; (ii') cold-start/reverse-sweep recheck of the coarse-anchored interval [self-contained, per GPT audit].",
-    "Stand-ins STILL load-bearing (swiss); #27 Part B deletion still BLOCKED until (i) or (ii') validated across ALL scenarios."
+    "(ii') cold-start/reverse-sweep recheck is REFUTED as an acceptance gate: matched-Jaccard partition overlap conflates cross-scale resolution variance with absence-of-structure. Only the S3.4 DM Bayes-factor MARGIN (M4) can make this discrimination.",
+    "#27 stand-in deletion now blocks SOLELY on M4 S3.4 DM evidence gate (path (i)); (ii') and threshold-tightening both ruled out.",
+    "Load-bearing stand-ins: _refine_boundaries, _absorb_tiny_clusters_into_dominant, _absorb_one_tiny_satellite, _absorb_full_graph_isolates, and the <=3 collapse in run_clustering."
   ],
   "open_threads": [
-    "#27 NEXT: implement (ii') cold-start/reverse-sweep persistence recheck (self-contained, no M4 dep); validate swiss->small heuristic-free; then flip gate default + re-scope single-scale tests + delete stand-ins (cross-family audit).",
+    "#27 Part B fully blocked on M4 (S3.4 DM evidence gate). No self-contained Stage-1 path remains; do NOT re-attempt overlap-based path-independence rechecks.",
     "#28 open: c_{d,k} calibration protocol (uniform d-ball; couples C_Q(d) #36); refine persistence tau* off coarse end; delete legacy load_band + dormant _legacy_slope_selector/_detect_peak once load_crossover dominates all scenarios.",
-    "chain head after this push = cd92. ALWAYS git fetch --all before any work next run."
+    "chain head after this push = 8fd0. ALWAYS git fetch --all + reconcile onto newest chain head before any work next run."
   ],
-  "next_step": "Implement (ii') cold-start/reverse-sweep recheck in persistence: recompute the candidate coarse-anchored interval's partitions from a cold-started refit; accept only if the interval survives path-independently. Validate swiss->small + circle 1 + hierarchy 6 heuristic-free.",
-  "blockers": []
+  "next_step": "M1 #27 is blocked on M4; pick the next unblocked task: either M2 #28 (write the c_{d,k} calibration protocol as an SI section + lookup table, couples C_Q(d) #36) or M3 constant-status audit (#37), or start M4 step 1 (flag complex S4.1-4.2) which unblocks #25 and eventually #27.",
+  "blockers": ["#27 Part B (stand-in deletion) blocked on M4 S3.4 DM evidence gate — no Stage-1-only path exists"]
 }
