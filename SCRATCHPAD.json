@@ -1,22 +1,22 @@
 {
-  "updated_at": "2026-07-24T05:20Z",
-  "turn": 5,
-  "focus": { "milestone": "M2", "issue": 28, "goal": "operationalize Q-partition persistence (S2.6.2) as the cross-scale arbiter" },
+  "updated_at": "2026-07-24T11:40Z",
+  "turn": 6,
+  "focus": { "milestone": "M2", "issue": 28, "goal": "build the primary compensated node-count knee selector (N*tau^{d/2}) and wire it behind the selector flag" },
   "recent": [
-    "Adopted chain head 20e3 (M0 + M1A + Part-B start) into branch 7b9a via ff-merge; env set up (hnswlib needs libpython3.12-dev); baseline 110 passed/31 xfailed.",
-    "Implemented stage1/persistence.py: sample-space partition tracking, Hungarian-matched cluster Jaccard, compute_persistence -> run_lengths + coarsest persistent tau*. Behind controller selector='persistence' flag; default load_band untouched.",
-    "Verified discrimination: circle -> no persistent multi-cluster split (tau_star_index None); hierarchical -> 3-way split persists 6 grid pts. Full suite 120 passed/31 xfailed. Committed 8b6c81b + pushed."
+    "Adopted chain head 7b9a (M0+M1A+M1B-start+M2 persistence) into branch eaf2 via ff-merge; env: PYTHONPATH=src pytest, deps pip-installed (no hnswlib/latex); baseline 119 passed/31 xfailed.",
+    "Implemented stage1/characteristic_scale.py: compensated_node_count + coarse-edge-of-plateau knee detector; wired controller selector='node_count'/'combined' with safe load_band fallback; records node_count_trace + characteristic_scale_result. Unit-tested + integration-tested. Full suite 127 passed/31 xfailed. Committed 96ba762 + pushed.",
+    "Documented compensated node count as primary signal in SI S2.5 (+status note) and constants theta_C=0.15/P_plat=2 in S14.3; updated OPEN_ISSUES #28 with the blocking finding."
   ],
   "discoveries": [
-    "Node indices are NOT stable across grid points (splits/prunes), so persistence is tracked in SAMPLE space (stable sample identity) rather than node-ID overlap; documented in SI S2.6.2 operational-persistence paragraph. Constants P_persist=2 (derived), theta_ovl=0.5 (operational) added to S14.3.",
-    "Persistence currently picks the coarse-END of the interval (v_death^+), so tau* lands coarse vs geometric expected_tau (hierarchical tau*=0.36 vs expected 0.0225). Fine for detection; tau* refinement toward v* is a follow-up.",
-    "Env: PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'; no LaTeX toolchain (SI edits are text-only, PDF stale)."
+    "MEASURED: compensated node-count trace does NOT plateau cleanly on the reference scaffold -> node_count/combined fall back to load_band (same tau* as legacy). Cause 1: degree-proxy d biased high (median d~3 on d=1 circle) corrupts tau^{d/2} -> couples M2 primary signal to #39. Cause 2: N saturates at max_nodes + scaffold resolves tube noise at fine scales so effective d drifts -> needs non-binding max_nodes / over-refinement guard, couples to #32.",
+    "d_final is never refreshed in run_until_stable, so it stays = ambient dim on the default path; I compute the intrinsic-dim trace side-effect-free via estimate_d_final(neighbour_graph()) in the controller sweep (no node mutation).",
+    "Persistence (turn 5) picks coarse-END of interval (v_death^+), tau* lands coarse vs geometric expected; fine-refinement toward v* still a follow-up."
   ],
   "open_threads": [
-    "M2 next: build the PRIMARY signal (compensated node-count / support-trace knee, N(tau)*tau^{d/2}); then make persistence/combined the DEFAULT selector and remove band_lo=0.65 + one-step-coarser patch (#28 exit).",
-    "#27 purge: wire persistence as the accept gate inside run_recursive_discovery/run_clustering (accept split only if persists >= P_persist), confirm circle=1/swiss<=3/hierarchy 6-leaf hold, THEN delete clustering.py stand-in heuristics.",
-    "chain PRs #1-#4 all DRAFT/unmerged off main; branch 7b9a now stacks the full chain + this M2 start."
+    "M2 #28 NEXT: fix/validate intrinsic-dim estimator (#39) so tau^{d/2} compensation is correct, AND make max_nodes non-binding (or add over-refinement guard) during scale search; THEN check node_count/combined dominate load_band on tau* accuracy before flipping default + removing band_lo=0.65.",
+    "#27 purge: wire persistence as the accept gate inside run_recursive_discovery/run_clustering (accept split only if persists>=P_persist), confirm circle=1/swiss<=3/hierarchy 6-leaf hold, THEN delete clustering.py stand-in heuristics (deleting now regresses circle->4/swiss->4, measured).",
+    "chain lives across sibling branches; base main still at b58cfcc. This branch eaf2 stacks the full chain + turn-6 primary-signal work."
   ],
-  "next_step": "Implement the primary compensated node-count / support-trace knee selector (#28 item 1) and combine with persistence; then flip default selector and delete band_lo.",
+  "next_step": "Address #39 intrinsic-dim bias (validate degree proxy vs GT on swiss d=2/circle d=1, calibrate or Levina-Bickel) since it blocks the compensated-count compensation, then revisit the node_count selector's plateau.",
   "blockers": []
 }
