@@ -44,7 +44,8 @@ def test_fdm_closed_form():
     got = node_log_marginal(counts, j, a0)
     assert abs(got - float(ref)) < 1e-12
 
-    # Exchangeable: permuting the per-outcome event order cannot change the score.
+    # Invariant to outcome relabeling / permutation of the count bins (the
+    # marginal never sees the event sequence, only the histogram).
     rng = np.random.default_rng(0)
     for _ in range(8):
         perm = rng.permutation(counts.size)

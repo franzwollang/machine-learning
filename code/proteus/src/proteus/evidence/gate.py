@@ -28,7 +28,7 @@ from math import log
 import numpy as np
 
 from proteus.types import EditProposal, EditType, EvidenceVerdict
-from proteus.evidence.dm_score import NodeTransition, evaluate_edit
+from proteus.evidence.dm_score import NodeTransition, evaluate_edit, f_dm
 from proteus.evidence.star_matrix import RHO_MIN_DEFAULT, quarantined_nodes
 
 __all__ = [
@@ -48,8 +48,9 @@ class GateConfig:
     Attributes
     ----------
     tau_bf:
-        Bayes-factor margin base; the acceptance margin is ``log(tau_bf)``
-        (SI S3.4, S14.3 empirical default, ``[1, 3]`` for splits).
+        Bayes-factor threshold; the acceptance margin is ``log(tau_bf)``. SI S14.3
+        lists ``log tau_BF`` in ``[1, 3]`` for splits (empirical), so the default
+        ``tau_bf = 3.0`` gives ``log 3 ~ 1.10``, at the low end of that range.
     k:
         Neighbour count used in the equilibration-window formula (SI S3.6).
     rho_min:
@@ -94,25 +95,50 @@ def score_edit(
     config: GateConfig | None = None,
     edit_stars: Mapping[int, np.ndarray] | None = None,
     keep_stars: Mapping[int, np.ndarray] | None = None,
+    dual_connected: bool = True,
 ) -> EvidenceVerdict:
-    """Score one edit with S10.4 conditioning quarantine applied (SI S3.4, S10.4).
+    """Score one edit under the S10.4 dynamic-preservation rule (SI S3.4, S10.4).
 
-    Any node whose pre- or post-edit star is router-ill-conditioned is quarantined
-    from *both* F_DM baselines, so it cannot manufacture an evidence improvement.
+    An edit is *evidence-bearing* only if **every** affected pre- and post-edit
+    star is well-conditioned (``rho_i >= rho_min``) **and** the affected dual
+    subgraph stays connected (``dual_connected``). If either fails, the edit
+    cannot claim an ``F_DM`` improvement: it is rejected on the evidence path
+    (a geometry-only remediation path, deferred, may still accept it). This is
+    all-or-nothing per S10.4 -- partial evidence from the still-conditioned nodes
+    may **not** be used to accept the edit.
+
+    ``edit_stars`` / ``keep_stars`` map affected node ids to their star matrices
+    (see :mod:`proteus.evidence.star_matrix`); when omitted the caller asserts the
+    stars are conditioned. ``dual_connected`` is the affected dual-subgraph
+    connectivity result from the dry run (Stage-2 dual graph; OPEN_ISSUES #43).
     """
 
     config = config or GateConfig()
-    quarantined: set[int] = set()
+    ill: set[int] = set()
     if edit_stars is not None:
-        quarantined |= quarantined_nodes(edit_stars, config.rho_min)
+        ill |= quarantined_nodes(edit_stars, config.rho_min)
     if keep_stars is not None:
-        quarantined |= quarantined_nodes(keep_stars, config.rho_min)
+        ill |= quarantined_nodes(keep_stars, config.rho_min)
+
+    if ill or not dual_connected:
+        # Not evidence-bearing (S10.4): F_DM is reported for diagnostics but the
+        # edit cannot be accepted on the evidence path.
+        f_keep = f_dm(keep_region)
+        f_edit = f_dm(edit_region)
+        return EvidenceVerdict(
+            accepted=False,
+            f_dm_edit=f_edit,
+            f_dm_keep=f_keep,
+            log_bayes_factor=f_keep - f_edit,
+            margin=float(log(config.tau_bf)),
+            proposal=proposal,
+        )
+
     return evaluate_edit(
         keep_region,
         edit_region,
         proposal,
         tau_bf=config.tau_bf,
-        quarantined=quarantined,
     )
 
 
@@ -139,6 +165,9 @@ class EvidenceGate:
         self.clock = 0
         self.accepted_this_epoch = 0
         self._locked_until: dict[int, int] = {}
+        # Window at the moment the gate last fired, used for T_hyst = 2 W so the
+        # lockout reflects the firing queue, not the post-pop queue (SI S3.6).
+        self._firing_window = self.window()
 
     @property
     def queue_len(self) -> int:
@@ -193,7 +222,7 @@ class EvidenceGate:
 
         if not verdict.accepted:
             return
-        lock = self.clock + hysteresis_window(self.window())
+        lock = self.clock + hysteresis_window(self._firing_window)
         for node_id in verdict.proposal.affected_node_ids:
             self._locked_until[int(node_id)] = lock
         if self._consumes_budget(verdict.proposal):
@@ -207,9 +236,13 @@ class EvidenceGate:
         *,
         edit_stars: Mapping[int, np.ndarray] | None = None,
         keep_stars: Mapping[int, np.ndarray] | None = None,
+        dual_connected: bool = True,
     ) -> EvidenceVerdict:
         """Score ``proposal``; force-reject if cadence/budget forbids it now (S3.6)."""
 
+        # Freeze the firing window (SI S3.6) before the queue mutates, so a later
+        # commit() derives T_hyst = 2 W from the queue that actually fired.
+        self._firing_window = self.window()
         verdict = score_edit(
             keep_region,
             edit_region,
@@ -217,6 +250,7 @@ class EvidenceGate:
             config=self.config,
             edit_stars=edit_stars,
             keep_stars=keep_stars,
+            dual_connected=dual_connected,
         )
         if verdict.accepted and not self.can_accept(proposal):
             verdict = EvidenceVerdict(

@@ -23,6 +23,19 @@ The runtime test uses the conditioning ratio ``rho_i = sigma_min(K_i) /
 sigma_max(K_i)`` with default flag threshold ``rho_min = 1e-4`` (conservative
 ``1e-3`` for noise-sensitive runs); stars below ``rho_min`` are quarantined and
 contribute no likelihood term to ``F_DM`` (SI S10.4 dynamic preservation rule).
+
+S10.4 also requires each star to have "full rank modulo the one-dimensional
+scaling direction". Because the router ``q(.|i;m)`` is normalized (homogeneous of
+degree zero in ``m``), a star with more incident simplices than outgoing outcomes
+is under-determined: there are more simplex masses to identify than independent
+transition equations (``n_outcomes - 1`` free probabilities vs ``n_simplices - 1``
+free masses modulo scaling). Such stars are flagged non-evidence-bearing directly,
+in addition to the ``rho_min`` conditioning ratio.
+
+The exact runtime realization of ``K_i`` (the normalized-router Jacobian at the
+canonical ``kappa``) is under-specified by S10.4; the edge--simplex incidence
+matrix plus the ``n_outcomes >= n_simplices`` rank guard is the operational
+first-implementation proxy (OPEN_ISSUES #42).
 """
 from __future__ import annotations
 
@@ -84,12 +97,14 @@ def star_incidence_matrix(
 
 
 def condition_ratio(K: np.ndarray) -> float:
-    """Return ``rho_i = sigma_min(K) / sigma_max(K)`` (SI S10.4).
+    """Return the S10.4 runtime conditioning ratio ``sigma_min(K)/sigma_max(K)``.
 
-    Empty or all-zero matrices are maximally ill-conditioned (``rho = 0``). The
-    global one-dimensional scaling direction is *not* modded out here: a rank-1
-    map (single simplex) is a legitimate identifiable star for its lone mass, so
-    the ratio is reported on the raw ``K`` and read against ``rho_min``.
+    This is the literal runtime ratio of the S10.4 conditioning paragraph over the
+    ``min(n_outcomes, n_simplices)`` singular values of ``K``. Empty or all-zero
+    matrices are maximally ill-conditioned (``rho = 0``). Full-rank-modulo-scaling
+    (the ``n_outcomes >= n_simplices`` requirement) is enforced separately in
+    :func:`is_evidence_bearing`, since a wide ``K`` can have a well-conditioned
+    ratio while still leaving some simplex masses unidentifiable.
     """
 
     K = np.asarray(K, dtype=float)
@@ -106,18 +121,29 @@ def condition_ratio(K: np.ndarray) -> float:
 
 
 def is_evidence_bearing(K: np.ndarray, rho_min: float = RHO_MIN_DEFAULT) -> bool:
-    """True iff the star is well-conditioned enough to carry likelihood evidence.
+    """True iff the star can carry likelihood evidence (SI S10.4).
 
-    A single-simplex star (one column) is evidence-bearing: its lone mass is
-    identified by its outgoing counts. Multi-simplex stars must satisfy
-    ``rho_i >= rho_min``.
+    Requires both:
+
+    * *Full rank modulo scaling*: at least as many outgoing outcomes as incident
+      simplices (``n_outcomes >= n_simplices``); otherwise the simplex masses are
+      under-determined by the transition counts. A single-simplex star is
+      trivially identifiable for its lone mass.
+    * *Conditioning*: ``sigma_min(K)/sigma_max(K) >= rho_min``.
     """
 
     K = np.asarray(K, dtype=float)
     if K.size == 0:
         return False
-    if K.shape[1] == 1:
-        return bool(np.any(K != 0.0))
+    n_outcomes, n_simplices = K.shape
+    if n_simplices == 0 or n_outcomes == 0:
+        return False
+    if not np.any(K != 0.0):
+        return False
+    if n_simplices == 1:
+        return True
+    if n_simplices > n_outcomes:
+        return False
     return condition_ratio(K) >= rho_min
 
 

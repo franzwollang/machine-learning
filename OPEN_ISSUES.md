@@ -5,7 +5,7 @@ here. Numbering is historical and stable: resolved issues are deleted rather tha
 renumbered, so gaps in the sequence are expected. Each entry lists only the work that
 actually remains. See `PLANNING.md` for the suggested order of attack.
 
-Next issue number: 42
+Next issue number: 44
 
 ## 16. Fuzzy title decision
 
@@ -106,3 +106,31 @@ tests: `test_nested_spheres_topology` (per-shell `b0 = 1`, `b_{sphere_dim} = 1`)
      `@awaiting("stage1.controller")` component-separation tests must also be written).
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (the S4.2 manifold-zoo test)
   additionally blocks on the #40 operational `d_final` refresh; pure topology (b-numbers) does not.
+
+## 42. Star-matrix runtime form under-specified (SI S10.4)
+
+- The DM evidence gate's S10.4 conditioning guard is implemented in
+  `evidence/star_matrix.py`, but S10.4 defines `K_i` only "up to normalization" as the
+  Jacobian of the normalized router `q(.|i; m)` with respect to the star masses at the
+  canonical `kappa`; it never writes the runtime matrix explicitly. The implementation uses
+  the **edge--simplex incidence matrix** as an operational proxy, plus a
+  `n_outcomes >= n_simplices` full-rank-modulo-scaling guard and the literal
+  `sigma_min/sigma_max >= rho_min` ratio (`rho_min = 1e-4`, S10.4).
+- Remaining: either pin the exact runtime `K_i` (normalized-router Jacobian at `kappa`,
+  with the 1-D scaling direction removed) into S10.4, or bless the incidence-matrix + rank
+  guard as the canonical first-implementation form and say so in S10.4. This is a
+  calibration/diagnostic-tier (audit-adjacent) choice, not core acceptance-path math.
+
+## 43. Evidence gate: wire the affected dual-subgraph connectivity check (SI S10.4)
+
+- S10.4's dynamic-preservation rule requires an edit to be *evidence-bearing* only if
+  (a) every affected post-edit star is well-conditioned **and** (b) the affected dual
+  subgraph stays connected. `evidence/gate.py::score_edit` enforces (a) all-or-nothing and
+  exposes a `dual_connected` hook for (b), but nothing computes that connectivity yet: the
+  dual/face graph is a Stage-2 dual-flow structure (S6) not built until the M4 dual-flow
+  step.
+- Remaining: when the S6 dual graph lands, compute the affected dual-subgraph connectivity
+  in the edit dry run and pass it into `score_edit(..., dual_connected=...)` /
+  `EvidenceGate.evaluate`; add a reduction/property test that a disconnecting edit is
+  rejected on the evidence path. Until then the gate conservatively defaults
+  `dual_connected=True` (callers with no dual graph assert connectivity).

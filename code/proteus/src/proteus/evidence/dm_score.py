@@ -26,8 +26,9 @@ iteration-budget artifacts that an iterative per-candidate MAP fit would create
 (SI S10.2).
 
 The BDeu concentration is derived, not free: ``alpha_{0,i} = 1/(d_final_i + 1)``
-(SI S2.7). ``tau_BF`` is the log-Bayes-factor margin (SI S3.4, S14.3, empirical,
-``[1, 3]`` for splits).
+(SI S2.7). The acceptance margin is ``log(tau_BF)``; SI S14.3 lists **``log
+tau_BF``** in ``[1, 3]`` for splits (empirical). ``tau_BF`` itself is therefore in
+``[e, e^3] ~ [2.7, 20]``.
 """
 from __future__ import annotations
 
