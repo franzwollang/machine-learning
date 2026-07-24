@@ -15,7 +15,9 @@ from tests.datasets.synthetic.dim_junctions import make_filament_sheet_junction
 from tests.datasets.synthetic.hierarchical_gaussian import (
     make_hierarchical_gaussian,
 )
+from tests.datasets.synthetic.faded_density import AxisAlignedBoxFadedComponent
 from tests.datasets.synthetic.linked_tori import make_linked_tori
+from tests.datasets.synthetic.manifold_zoo import make_manifold_zoo
 from tests.datasets.synthetic.mixed_dim import make_mixed_dim
 from tests.datasets.synthetic.nested_spheres import make_nested_spheres
 from tests.datasets.synthetic.swiss_roll import make_swiss_roll
@@ -85,6 +87,7 @@ def test_all_synthetic_generators_populate_expected_tau() -> None:
             sheet_extrusion_dim=1,
         ),
         make_hierarchical_gaussian(n_samples=96),
+        make_manifold_zoo(n_box=64, n_plane=48, n_segment=24, n_circle=32),
     ]
 
     for dataset in datasets:
@@ -98,3 +101,39 @@ def test_all_synthetic_generators_populate_expected_tau() -> None:
         assert gt.tau_grid_hint is not None, gt.name
         lo, hi = gt.tau_grid_hint
         assert lo < gt.expected_tau < hi, gt.name
+
+
+def test_axis_aligned_box_component_contract() -> None:
+    """Solid-box faded component: uniform inside, Gaussian fade in normals."""
+    rng = np.random.default_rng(0)
+
+    # Solid 3-box (no normal directions): samples stay in the box, interior
+    # distance is zero, density is uniform inside and zero outside the span.
+    solid = AxisAlignedBoxFadedComponent(
+        lo=(0.0, 0.0, 0.0), hi=(1.0, 2.0, 3.0),
+        ambient_dim=3, sigma=0.02, transition_radius=3.0,
+    )
+    assert solid.box_dim == 3
+    pts = solid.sample(2000, rng)
+    assert pts.shape == (2000, 3)
+    assert np.all(pts >= np.array([0.0, 0.0, 0.0])) and np.all(pts <= np.array([1.0, 2.0, 3.0]))
+    inside = np.array([[0.5, 1.0, 1.5]])
+    outside = np.array([[5.0, 1.0, 1.5]])
+    assert np.isclose(solid.distance(inside)[0], 0.0)
+    assert solid.distance(outside)[0] > 0.0
+    volume = 1.0 * 2.0 * 3.0
+    assert np.isclose(solid.density(inside)[0], 1.0 / volume)
+    assert np.isclose(solid.density(outside)[0], 0.0)
+
+    # Box spanning a strict subset of the ambient axes fades in the normals.
+    embedded = AxisAlignedBoxFadedComponent(
+        lo=(0.0, 0.0), hi=(1.0, 1.0),
+        ambient_dim=3, sigma=0.05, transition_radius=3.0,
+    )
+    assert embedded.box_dim == 2
+    on_plane = np.array([[0.5, 0.5, 0.0]])
+    off_plane = np.array([[0.5, 0.5, 0.4]])
+    assert embedded.fade_weight(on_plane)[0] > embedded.fade_weight(off_plane)[0]
+    samples = embedded.sample(500, np.random.default_rng(1))
+    assert np.all(samples[:, 0] >= 0.0) and np.all(samples[:, 0] <= 1.0)
+    assert np.abs(samples[:, 2]).mean() < 0.5  # concentrated near the plane
