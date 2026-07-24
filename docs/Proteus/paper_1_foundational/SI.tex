@@ -428,44 +428,6 @@ V_C(\tau)=\sum_{i\in C}\widehat V_i.
 \]
 The support trace $V_C(\tau)$ is a cheap secondary diagnostic: robust characteristic scales should show a response peak in $\Phi_C$ near a plateau transition in $V_C$.
 
-\paragraph{Compensated node count (primary structural signal).}
-The raw node response $R_i(\tau)$ is \emph{self-normalizing} at equilibrium: a
-converged scaffold equalizes hit masses and locks the $k$-NN radius to the cap
-($r_{k,i}\approx c_{d,k}\sqrt\tau$), so the explicit $\tau^{d/2}$ factor cancels
-the $r_{k,i}^{-d}$ in $\widehat\rho_i$ and the $\Phi_C$ trace is flat or monotone
-regardless of how well $c_{d,k}$ is calibrated. The characteristic-scale signal
-must therefore come from a quantity equilibration cannot normalize away, namely
-the equilibrium \emph{node count} itself. On a $d$-dimensional support each
-settled node occupies a catchment of volume $\sim\tau^{d/2}$, so once the support
-is well resolved the node count obeys
-\[
-N(\tau)\ \sim\ \frac{V_{\mathrm{supp}}}{\tau^{d/2}},
-\qquad
-C(\tau)\ :=\ N(\tau)\,\tau^{d/2}\ \approx\ \mathrm{const}.
-\]
-The compensated node count $C(\tau)$ (equivalently the support trace $V_C(\tau)$,
-which differs only by the equilibrium cell-volume constant) rises while the
-support is under-resolved and flattens onto a plateau at $\sim V_{\mathrm{supp}}$
-once every intrinsic direction is resolved. The \emph{coarse edge} of that
-plateau --- the coarsest grid point from which the relative change of $C$ stays
-within a tolerance $\theta_C$ over at least $P_{\mathrm{plat}}=2$ adjacent grid
-points --- is the characteristic scale ($v_{\mathrm{death}}^+$ in the
-persistence language of S2.6.2). The compensation exponent uses the local
-intrinsic-dimension estimate $d$ (S1.4), not the ambient dimension, so an
-embedded manifold (a circle in $\mathbb R^2$, $d=1$) is compensated correctly.
-
-\emph{Status.} This signal is implemented
-(\texttt{stage1.characteristic\_scale}) and selectable, but is \emph{not yet} the
-operational default: under the reference scaffold the plateau is degraded by two
-effects that must be closed first --- the degree-proxy intrinsic-dimension
-estimate is biased high (OPEN\_ISSUES \#39), which corrupts the $\tau^{d/2}$
-compensation, and the node count saturates against the \texttt{max\_nodes} cap at
-fine scales while the scaffold begins resolving noise/tube cross-sections, so the
-effective $d$ drifts with scale. Until those are resolved the controller retains
-the load-band selector of S2.5.1 as the transition default, with the compensated
-node count and the S2.6.2 persistence signal available behind a flag and logged
-as cross-checks.
-
 \subsection*{S2.5.1 Scale Controller Procedure}
 Evaluate $\Phi_C(\tau)$ on a geometric grid in $\log \tau$. Candidate peaks are detected by sign changes in the centered second difference, then refined with a small number of additional evaluations near each bracket. A support trace, such as a summed local volume proxy $V_C(\tau)$, is logged as a cross-check: robust characteristic scales should coincide with the expected transition between unresolved support and redundant over-refinement. A grid point is eligible only if its Stage~1 scaffold stabilizes under the fixed-scale criteria. If no robust peak exists, the region is terminal for the searched band.
 
@@ -1947,8 +1909,6 @@ M_{\mathrm{eq}} & 3\text{ consecutive epochs} & \text{S2.5.1} & \text{operationa
 \Phi_C\text{ peak floor} & 5\%\text{ of grid max} & \text{S2.5.1} & \text{empirical}\\
 P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{derived}\\
 \theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
-\theta_C & 0.15\ (\text{compensated-count plateau rel.\ change}) & \text{S2.5} & \text{operational}\\
-P_{\mathrm{plat}} & 2\text{ adjacent grid points} & \text{S2.5} & \text{derived}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
 \beta_{\mathrm{prune}} & 0.5\ (\text{directed-floor share}) & \text{S3.1} & \text{operational}\\
 z_{\mathrm{Wilson}} & 1.2816\ (\text{alternative}) & \text{S3.1} & \text{statistical}\\
