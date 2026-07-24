@@ -1,24 +1,22 @@
 {
-  "updated_at": "2026-07-24T11:00Z",
-  "turn": 14,
-  "focus": { "milestone": "M3", "issue": null, "goal": "C_Q(d) calibrated (#36 resolved); next is #37 S14.3 audit or #39 intrinsic-dim" },
+  "updated_at": "2026-07-24T11:52Z",
+  "turn": 15,
+  "focus": { "milestone": "M3", "issue": null, "goal": "#37 S14.3 constant audit complete; next is #39 intrinsic-dim validation" },
   "recent": [
-    "ff-merged chain head aa97 (turn-13 state) onto fresh branch b824; deps installed; baseline 137p/31xf green.",
-    "#36 C_Q(d) calibrated: new proteus.stage1.calibration functions (measure_cq_from_scaffold = interior median rho_prune/sqrt(tau); calibrate_cq; CQ_TABLE d=1..4 -> 2.35,1.66,1.49,1.44; c_q lookup + c_q_analytic fallback). Factored _build_equilibrated_scaffold shared with calibrate_cdk (c_{d,k} unchanged).",
-    "SI: S3.3 defines C_Q(d) (star radius = worst-case reassignment) + calibration protocol reusing S2.5.5 ensemble; S14.3 row status=calibrated; S0.1 notation.",
-    "GPT cross-family audit (gpt-5.4-high, agent f379c81c) BLOCKING: analytic anchor was misidentified (star radius = inter-node SPACING, not cell radius sqrt((d+2)/d)). Fixed: c_q_analytic = c_{d,k}(V_d/k)^{1/d} spacing anchor (brackets table +/-25%); SI + tests rewritten. Suite 145p/31xf."
+    "CHAIN RECOVERY: this branch (eaf2) initially built on STALE 7b9a (turn5); did misdirected M2 compensated-node-count work, then ran git fetch --all (per memory), found true head b824 (turn14). Reverted my 2 commits + merged b824 (additive, no history rewrite); eaf2 diff vs b824 == empty. Pushed.",
+    "#37 RESOLVED: completed S14.3 three-tier audit — added every missing src/ Stage-1 constant (T2 PCA r_min/r_0.999, Oja rate 0.05, rho_max 10, split offset 0.5*sqrt(tau)/budget 2h_prune, N_min/N_max/M_max/k, grid-search range, AP damping 0.8/iters, recursion N_min/depth, prune_after 25 maturity, neonatal link guard 25) with owner+status. Divergence check: none.",
+    "Closing S14.3 note now scopes out numerical guards (eps ~1e-8..1e-12) + ANN library params (HNSW M/ef) as non-algorithmic, and names the calibration-ensemble params (S2.5.5)."
   ],
   "discoveries": [
-    "C_Q(d) star radius ~ equilibrium inter-node spacing s = r_k(V_d/k)^{1/d}, NOT the cap-saturated cell radius; equilibrium catchment variance sits BELOW the cap, so a bare sqrt((d+2)/d) argument mis-scales it. Using the CALIBRATED c_{d,k} in the anchor captures the sub-cap factor.",
-    "C_Q(d) is proposal-path (feeds S3.3 prune/merge guards; S3.4 DM gate is the acceptance arbiter) -> calibration-tier, audit-adjacent, not acceptance-path.",
-    "measure_cq uses sampled-max -> lower-biased estimate of the continuous cell max (converges from below); conservative for the guards."
+    "LESSON RE-CONFIRMED (now 3rd time in chain): MUST git fetch --all FIRST. Local remote refs from clone are stale and hide newest branches; I lost a turn's work to this. b824 tip 089b534 was the real head, 52 ahead of main.",
+    "b824's SI S2.5.1 (line ~466) already records the N(tau)*tau^{d/2} compensated-node-count proposal as a DIAGNOSTIC — real M2 went load-crossover default + calibrated c_{d,k}; the compensated-count-as-selector path was already considered and shelved.",
+    "prune_hit_fraction=0.20 governs the SPLIT budget (h_i>=2*h_prune) only; node-prune uses hardcoded 0.5 factors (match table). No code/spec divergence found in the audit."
   ],
   "open_threads": [
-    "#37: full S14.3 three-tier audit — every constant in src/ (e.g. gaussian_cutoff_dim=8, split budget 2*h_prune, neonatal link_protection) classified derived/calibrated/operational.",
-    "#39: validate degree-proxy intrinsic-dim estimator vs synthetic ground truth (swiss d=2, circle d=1) or swap in Levina-Bickel behind the same interface (couples M3, wanted before M4).",
-    "M2 remaining: persistence tau* coarse-end refinement; delete legacy load-band + dormant _legacy_slope_selector/_detect_peak once load-crossover dominates all scenarios.",
-    "M1 #27 Part B still blocked SOLELY on M4 S3.4 DM gate (cold-start recheck REFUTED; do not re-attempt overlap-based rechecks)."
+    "#39: validate degree-proxy intrinsic-dim estimator vs synthetic GT (swiss d=2, circle d=1; my turn-6 measurement showed median d~3 on the d=1 circle = biased HIGH) or swap Levina-Bickel behind same interface; wanted before M4. Note LB needs distances/positions, not the neighbour_graph, so 'same interface' is not literal.",
+    "M2 remaining: persistence tau* coarse-end refinement; delete legacy load_band + dormant _legacy_slope_selector/_detect_peak once load-crossover dominates all scenarios.",
+    "M1 #27 Part B blocked SOLELY on M4 S3.4 DM gate (cold-start recheck REFUTED; do not re-attempt overlap rechecks)."
   ],
-  "next_step": "Pick #37 (full S14.3 constant audit; pure doc + code inventory, unblocked) or #39 (intrinsic-dim validation; needs synthetic GT harness). Both advance M3 and are M4-preparatory.",
+  "next_step": "Start #39: build a synthetic-GT validation harness for the intrinsic-dim estimator (circle d=1, swiss d=2) and either calibrate a degree-proxy correction or implement Levina-Bickel (positions+k) as the principled estimator; keep degree proxy default, migrate consumers carefully.",
   "blockers": ["#27 Part B blocked on M4 S3.4 DM evidence gate"]
 }
