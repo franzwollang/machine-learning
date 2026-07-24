@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional
 
 import numpy as np
@@ -12,6 +12,7 @@ from proteus.stage1.persistence import (
     PersistenceConfig,
     PersistenceResult,
     compute_persistence,
+    interval_is_persistent,
     route_samples_to_labels,
 )
 from proteus.stage1.scaffold import Stage1Scaffold
@@ -160,6 +161,14 @@ def run_scale_search(
     persistence_result: PersistenceResult | None = None
     if snapshots is not None:
         persistence_result = compute_persistence(snapshots, config.persistence)
+        if (
+            config.persistence.coarse_anchored
+            and config.persistence.cold_start_recheck
+            and persistence_result.tau_star_index is not None
+        ):
+            persistence_result = _cold_start_recheck(
+                persistence_result, data_arr, dim, config, tau_grid, max_nodes,
+            )
 
     if config.selector == "load_band":
         peak_idx = _select_load_band(
@@ -243,6 +252,99 @@ def _snapshot_partition(
         n_clusters=int(cluster_result.n_clusters),
         partition_q_score=float(cluster_result.partition_q_score),
         stabilized=stabilized,
+    )
+
+
+def _cold_start_snapshot(
+    data: np.ndarray,
+    dim: int,
+    tau: float,
+    grid_index: int,
+    config: ScaleSearchConfig,
+    max_nodes: int,
+    seed: int,
+) -> PartitionSnapshot:
+    """Fit a fresh scaffold at ``tau`` (no warm carry-over) and snapshot its partition.
+
+    Unlike the coarse-to-fine sweep in :func:`run_scale_search`, this seeds a new
+    :class:`Stage1Scaffold` directly at ``tau`` on an independent RNG stream and
+    converges it from scratch.  It is the primitive of the cold-start
+    path-independence recheck (SI S2.6.2, ``PersistenceConfig.cold_start_recheck``).
+    """
+
+    rng = np.random.default_rng(seed)
+    scaffold = Stage1Scaffold(
+        dim=dim,
+        tau=float(tau),
+        k=config.k,
+        min_nodes=config.min_nodes,
+        max_nodes=max_nodes,
+        ann_backend=config.ann_backend,
+        rng=rng,
+    )
+    n_seeds = min(config.n_seeds, data.shape[0])
+    scaffold.init_from(data, n_seeds=n_seeds)
+    history = scaffold.run_until_stable(data, config.stabilization)
+    stabilized = len(history["cv"]) < config.stabilization.max_epochs
+    return _snapshot_partition(scaffold, data, grid_index, float(tau), stabilized)
+
+
+def _cold_start_recheck(
+    persistence_result: PersistenceResult,
+    data: np.ndarray,
+    dim: int,
+    config: ScaleSearchConfig,
+    tau_grid: np.ndarray,
+    max_nodes: int,
+) -> PersistenceResult:
+    """Path-independence recheck of a coarse-anchored persistence candidate.
+
+    Re-fits the grid points of the candidate interval
+    ``[i0 .. i0 + min_persistence - 1]`` from cold-started scaffolds (independent
+    RNG streams per grid point) and keeps the candidate only if that interval
+    still persists.  On rejection returns a copy with ``tau_star_index`` /
+    ``tau_star`` cleared and ``cold_start_rejected=True``.
+
+    This is gated by ``PersistenceConfig.cold_start_recheck``, which is **off by
+    default and refuted as an acceptance gate** (it over-rejects genuine
+    multi-level features because cold single-``tau`` fits have high
+    resolution-level variance); see that flag's docstring, SI S2.6.2, and
+    OPEN_ISSUES #27.
+    """
+
+    i0 = persistence_result.tau_star_index
+    if i0 is None:
+        return persistence_result
+    length = config.persistence.min_persistence
+    interval = list(range(i0, min(i0 + length, len(tau_grid))))
+    if len(interval) < length:
+        # Too few fine-side grid points to re-verify path-independence: reject
+        # conservatively rather than accept an unverifiable candidate.
+        return replace(
+            persistence_result,
+            tau_star_index=None,
+            tau_star=None,
+            cold_start_rejected=True,
+        )
+
+    cold_snaps: list[PartitionSnapshot] = []
+    for j in interval:
+        # Distinct, deterministic stream per grid point, disjoint from the warm
+        # sweep's ``config.seed`` so the refit shares no random trajectory.
+        cold_seed = int(config.seed) + 9973 * (int(j) + 1)
+        cold_snaps.append(
+            _cold_start_snapshot(
+                data, dim, float(tau_grid[j]), int(j), config, max_nodes, cold_seed,
+            ),
+        )
+
+    if interval_is_persistent(cold_snaps, config.persistence):
+        return persistence_result
+    return replace(
+        persistence_result,
+        tau_star_index=None,
+        tau_star=None,
+        cold_start_rejected=True,
     )
 
 

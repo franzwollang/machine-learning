@@ -8,6 +8,7 @@ from proteus.stage1.persistence import (
     PartitionSnapshot,
     PersistenceConfig,
     compute_persistence,
+    interval_is_persistent,
     mean_matched_jaccard,
 )
 
@@ -132,3 +133,32 @@ def test_legacy_rule_accepts_isolated_fine_end_block() -> None:
         snaps, PersistenceConfig(min_persistence=2, coarse_anchored=False),
     )
     assert res.tau_star_index == 4
+
+
+# ---------------------------------------------------------------------------
+# interval_is_persistent --- the pure test used by the controller's (default
+# off) cold-start path-independence recheck (SI S2.6.2, OPEN_ISSUES #27).
+# ---------------------------------------------------------------------------
+
+
+def test_interval_is_persistent_accepts_agreeing_multicluster_block() -> None:
+    three = [0, 0, 1, 1, 2, 2]
+    snaps = [_snap(0, 0.5, three), _snap(1, 0.35, three)]
+    assert interval_is_persistent(snaps, PersistenceConfig(min_persistence=2))
+
+
+def test_interval_is_persistent_rejects_disagreeing_block() -> None:
+    # Two adjacent multi-cluster partitions that disagree (different cluster
+    # counts / assignments) do not form a persistent interval --- this is the
+    # signal that trips on cold-started resolution-level variance (the reason
+    # the recheck over-rejects genuine features and is left off by default).
+    six = [0, 1, 2, 3, 4, 5]
+    three = [0, 0, 1, 1, 2, 2]
+    snaps = [_snap(0, 0.5, six), _snap(1, 0.35, three)]
+    assert not interval_is_persistent(snaps, PersistenceConfig(min_persistence=2))
+
+
+def test_interval_is_persistent_rejects_short_interval() -> None:
+    three = [0, 0, 1, 1, 2, 2]
+    snaps = [_snap(0, 0.5, three)]
+    assert not interval_is_persistent(snaps, PersistenceConfig(min_persistence=2))

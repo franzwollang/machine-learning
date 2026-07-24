@@ -44,7 +44,7 @@ remains the transition default.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Optional
 
 import numpy as np
@@ -87,12 +87,41 @@ class PersistenceConfig:
         ceases to be one cluster) removes it.  When ``False`` the legacy rule is
         used: the coarsest grid index whose block persists, scanning past any
         non-persistent coarser multi-cluster points.  Operational (S14.3).
+    cold_start_recheck:
+        Experimental **path-independence recheck** of a coarse-anchored
+        candidate, **default off and empirically refuted as an acceptance gate**
+        (SI S2.6.2 residual note, OPEN_ISSUES #27).  When ``True`` the grid
+        points of the candidate persistence interval are re-fit from
+        *cold-started* scaffolds (each seeded fresh at its own ``tau`` on an
+        independent RNG stream, rather than warm-started from the coarser
+        scale), and the candidate is kept only if the interval still persists
+        under those independent fits.  The intent (GPT cross-family audit,
+        turn 10) was to catch the residual warm-start artifact that
+        coarse-anchoring alone does not: on a developable manifold the warm
+        sweep can carry a coarse arc-partition forward so it *marginally*
+        persists.  In practice the recheck **over-rejects genuine multi-level
+        features**: independently cold-fitted scaffolds at adjacent coarse
+        scales settle at different *resolution levels* (e.g. the hierarchical
+        Gaussian's coarse anchor warm-fits to a stable 3-way partition but
+        cold-fits to 6-way vs 3-way at adjacent scales, matched overlap
+        ``~0.27 < overlap_threshold``), so the interval "fails" the recheck and
+        the true root split is rejected.  The partition-overlap statistic cannot
+        separate this resolution-level variance from a true absence of
+        structure, which is exactly the job the Stage 2 DM evidence gate (S3.4,
+        M4) does with a proper model-comparison margin.  The flag is retained
+        (default ``False``) as a reproducible diagnostic and to document the
+        negative result; it must not be enabled on the acceptance path.  The
+        recheck runs in the controller
+        (:func:`proteus.stage1.controller.run_scale_search`), not in
+        :func:`compute_persistence`; it is ignored when ``coarse_anchored`` is
+        ``False``.  Operational (S14.3).
     """
 
     min_persistence: int = 2
     overlap_threshold: float = 0.5
     min_clusters: int = 2
     coarse_anchored: bool = True
+    cold_start_recheck: bool = False
 
 
 @dataclass
@@ -137,6 +166,12 @@ class PersistenceResult:
         a warm-start artifact).  Under the legacy rule it is the coarsest grid
         index whose block persists, scanning past non-persistent coarser
         multi-cluster points.
+    cold_start_rejected:
+        ``True`` when a coarse-anchored candidate existed on the warm sweep but
+        was rejected by the cold-start path-independence recheck
+        (:attr:`PersistenceConfig.cold_start_recheck`); in that case
+        ``tau_star_index`` / ``tau_star`` are ``None``.  ``False`` otherwise
+        (no candidate, recheck disabled, or candidate survived the recheck).
     """
 
     run_lengths: np.ndarray
@@ -144,6 +179,7 @@ class PersistenceResult:
     tau_star_index: Optional[int]
     tau_star: Optional[float]
     snapshots: list[PartitionSnapshot] = field(default_factory=list)
+    cold_start_rejected: bool = False
 
 
 def route_samples_to_labels(
@@ -303,3 +339,28 @@ def compute_persistence(
         tau_star=tau_star,
         snapshots=list(snapshots),
     )
+
+
+def interval_is_persistent(
+    snapshots: list[PartitionSnapshot],
+    config: PersistenceConfig | None = None,
+) -> bool:
+    """Whether coarse-first ``snapshots`` form one persistent multi-cluster block.
+
+    Returns ``True`` when the maximal same-partition multi-cluster run starting
+    at the *coarsest* supplied snapshot spans at least ``min_persistence`` grid
+    points.  Used by the controller's cold-start recheck
+    (:attr:`PersistenceConfig.cold_start_recheck`) to test whether a candidate
+    persistence interval, re-fit path-independently, still persists.  This is a
+    pure function of the supplied snapshots (the ``coarse_anchored`` /
+    ``cold_start_recheck`` policy flags do not affect the run-length signal).
+    """
+
+    config = config if config is not None else PersistenceConfig()
+    if len(snapshots) < config.min_persistence:
+        return False
+    result = compute_persistence(
+        snapshots,
+        replace(config, coarse_anchored=False, cold_start_recheck=False),
+    )
+    return bool(result.run_lengths[0] >= config.min_persistence)
