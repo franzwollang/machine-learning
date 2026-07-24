@@ -1,23 +1,24 @@
 {
-  "updated_at": "2026-07-24T07:20Z",
-  "turn": 9,
-  "focus": { "milestone": "M1", "issue": 27, "goal": "record + spec-correct the finding that persistence gate does NOT replace clustering stand-ins" },
+  "updated_at": "2026-07-24T08:00Z",
+  "turn": 10,
+  "focus": { "milestone": "M1", "issue": 27, "goal": "land coarse-anchored persistence rule (hardening ii) + narrow the stand-in-deletion blocker" },
   "recent": [
-    "Chained onto head 6084 (ff-merge; my branch was clean main). Baseline suite green 122p/1s/31xf.",
-    "KEY FINDING (GPT-audited, agent 320a28ae): full-strip ablation + require_persistent_split=True gives circle->37 leaves, hierarchy->12. REFUTES turn-7 note 'gate alone yields circle->1' (that ablation left the <=3 collapse intact). Stand-ins are LOAD-BEARING; #27 Part B deletion is BLOCKED.",
-    "Mechanism: warm-start makes an isolated fine-end arc-pair coincide at 0.609 >= theta_ovl(0.5), satisfying P_persist=2 -> spurious split. Cold-start refit removes it (0.475/0.419). Genuine feature (hierarchy) persists from COARSEST grid pt, overlaps 0.68-0.93, run>=3.",
-    "Corrected SI S2.6.1/S2.6.2 (added warm-start limitation para), S14.3 P_persist derived->operational; softened persistence.py + recursion.py docstrings; rewrote OPEN_ISSUES #27 Part B. No src BEHAVIOR change -> suite stays green."
+    "ff-merged chain head 135e (39 commits) onto clean branch cd92; baseline 122p/1s/31xf green.",
+    "Implemented PersistenceConfig.coarse_anchored (default True): coarsest multi-cluster partition must itself persist (else terminal). persistence.py tau_star selection + 2 unit tests. Suite 124p (all current tests run WITH stand-ins so tau* identical to legacy).",
+    "Full-strip recursion ablation (stand-ins->identities, gate on): circle 37->1, hierarchy 12->6 (both CORRECT), swiss 32->12 (still fragments). Swiss root coarsest 3-arc partition marginally persists (overlap 0.568 > theta_ovl 0.5).",
+    "GPT cross-family audit (gpt-5.4-high, agent e8eef21f): LAND WITH CAVEAT. impl correct, swiss conclusion correct; justification is motivational not a theorem (transient-blip FN + grid-sensitivity); DM gate is NOT the only fix -- cold-start/reverse-sweep (ii') is self-contained. All caveats folded into SI + #27.",
+    "SI S2.6.2 (coarse-anchoring para + caveats + ii'), S14.3 (coarse_anchored row), OPEN_ISSUES #27, docstrings updated. Committed aed8ae1 + 856ba7b, pushed. Chain head now cd92."
   ],
   "discoveries": [
-    "Persistence acceptance rule (theta_ovl=0.5, P_persist=2, coarsest-block) is too permissive at the FINE end on warm-started sweeps; P_persist=2 is NOT a derived sufficiency rule.",
-    "Ranked hardening (d>c>a>b): (i) S3.4 DM gate as null [M4]; (ii) coarse-anchor the persistence interval; (iii) min_persistence>=3 stopgap (overfitting risk); (iv) NOT raising theta_ovl (brittle).",
-    "Full-strip monkeypatch must include _q_merge_any_improving (it backs the <=3 collapse + >=4 re-merge), else the circle->1 heuristic silently survives (the turn-7 mistake)."
+    "Coarse-anchoring FIXES the fine-end warm-start false positive (circle+hierarchy heuristic-free) but NOT swiss roll -- residual narrowed to marginal coarse-scale arc-persistence on developable manifolds.",
+    "Two viable next hardenings for the swiss residual: (i) S3.4 DM gate [M4]; (ii') cold-start/reverse-sweep recheck of the coarse-anchored interval [self-contained, per GPT audit].",
+    "Stand-ins STILL load-bearing (swiss); #27 Part B deletion still BLOCKED until (i) or (ii') validated across ALL scenarios."
   ],
   "open_threads": [
-    "#27 NEXT: implement a hardening direction (start with (ii) coarse-anchored persistence interval — self-contained, no M4 dep), validate circle->1 & hierarchy->6 heuristic-free across ALL scenarios, THEN flip gate default + re-scope single-scale tests (circle==1, swiss<=3) + delete stand-ins. Cross-family audit required (acceptance-path).",
+    "#27 NEXT: implement (ii') cold-start/reverse-sweep persistence recheck (self-contained, no M4 dep); validate swiss->small heuristic-free; then flip gate default + re-scope single-scale tests + delete stand-ins (cross-family audit).",
     "#28 open: c_{d,k} calibration protocol (uniform d-ball; couples C_Q(d) #36); refine persistence tau* off coarse end; delete legacy load_band + dormant _legacy_slope_selector/_detect_peak once load_crossover dominates all scenarios.",
-    "chain head after this push = 135e. ALWAYS git fetch --all before any work next run."
+    "chain head after this push = cd92. ALWAYS git fetch --all before any work next run."
   ],
-  "next_step": "Implement hardening direction (ii): reject persistence intervals that are isolated fine-end blocks (require coarse-end anchoring/connection); verify heuristic-free circle->1 + hierarchy->6 via explore harness; then proceed to gate-default + test-rescope + stand-in deletion with a cross-family audit.",
+  "next_step": "Implement (ii') cold-start/reverse-sweep recheck in persistence: recompute the candidate coarse-anchored interval's partitions from a cold-started refit; accept only if the interval survives path-independently. Validate swiss->small + circle 1 + hierarchy 6 heuristic-free.",
   "blockers": []
 }
