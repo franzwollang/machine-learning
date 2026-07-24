@@ -9,7 +9,7 @@ import numpy as np
 
 from proteus.ann import ANNIndex, make_ann
 from proteus.deferred import accumulate_nudge, apply_if_threshold
-from proteus.intrinsic_dim import estimate_d_final
+from proteus.intrinsic_dim import estimate_d_final, estimate_d_final_mle
 from proteus.links import LinkCounters
 from proteus.nodes import accumulate_hit, make_node, update_node_moments
 from proteus.oja import update_oja
@@ -59,6 +59,7 @@ class Stage1Scaffold:
         prune_beta: float = 0.5,
         link_protection: int = 25,
         enable_topology_edits: bool = True,
+        intrinsic_dim_method: str = "degree",
         rng: Optional[np.random.Generator] = None,
     ) -> None:
         if int(dim) < 1:
@@ -80,6 +81,9 @@ class Stage1Scaffold:
         self.prune_beta = float(prune_beta)
         self.link_protection = int(link_protection)
         self.enable_topology_edits = bool(enable_topology_edits)
+        if str(intrinsic_dim_method) not in ("degree", "mle"):
+            raise ValueError("intrinsic_dim_method must be 'degree' or 'mle'")
+        self.intrinsic_dim_method = str(intrinsic_dim_method)
         self.alpha = float(np.log(2.0) / self.k)
         self.eta_cent_value = eta_cent(self.kappa, self.grid_ratio, self.k)
         self.delta_min_value = delta_min(self.kappa, self.grid_ratio, self.tau)
@@ -213,18 +217,30 @@ class Stage1Scaffold:
         self.ann.build_from(self.node_positions())
 
     def refresh_intrinsic_dim(self) -> None:
-        """Refresh degree-based d_final estimates (diagnostic only).
+        """Refresh per-node d_final estimates (diagnostic only, SI S1.4.1).
 
         Per-node d_final is updated for junction diagnostics and
         scale-response normalization but does not modulate the cap.
         Within a single scaffold run, tau_local = tau uniformly.
+
+        The default ``"degree"`` method uses the lifted-graph degree proxy
+        (:func:`estimate_d_final`); ``"mle"`` uses the Levina--Bickel estimator
+        on node positions (:func:`estimate_d_final_mle`). See SI S1.4.1 and
+        OPEN_ISSUES #39 for the validation and the method trade-offs.
         """
 
-        d_final = estimate_d_final(
-            self.neighbour_graph(),
-            dim_floor=1,
-            ambient_dim=self.dim,
-        )
+        if self.intrinsic_dim_method == "mle":
+            d_final = estimate_d_final_mle(
+                self.node_positions(),
+                dim_floor=1,
+                ambient_dim=self.dim,
+            )
+        else:
+            d_final = estimate_d_final(
+                self.neighbour_graph(),
+                dim_floor=1,
+                ambient_dim=self.dim,
+            )
         if d_final.size != len(self.nodes):
             d_final = np.full(len(self.nodes), self.dim, dtype=int)
         for node, d_value in zip(self.nodes, d_final):
