@@ -1,22 +1,21 @@
 {
-  "updated_at": "2026-07-24T03:00Z",
-  "turn": 1,
-  "focus": { "milestone": "M0", "issue": null, "goal": "M0 spec/impl sync pass complete; next is M1 (#27) Q-score canonicalization" },
+  "updated_at": "2026-07-24T04:10Z",
+  "turn": 2,
+  "focus": { "milestone": "M1", "issue": 27, "goal": "canonicalize Q-score (#27); primitives promoted to SI S2.6.1, code heuristic-removal next" },
   "recent": [
-    "M0 done: resolved #34,#35,#24,#21,#29,#19,#20,#23 across paper.tex/SI.tex (+ minor code)",
-    "eta_GNG demoted to analysis quantity; deferred-nudge canonical (#34)",
-    "s_control demoted to reporting-only; dead assignments removed from scaffold/controller (#35)",
-    "new SI S2.3.3 two-tier shadow/lifted edges (#20); SI S3.1 directed-floor pruning canonical (#29)",
-    "tests green after code edits: 108 passed, 26 xfailed (hnswlib absent -> HNSW test skipped)"
+    "Branch built on M0: fast-forwarded 5511 onto origin/5413 (M0 doc-sync PR #1)",
+    "Hygiene: untracked 106 committed .pyc, added __pycache__/*.pyc[cod] to .gitignore",
+    "M1 #27 part A: promoted K_v, A_sym, W_v, LocalIntra, BoundaryInter, InterLocal formulas into SI S2.6.1 verbatim; added symbols to SI S0.1 + paper notation",
+    "Regressions green: clustering/recursion subset 14 passed 4 xfailed; full baseline 111 passed 41 xfailed"
   ],
   "discoveries": [
-    "Env: no `python` (use python3), no editable install (no pyproject), hnswlib wheel fails to build; run via PYTHONPATH=src, deps installed --user",
-    "No LaTeX toolchain on VM; cannot compile paper/SI, only structural balance checks",
-    "clustering.py already implements AP+Q-merge (W_v on lifted, components on lifted, AP sim on full graph) -- SI S2.6.1 canonicalization is M1/#27"
+    "Single-cluster null degeneracy: whole-graph null has zero boundary -> BoundaryInter=0 -> Q(null)=log(LocalIntra/eps) huge; raw partition-Q cannot compare vs null. Use DM Bayes-factor (S3.4) or reformulate null. Recorded in #27.",
+    "Env: python3 only (no python); deps via pip3 --user; no hnswlib wheel; no LaTeX toolchain (structural checks only); paper.tex 15/14 [ ] grep mismatch is pre-existing false positive"
   ],
   "open_threads": [
-    "M1 (#27): promote W_v/LocalIntra/BoundaryInter formulas into SI S2.6.1; single-cluster null; replace cleanup heuristics with one Q-improving merge-to-fixpoint"
+    "M1 #27 part B: replace clustering.py cleanup heuristics (tiny_max=14, eta=0.3, r>=0.22, collapse<=3, dead helpers) with one Q-improving pairwise merge to fixpoint + null test; update AP->Q-merge->refine prose (drop 'residual cleanup')",
+    "M0 PR #1 (branch 5413) still DRAFT/unmerged; my branch stacks on it"
   ],
-  "next_step": "Start M1 #27: read reference/stage1_clustering_and_resolution.md + clustering.py, canonicalize Q in SI S2.6.1",
+  "next_step": "M1 #27 part B: resolve single-cluster-null criterion, then strip clustering.py heuristics to single merge-to-fixpoint; keep circle/hierarchy/swiss-roll regressions green",
   "blockers": []
 }
