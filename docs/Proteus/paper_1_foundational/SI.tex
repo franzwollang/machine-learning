@@ -581,7 +581,7 @@ Fix a region at effective dimension $d$ with a settled scaffold at cap $\tau$,
 and let $\widehat\rho^{(C)}_\tau$ be the catchment-conditional density recovered
 from the equilibrated nodes (the per-node $k$-NN proxy of S2.5 aggregated over
 the region). By the equilibrium calibration of S2.5, a cap-satisfied catchment
-locks its effective radius to $h_i\approx c_{d,k}\sqrt\tau$, so estimating the
+locks its effective radius to $r_{k,i}\approx c_{d,k}\sqrt\tau$ (S2.5.5), so estimating the
 density from that catchment averages the latent density over a neighborhood of
 squared scale $\sim\tau$. Substituting the local expansion of S2.5.2,
 $X=x_0+Uz+\tfrac12\mathrm{II}(z,z)+\varepsilon$, gives
@@ -597,7 +597,7 @@ O\!\bigl(\tau\,\|\nabla\Psi\|\bigr),
 where $\mathcal G_\Sigma$ is the Gaussian kernel with covariance $\Sigma$ and the
 error terms are precisely the curvature and floor-gradient corrections of
 S2.5.2. The bandwidth is fixed only up to the calibration constant $c_{d,k}$
-(S11; calibration protocol in OPEN\_ISSUES~\#28), which converts the operational
+(S11.1; calibration protocol in S2.5.5), which converts the operational
 cap into the effective smoothing scale, $\Sigma_{\mathrm{smooth}}\propto\tau$. In
 words: a settled catchment at cap $\tau$ reports the latent density smoothed at
 bandwidth $\sim\tau$, up to $c_{d,k}$ and second-order geometry. This is what
@@ -653,7 +653,9 @@ For each $(d,k)$:
         \eqref{eq:si-cdk-def} is scale-invariant, so the specific $\tau_d$ only
         sets the node budget.
   \item Record the median of $r_{k,i}/\sqrt{\tau_d}$ over mature nodes
-        ($\mathrm{update\_count}\ge$ the maturity gate of S3.2).
+        ($\mathrm{update\_count}\ge$ the maturity gate of S3.2); in the
+        degenerate case where no node is yet mature, the estimator falls back to
+        all nodes.
   \item Repeat over independent ensembles and take the median of the per-scaffold
         medians as $c_{d,k}$.
 \end{enumerate}

@@ -183,9 +183,11 @@ CDK_CALIBRATION_META: dict[str, object] = {
         "n_ensembles": 4,
         "target_nodes": 120,
         "max_nodes": 400,
+        "min_nodes": 4,
         "max_epochs": 25,
         "ann_backend": "auto",
     },
+    "stabilization": "StabilizationConfig(max_epochs=25); other fields default",
     "grid": {"d": [1, 2, 3, 4], "k": [6, 8, 10, 12]},
     "seed": 0,
 }

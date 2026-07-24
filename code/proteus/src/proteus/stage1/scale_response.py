@@ -52,8 +52,9 @@ def node_response(scaffold: Any, tau: float, d_working: int) -> np.ndarray:
     rho_hat = hits * k * N_C / (V_d * r_k ** d)
     # Lindeberg calibration sigma = sqrt(tau) / c_{d,k} (SI S2.5, S2.5.5): the
     # calibrated constant converts the variance cap into the effective k-NN
-    # bandwidth. c_dk uses the scaffold's nominal neighbor count.
-    c = c_dk(d, int(getattr(scaffold, "k", k)))
+    # bandwidth. Use the same effective k as r_k (clamped to n-1 in sparse
+    # scaffolds) so the R_i = (sqrt(tau)/c_{d,k})^d * rho_hat identity is exact.
+    c = c_dk(d, k)
     scale_factor = (np.sqrt(tau_f) / c) ** d
     return scale_factor * rho_hat
 
