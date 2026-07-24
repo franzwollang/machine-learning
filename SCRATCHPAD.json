@@ -1,10 +1,19 @@
 {
-  "updated_at": null,
-  "turn": 0,
-  "focus": { "milestone": null, "issue": null, "goal": "" },
-  "recent": [],
-  "discoveries": [],
-  "open_threads": [],
-  "next_step": "",
+  "updated_at": "2026-07-24T04:20Z",
+  "turn": 1,
+  "focus": { "milestone": "M1", "issue": 27, "goal": "canonicalize Q-score primitives in SI S2.6.1 and strip clustering.py cleanup heuristics" },
+  "recent": [
+    "M0 complete: 8 doc-sync issues resolved across paper.tex/SI.tex + minor code",
+    "default suite 110 passed / 31 xfailed (baseline unchanged)",
+    "added S2.3.3 two-tier edges; d_gauss and beta_prune rows in S14.3"
+  ],
+  "discoveries": [
+    "no pipenv/setup.py; run tests via `PYTHONPATH=src python3 -m pytest -m 'not real_data and not slow'`",
+    "hnswlib build needs libpython3.12-dev + pip --break-system-packages; scipy/sklearn/pytest also user-installed"
+  ],
+  "open_threads": [
+    "M1 #27: promote W_v=K_v*A_sym, LocalIntra, BoundaryInter into SI S2.6.1; add single-cluster null; replace clustering.py cleanup constants with one Q-improving pairwise merge to fixpoint"
+  ],
+  "next_step": "read clustering.py + reference/stage1_clustering_and_resolution.md (S2.6.1 material) + current SI S2.6 to scope #27",
   "blockers": []
 }
