@@ -12,11 +12,11 @@ bodies below stay static descriptions.
 
 | Milestone | Status |
 |---|---|
-| M0 — Spec/implementation sync pass | not started |
-| M1 — Canonical clustering objective | not started |
-| M2 — Characteristic-scale selection rebuild | not started |
-| M3 — Constant audit & calibration tier | not started |
-| M4 — Stage 2 core (complex, evidence gate, dual flow) | not started |
+| M0 — Spec/implementation sync pass | done |
+| M1 — Canonical clustering objective | in progress (#27: coarse-anchoring fixes circle/hierarchy heuristic-free; cold-start recheck (ii') implemented + REFUTED as a gate. Part B (clustering stand-in deletion) is now UNBLOCKED: the S3.4 DM evidence gate landed as a module (M4); remaining Part-B work is wiring the gate into the runtime scaffold/clustering loop and removing the load-bearing cleanup stand-ins) |
+| M2 — Characteristic-scale selection rebuild | in progress (load-crossover default; persistence signal + tau/heat bridge landed; c_{d,k} calibrated + shipped, SI S2.5.5; #31 hierarchy-recovery harness now uses per-frame tau + gates tightened vs canonical tau*I (S2.5.4), RESOLVED; remaining: persistence coarse-end refinement, delete legacy load-band selector) |
+| M3 — Constant audit & calibration tier | done (c_{d,k} + C_Q(d) calibrated on the shared uniform-d-ball ensemble; S14.3 three-tier audit #37 complete; intrinsic-dim estimator #39 validated vs GT + Levina–Bickel cross-check shipped, SI S1.4.1. Operational estimator-wiring divergence surfaced as #40, deferred to the M5 junction-detection consumer.) |
+| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (step 1a flag-complex construction landed — `stage2/flag_complex.py`, S4.1/S4.2/S4.5/S13.4. step 2 DM EVIDENCE GATE landed — `evidence/dm_score.py`+`star_matrix.py`+`gate.py`, S3.4/S3.5/S3.6/S10.4; 7 awaiting tests flipped + 6 new, cross-family audited. Remaining: wire gate into runtime scaffold loop (unblocks M1 Part B), T3 count transfer (S4.3/S4.4), dual-connectivity #43, topology-recovery #41, S6 dual flow) |
 | M5 — Inference interface & diagnostics | not started |
 | M6 — Evaluation, benchmarks, paper finalization | not started |
 
@@ -71,18 +71,29 @@ genuine gaps visible instead of buried.
 The Q-score is acceptance-path and everything downstream (recursion timing, tau*-via-
 persistence in M2) depends on it. This lands before scale-selection work.
 
-- Promote the exact formulas for `W_v(i,j) = K_v(i,j) * A_sym(i,j)`, `LocalIntra`, and
-  `BoundaryInter` from `reference/stage1_clustering_and_resolution.md` into SI S2.6.1.
+- **DONE (Part A):** the exact formulas for `W_v(i,j) = K_v(i,j) * A_sym(i,j)`,
+  `LocalIntra`, `BoundaryInter`, `InterLocal` are promoted into SI S2.6.1 verbatim, with
+  symbols in SI S0.1 + paper notation.
 - Make the single-cluster null a first-class candidate: a partition is accepted only if it
   beats the null by a margin under the same criterion.
 - Replace the residual cleanup passes in `clustering.py` with one Q-improving pairwise
-  merge applied to fixpoint; delete dead helpers.
+  merge applied to fixpoint; delete dead helpers (4 dead helpers already removed).
 - Falsifiers (already in the suite): circle -> exactly one cluster without collapse logic;
-  hierarchical Gaussian -> six terminal leaves; swiss roll unchanged. If the single rule
-  cannot pass them, fix the Q definition (likely the kernel term), not the cleanup.
+  hierarchical Gaussian -> six terminal leaves; swiss roll unchanged.
 
-**Exit:** `clustering.py` contains no dataset-motivated constants; SI S2.6.1 is
-implementable verbatim; all current clustering/recursion regressions pass.
+**FINDING (cross-family validated, #27):** the last two bullets are **not achievable at a
+single scale** with the current Q primitives. Experiments + an independent GPT audit show
+circle/swiss ring-arc clusters and hierarchy coarse-blob clusters have *overlapping*
+single-scale `Q(C)` (and extent / conductance / modularity / spectral-gap) distributions,
+and the partition-`Q` null is degenerate (whole-component boundary = 0 → `Q → +∞`). It is
+**not** a missing kernel term — `K_v` is already in `W_v`. The constant-free acceptance
+rule and the null test are therefore **coupled to M2**: the arbiter is Q-partition
+persistence across adjacent τ grid points (SI S2.6.2), or the M4 S3.4 DM evidence gate.
+The `clustering.py` heuristic purge lands **with M2**, not before.
+
+**Exit (revised):** *(Part A, done)* SI S2.6.1 pins the Q primitives verbatim and documents
+the single-scale scope. *(Part B, deferred into M2)* `clustering.py` becomes heuristic-free
+once the persistence signal is available; all clustering/recursion regressions still pass.
 
 ## M2 — Characteristic-scale selection rebuild (#28, #32, #31)
 
@@ -167,17 +178,27 @@ green including the currently-awaiting performance envelopes.
 
 ## Dependencies and risks
 
-- **M1 before M2**: tau*-via-persistence needs a trustworthy Q. Doing scale selection first
-  would tune it against a partition criterion that is about to change.
+- **M1 and M2 are coupled (finding, #27)**: the theory iteration budgeted below has now run.
+  The Q primitives are trustworthy (Part A done), but the *cluster-count acceptance* — the
+  single-cluster null and the constant-free heuristic purge — provably cannot be settled at
+  a single scale: circle/swiss ring-arc clusters and hierarchy coarse blobs have overlapping
+  single-scale `Q` (and extent / conductance / modularity / spectral) distributions, and the
+  partition-`Q` null is degenerate. The arbiter is cross-scale Q-partition persistence, which
+  is M2's secondary signal (S2.6.2). So M1-Part-B and M2's persistence machinery should be
+  built **together**: implement persistence in M2, then complete the `clustering.py` purge
+  against it. tau* selection (M2 primary) still uses the trustworthy Q, so the ordering risk
+  the original note worried about is resolved in Part A.
 - **M2 is the riskiest milestone**: replacing the selector can destabilize every recursion
   and scenario test simultaneously. Mitigation: keep the legacy selector behind a flag,
   migrate tests one scenario at a time, and require the new selector to dominate the old
   one on tau* accuracy before deleting it.
-- **Q definition risk (M1)**: if the merge-to-fixpoint rule cannot reproduce the circle and
-  hierarchy regressions, the missing kernel term `K_v` must be added to the implemented
-  similarity — budget time for one theory iteration here.
+- **Q definition risk (M1) — RESOLVED as a spec/plan finding**: the merge-to-fixpoint rule
+  cannot reproduce circle/hierarchy at a single scale, but this is *not* a missing `K_v`
+  term (the kernel is already in `W_v`). The information needed is cross-scale (persistence),
+  so no single-scale Q redefinition fixes it; see the coupling note above.
 - **M4 step 2 (evidence gate) is the heart of the architecture**: everything after it
   ("geometry proposes, evidence decides") assumes it works. Its reduction tests
   (DM consistency) should be treated as blocking, not advisory.
-- Packaging hygiene (#38 — move contract types out of `tests/`) can land any time; cheapest
-  before M4 starts adding new types.
+- Packaging hygiene (#38 — move contract types out of `tests/`) **done**: canonical shapes
+  now live in `proteus/types.py`; `tests/contracts/*` are re-export shims. `src/` no longer
+  imports from the test tree, so M4 can add new types directly in the package.

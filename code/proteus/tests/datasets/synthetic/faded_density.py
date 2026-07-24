@@ -383,6 +383,98 @@ class AxisAlignedSheetFadedComponent:
 
 
 @dataclass(frozen=True)
+class AxisAlignedBoxFadedComponent:
+    """Solid axis-aligned box signal spanning the first ``len(lo)`` axes.
+
+    Uniform density inside ``[lo_j, hi_j]`` along each spanned axis, with an
+    isotropic Gaussian fade of width ``sigma`` in the remaining
+    ``ambient_dim - len(lo)`` normal directions.  With ``len(lo) == ambient_dim``
+    the component is a uniform solid box with no normal directions --- an
+    intrinsic ``ambient_dim``-manifold (the 3D "box" of the classic GNG
+    manifold-zoo benchmark, OPEN_ISSUES #26).
+    """
+
+    lo: tuple[float, ...]
+    hi: tuple[float, ...]
+    ambient_dim: int
+    sigma: float
+    transition_radius: float
+    offset: np.ndarray | None = None
+    weight: float = 1.0
+
+    def __post_init__(self) -> None:
+        lo = np.asarray(self.lo, dtype=float)
+        hi = np.asarray(self.hi, dtype=float)
+        if lo.shape != hi.shape or lo.ndim != 1:
+            raise ValueError("lo and hi must be 1D and share a shape")
+        if np.any(hi <= lo):
+            raise ValueError("all hi coordinates must exceed lo coordinates")
+        if lo.shape[0] > self.ambient_dim:
+            raise ValueError("box spans more axes than ambient_dim")
+        object.__setattr__(self, "lo", lo)
+        object.__setattr__(self, "hi", hi)
+        if self.offset is None:
+            object.__setattr__(self, "offset", np.zeros(self.ambient_dim, dtype=float))
+        else:
+            offset = np.asarray(self.offset, dtype=float)
+            if offset.shape != (self.ambient_dim,):
+                raise ValueError("offset must match ambient_dim")
+            object.__setattr__(self, "offset", offset)
+
+    @property
+    def box_dim(self) -> int:
+        return int(np.asarray(self.lo).shape[0])
+
+    @property
+    def resolved_offset(self) -> np.ndarray:
+        offset = self.offset
+        assert offset is not None
+        return offset
+
+    def density(self, x: np.ndarray) -> np.ndarray:
+        arr = np.asarray(x, dtype=float) - self.resolved_offset[None, :]
+        k = self.box_dim
+        spanned = arr[:, :k]
+        inside = np.all(
+            (spanned >= np.asarray(self.lo)[None, :])
+            & (spanned <= np.asarray(self.hi)[None, :]),
+            axis=1,
+        ).astype(float)
+        volume = max(float(np.prod(np.asarray(self.hi) - np.asarray(self.lo))), _EPS)
+        if self.ambient_dim <= k:
+            return inside / volume
+        normals = arr[:, k:]
+        norm_sq = np.sum(normals * normals, axis=1)
+        log_norm = -0.5 * normals.shape[1] * np.log(2.0 * np.pi) - normals.shape[1] * np.log(max(self.sigma, _EPS))
+        return inside * np.exp(log_norm - 0.5 * norm_sq / max(self.sigma * self.sigma, _EPS)) / volume
+
+    def sample(self, n: int, rng: np.random.Generator) -> np.ndarray:
+        k = self.box_dim
+        out = np.zeros((n, self.ambient_dim), dtype=float)
+        out[:, :k] = rng.uniform(np.asarray(self.lo), np.asarray(self.hi), size=(n, k))
+        if self.ambient_dim > k:
+            out[:, k:] = rng.normal(scale=self.sigma, size=(n, self.ambient_dim - k))
+        return out + self.resolved_offset[None, :]
+
+    def distance(self, x: np.ndarray) -> np.ndarray:
+        arr = np.asarray(x, dtype=float) - self.resolved_offset[None, :]
+        k = self.box_dim
+        spanned = arr[:, :k]
+        lo = np.asarray(self.lo)[None, :]
+        hi = np.asarray(self.hi)[None, :]
+        below = np.where(spanned < lo, lo - spanned, 0.0)
+        above = np.where(spanned > hi, spanned - hi, 0.0)
+        d_sq = np.sum(below * below + above * above, axis=1)
+        if self.ambient_dim > k:
+            normals = arr[:, k:]
+            d_sq = d_sq + np.sum(normals * normals, axis=1)
+        return np.sqrt(d_sq)
+
+    def fade_weight(self, x: np.ndarray) -> np.ndarray:
+        return lambda_from_distance(self.distance(x), self.sigma, self.transition_radius)
+
+
+@dataclass(frozen=True)
 class AxisAlignedSegmentFadedComponent:
     t_range: tuple[float, float]
     ambient_dim: int

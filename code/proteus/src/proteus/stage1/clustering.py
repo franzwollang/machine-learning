@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
-from sklearn.cluster import AffinityPropagation, KMeans
+from sklearn.cluster import AffinityPropagation
 
 _EPS = 1e-12
 
@@ -46,6 +46,8 @@ def compute_edge_weights(scaffold: Any) -> dict[tuple[int, int], float]:
 
     n = len(scaffold.nodes)
     tau = float(getattr(scaffold, "tau", 1.0))
+    # d_final is seeded to the region working dim and refreshed only
+    # diagnostically (SI S1.4.1), so d_eff == D_subspace within a run.
     d_eff = max(int(np.median([node.d_final for node in scaffold.nodes])), 1)
     denom_kernel = 2.0 * d_eff * max(tau, _EPS)
 
@@ -340,17 +342,6 @@ def _smoothed_pmi_similarities(
     return S, preference
 
 
-def _smoothed_pmi_similarity_matrix(
-    scaffold: Any,
-    component: list[int],
-    graph_full: dict[int, list[int]],
-) -> tuple[np.ndarray, np.ndarray]:
-    """Backward-compatible wrapper for the dense PMI builder."""
-
-    del graph_full
-    return _smoothed_pmi_similarities(scaffold, component)
-
-
 def _run_ap(
     S: np.ndarray,
     *,
@@ -439,48 +430,6 @@ def _full_graph_adjacent(
     return False
 
 
-def _merge_tiny_lifted_into_full_graph_neighbor(
-    comps: list[set[int]],
-    graph_full: dict[int, list[int]],
-    hits: np.ndarray,
-    *,
-    tiny_max: int = 14,
-) -> list[set[int]]:
-    """Fuse very small lifted components into a full-graph-adjacent larger mass.
-
-    Prevents a handful of nodes from forming their own AP island when they still
-    share Hebbian (shadow) connectivity with a dominant lifted blob.
-    """
-
-    current = [set(c) for c in comps]
-    changed = True
-    while changed:
-        changed = False
-        i = 0
-        while i < len(current):
-            c = current[i]
-            if len(c) > int(tiny_max):
-                i += 1
-                continue
-            best_j = -1
-            best_mass = -1.0
-            for j, d in enumerate(current):
-                if j == i or len(d) <= len(c):
-                    continue
-                if _full_graph_adjacent(c, d, graph_full):
-                    mass = float(sum(hits[g] for g in d))
-                    if mass > best_mass:
-                        best_mass = mass
-                        best_j = j
-            if best_j < 0:
-                i += 1
-                continue
-            current[best_j] |= c
-            del current[i]
-            changed = True
-    return current
-
-
 def _merge_eligible_clusters(
     ca: set[int],
     cb: set[int],
@@ -515,45 +464,6 @@ def _pair_boundary_inter(
     if count == 0:
         return 0.0
     return total / count
-
-
-def _coalesce_if_marginal_k_way_split(
-    clusters: list[set[int]],
-    n_local: int,
-    W: dict[tuple[int, int], float],
-    graph_lifted: dict[int, list[int]],
-    graph_full: dict[int, list[int]] | None = None,
-    *,
-    pq_ratio_tol: float = 0.012,
-) -> list[set[int]]:
-    """If ``k >= 3``, repeatedly merge the pair with smallest ``partition_q`` loss.
-
-    When the smallest loss among eligible merges is below *pq_ratio_tol*, treat the
-    current k-way split as **marginal** and apply that merge (Q-ratio / coarsening
-    gate). Eligibility matches ``_q_merge_pass`` when *graph_full* is set.
-    """
-
-    current = [set(c) for c in clusters]
-    while len(current) >= 3:
-        pq_k = partition_q_score(current, n_local, W, graph_lifted)
-        best_trial: list[set[int]] | None = None
-        min_loss = float("inf")
-        for i in range(len(current)):
-            for j in range(i + 1, len(current)):
-                ca, cb = current[i], current[j]
-                if not _merge_eligible_clusters(ca, cb, graph_lifted, graph_full):
-                    continue
-                trial = [current[k] for k in range(len(current)) if k not in (i, j)]
-                trial.append(ca | cb)
-                pq_new = partition_q_score(trial, n_local, W, graph_lifted)
-                loss = pq_k - pq_new
-                if loss < min_loss - 1e-15:
-                    min_loss = loss
-                    best_trial = trial
-        if best_trial is None or min_loss >= float(pq_ratio_tol) - 1e-15:
-            break
-        current = best_trial
-    return current
 
 
 def _q_merge_pass(
@@ -857,49 +767,6 @@ def _refine_boundaries(
             break
 
     return cur_labels
-
-
-def _maybe_rebalance_two_cluster_partition(
-    clusters: list[set[int]],
-    comp_list: list[int],
-    n_local: int,
-    W: dict[tuple[int, int], float],
-    graph_lifted: dict[int, list[int]],
-    scaffold: Any,
-) -> list[set[int]]:
-    """If AP+Q yields two very imbalanced clusters, try KMeans-2 on node positions."""
-
-    if len(clusters) != 2:
-        return clusters
-    a, b = clusters[0], clusters[1]
-    na, nb = len(a), len(b)
-    if na == 0 or nb == 0:
-        return clusters
-    r = min(na, nb) / max(na, nb)
-    if r >= 0.22:
-        return clusters
-
-    pq_old = partition_q_score(clusters, n_local, W, graph_lifted)
-    X = np.array([scaffold.nodes[g].position for g in comp_list], dtype=float)
-    try:
-        km = KMeans(n_clusters=2, n_init=10, random_state=0)
-        lab = km.fit_predict(X)
-    except Exception:
-        return clusters
-    c0: set[int] = set()
-    c1: set[int] = set()
-    for li, g in enumerate(comp_list):
-        (c0 if int(lab[li]) == 0 else c1).add(g)
-    if not c0 or not c1:
-        return clusters
-    trial = [c0, c1]
-    pq_new = partition_q_score(trial, n_local, W, graph_lifted)
-    r_new = min(len(c0), len(c1)) / max(len(c0), len(c1))
-    if r < 0.22 and r_new > r + 1e-6:
-        return trial
-    if r_new > r + 1e-6 and pq_new >= pq_old - 0.35:
-        return trial
-    return clusters
 
 
 def _cluster_component(

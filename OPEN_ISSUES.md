@@ -5,7 +5,7 @@ here. Numbering is historical and stable: resolved issues are deleted rather tha
 renumbered, so gaps in the sequence are expected. Each entry lists only the work that
 actually remains. See `PLANNING.md` for the suggested order of attack.
 
-Next issue number: 40
+Next issue number: 44
 
 ## 16. Fuzzy title decision
 
@@ -22,106 +22,115 @@ Next issue number: 40
 - §1.5 is prose-only; the intended citation list is tracked in §13 "References Prep."
 - Does not affect implementation.
 
-## 19. Document dimension-dependent Stage 1 routing weights
-
-- Implementation uses relative Gaussian weights over the returned k-neighbor set when the working dimension is <= 8, and rank-decay weights as the high-dimensional performance approximation (`stage1/routing_weights.py`, cutoff `gaussian_cutoff_dim = 8`).
-- Paper/SI still describe rank-weighted routing as the default without distinguishing the theoretical Gaussian neighborhood kernel from the rank-based approximation (SI S2.3.1 gestures at it; the algorithm boxes in S13 show only rank decay).
-- Remaining: update the Stage 1 routing/moment sections (paper §3, SI S2.3, S13.2) so implementation and theory match, including whether the `<= 8` cutoff is operational or derived.
-
-## 20. Document two-tier Hebbian edge semantics (shadow vs lifted)
-
-- The implemented design is two-tier (`links.py`): any routed co-activation may create or increment a **shadow** edge; only BMU_1 -> BMU_2 co-activation **lifts** an edge to the full (lifted) tier. Lifted edges define the topology used for clustering and (later) simplices; shadow edges retain low-grade adjacency evidence.
-- The previous issue text ("only BMU_1 -> BMU_2 creates edges") is superseded by this two-tier design, which the foundation tests now require.
-- Remaining: paper §3 and SI S2/S4 describe a single GNG-style edge convention. Document the shadow/lift/counter-update distinction explicitly, including which tier each consumer (AP clustering, pruning, flag complex) reads.
-
-## 21. Paper prose for soft-mean / hard-variance asymmetry
-
-- The SI is updated: S2.3.1 introduces the hard-Voronoi variance vs soft-routing mean asymmetry, S2.3.2 has the Steiner shift and the hard-Voronoi variance conservation law, and S4.4 T0 / S12.6 reference the shadow mechanism.
-- Remaining: paper §3.2–3.3 still describes moment updates without the asymmetry. Add a brief statement (or an explicit deferral to SI S2.3.1) so the paper does not imply the variance is soft-kernel-weighted.
-
-## 23. Reconcile tau / dimensionality notation across Paper 1 and SI
-
-- One reconciliation pass remains: confirm paper prose, notation tables, SI S2.4, S2.5, S2.6, S4.4, and S8.4 all use the same convention — region-level `tau` set at region entry, uniform `tau_local` within a scaffold run, per-node `d_final` as diagnostic only, cluster/recursion-level scale selection via scale response + AP.
-- None of these sections should imply per-node `d_final` rescales the split cap.
-
-## 24. Stabilization: implemented CV threshold vs SI trend-exhaustion criterion
-
-- Implemented (`stage1/stabilization.py`): stop when `CV(sigma^2) < beta_cv * sqrt(2/k)` over mature nodes for 3 consecutive epochs, `beta_cv = 1.5`. This matches SI S14.2.
-- SI S2.5.1 now prescribes a stronger two-layer confidence-based criterion as primary — *topology quiet* (no accepted splits/prunes, stable node count over a trailing window) plus *moment flatness* (near-zero CV slope, flat mean load, non-trending reconstruction error) — with absolute thresholds demoted to sanity bounds.
-- Remaining: pick one as canonical. Either implement trend-exhaustion in the scaffold loop, or amend S2.5.1 to state the CV threshold is the operational default and trend-exhaustion is the recommended hardening. The old incoherence-based `CV(rho_tilde)` remains diagnostic-only in both cases.
-
 ## 25. Circle mesh topology test
 
 - The circle scaffold passes node-count and reconstruction-error assertions but lacks an explicit topology check that the lifted-edge graph is a single connected 1-ring (Betti_0 = 1, Betti_1 = 1).
 - Options: (a) Vietoris–Rips persistent homology on node positions (`giotto-tda` / `ripser`), (b) flag-complex Betti numbers via `gudhi`, (c) simple graph checks (connected components + cycle rank) on the lifted graph directly.
-- Blocked on / naturally lands with Stage 2 flag-complex construction; option (c) could land earlier as a Stage 1 test.
+- **FINDING (empirical, turn 19): option (c) is insufficient and even the bare flag complex over-reports `b1`.** On the standard circle fixture at `tau*` (64 nodes) the lifted graph is a single connected component with no isolates (so `b0 = 1` is recoverable), but it is a *triangulated band*, not a clean 1-ring: raw undirected cycle rank `E - V + 1 = 50` (E=113, max degree 7). Building the flag/clique complex on that same graph (55 triangles + 12 tetrahedra) collapses most but not all spurious loops, leaving `b1 = 6` — still not 1. So a correct `b1 = 1` requires either a *persistence-filtered* PH (take the single most-persistent H1 feature; needs `gudhi`/`ripser`, neither currently installed) or scaffold-mesh cleanup, not a fixed-threshold graph/clique-complex Betti count. `b0 = 1` (single connected 1-skeleton) is the only topology invariant robustly available at Stage 1.
+- Blocked on / naturally lands with Stage 2 flag-complex construction **plus a persistence filtration**; the naive Stage-1 graph check (c) cannot deliver the loop invariant. If a Stage-1 check lands, scope it to `b0 = 1`.
+- **UPDATE (turn 20): flag-complex construction has landed** (`stage2/flag_complex.py`; SI S4.1/S4.2/S13.4), and it confirms the finding. The *sparse lifted-graph* flag complex of the fitted circle scaffold (built to `d_final`, expanded to a clique complex) retains **6 essential (never-filled) `H1` loops** — the triangulated-band holes are not closed by any lifted clique, so no persistence threshold recovers `b1 = 1` from the lifted graph alone. Vietoris--Rips PH on the node *positions* (SI S14.2, dense pairwise) is the route that can fill the band holes, but on the tissue-polluted circle scaffold it also births spurious loops and does not cleanly separate `b1 = 1` at the fixed `1.5 sigma_star` filtration. The residual topology-recovery work (choosing the filtration/persistence reading that robustly recovers `b1 = 1` on real scaffolds) is tracked in **#41**; this issue keeps the sharpened `b0 = 1`-only Stage-1 scope.
 
 ## 26. Manifold-zoo junction test (circle + line + plane + box)
 
 - Classic GNG benchmark: 1D circle, 1D segment, 2D plane patch, and 3D box meeting at dimensional junctions.
-- Tests mesh quality per patch, `d_final` accuracy at junctions, junction detection (S8.4), and Stage 2 heterogeneous simplex dimension (S4.2).
-- Needs a dataset generator in `tests/datasets/synthetic/` with per-component intrinsic-dim ground truth. Generator can land early as a diagnostic fixture; scenario assertions are deferred until S8.4 is implemented.
+- **Generator has landed** (`tests/datasets/synthetic/manifold_zoo.py`, `make_manifold_zoo`): a connected R^3 scene of intrinsic dims {1,1,2,3} meeting at 1<->1 / 1<->2 / 2<->3 junctions, with full per-component intrinsic-dim ground truth, per-component topology (circle carries `b1 = 1`), and three `JunctionExpectation`s. Backed by a new `AxisAlignedBoxFadedComponent` (solid k-box signal). Diagnostic tests (`tests/scenarios/synthetic/test_manifold_zoo.py`, generator coverage in `test_dataset_scales.py`) pass now.
+- **Remaining (deferred scenario assertions, blocked on later milestones):** mesh quality per patch, `d_final` accuracy at junctions, junction detection (S8.4, M5) and Stage 2 heterogeneous simplex dimension (S4.2, M4). Placeholders wired as `@awaiting("diagnostics.junction", si="S8.4")` and `@awaiting("stage2.flag_complex", si="S4.2")`; flip them when those modules land.
+- **UPDATE (turn 20):** the flag-complex constructor now exists (`stage2/flag_complex.py`) and handles heterogeneous per-star `d_final` correctly (unit-tested). But `test_manifold_zoo_heterogeneous_simplex_dimension` cannot be flipped yet: the operational `d_final` is seeded to the working dimension and never refreshed (#40), so a fitted zoo scaffold carries uniform `d_final = 3` and the constructor produces uniform 3-simplices, not the ground-truth per-patch `{1,1,2,3}`. This test therefore additionally blocks on the #40 `d_final` refresh landing at its S8.4 junction-detection consumer (M5).
 
 ## 27. Clustering: canonicalize the Q-score and remove cleanup heuristics
 
-The AP -> Q-merge -> refine pipeline is implemented and passes the circle, swiss-roll, and hierarchical-Gaussian regressions (six terminal leaves). Recursion is Q-gated (`recursion.py`: leaf when `n_clusters <= 1` or `partition_q_score <= 0`). What remains is making the spec canonical and the implementation heuristic-free:
+The AP -> Q-merge -> refine pipeline is implemented and passes the circle, swiss-roll, and hierarchical-Gaussian regressions (six terminal leaves). Recursion is Q-gated (`recursion.py`: leaf when `n_clusters <= 1` or `partition_q_score <= 0`). The Q primitives are now pinned down in SI S2.6.1 (`K_v`, `A_sym`, `W_v = K_v * A_sym`, `LocalIntra`, `BoundaryInter`, `InterLocal` promoted verbatim from `reference/stage1_clustering_and_resolution.md`). What remains is making the implementation heuristic-free:
 
-- **SI S2.6.1 must pin down the Q primitives.** `LocalIntra`, `BoundaryInter`, and the scale-conditioned edge evidence `W_v(i,j) = K_v(i,j) * A_sym(i,j)` are currently prose-level; the exact formulas live only in `reference/stage1_clustering_and_resolution.md` and in code. Promote them into the SI so the implementation is verbatim-checkable.
-- **Single-cluster null as first-class candidate.** Uniform single-component manifolds (circle) currently rely on isolate absorption plus a final "collapse if <= 3 fragments" pass. The principled form: any proposed partition must beat the one-cluster null by a margin under the same Q (or DM-evidence) criterion.
-- **Replace residual cleanup passes with one rule.** `clustering.py` carries dataset-motivated constants (`tiny_max = 14`, boundary-refine `eta = 0.3`, imbalance `r >= 0.22`, final collapse when `<= 3` clusters) plus several apparently dead helpers (`_merge_tiny_lifted_into_full_graph_neighbor`, `_coalesce_if_marginal_k_way_split`, `_maybe_rebalance_two_cluster_partition`, `_legacy_slope_selector`, `_detect_peak`). Target: a single Q-improving pairwise merge applied to fixpoint plus the null test. If the existing regressions cannot pass under that single rule, the Q definition (likely the missing kernel term `K_v`) is what needs fixing — not more cleanup.
-- **Paper/SI prose** should describe the implemented AP -> Q-merge -> refine pipeline (the Leiden detour is obsolete), and explain why uniform manifolds and bump-on-background cases previously needed different cleanup passes.
+- **FINDING (cross-family validated): the constant-free single-scale null is under-determined.** Direct experiments plus an independent GPT audit (agent `0b462607`) establish that at a single scale the graph-local `Q(C)` and `InterLocal/LocalIntra` do **not** carry enough information to separate a uniform manifold that must be one cluster (circle/swiss ring arcs) from genuinely multi-modal structure that must stay split (hierarchical-Gaussian coarse blobs). Their per-cluster `Q` distributions overlap (circle arcs `Q≈0.55–1.18`; hierarchy coarse-blob clusters `Q≈0.58–0.88`), and the same overlap holds for extent ratios `v̂/v`, conductance, modularity, full-graph (shadow∪lifted) variants, and spectral gap. Separately, the partition-`Q` null is mathematically degenerate: a whole connected component has empty boundary → `BoundaryInter = 0` → `Q(null) → +∞`, so a same-criterion comparison trivially favours one cluster. The currently-passing pipeline distinguishes the cases only via **side channels** (lifted-component count, size imbalance). Conclusion: "one Q-improving merge-to-fixpoint + a single-cluster-null test, with no constants" is *not achievable with the present single-scale primitives* — and it is not a missing `K_v` term (the kernel is already in `W_v`).
+- **Canonical arbiter deferred to persistence (M2) / DM gate (M4).** The intrinsic-vs-composite distinction is a cross-scale statement (SI S2.6.2): a real partition persists across ≥ 2 adjacent τ grid points; a uniform manifold's arc-partition should not. The persistence arbiter now **exists** (`stage1/persistence.py`; #28). *With the S2.6.1 stand-ins present* it reproduces the qualitative discrimination (circle → no persistent split; hierarchical → persistent 3-way split), because the recorded per-scale partitions are already heuristic-collapsed. SI S2.6.1/S2.6.2 document the scope and operational signal: single-scale `Q` is a proposal screen and the cleanup passes are operational stand-ins (empirically still **load-bearing** — see the corrected finding below). The alternative M4 S3.4 Dirichlet–multinomial gate supplies the complementary non-degenerate likelihood-ratio null.
+- **Persistence accept-gate is wired into recursion (`RecursionConfig.require_persistent_split`, SI S2.6.2), default off.** A region's split is accepted only if a multi-cluster partition persists across adjacent `tau` grid points (`persistence_result.tau_star_index is not None`); non-persistent fragmentation makes the region terminal. Two integration tests lock in the *gate-with-stand-ins-present* behaviour (`test_persistence_gate_circle_is_single_feature` → single leaf; `test_persistence_gate_hierarchy_matches_gt` → six leaves, fine ARI 1.0).
+- **CORRECTED FINDING (cross-family validated): the persistence gate does NOT replace the stand-ins; they are load-bearing and deletion is BLOCKED.** A *full* ablation — monkeypatch `_refine_boundaries`, `_absorb_*`, **and** `_q_merge_any_improving` (which also disables the `<= 3` collapse and the `>= 4` re-merge) to identities — with `require_persistent_split=True` gives **circle → 37 leaves** (want 1) and **hierarchy → 12 leaves** (want 6). This *refutes* the earlier turn-7 ablation note ("gate alone yields circle→1"), which almost certainly left the `<= 3` collapse intact and so silently kept the very heuristic under test. GPT audit (agent `320a28ae`) reproduced circle→37 exactly and confirmed the diagnosis and every point below.
+  - *Mechanism (warm-start false positive):* on the warm-started sweep the circle's arc-partitions mostly do NOT agree across adjacent scales (matched-Jaccard 0.17–0.33, as the theory predicts), but an **isolated fine-end pair coincides at 0.609** — enough to satisfy `P_persist=2` at `theta_ovl=0.5`, so the gate accepts a spurious split and recursion explodes. An independent **cold-start** refit of the same scales removes that block entirely (overlaps drop to 0.475/0.419), confirming it is a warm-start/path-dependence artifact, not a real feature. A genuine feature (hierarchy) instead persists from the **coarsest** grid point with high, stable overlaps (0.68–0.93) over a run of length ≥ 3.
+  - *Hardening direction (ii) — coarse-anchoring — has LANDED (`PersistenceConfig.coarse_anchored=True`, default).* The characteristic split must be anchored at the coarsest multi-cluster grid point: letting `j0` = coarsest index with `K >= 2`, accept iff `run_length[j0] >= P_persist`, else terminal. This rejects the isolated fine-end warm-start block. Full-strip recursion ablation (all stand-ins → identities, gate on): **circle 37 → 1 leaf, hierarchy 12 → 6 leaves** (both correct); **swiss roll 32 → 12 leaves** (still over-fragments). Suite stays green because every current test runs *with* stand-ins present, where coarse-anchoring reproduces the identical `tau*` as the legacy rule. Cross-family GPT audit (`gpt-5.4-high`, agent `e8eef21f`): implementation correct, swiss-still-fragments conclusion correct; verdict LAND WITH CAVEAT — the scale-space justification is *motivational, not a theorem* (non-enhancement is about smoothed-density extrema, not the warm-started scaffold partition sweep), so it carries a transient-coarse-blip false-negative and grid-sensitivity (both now documented in SI S2.6.2 as operational trade-offs).
+  - *Residual (narrowed):* the remaining blocker is **marginal coarse-scale arc-persistence on developable manifolds** — the swiss roll's coarsest partition is 3 arcs whose adjacent overlap (~0.568) sits just above `theta_ovl=0.5`, so coarse-anchoring admits it and the region fragments without the stand-ins.
+  - *Hardening (ii′) — cold-start path-independence recheck — IMPLEMENTED and REFUTED as a gate.* `PersistenceConfig.cold_start_recheck` (default **off**) + `controller._cold_start_recheck` + `persistence.interval_is_persistent` re-fit the candidate coarse-anchored interval from independently cold-started scaffolds and keep it only if it still persists. It does **not** work: cold single-`tau` fits have high **resolution-level** variance, so a genuine multi-level feature's interval fails the overlap test. On the hierarchical Gaussian the warm coarse anchor is a stable 3-way partition but independent cold refits of the two anchor grid points return 6-way vs 3-way (matched overlap ≈0.27 < 0.5) → interval rejected → **full-strip recursion ablation with the recheck on collapses hierarchy to 1 leaf** (want 6; circle→1, swiss→1). The matched-Jaccard overlap cannot separate true absence-of-structure from ordinary cross-scale resolution variance — exactly the discrimination the S3.4 Bayes-factor *margin* provides. This refutes the specific overlap-based recheck (not every conceivable path-independence diagnostic), leaving path (i) as the only currently validated route. Mechanism retained behind the default-off flag as a reproducible diagnostic (SI S2.6.2). Independently reproduced + implementation-audited by cross-family GPT (`gpt-5.4-high`, agent `f49edf2a`): warm anchor 3/3 overlap 1.0 persist; cold 6/3 overlap 0.266 reject; verdict LGTM. NOT recommended: raising `theta_ovl` alone (brittle) or `min_persistence >= 3` alone (overfit risk).
+  - *Blocked deletion scope:* the load-bearing stand-ins are `_refine_boundaries` (eta=0.3), `_absorb_tiny_clusters_into_dominant`, `_absorb_one_tiny_satellite`, `_absorb_full_graph_isolates`, and the `<= 3`-fragment collapse in `run_clustering` (the four previously-dead helpers are already removed). With (ii′) refuted, the sole remaining path to deletion is **(i) the Stage-2 S3.4 DM evidence gate [blocks on M4]**. Only once it lands and is validated across ALL scenarios (circle, swiss, hierarchy, and — when available — nested spheres / linked tori) should the gate be made default, the single-scale tests re-scoped (chiefly `test_circle_clustering_produces_one_cluster` ==1 and `test_swiss_roll_stage1_diagnostics_at_tau_star` ≤3), and the stand-ins deleted.
+- **Paper/SI prose** should describe the implemented AP -> Q-merge -> refine pipeline (the Leiden detour is obsolete). SI S2.6.1/S2.6.2 now document the scope, the persistence signal, and its warm-start limitation; paper §3 prose still needs a one-line pointer to S2.6.2 persistence as the cluster-count arbiter.
 
-## 28. Scale selection: response degeneracy and the load-band heuristic
+## 28. Scale selection: remaining calibration and cleanup
 
-- Deeper diagnosis than the original `c_{d,k}` framing: the raw Lindeberg response `R_i(tau) = (sqrt(tau)/c_{d,k})^d * rho_hat_i` is **self-normalizing at equilibrium**. A converged scaffold equalizes hit masses and locks the k-NN radius to the cap (`r_k ~ c_{d,k} * sqrt(tau)`), so the tau-dependence cancels and the trace is flat/monotone regardless of how well `c_{d,k}` is calibrated. The characteristic-scale signal must come from quantities equilibration cannot normalize away.
-- Current selector (`stage1/controller.py`) is an empirical proxy: coarsest stabilized grid point with variance load in `[0.65, 1.0]`, plus a "one step coarser" patch when the band has a single member. Tests only require `0.5 < tau*/expected < 10`.
-- Rework direction:
-  1. Primary signal: the compensated node-count / support trace — on a d-dimensional support, equilibrium node count scales as `N(tau) ~ V_supp / tau^{d/2}`, so knees/plateaus in `N(tau) * tau^{d/2}` (equivalently `V_C(tau)`) mark characteristic scales. The dormant `_legacy_slope_selector` and the S2.5 support trace were both circling this.
-  2. Secondary signal: Q-partition persistence — the coarsest scale at which the AP+Q partition yields a coherent multi-cluster split that persists across >= 2 adjacent grid points. This operationalizes the S2.6.2 persistence theory and unifies tau* selection with recursion timing.
-  3. `c_{d,k}` becomes a declared **calibration protocol** (uniform d-ball ensemble, measure median `r_k / sqrt(tau)` at equilibrium, tabulate over (d, k)) rather than an analytic constant.
-- Exit criterion: `band_lo = 0.65` and the one-step-coarser patch removed; scale-search tests pass with materially tighter tau* tolerance bands; SI S2.5/S2.5.1 rewritten to match.
+The load-band heuristic and most of the original exit criterion are resolved (see log).
+The default selector is now the variance-load `L = 1` up-crossing
+(`controller._select_load_crossover`), which carries no `band_lo` / one-step-coarser
+constant and lands tau* within one grid step of geometric truth (circle 8.0x -> 1.6x,
+swiss 3.9x -> 0.9x). Scale-search test tolerance tightened `10x -> 3x` (plus a swiss-roll
+analog); SI S2.5.1 and the S14.3 table rewritten to match; the legacy load-band selector
+is retained behind `ScaleSearchConfig.selector="load_band"` only for regression bisection.
+Q-partition persistence (`selector="persistence"`, `stage1/persistence.py`) remains the
+structural arbiter for recursion timing (`P_persist=2`, `theta_ovl=0.5`, SI S2.6.2).
 
-## 29. Link pruning: SI/paper update for directed floor + bilateral agreement
+**Finding (cross-family audited, cold-start validated):** the proposed *primary* signal —
+knees/plateaus in the compensated node count `N(tau) * tau^{d/2}` (equivalently `V_C(tau)`)
+— is **not usable as an operational selector**. Warm-started it is path-dependent and its
+"peak" tracks the node budget `N_max`; cold-started with a high cap it is noisy (node count
+even goes non-monotone) and its log-log slope never settles at the theoretical `d/2`. This
+compounds the earlier self-normalization diagnosis (the raw Lindeberg response is flat at
+equilibrium). The knee proposal is therefore demoted to a diagnostic; persistence, not the
+compensated count, is the structural signal, and `L = 1` fixes each feature's resolution.
 
-- Implemented and stable: Stage 1 `prune_links` applies a directed floor `m_floor = (prune_beta / (2 max(D,1))) * T` on all edges with bilateral agreement required for deletion; post-clustering `demote_lifted_by_cluster` applies the same floor to lifted edges (cluster-median `d_final` as `D`) and demotes instead of deleting; `Link.protected_until` provides the neonatal guard. `wilson_upper` remains an unused utility.
-- Remaining: SI S3.1/S3.2 still specify the Wilson-interval gauntlet as the default. Rewrite for the two-stage floor rule (Wilson noted as an alternative), and update paper §3.5 accordingly. Include the motivation already developed in `reference/stage1_clustering_and_resolution.md`: co-activation transition mass as the primitive that separates meaningful edges from high-dimensional Delaunay slivers.
+Remaining work:
+- **Persistence tau* is coarse-end.** The persistence selector lands tau* at the coarse end
+  of the persistent interval (hierarchical tau*=0.36 vs expected 0.0225); refine toward the
+  within-interval characteristic scale before making persistence the default for structured
+  regions.
+- **Delete the legacy load-band selector** (and now-dormant `_legacy_slope_selector`,
+  `_detect_peak` in `controller.py`) once `load_crossover` is validated to dominate across
+  every scenario/recursion regression — kept behind the flag until then (M2 mitigation).
 
-## 31. Recursion vs hierarchical GT: remaining harness follow-ups
+## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
-- The structural bar and moment-matching harness are in place (`tests/harness/hierarchy_recovery.py`: Hungarian matching, Hotelling mean gate, Frobenius covariance gate; six-leaf regression passes).
-- Remaining: (a) use per-level tau from each recursion frame (not only the root) when comparing deeper trees; (b) tighten gates once #32 fixes the canonical `tau -> Sigma_smooth` map (the harness currently uses provisional isotropic `tau * I`).
+The flag-complex *construction* has landed (`stage2/flag_complex.py`, SI S4.1/S4.2), but
+the *topology-recovery* scenario assertions that validate the learned object against
+ground-truth Betti numbers remain unimplemented. These are the `@awaiting("stage2.flag_complex", si="S4.1")`
+tests: `test_nested_spheres_topology` (per-shell `b0 = 1`, `b_{sphere_dim} = 1`),
+`test_linked_tori_betti_numbers` (`b1 >= 2` per torus), and the circle `b1 = 1` target of #25.
 
-## 32. tau and Gaussian scale-space: the variance-cap / heat-kernel bridge
+- **Canonical tool:** Vietoris--Rips persistent homology on node positions up to dimension 2,
+  filtration to `1.5 sigma_star` (SI S14.2; `tests/metrics/persistent_homology.py`). The sparse
+  lifted-graph flag complex is *not* the right input — its band holes are essential (#25).
+- **Open problems to solve before flipping the tests (evidence-path, not acceptance-path):**
+  1. *Filtration / persistence reading.* At the fixed `1.5 sigma_star` cutoff the true loop may
+     not yet be born or the disk may already be filled; a persistence-lifetime reading (count
+     `H_k` bars whose lifetime exceeds a fraction of `sigma_star`, plus essential bars) is more
+     robust but needs a defensible operational threshold, logged in SI S14.2 / S14.3.
+  2. *Tissue pollution.* Faded-density tissue nodes in the scaffold seed spurious short loops;
+     recovery likely needs to run PH per accepted cluster/region (post-clustering) rather than on
+     the whole raw scaffold, or to restrict to signal nodes.
+  3. *Per-region assembly.* Nested spheres / linked tori are multi-component; the recovery
+     harness must build and score one complex per recovered region (their sibling
+     `@awaiting("stage1.controller")` component-separation tests must also be written).
+- **Dependency note:** heterogeneous per-patch simplex *dimension* (the S4.2 manifold-zoo test)
+  additionally blocks on the #40 operational `d_final` refresh; pure topology (b-numbers) does not.
 
-- Stage 1 `tau` is operationally a variance cap; the resolution theory (S2.8 and both paper propositions) treats it as a Gaussian convolution bandwidth on the latent density. The bridge is asserted, not derived, and the test harness uses provisional `Sigma_smooth = tau * I`.
-- Recommended minimal resolution for Paper 1: state an equilibrium lemma — each settled catchment-conditional density approximates the latent density smoothed at bandwidth ~tau, up to the `c_{d,k}` calibration factor and curvature terms (S2.5.2 has the expansion machinery) — and declare `Sigma_smooth = tau * I` as the convention. Anisotropic / intrinsic scale-space (PCA or tangent-space metric from T2, semigroup on covariances) is explicitly future work.
+## 42. Star-matrix runtime form under-specified (SI S10.4)
 
-## 34. eta_GNG is derived but orphaned
+- The DM evidence gate's S10.4 conditioning guard is implemented in
+  `evidence/star_matrix.py`, but S10.4 defines `K_i` only "up to normalization" as the
+  Jacobian of the normalized router `q(.|i; m)` with respect to the star masses at the
+  canonical `kappa`; it never writes the runtime matrix explicitly. The implementation uses
+  the **edge--simplex incidence matrix** as an operational proxy, plus a
+  `n_outcomes >= n_simplices` full-rank-modulo-scaling guard and the literal
+  `sigma_min/sigma_max >= rho_min` ratio (`rho_min = 1e-4`, S10.4).
+- Remaining: either pin the exact runtime `K_i` (normalized-router Jacobian at `kappa`,
+  with the 1-D scaling direction removed) into S10.4, or bless the incidence-matrix + rank
+  guard as the canonical first-implementation form and say so in S10.4. This is a
+  calibration/diagnostic-tier (audit-adjacent) choice, not core acceptance-path math.
 
-- The variance-correction rate `eta_GNG = (ln2 / 2k)(1 - sigma^2/tau)` is derived in SI S2.3, implemented and unit-tested in `rates.py`, but never used by the scaffold loop: node motion is deferred-nudge only (`a_i += eta_cent * rho_i * m_i`, fired at `delta_min`).
-- Decide the canonical motion law. Recommended: declare the deferred-nudge path canonical and demote `eta_GNG` to the S12 convergence analysis (as the effective drift rate on cap-satisfied intervals), removing it from the operational spec. Alternative: wire it in as a multiplicative gate on the nudge. Either way, S2.3, S13.2, and S14.3 must match the choice.
+## 43. Evidence gate: wire the affected dual-subgraph connectivity check (SI S10.4)
 
-## 35. s_control is vestigial
-
-- The mapping `tau = -D_subspace * log(1 - s_control)` (SI S2.4) is inverted and stored by the scaffold (`scaffold.py`) but nothing consumes `s_control`; `tau` is the operational primitive throughout the controller and recursion.
-- Decide: either remove `s_control` from the operational spec (keep the mapping as a normalization remark) or give it a real consumer. Update S2.4, the paper notation table, and `tests/contracts/scale.py` to match.
-
-## 36. C_Q(d) is referenced but never defined
-
-- SI S3.3 uses `C_Q(d)` ("variance-cap star-radius constant in the regular interior") in the prune-radius guard and merge guard, and the S12 edit-budget argument leans on the resulting `B_p` jump bound — but no formula, derivation, or calibration is given anywhere.
-- Derive it (expected star radius of a cap-equilibrated Voronoi cell under local isotropy) or define it via the same uniform-d-ball calibration ensemble as `c_{d,k}` (#28), and add it to S14.3 with the appropriate status label.
-
-## 37. Constant-status audit of S14.3
-
-- Extend the S14.3 defaults table into a complete three-tier classification: **derived** (follows from a derivation; e.g. `alpha = ln2/k`, grid ratio, BDeu `alpha_0`), **calibrated** (measured on a declared reference ensemble with a written protocol; e.g. `c_{d,k}`, `C_Q(d)`, equilibrium load target), and **free operational default** (tunable, logged, backstopped by the evidence gate; e.g. torsion ladder bands, `kappa = 0.5`, `rho_max = 10`, prune floors).
-- Every constant in `src/` should appear in the table with its status; constants that exist only in code (e.g. `gaussian_cutoff_dim = 8`, split budget `2 * h_prune`, neonatal `link_protection`) currently do not.
-
-## 38. Promote canonical types out of tests/
-
-- `src/proteus/` imports canonical dataclasses (`NodeState`, `Link`, and the SI-contract shapes) from `tests/contracts/`. Production code depending on the test tree is a packaging smell and blocks eventual distribution.
-- Move the contract types into the package (e.g. `proteus/types.py` or per-module homes) and have the test contracts import from the package, not the reverse.
-
-## 39. Intrinsic-dimension estimator is a degree proxy
-
-- `intrinsic_dim.py` estimates `d_final` from graph degree (degree − 1, neighbor-median smoothed); Levina–Bickel is deferred by design. The proxy feeds AP preferences, PMI smoothing, T2 rank selection, and (later) simplex dimension and junction detection — a lot of load for an uncalibrated proxy.
-- Before Stage 2 lands: validate the proxy against ground truth on the synthetic suite (swiss roll d=2, circle d=1, mixed-dim and junction datasets), and either calibrate a correction or implement Levina–Bickel behind the same interface. S8.4 junction detection should not inherit silent bias from the estimator.
+- S10.4's dynamic-preservation rule requires an edit to be *evidence-bearing* only if
+  (a) every affected post-edit star is well-conditioned **and** (b) the affected dual
+  subgraph stays connected. `evidence/gate.py::score_edit` enforces (a) all-or-nothing and
+  exposes a `dual_connected` hook for (b), but nothing computes that connectivity yet: the
+  dual/face graph is a Stage-2 dual-flow structure (S6) not built until the M4 dual-flow
+  step.
+- Remaining: when the S6 dual graph lands, compute the affected dual-subgraph connectivity
+  in the edit dry run and pass it into `score_edit(..., dual_connected=...)` /
+  `EvidenceGate.evaluate`; add a reduction/property test that a disconnecting edit is
+  rejected on the evidence path. Until then the gate conservatively defaults
+  `dual_connected=True` (callers with no dual graph assert connectivity).

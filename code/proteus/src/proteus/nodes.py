@@ -1,8 +1,8 @@
-"""Node-state helpers for Proteus foundation tests.
+"""Node-state helpers for Proteus Stage 1 (SI S2.3).
 
-For this first implementation pass, the test contract dataclass is treated
-as the canonical node type.  Later implementation passes can promote this
-contract into the source package without changing the public behavior.
+The canonical ``NodeState`` type lives in :mod:`proteus.types` (promoted out of
+``tests/contracts`` per OPEN_ISSUES #38); this module provides the helpers that
+construct and update it.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from typing import Optional
 import numpy as np
 
 from proteus.moments import ewma_update, variance_from_moments
-from tests.contracts.state import NodeState
+from proteus.types import NodeState
 
 
 def make_node(

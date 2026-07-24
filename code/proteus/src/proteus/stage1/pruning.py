@@ -29,7 +29,7 @@ from typing import Any
 import numpy as np
 
 from proteus.links import LinkCounters
-from tests.contracts.state import Link
+from proteus.types import Link
 
 
 @dataclass(frozen=True)
@@ -145,6 +145,8 @@ def demote_lifted_by_cluster(
     cluster_dim: dict[int, int] = {}
     for cid in cluster_ids:
         members = np.where(labels_arr == cid)[0]
+        # d_final is the diagnostically-refreshed estimate (SI S1.4.1); within a
+        # run it stays at the working dim, so cluster_dim == D_subspace.
         d_finals = [scaffold.nodes[int(m)].d_final for m in members]
         cluster_dim[cid] = int(np.median(d_finals)) if d_finals else scaffold.dim
 

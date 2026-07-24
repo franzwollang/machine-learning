@@ -29,7 +29,10 @@ C,\ C_\ell,\ C' & \text{region, query-path region, child region} & \text{S0.2}\\
 \tau,\ \tau_C^\star & \text{candidate and selected variance cap} & \text{S2.4--S2.5.1}\\
 u_{\mathrm{global}},\ u_{\mathrm{local}} & \text{global and local tissue floors} & \text{S0.6}\\
 \Psi,\ \psi_i & \text{local noise tensor and node-level floor proxy} & \text{S2.5.2--S2.5.3}\\
-G_C=(\mathcal V_C,\mathcal E_C) & \text{Stage 1 scaffold graph} & \text{S2}\\
+G_C=(\mathcal V_C,\mathcal E_C) & \text{Stage 1 scaffold graph (shadow}\cup\text{lifted edges)} & \text{S2.3.3}\\
+C(i\to j) & \text{directed co-activation transition mass on an edge} & \text{S2.3.3,S3.1}\\
+K_v,A_{\mathrm{sym}},W_v & \text{geometric kernel, co-activation evidence, edge weight} & \text{S2.6.1}\\
+Q(S;v),Q(\mathcal P;v) & \text{cluster and partition coherence scores} & \text{S2.6.1}\\
 \mathcal K_C,\ \mathcal S_C & \text{Stage 2 complex and simplex set} & \text{S4}\\
 S,\ |S|_d & \text{simplex and intrinsic }d\text{-volume} & \text{S4,S6}\\
 h_i,\ n_{i\to j} & \text{hit mass and directed transition count} & \text{S2,S3}\\
@@ -40,6 +43,9 @@ T_C & \text{optional region warp} & \text{S5,S7}\\
 \boldsymbol\mu_C,\Sigma_C & \text{Gaussian mode and covariance} & \text{S7}\\
 \mu_C,\mu_C^{\mathrm{PL}},\boldsymbol\mu(\mathbf x) & \text{Gaussian, PL, and path memberships} & \text{S7}\\
 \Phi_C(\tau),R_i(\tau) & \text{cluster and node scale responses} & \text{S2.5}\\
+c_{d,k} & \text{variance-cap}\to k\text{-NN radius calibration constant} & \text{S2.5.5,S11.1}\\
+C_Q(d) & \text{interior star-radius (deletion-reassignment) calibration constant} & \text{S3.3}\\
+\Sigma_{\mathrm{smooth}} & \text{effective heat-kernel smoothing covariance }(=\tau I) & \text{S2.5.4}\\
 \alpha_{0,i} & \text{BDeu concentration} & \text{S2.7}\\
 F_{\mathrm{DM}},\tau_{\mathrm{BF}} & \text{evidence score and Bayes-factor margin} & \text{S3.4}\\
 W,\ T_{\mathrm{hyst}},A_T & \text{gate window, hysteresis, jump budget} & \text{S3.6,S12}\\
@@ -171,6 +177,89 @@ where $D_C$ is the parent working dimension. Child samples and inherited node po
 
 The distance-preservation audit of S1.3 is still applied locally. If truncating to $r_{C'}$ materially degrades nearest-neighbor recall or local distance ranks, keep the full child PCA basis in the parent dimension and log the failed truncation; the mandatory operation is the child PCA reparameterization, while rank truncation remains guarded by neighbor preservation. Child-level marginal Gaussianization and all subsequent region or patch warp proposals are then fitted in this PCA frame. This makes those transforms cheaper because their input dimension is $r_{C'}$ rather than the parent dimension, while the explained-energy and neighbor-preservation guards ensure that no accepted child-level information is discarded by the rank choice. Along a root-to-leaf path, projections compose with the parent representation, so each child works inside the span made available by its ancestors and no downstream level invents directions outside the accepted parent frame.
 
+\subsection*{S1.4.1 Per-Node Intrinsic-Dimension Estimator}
+\label{sec:si-intrinsic-dim}
+The per-node intrinsic dimension $d_{\mathrm{final},i}$ used throughout Stage~1
+(the recursion PCA-rank summary of S1.4, the BDeu/DM branching prior
+$\alpha_{0,i}=1/(d_{\mathrm{final},i}+1)$ of S2.7, the AP self-preference of
+S2.6.1, the link-prune slot count of S3.1, and the junction diagnostics of
+S8.4) is, by default, a \emph{degree proxy} on the lifted structural graph.
+Writing $\mathcal N(i)$ for the lifted neighbors of node~$i$, the raw estimate
+is $\widetilde d_i=\max(1,\,\deg(i)-1)$ and the reported value is the
+neighbor-median smoothed integer
+\[
+d_{\mathrm{final},i}
+=\max\!\Big(1,\ \operatorname{round}\ \operatorname{median}
+\big\{\widetilde d_j:j\in\{i\}\cup\mathcal N(i)\big\}\Big),
+\]
+clipped to the ambient dimension. The intuition is that a locally
+$d$-dimensional cap-equilibrated cell has on the order of $d+1$ Delaunay
+neighbors, so $\deg-1$ tracks $d$.
+
+\paragraph{Validation.}
+On the uniform $d$-ball reference ensemble (the same ensemble that calibrates
+$c_{d,k}$ and $C_Q(d)$; S2.5.5, S3.3) the degree proxy is \emph{unbiased}: the
+per-node median equals the true dimension for $d\in\{1,2,3,4\}$. Its documented
+failure mode is an \emph{upward} bias on a thin curved manifold embedded in a
+higher ambient dimension: off-manifold lifted edges---the same high-dimensional
+Delaunay slivers that the directed-floor link pruning of S3.1--S3.2 is designed
+to suppress---inflate node degree. On a $1$-D circle embedded in $\mathbb R^3$
+the proxy reports a median of $2$ against a true dimension of $1$. Because the
+proxy over-reads only where the neighborhood mixes off-manifold adjacency, and
+the junction detector of S8.4 keys on the \emph{range} of $d_{\mathrm{final}}$
+across a neighborhood rather than its absolute value, a uniform over-read on a
+homogeneous thin manifold does not manufacture spurious junctions; the bias is
+conservative for the proposal-path consumers (larger $\alpha_{0,i}$, larger PCA
+rank floor) that it feeds.
+
+\paragraph{Levina--Bickel cross-check.}
+For absolute-dimension reporting we also provide the maximum-likelihood
+estimator of Levina and Bickel. From a point's sorted nearest-neighbor
+distances $T_1\le\cdots\le T_k$ (self excluded), the estimate at neighbor count
+$k$ is
+\[
+m_k(i)=\Big[\tfrac{1}{k-1}\textstyle\sum_{j=1}^{k-1}\log\!\big(T_k(i)/T_j(i)\big)\Big]^{-1},
+\]
+and, following MacKay--Ghahramani, the per-node estimate averages the inverses
+$1/m_k(i)$ over $k\in[k_{\min},k_{\max}]$ (defaults $6,12$) before inverting,
+then applies the same neighbor-median smoothing. Using geometry directly, this
+estimator is not inflated by structural edges: it recovers the true dimension
+on well-sampled (locally Poissonian) manifolds---exact on the dense $d$-ball for
+$d\in\{1,2,3,4\}$, and $d=1$ on the embedded circle where the proxy over-reads.
+It assumes Poisson local sampling, so it \emph{under-reads} on the near-regular
+node lattice of an equilibrated coarse scaffold at $d\gtrsim3$; it is therefore
+used on the dense routed sample set or as an independent validation estimator,
+not as a coarse-node drop-in. The scaffold exposes both via an
+\texttt{intrinsic\_dim\_method} selector (\texttt{"degree"} default,
+\texttt{"mle"} for Levina--Bickel). Dimension-sensitive acceptance consumers
+(junction detection S8.4, heterogeneous simplex dimension S4.2) should prefer
+the scale-consistent estimator rather than inherit a silent proxy bias; the
+$k_{\min},k_{\max}$ range is an operational default (S14.3).
+
+\paragraph{Operational refresh semantics.}
+The two estimators above define the value produced by an \emph{explicit} refresh
+of the per-node estimate; they are not evaluated implicitly on every edit. In the
+Stage~1 stabilization loop the per-node value is \emph{seeded} to the region
+working dimension $D_{\mathrm{subspace}}$ (S1.4) when a node is created and is
+inherited unchanged across variance-cap splits; the scaffold does not recompute
+it mid-run. The refresh is a diagnostic/offline operation, invoked for junction
+diagnostics (S8.4) and for the validation protocol above. Consequently, within a
+single uniform-scale scaffold run ($\tau_{\mathrm{local},i}=\tau$ for all $i$,
+S2.4) every operational consumer that reads a $d_{\mathrm{final}}$ aggregate ---
+the S2.6.1 clustering effective dimension
+$d_{\mathrm{eff}}=\operatorname{median}_i d_{\mathrm{final},i}$, the S2.7 branching
+prior $\alpha_{0,i}=1/(d_{\mathrm{final},i}+1)$, the AP self-preference (S2.6.1),
+the recursion child dimension summary $\hat d=\operatorname{median}$ over cluster
+members (S1.4), and the S3.1--S3.2 post-clustering lifted-edge demotion cluster
+dimension --- evaluates at the region working dimension $D_{\mathrm{subspace}}$.
+This is intended and consistent with the uniform-cap design of S2.4: dimensional
+heterogeneity is resolved \emph{across} recursion levels (each child receives its
+own PCA rank via T2 transfer and its own scale search), not \emph{within} a single
+scaffold run. Consumers that require a genuine per-node estimate departing from
+$D_{\mathrm{subspace}}$ --- junction detection (S8.4) and heterogeneous simplex
+dimension (S4.2) in Stage~2 --- must invoke the refresh explicitly on the
+scale-consistent sample rather than read the seeded value.
+
 \section*{S2. Stage 1 Derivations}
 
 \subsection*{S2.1 Geometric Grid Spacing}
@@ -195,12 +284,25 @@ the adaptive policy is driven by the local floor summaries of
 but the controller's confidence in each step becomes floor-aware rather than
 globally homoscedastic.
 
-\subsection*{S2.2 EWMA Weight from Neighborhood Size}
+\subsection*{S2.2 EWMA Weight and Neighbor Routing Weights}
+\label{sec:si-neighbor-weights}
 The EWMA recursion $m_{t+1}=(1-\alpha)m_t+\alpha x_{t+1}$ has half-life $T_{1/2}=\ln(0.5)/\ln(1-\alpha)\approx \ln 2/\alpha$ for small $\alpha$. Setting $T_{1/2}=k$ (one effective neighborhood of updates) yields
 \[
 \alpha=\frac{\ln 2}{k}.
 \]
 This ties estimator memory to the effective neighborhood support: changing $k$ scales the half-life by the same factor without altering the bias/variance interpretation of the moments. Equivalently, with effective neighborhood mass $\Heff$, the standard half-window rule $\alpha\approx 2/(\Heff+1)$ is recovered when $\Heff\approx 2k/\ln 2-1$.
+
+\paragraph{Neighbor routing weights.}
+Within the $k$-nearest set returned by the ANN query, each neighbor receives a routing weight $\omega_r$ that scales its EWMA moment update, its contribution to the deferred nudge, and its Hebbian tally. Two regimes are used, selected by the working dimension $D_{\mathrm{subspace}}$ of the current region frame:
+\begin{itemize}[leftmargin=1.5em]
+  \item \emph{Low dimension} ($D_{\mathrm{subspace}}\le d_{\mathrm{cut}}$, default $d_{\mathrm{cut}}=8$): \emph{relative Gaussian weights}. With squared distances $\{r_j^2\}$ and nearest squared distance $r_{(0)}^2$,
+  \[
+  \omega_j=\exp\!\Big(-\frac{r_j^2-r_{(0)}^2}{2\tau}\Big),
+  \]
+  so the nearest neighbor (BMU) has weight $1$ and the others decay by their squared-distance excess at bandwidth $\tau$. This uses the metric directly, which is reliable when low-dimensional distances are informative.
+  \item \emph{High dimension} ($D_{\mathrm{subspace}}>d_{\mathrm{cut}}$): \emph{rank-decay approximation} $\omega_r=2^{-(r-1)}$ for rank $r=1,\dots,k$ (BMU at rank $1$). Neighbor ranks stay stable under the distance concentration that degrades raw Gaussian weights in high dimension, and the geometric decay preserves the same qualitative BMU-dominated shape at lower cost.
+\end{itemize}
+The cutoff $d_{\mathrm{cut}}$ is an operational default (\texttt{routing\_weights.gaussian\_cutoff\_dim}) trading metric fidelity against high-dimensional distance concentration; it may be retuned per data regime. The rank-decay form is the one written out in the reference algorithms of S13.2--S13.3.
 
 \subsection*{S2.3 Dual-Rate Motion from Variance Correction}
 \label{sec:si-dual-rate-motion}
@@ -209,8 +311,8 @@ Stage~1 separates fast statistical tracking from slower geometric movement. For 
 \paragraph{Node state.}
 Each node stores hit count $h_i$, residual mean $\mathbf m_i$, residual second moment $\mathbf s_i$, derived variance $\sigma_i^2$, an Oja direction $\mathbf u_i$ for dominant local variance, directed transition counts $n_{i\to j}$, and deferred nudge $\mathbf a_i$. A variance-cap violation $\sigma_i^2>\tau_{\mathrm{local},i}$ proposes additional local capacity, typically by splitting along $\mathbf u_i$ after evidence and budget checks. Low-hit, low-variance nodes or weak bilateral links become prune candidates. The variance cap is therefore both a geometric resolution target and a proposal generator; the evidence gate decides whether the proposed topology change is retained.
 
-\paragraph{Variance-correction rate.}
-Under local isotropy, the node variance satisfies $\sigma_i^2\approx \mathbb E\|x-w_i\|^2$ and a radial shift $\delta r$ changes the variance by $\Delta\sigma_i^2\approx 2\sqrt{\sigma_i^2}\,\delta r$. Spreading this correction over $H=k$ effective updates gives the GNG learning rate
+\paragraph{Variance-correction rate (analysis quantity, not an applied update).}
+The operational motion law is the deferred-nudge (centering) path only: node positions move through the accumulator $\mathbf a_i$, and no per-update GNG rate is applied in the scaffold loop (S13.1--S13.2). It is nonetheless useful to name the \emph{effective} drift rate that the deferred nudge induces on cap-satisfied intervals, because the convergence analysis of S12 reasons in those terms. Under local isotropy, the node variance satisfies $\sigma_i^2\approx \mathbb E\|x-w_i\|^2$ and a radial shift $\delta r$ changes the variance by $\Delta\sigma_i^2\approx 2\sqrt{\sigma_i^2}\,\delta r$. Spreading this correction over $H=k$ effective updates gives the GNG-equivalent rate
 \[
 \eta_{\mathrm{GNG},i}
 \approx
@@ -219,6 +321,8 @@ Under local isotropy, the node variance satisfies $\sigma_i^2\approx \mathbb E\|
 \quad\text{or, with the half-life convention,}\quad
 \eta_{\mathrm{GNG},i}=\frac{\ln 2}{2k}\!\left(1-\frac{\sigma_i^2}{\tau}\right).
 \]
+This rate is a diagnostic and an analysis handle: it is the effective drift envelope used in S12.1--S12.2, \emph{not} a second update applied alongside the deferred nudge. Its vanishing at the cap ($\sigma_i^2\to\tau$) expresses the same self-regulation the deferred nudge realizes operationally---a cap-saturated node proposes a split rather than continuing to move. The reference implementation exposes $\eta_{\mathrm{GNG}}$ as a derived quantity (\texttt{rates.eta\_gng}) for this analysis role only.
+
 \paragraph{Centering rate.}
 The deferred nudge fires when $\|\mathbf a_i\|$ exceeds the resolution threshold
 \[
@@ -352,13 +456,29 @@ As $\mathbf u_i$ rotates, the shadow partition plane drifts. The shadow EWMAs us
 \paragraph{Cost.}
 Memory: one extra moment pair per node, i.e.\ $3\times$ per-node moment storage; still $O(d)$ and streaming-bounded. Compute: one extra dot product and one branched EWMA update per routed sample per node; no per-sample retention.
 
-\subsection*{S2.4 Control-to-Threshold Mapping}
-The global scale variable is the variance cap $\tau$. A bounded controller value $s_{\mathrm{control}}\in(0,1)$ is mapped to a variance threshold by
+\subsection*{S2.3.3 Two-Tier Hebbian Edges: Shadow and Lifted}
+\label{sec:si-two-tier-edges}
+The scaffold graph is two-tiered, separating raw adjacency evidence from committed topology. For each routed sample the ANN query returns rank-ordered neighbors $\mathcal N_k=(\mathrm{BMU}_1,\mathrm{BMU}_2,\dots)$, and edges update as follows.
+\begin{itemize}[leftmargin=1.5em]
+  \item \emph{Shadow tier (adjacency evidence).} Any routed co-activation between the BMU and a returned neighbor may create or increment a \emph{shadow} edge, accumulating the directed co-activation counters $C(i\!\to\! j)$ at the rank routing weight $\omega_r$ (S2.2). Shadow edges record low-grade adjacency evidence without asserting a topological bond.
+  \item \emph{Lifted tier (committed topology).} Only the $\mathrm{BMU}_1\!\to\!\mathrm{BMU}_2$ co-activation---the first- to second-nearest transition---promotes an edge to the \emph{lifted} tier. Lifting is monotone: once lifted, an edge stays lifted until explicitly demoted (S3.1). Both tiers keep the same directed counters; lifting only changes the edge's structural status.
+\end{itemize}
+The two tiers have distinct consumers:
+\begin{itemize}[leftmargin=1.5em]
+  \item the \emph{lifted} graph is the structural graph: it defines the degree-proxy intrinsic dimension $d_{\mathrm{final}}$ (S1.4.1), the flag complex of Stage~2 (S4.1), the connected components and internal/boundary edge sets used by clustering (S2.6.1), the peer-comparison stars for the post-clustering prune pass (S3.1), and the node-count / isolated-node stabilization diagnostics (S2.5.1);
+  \item the \emph{full} graph (shadow $\cup$ lifted) supplies the transition evidence read by Affinity Propagation exemplar similarity (S2.6.1), so weak-but-real adjacencies still inform the partition;
+  \item link pruning (S3.1) reads \emph{all} edges for the ambient directed-floor pass and the \emph{lifted} edges only for the post-clustering demotion pass; the Dirichlet--multinomial gate (S3.4) scores the directed transition counts on affected stars regardless of tier.
+\end{itemize}
+This refines the single GNG-style edge convention: ``create/refresh an edge on co-activation'' is the shadow-tier rule, and ``$\mathrm{BMU}_1\!\to\!\mathrm{BMU}_2$ defines topology'' is the lifting rule.
+
+\subsection*{S2.4 Scale Parameter and Control Normalization}
+The operational scale variable is the variance cap $\tau$ itself. The controller searches $\tau$ directly on the geometric grid of S2.5, and every downstream quantity ($\delta_{\min}$, $\tau_{\mathrm{local},i}$, and the split cap) reads $\tau$. For interpretability it is sometimes convenient to report a bounded, dimension-normalized progress variable $s_{\mathrm{control}}\in(0,1)$ through the monotone reparameterization
 \[
-\tau
-=-D_{\mathrm{subspace}}\log(1-s_{\mathrm{control}}),
+s_{\mathrm{control}}=1-e^{-\tau/D_{\mathrm{subspace}}},
+\qquad\text{equivalently}\qquad
+\tau=-D_{\mathrm{subspace}}\log(1-s_{\mathrm{control}}),
 \]
-where $D_{\mathrm{subspace}}$ is the working dimensionality of the current region's coordinate frame (ambient dimension at the root; the retained PCA rank from S1.4 at child recursion levels). Within a single scaffold run, all nodes share the same cap: $\tau_{\mathrm{local},i}=\tau$ for every~$i$. Dimensional heterogeneity within a region is resolved by the scale-response machinery (S2.5--S2.6) peaking at different $\tau$ for clusters of different intrinsic dimension, and by recursion giving each cluster its own scale search after PCA transfer. The per-node intrinsic-dimension estimate $d_{\mathrm{final},i}$ is retained as a diagnostic input to junction detection (S8.4) and as the cluster-median aggregation target when a single $d_C$ is required for scale-response normalization, but it does not modulate the split-decision cap. Stationarity at a given $\tau$ is measured by $\mathrm{CV}(\sigma_i^2)$ over mature nodes; since $\tau$ is uniform, equilibrium means uniform-resolution evidence across the scaffold.
+where $D_{\mathrm{subspace}}$ is the working dimensionality of the current region's coordinate frame (ambient dimension at the root; the retained PCA rank from S1.4 at child recursion levels). This mapping is a reporting/normalization convention only: $s_{\mathrm{control}}$ has no operational consumer, and no scaffold or controller decision reads it. Within a single scaffold run, all nodes share the same cap: $\tau_{\mathrm{local},i}=\tau$ for every~$i$. Dimensional heterogeneity within a region is resolved by the scale-response machinery (S2.5--S2.6) peaking at different $\tau$ for clusters of different intrinsic dimension, and by recursion giving each cluster its own scale search after PCA transfer. The per-node intrinsic-dimension estimate $d_{\mathrm{final},i}$ is retained as a diagnostic input to junction detection (S8.4) and as the cluster-median aggregation target when a single $d_C$ is required for scale-response normalization, but it does not modulate the split-decision cap. Stationarity at a given $\tau$ is measured by $\mathrm{CV}(\sigma_i^2)$ over mature nodes; since $\tau$ is uniform, equilibrium means uniform-resolution evidence across the scaffold.
 
 \subsection*{S2.5 Scale Response $\Phi_C(\tau)$}
 \label{sec:si-scale-response}
@@ -392,13 +512,66 @@ Using the same $r_{k,i}$ values, define the local support proxy
 \qquad
 V_C(\tau)=\sum_{i\in C}\widehat V_i.
 \]
-The support trace $V_C(\tau)$ is a cheap secondary diagnostic: robust characteristic scales should show a response peak in $\Phi_C$ near a plateau transition in $V_C$.
+The support trace $V_C(\tau)$ is a cheap secondary diagnostic only. The idealized expectation --- that a robust characteristic scale shows a $\Phi_C$ response peak near a plateau transition in $V_C$ (equivalently a knee in the compensated node count $N(\tau)\,\tau^{d/2}$) --- does not hold reliably in practice: node-budget saturation and warm-start path dependence prevent a clean plateau, so the operational selector uses the variance-load up-crossing rather than these traces (S2.5.1, OPEN\_ISSUES~\#28).
 
 \subsection*{S2.5.1 Scale Controller Procedure}
-Evaluate $\Phi_C(\tau)$ on a geometric grid in $\log \tau$. Candidate peaks are detected by sign changes in the centered second difference, then refined with a small number of additional evaluations near each bracket. A support trace, such as a summed local volume proxy $V_C(\tau)$, is logged as a cross-check: robust characteristic scales should coincide with the expected transition between unresolved support and redundant over-refinement. A grid point is eligible only if its Stage~1 scaffold stabilizes under the fixed-scale criteria. If no robust peak exists, the region is terminal for the searched band.
+Sweep $\tau$ coarse-to-fine on a geometric grid in $\log\tau$, warm-starting a
+single scaffold at the coarsest scale and lowering the cap at each step. A grid
+point is eligible only if its Stage~1 scaffold stabilizes under the fixed-scale
+criteria; over-coarse grid points that do not stabilize are excluded.
 
-The fixed-$\tau$ stopping rule should be confidence-based rather than a pure
-absolute-CV threshold. The minimal criterion has two layers:
+\emph{Operational selector (implemented): variance-load up-crossing.} The
+per-scaffold mean load $L(\tau)=\mathbb E[\sigma_i^2/\tau]$ over mature nodes
+increases monotonically along the coarse-to-fine grid: at over-coarse scales the
+scaffold under-resolves the support and sits below the cap ($L<1$); once the cap
+binds, $L>1$. The characteristic scale is the coarsest grid point at which the
+mean variance first reaches the cap --- the $L=1$ \emph{up-crossing} --- taken as
+whichever endpoint of the straddling grid pair is nearer to $1$. This rule is
+scale-invariant: it carries no band constant and no one-step-coarser patch, and
+locates $\tau^\star$ within one grid step of the geometric scale on the synthetic
+arc/surface suite. If $L$ never reaches $1$ (over-coarse searched band) the finest
+stabilized point is taken; if $L\ge 1$ throughout (over-fine band) the coarsest
+stabilized point is taken. The reference implementation is
+\texttt{stage1.controller.\_select\_load\_crossover}; the legacy load-band
+heuristic ($0.65\le L\le1$, coarsest in band) is retained behind a selector flag
+only for regression bisection during the transition.
+
+\emph{Support/response traces are diagnostics, not the selector.} The Lindeberg
+response $\Phi_C(\tau)$ and the compensated node-count / support trace
+$V_C(\tau)\propto N(\tau)\,\tau^{d/2}$ are logged as cross-checks, but neither is
+used as the primary operational selector. Empirically (circle, swiss roll; warm-
+and cold-started; node budgets $64$--$10^3$) the compensated node-count trace
+does \emph{not} exhibit a clean plateau/knee at the characteristic scale: its
+log--log slope does not settle at the theoretical $d/2$, and any apparent peak
+tracks the node-count budget $N_{\max}$ rather than the geometry. Two effects
+confound it --- the finite node budget saturates $N(\tau)$ at fine scales, and
+warm-started re-convergence is path-dependent --- so the ``knee in
+$N(\tau)\tau^{d/2}$'' proposal is retained only as a diagnostic (see
+OPEN\_ISSUES~\#28). The structural counterpart of scale selection --- whether a
+region carries genuine multi-cluster substructure at all --- is supplied by
+Q-partition \emph{persistence} across adjacent scales
+(\hyperref[sec:si-feature-persistence]{S2.6.2}), which is the acceptance-path arbiter;
+$L=1$ then fixes the resolution scale of each accepted feature. If no scale
+stabilizes with a resolved crossing, the region is terminal for the searched band.
+
+The fixed-$\tau$ stopping rule has a canonical operational default and a
+recommended hardening.
+
+\emph{Operational default (implemented).} Stop when the coefficient of variation
+of the hard-Voronoi variance over mature nodes stays below the EWMA noise floor
+for $M_{\mathrm{eq}}$ consecutive epochs,
+\[
+\mathrm{CV}(\sigma_i^2)<\beta_{\mathrm{cv}}\sqrt{2/k},
+\qquad \beta_{\mathrm{cv}}=1.5,\quad M_{\mathrm{eq}}=3,
+\]
+whose derivation from the EWMA effective sample size is given in S14.2 (for
+$k=8$ the threshold is $\approx0.75$). This is the criterion used by the
+reference implementation (\texttt{stage1.stabilization}) and is sufficient for
+the synthetic suite.
+
+\emph{Recommended hardening (trend exhaustion).} Where a stronger guarantee is
+wanted, augment the absolute threshold with a two-layer confidence test and
+treat the threshold itself as a sanity bound rather than the sole signal:
 \begin{enumerate}[leftmargin=1.5em]
   \item \emph{Topology quiet:} over a trailing window of $W$ epochs, there are no
   accepted splits, no accepted node prunes, node count is unchanged, and the
@@ -409,12 +582,13 @@ absolute-CV threshold. The minimal criterion has two layers:
   the mean load $\mathbb E[\sigma_i^2/\tau]$ is flat rather than still drifting
   toward the cap.
 \end{enumerate}
-This replaces the weaker rule "the last few CV values fall below a tolerance."
-Absolute thresholds remain useful as sanity bounds, but the primary stopping
-signal is \emph{trend exhaustion}: the scaffold has become structurally quiet
-and its moments are no longer evolving systematically. Optional frozen-topology
-epochs may still be used as a diagnostic hardening step, but they are not the
-default equilibrium criterion.
+Under this hardening the primary stopping signal is \emph{trend exhaustion}: the
+scaffold has become structurally quiet and its moments are no longer evolving
+systematically. Optional frozen-topology epochs may be added as a further
+diagnostic check. In both regimes the incoherence-based
+$\mathrm{CV}(\widetilde\rho)$ criterion remains diagnostic-only (S14.2), because
+the incoherence ratio mixes hard-Voronoi $\sigma_i$ with soft-routing
+$\mathbf m_i$ and is fragile to neonatal-node transients.
 
 \subsection*{S2.5.2 Local Noise Estimation from Settled Catchments}
 \label{sec:si-local-noise}
@@ -474,16 +648,194 @@ support local-floor-relative detectability, adaptive scale selection, and
 recursion timing without committing the first paper to a full anisotropic
 covariance-learning framework.
 
+\subsection*{S2.5.4 Variance-Cap / Heat-Kernel Bridge}
+\label{sec:si-tau-heat-bridge}
+Stage~1 uses $\tau$ operationally as a hard-Voronoi \emph{variance cap} (S2.4): a
+node splits when its catchment variance would exceed $\tau$, so at equilibrium
+each mature catchment carries residual variance $\sigma_i^2\lesssim\tau$. The
+resolution theory of S2.8 and the two scale-space propositions of the paper
+instead treat $\tau$ as the \emph{bandwidth of a Gaussian convolution} acting on
+the latent density $\rho$ (the smoothed family $\rho_\tau$ has variance
+$\sigma_i^2+\tau$). This subsection states the bridge that lets the same symbol
+play both roles and fixes the isotropic convention used by the implementation
+and the test harness.
+
+\paragraph{Equilibrium smoothing lemma (informal).}
+Fix a region at effective dimension $d$ with a settled scaffold at cap $\tau$,
+and let $\widehat\rho^{(C)}_\tau$ be the catchment-conditional density recovered
+from the equilibrated nodes (the per-node $k$-NN proxy of S2.5 aggregated over
+the region). By the equilibrium calibration of S2.5, a cap-satisfied catchment
+locks its effective radius to $r_{k,i}\approx c_{d,k}\sqrt\tau$ (S2.5.5), so estimating the
+density from that catchment averages the latent density over a neighborhood of
+squared scale $\sim\tau$. Substituting the local expansion of S2.5.2,
+$X=x_0+Uz+\tfrac12\mathrm{II}(z,z)+\varepsilon$, gives
+\[
+\widehat\rho^{(C)}_\tau(x)
+=
+\bigl(\mathcal G_{\Sigma_{\mathrm{smooth}}}\!*\rho\bigr)(x)
+\;+\;
+O\!\bigl(\|\mathrm{II}\|^2\,\tau^2\bigr)
+\;+\;
+O\!\bigl(\tau\,\|\nabla\Psi\|\bigr),
+\]
+where $\mathcal G_\Sigma$ is the Gaussian kernel with covariance $\Sigma$ and the
+error terms are precisely the curvature and floor-gradient corrections of
+S2.5.2. The bandwidth is fixed only up to the calibration constant $c_{d,k}$
+(S11.1; calibration protocol in S2.5.5), which converts the operational
+cap into the effective smoothing scale, $\Sigma_{\mathrm{smooth}}\propto\tau$. In
+words: a settled catchment at cap $\tau$ reports the latent density smoothed at
+bandwidth $\sim\tau$, up to $c_{d,k}$ and second-order geometry. This is what
+licenses S2.8 to reason about $\rho_\tau$ while the controller manipulates the
+variance cap directly.
+
+\paragraph{Isotropic convention (canonical for Paper~1).}
+The reference implementation and the hierarchy-recovery harness adopt the
+isotropic bridge
+\[
+\Sigma_{\mathrm{smooth}}=\tau\,I,
+\]
+i.e.\ absorb $c_{d,k}$ into the scale calibration and treat smoothing as
+isotropic in the current working frame (ambient at the root, the retained PCA
+frame after the T2 transfer of S1.4). This is exact for locally isotropic noise
+on flat support and is the convention under which the S2.8 mode-evolution
+formulae (variance $\sigma_i^2+\tau$) hold verbatim; it is the declared default,
+not a placeholder.
+
+\paragraph{Deferred: anisotropic scale-space.}
+An intrinsic/anisotropic bridge --- replacing $\tau I$ by a tangent-space metric
+or a covariance semigroup driven by the local noise tensor $\Psi$ (S2.5.2) and
+the T2 frame --- would tighten the curvature and floor-gradient error terms above
+and is the natural refinement once per-region covariance learning lands. It is
+explicitly out of scope for Paper~1.
+
+\subsection*{S2.5.5 Calibration of the Variance-Cap Constant $c_{d,k}$}
+\label{sec:si-cdk-calibration}
+The scale calibration constant $c_{d,k}$ (S2.5, S2.5.4, S11.1) maps the
+operational variance cap $\tau$ to the expected $k$-nearest-neighbor radius of an
+equilibrated scaffold under local isotropy,
+\[
+r_{k,i}\;\approx\;c_{d,k}\,\sqrt{\tau}
+\qquad\text{(mature nodes, at equilibrium).}
+\label{eq:si-cdk-def}
+\]
+It converts the hard-Voronoi variance cap into the effective smoothing bandwidth
+of S2.5.4 and normalizes the Lindeberg response of S2.5. Because it depends on
+the discrete warm-started scaffold dynamics --- not only on the continuum density
+--- $c_{d,k}$ is a \emph{calibrated} constant (S14.3): its value is measured on a
+declared reference ensemble rather than derived in closed form.
+
+\paragraph{Calibration protocol.}
+For each $(d,k)$:
+\begin{enumerate}[leftmargin=1.5em]
+  \item Draw $n$ points uniformly from the unit $d$-ball (direction uniform on
+        $S^{d-1}$, radius $U^{1/d}$, $U\sim\mathrm{Unif}(0,1)$).
+  \item Run the fixed-$\tau$ Stage~1 scaffold (S2.4--S2.5.1) to equilibrium with
+        neighbor count $k$ and cap $\tau_d$ chosen so the equilibrium node count
+        lands near a target $N_\star$; using the uniform-density estimate
+        $N\approx\bigl(\tfrac{d}{(d+2)\,\tau}\bigr)^{d/2}$ gives
+        $\tau_d=\tfrac{d}{d+2}\,N_\star^{-2/d}$. The ratio in
+        \eqref{eq:si-cdk-def} is scale-invariant, so the specific $\tau_d$ only
+        sets the node budget.
+  \item Record the median of $r_{k,i}/\sqrt{\tau_d}$ over mature nodes
+        ($\mathrm{update\_count}\ge$ the maturity gate of S3.2); in the
+        degenerate case where no node is yet mature, the estimator falls back to
+        all nodes.
+  \item Repeat over independent ensembles and take the median of the per-scaffold
+        medians as $c_{d,k}$.
+\end{enumerate}
+The reference implementation is
+\texttt{proteus.stage1.calibration.calibrate\_cdk}; the shipped lookup table is
+\texttt{CDK\_TABLE}, regenerable via
+\texttt{python -m proteus.stage1.calibration}.
+
+\paragraph{Isotropic analytic anchor.}
+A locally uniform density with mean node spacing $s$ has expected $k$-NN radius
+$r_k\approx s\,(k/V_d)^{1/d}$, while the variance cap fixes the catchment radius
+through $\tfrac{d}{d+2}R^2=\tau$, i.e.\ $R=\sqrt{(d+2)/d}\,\sqrt\tau$. Taking
+$s\propto R$ gives the order-of-magnitude estimate
+\[
+c_{d,k}^{\mathrm{iso}}
+=
+\Bigl(\tfrac{k}{V_d}\Bigr)^{1/d}\sqrt{\tfrac{d+2}{d}},
+\]
+which agrees with the calibrated table to within warm-start, boundary, and
+discretization corrections (closest at higher $d$; e.g.\ $d=3,k=8$ gives
+$c^{\mathrm{iso}}\approx1.60$ against a calibrated $\approx1.61$). It is used only
+as the runtime fallback (\texttt{c\_dk\_analytic}) for dimensions outside the
+tabulated grid.
+
+\paragraph{Calibrated values.}
+The shipped table, produced on the uniform $d$-ball ensemble with $n=3000$
+samples, four ensembles, and target node count $N_\star=120$
+(\texttt{CDK\_CALIBRATION\_META}), is
+\[
+\begin{array}{c|cccc}
+c_{d,k} & k{=}6 & k{=}8 & k{=}10 & k{=}12\\
+\hline
+d{=}1 & 7.94 & 9.71 & 11.22 & 12.67\\
+d{=}2 & 2.55 & 2.84 & 3.07 & 3.49\\
+d{=}3 & 1.50 & 1.61 & 1.81 & 1.95\\
+d{=}4 & 1.28 & 1.32 & 1.38 & 1.46\\
+\end{array}
+\]
+The strong decay in $d$ reflects that in low dimension the $k$-NN radius is large
+relative to $\sqrt\tau$. The same uniform-$d$-ball ensemble is the calibration
+vehicle for the interior star-radius constant $C_Q(d)$ of S3.3, which measures
+the star radius rather than the $k$-NN radius on the identical equilibrated
+scaffolds.
+
 \subsection*{S2.6.1 Cluster Identification, Q-Score, and Cross-Scale Tracking}
 \label{sec:si-cluster-derivation}
 At a fixed variance scale $v$, define the effective correlation radius
 \[
 \ell(v)=\sqrt{d_{\mathrm{eff}}\,v}.
 \]
+
+\paragraph{Scale-conditioned edge evidence.}
 The scaffold graph at this scale carries edge evidence combining local geometry
-and routed co-activation. For a candidate node set $S$, define the mean
-internal evidence $\mathrm{LocalIntra}(S;v)$ and mean boundary evidence
-$\mathrm{BoundaryInter}(S;v)$, and set
+and routed co-activation. On lifted-graph nodes $i,j$ with positions
+$\mathbf x_i,\mathbf x_j$, define the Gaussian geometric kernel
+\[
+K_v(i,j)=\exp\!\left(-\frac{\lVert\mathbf x_i-\mathbf x_j\rVert^2}
+{2\,d_{\mathrm{eff}}\,v}\right),
+\]
+and, from the directed Hebbian counters $C(i\to j)$ and hit masses $h_i$, the
+symmetric co-activation evidence
+\[
+A_{\mathrm{sym}}(i,j)=\sqrt{\frac{C(i\to j)}{h_i+\varepsilon}\,
+\frac{C(j\to i)}{h_j+\varepsilon}}.
+\]
+The scale-conditioned edge weight is their product,
+\[
+W_v(i,j)=K_v(i,j)\,A_{\mathrm{sym}}(i,j),
+\]
+the primitive evidence for every Stage~1 clustering decision: $K_v$ supplies
+geometric scale-conditioning (Axiom~2 guarantees it operates on a density
+field), while $A_{\mathrm{sym}}$ supplies empirical co-activation evidence from
+the scaffold's learning dynamics.
+
+\paragraph{Internal, boundary, and pairwise evidence.}
+Let $E_v$ be the lifted-edge set at scale $v$. For a candidate node set $S$,
+the mean internal evidence and mean boundary evidence are the average
+scale-conditioned weights over the internal and boundary lifted edges,
+\[
+\mathrm{LocalIntra}(S;v)=
+\frac{\sum_{(i,j)\in E_v,\;i,j\in S}W_v(i,j)}
+{|\mathcal E_{\mathrm{in}}(S)|+\varepsilon},
+\qquad
+\mathrm{BoundaryInter}(S;v)=
+\frac{\sum_{(i,j)\in E_v,\;i\in S,\;j\notin S}W_v(i,j)}
+{|\mathcal E_{\mathrm{bdry}}(S)|+\varepsilon},
+\]
+where $\mathcal E_{\mathrm{in}}(S)$ and $\mathcal E_{\mathrm{bdry}}(S)$ are the
+internal and boundary lifted-edge sets of $S$. For an adjacent pair $S,T$ the
+pairwise inter-cluster coupling averages over the crossing lifted edges,
+\[
+\mathrm{InterLocal}(S,T;v)=
+\frac{\sum_{(i,j)\in E_v,\;i\in S,\;j\in T}W_v(i,j)}
+{|\mathcal E_{ST}|+\varepsilon}.
+\]
+The cluster coherence score is then
 \[
 Q(S;v)
 :=
@@ -509,8 +861,9 @@ every child still satisfies coherence and extent at the current scale.
 
 At the selected scale $\tau_C^\star$, Stage~1 uses Affinity Propagation on the
 stabilized Hebbian graph to produce candidate exemplars and fragments.
-Similarities are computed only on graph edges using smoothed transition
-probabilities and a smoothed-PMI score. For directed Hebbian counter $C(i\to j)$, define
+Similarities are computed only on existing edges of the full graph (shadow
+$\cup$ lifted; S2.3.3) using smoothed transition probabilities and a
+smoothed-PMI score. For directed Hebbian counter $C(i\to j)$, define
 \[
 \widehat q(j\mid i)
 =
@@ -557,6 +910,42 @@ merges, boundary refinement, and residual cleanup so that the accepted
 partition satisfies the graph-local cluster definition rather than merely the AP
 objective.
 
+\paragraph{Scope of the single-scale criterion.}
+The graph-local score $Q(S;v)$ is a \emph{proposal-level} screen: it certifies
+that a candidate set is internally more coherent than its boundary is leaky at
+the single operating scale $v$. It is \emph{not}, on its own, a sufficient
+acceptance test for how many clusters a connected region contains, for two
+structural reasons. First, the region-weighted partition score
+$Q(\mathcal P;v)$ is degenerate against the single-cluster null: a whole
+connected component has an empty boundary edge set, so
+$\mathrm{BoundaryInter}=0$ and $Q\to+\infty$; the one-cluster ``partition''
+therefore dominates $Q(\mathcal P;v)$ trivially, and a same-criterion
+comparison against it cannot arbitrate a proposed split. Second, and more
+fundamentally, a uniform manifold sampled coarsely (e.g.\ a ring resolved into a
+handful of arcs) and a genuinely multi-modal region can present
+\emph{indistinguishable} single-scale statistics: their per-cluster $Q$,
+$\mathrm{InterLocal}/\mathrm{LocalIntra}$ ratios, extent ratios
+$\hat v_S/v$, conductances, and modularities overlap, because the distinction
+between an intrinsic feature of $\rho$ and a composite summary of unresolved
+children is a statement about behaviour \emph{across} scales, not at one. The
+canonical arbiter of this ambiguity is therefore feature persistence
+(S2.6.2): a multi-cluster partition is accepted only when the same coarse
+partition persists over an interval of adjacent scales, whereas the transient
+arc-partition of a uniform manifold does not. When the Stage~2 machinery is
+available, the Dirichlet--multinomial evidence gate (\hyperref[sec:si-dm-evidence]{S3.4})
+supplies the complementary likelihood-ratio null that $Q(\mathcal P;v)$ cannot.
+Accordingly, the boundary-refinement and residual-cleanup passes referenced
+above are \emph{operational stand-ins} for the persistence signal: they
+approximate ``merge fragments that would not persist as independent features''
+using single-scale side information (component structure, size balance). They
+are intended for eventual replacement by the persistence criterion (S2.6.2) or
+the Stage~2 Dirichlet--multinomial evidence gate
+(\hyperref[sec:si-dm-evidence]{S3.4}). Empirically, however, they remain
+\emph{load-bearing}: the persistence rule as currently operationalized does not
+yet dominate them (see the warm-start failure mode in S2.6.2), so they are
+retained as the operating acceptance path until that rule is hardened. They are
+not canonical single-scale constants and carry no derivation status.
+
 \subsection*{S2.6.2 Feature Persistence and Recursion Timing}
 \label{sec:si-feature-persistence}
 Every scale-space feature has a persistence interval: the range of scales over
@@ -600,6 +989,122 @@ The parent begins to fail coherence or maximality at roughly the same scale at
 which its strongest child becomes independently detectable. Monitoring both
 signals makes recursion predictive rather than purely reactive.
 
+\paragraph{Operational persistence signal.}
+The scale controller (S2.5.1) already sweeps $\tau$ coarse-to-fine on the
+geometric grid. The persistence criterion is evaluated on this sweep by
+recording the accepted partition $\mathcal P(\tau_j)$ at each grid point and
+comparing adjacent partitions. Partitions are compared in \emph{sample space}:
+each accepted clustering induces a labeling of the region's samples, and samples
+retain a stable identity across grid points even though the scaffold's node set
+changes under splits and prunes. Two adjacent partitions are judged ``the same''
+when their optimally matched clusters (maximum-intersection assignment) have mean
+Jaccard overlap at least $\theta_{\mathrm{ovl}}$, averaged over
+$\max(K_j,K_{j+1})$ slots so that a change in cluster count is penalized. A
+multi-cluster partition is accepted only if it persists over at least
+$P_{\mathrm{persist}}=2$ adjacent grid points --- the minimal non-trivial
+interval consistent with the persistence definition above. This minimality fixes
+the \emph{smallest admissible} interval; it is an operational default, not a
+derived guarantee that a two-point agreement is \emph{sufficient} evidence of an
+intrinsic feature (see the warm-start failure mode below). The characteristic
+scale of an accepted feature is the coarsest grid point of its persistence
+interval (its coarse-end death $v_{\mathrm{death}}^+$); the threshold
+$\theta_{\mathrm{ovl}}$ only fixes partition identity. Under a sufficiently
+robust acceptance rule, a uniform manifold sampled into transient arcs should
+fail this test---its arc-partition does not recur coherently across scales---
+whereas a genuinely multi-modal region persists from its coarse-end death over a
+long, high-overlap run, which is precisely the discrimination the single-scale
+$Q$ of S2.6.1 cannot make.
+
+\paragraph{Coarse-anchoring of the persistence interval.} The bare two-point
+rule is made robust to warm-start path dependence by requiring the accepted
+interval to be \emph{coarse-anchored}: the region's \emph{coarsest} multi-cluster
+partition must itself begin a persistent run of length $\ge P_{\mathrm{persist}}$.
+The motivation is the scale-space picture above: an intrinsic feature is born (in
+the coarse-to-fine direction) at its coarse-end death $v_{\mathrm{death}}^+$ and,
+by Gaussian non-enhancement of the smoothed density, persists monotonically
+toward finer scales, so one expects it to be present already at the scale where
+the region first ceases to be a single cluster. A candidate partition that
+appears only at finer scales---after the coarser scales have churned through
+mutually non-agreeing multi-cluster states---is treated as a resolution artifact
+of the warm-started refit and rejected. Formally, letting $j_0$ be the coarsest
+grid index with $K_{j_0}\ge 2$, the interval is accepted iff its run length
+$L_{j_0}\ge P_{\mathrm{persist}}$, and then $v_{\mathrm{death}}^+=\tau_{j_0}$;
+otherwise the region carries no coarse-anchored feature and is terminal. This is
+hardening direction~(ii) below, and it is the canonical rule
+(\texttt{coarse\_anchored} in the persistence configuration, S14.3).
+
+We stress that this is an \emph{operational} rule, not a grid-invariant
+consequence of scale-space theory. Non-enhancement is a statement about the
+extrema of the smoothed density family, and does not transfer verbatim to the
+first \emph{detected} partition of a warm-started scaffold-plus-AP pipeline on a
+discrete $\log\tau$ grid. Two known trade-offs follow. (a)~\emph{False negatives
+from a transient coarse blip:} if the coarsest multi-cluster grid point is a
+one-off partition that disagrees with a genuine persistent block just finer than
+it, the region is declared terminal even though real sub-structure exists just
+below; the recursion does not revisit it. (b)~\emph{Grid sensitivity:} inserting
+or removing a coarse grid point can move $j_0$ and flip an accept to a reject.
+Both are acceptable at Stage~1---the rule is deliberately conservative, and the
+Stage~2 evidence gate is the ultimate arbiter of acceptance---but they are the
+reason $P_{\mathrm{persist}}$, $\theta_{\mathrm{ovl}}$, and
+\texttt{coarse\_anchored} are all labeled operational in S14.3.
+
+\paragraph{The warm-start false positive and the residual limitation.}
+The controller sweep is \emph{warm-started}: each grid point inherits the
+previous scaffold, so partition labelings are path-dependent. On a uniform
+manifold this can lock a fragment partition in place over a short interval even
+though no intrinsic feature exists. Empirically (circle, $8$ grid points, with
+the S2.6.1 stand-ins disabled), the matched-Jaccard overlaps between adjacent
+arc-partitions are mostly low ($0.17$--$0.33$, as expected), but an isolated
+fine-end pair can coincide at $\approx0.61$ --- enough to satisfy the bare
+$P_{\mathrm{persist}}=2$ rule at $\theta_{\mathrm{ovl}}=0.5$ and admit a spurious
+split, whereas an independent \emph{cold-start} refit of the same scales removes
+the block entirely. A genuine multi-modal region instead persists from the
+\emph{coarsest} grid point with high, stable overlaps ($\gtrsim0.68$) over a run
+of length $\ge3$. Coarse-anchoring (above) removes exactly this failure: because
+the circle's coarsest multi-cluster partition does not itself persist, the ring
+is correctly judged a single feature. Under a full removal of the S2.6.1
+stand-ins with the persistence accept-gate on, coarse-anchoring reduces the
+circle from tens of spurious leaves to a single leaf and leaves the
+$3$-coarse/$6$-fine hierarchical Gaussian at its correct six terminal leaves.
+
+It is \emph{not yet} sufficient to retire the stand-ins entirely. A developable
+manifold whose coarsest scaffold partition is a small number of arcs (the swiss
+roll: three arcs at the coarsest grid point) can produce a coarse-anchored run
+whose adjacent overlap sits just above $\theta_{\mathrm{ovl}}$ ($\approx0.57$),
+so coarse-anchoring admits it and the region over-fragments without the
+boundary-refinement and tiny-cluster-absorption stand-ins. The residual is thus
+narrowed from a fine-end warm-start artifact (now resolved) to \emph{marginal
+coarse-scale arc-persistence on developable manifolds}. Hardening directions
+considered for this residual: (i) require the complementary Stage~2
+Dirichlet--multinomial evidence gate (\hyperref[sec:si-dm-evidence]{S3.4}) as the
+acceptance null --- an arc-partition of a connected manifold fails a Bayes-factor
+margin test where a marginal overlap does not; (ii$'$) require the candidate
+coarse-anchored interval to survive an independent \emph{cold-start}
+recomputation of the same grid interval, so acceptance rests on
+path-\emph{independent} persistence; (iii) require a longer minimal run or a
+higher \emph{mean} interval overlap. Threshold-only tightening of
+$\theta_{\mathrm{ovl}}$ (iii) is brittle and is not recommended.
+
+Direction (ii$'$) was implemented (\texttt{PersistenceConfig.cold\_start\_recheck},
+default off) and \emph{empirically refuted as an acceptance gate}. The
+refutation is instructive: cold single-$\tau$ fits have high
+\emph{resolution-level} variance, because an independently seeded scaffold at a
+coarse cap may settle at a different level of the recursion hierarchy than the
+warm sweep reaches there. On the $3$-coarse/$6$-fine hierarchical Gaussian the
+warm coarse anchor is a stable $3$-way partition, but independent cold-start
+refits of the two anchoring grid points return a $6$-way and a $3$-way partition
+(matched overlap $\approx0.27<\theta_{\mathrm{ovl}}$), so the interval ``fails''
+the recheck and the genuine root split is rejected; under a full removal of the
+S2.6.1 stand-ins with the recheck on, the hierarchy collapses to a single leaf.
+The matched-Jaccard overlap of independently fit partitions therefore cannot
+separate a true absence of structure from ordinary cross-scale resolution
+variance --- which is precisely the discrimination the Bayes-factor \emph{margin}
+of the S3.4 evidence gate provides. This refutes the specific overlap-based
+recheck, not every conceivable path-independence diagnostic; but direction (i)
+is the only currently validated resolution, so until it lands
+$P_{\mathrm{persist}}$ is an operational default and the S2.6.1 stand-ins remain
+the operating acceptance path.
+
 \subsection*{S2.7 Dirichlet Concentration from the BDeu Prior}
 \label{sec:si-bdeu-prior}
 Let $J_i$ be the effective number of outgoing outcomes for node $i$, approximated by the local branching factor $d_{\mathrm{final},i}+1$. The BDeu convention assigns one equivalent pseudo-observation spread uniformly over these outcomes:
@@ -613,7 +1118,11 @@ This concentration is used consistently in transition smoothing, AP self-prefere
 \label{sec:si-resolution-theory}
 The graph-local Q-score of S2.6 is the algorithmic separability criterion. This
 subsection states the corresponding information-theoretic preconditions under
-which the cluster definition can be satisfied at all.
+which the cluster definition can be satisfied at all. Throughout, $\tau$ denotes
+the Gaussian smoothing bandwidth acting on the latent density; the
+\hyperref[sec:si-tau-heat-bridge]{variance-cap / heat-kernel bridge of S2.5.4}
+licenses identifying it with the operational variance cap under the isotropic
+convention $\Sigma_{\mathrm{smooth}}=\tau I$.
 
 \paragraph{Density model.}
 At fixed local effective dimension $d$, model the density as
@@ -726,7 +1235,26 @@ the graph-local bound is the operating margin.
 \section*{S3. Structure Selection and Statistical Gates}
 
 \subsection*{S3.1 Link Pruning}
-A new link is protected until it has enough effective observations for a meaningful comparison: $n_{\mathrm{eff}}\ge n_{\mathrm{req}}$ from the analytic power calculation for proportions. After this shield expires, compute a one-sided Wilson upper bound for the link's relative transition proportion $p$ from count $n$:
+\label{sec:si-link-pruning}
+The pruning primitive is the directed \emph{co-activation transition mass} $C(i\!\to\! j)=n_{i\to j}$: how often local routing from node $i$ selects neighbor $j$ as a co-activated near-neighbor. This is the quantity that separates a meaningful adjacency from an incidental high-dimensional Delaunay sliver---a genuine manifold edge carries a substantial share of a node's outgoing routing traffic, whereas a sliver carries a vanishing share that shrinks as ambient dimension grows.
+
+\paragraph{Directed floor with bilateral agreement (default).}
+For each source node $i$ with total outgoing mass $T_i=\sum_j C(i\!\to\! j)$, define the directed floor
+\[
+m_{\mathrm{floor},i}=\frac{\beta_{\mathrm{prune}}}{2\max(D,1)}\,T_i,
+\qquad \beta_{\mathrm{prune}}=0.5,
+\label{eq:si-directed-floor}
+\]
+where $D$ is the working intrinsic dimension of node $i$'s neighborhood. The factor $2D$ is the number of notional adjacency slots a $D$-dimensional cell occupies (two per axis): under a uniform split of $T_i$ across $2D$ slots each slot carries $T_i/(2D)$, so $m_{\mathrm{floor},i}$ keeps edges whose directed share is at least $\beta_{\mathrm{prune}}$ times that reference slot mass. Source $i$ votes to prune edge $\{i,j\}$ when $C(i\!\to\! j)<m_{\mathrm{floor},i}$. An edge is deleted only under \emph{bilateral agreement}: both endpoints must vote to prune. This keeps the primitive symmetric on the undirected graph while the evidence itself stays directed.
+
+\paragraph{Neonatal protection.}
+A newly created or newly lifted edge is protected from removal until its age exceeds a neonatal guard ($\texttt{protected\_until}$). It still contributes to the outgoing totals $T_i$ used to compute floors, but it cannot itself be deleted while protected. This prevents transient low counts from deleting a bridge before it has had a fair chance to accumulate evidence.
+
+\paragraph{Post-clustering lifted-edge demotion.}
+After clustering (S2.6.1), the same floor rule is applied to the \emph{lifted} edges only, with $D$ taken as the per-cluster median $d_{\mathrm{final}}$; lifted edges failing the floor bilaterally are \emph{demoted} to shadow status rather than deleted, so their low-grade adjacency evidence is retained for later stages.
+
+\paragraph{Wilson-interval alternative.}
+An alternative gauntlet replaces the floor test with a one-sided Wilson upper bound on the link's relative transition proportion $p$ from count $n$,
 \[
 \nu^+
 =
@@ -738,7 +1266,7 @@ p+z^2/(2n)+z\sqrt{p(1-p)/n+z^2/(4n^2)}
 \qquad z=1.2816
 \label{eq:si-wilson-link}
 \]
-corresponding to a 90\% one-sided comparison. Vote to prune when $\nu^+$ is below the median peer significance in the same local star, and require bilateral agreement from both endpoints. This prevents transient low counts from deleting bridges before they have had a fair chance to accumulate evidence.
+(a 90\% one-sided comparison), protecting a new link until $n_{\mathrm{eff}}\ge n_{\mathrm{req}}$ from an analytic power calculation, then voting to prune when $\nu^+$ falls below the median peer significance in the local star, again with bilateral agreement. The Wilson rule is retained as a statistical alternative; the directed floor is the operational default because it is scale-free in $T_i$ and needs no per-link power calculation.
 
 \subsection*{S3.2 Node Pruning}
 A node is a prune candidate only if it is both statistically weak and geometrically unneeded. The default rule combines:
@@ -788,6 +1316,61 @@ p_{\mathrm{merge}}\bigl(\rho_{\mathrm{merge}}^2
 \label{eq:si-bp-jump}
 \]
 with $\tau_*=\max_i\tau_{\mathrm{local},i}$ and global bounded-support fallback $B_p\le R^2$.
+
+\paragraph{Interior star-radius constant $C_Q(d)$.}
+\label{par:si-cq-calibration}
+$C_Q(d)$ is the typical worst-case reassignment distance of a cap-equilibrated
+cell in the regular interior, normalized by $\sqrt\tau$. Writing
+\[
+\rho_{\mathrm{prune},j}=\max_{x\in V_j}\min_{s\ne j}\lVert x-w_s\rVert
+\]
+for the deletion-reassignment radius of node $j$ (the farthest a point owned by
+$j$ must travel to the nearest surviving node if $j$ is removed), $C_Q(d)$ is the
+median of $\rho_{\mathrm{prune},j}/\sqrt{\tau}$ over the regular interior. It is a
+\emph{calibrated} constant (S14.3), measured on the same uniform $d$-ball
+ensemble as $c_{d,k}$ (S2.5.5) --- the star radius rather than the $k$-NN radius
+on identical equilibrated scaffolds. For each dimension: run the fixed-$\tau$
+scaffold to equilibrium; assign each reference point to its nearest node; set
+$\rho_{\mathrm{prune},j}$ to the largest second-nearest-node distance among the
+points node $j$ owns; and record the median of
+$\rho_{\mathrm{prune},j}/\sqrt\tau$ over the inner half of mature nodes by
+distance from the ball center. The interior restriction excludes boundary cells
+whose star radius is inflated by the missing exterior neighbors, and the inner
+fraction (rather than an absolute radius) adapts to dimension, since in high $d$
+most nodes concentrate near the surface. Repeat over independent ensembles and
+take the median of the per-scaffold medians. The reference implementation is
+\texttt{proteus.stage1.calibration.calibrate\_cq}; the shipped table is
+\texttt{CQ\_TABLE}, regenerable via \texttt{python -m proteus.stage1.calibration}.
+
+The worst-case reassignment distance is achieved near the deleted node's
+centroid, where the nearest \emph{surviving} node sits one inter-node spacing
+$s$ away; so $C_Q(d)$ tracks the equilibrium spacing, not the cell radius. Under
+a locally uniform density the $k$-NN radius and the $1$-NN spacing are related by
+$r_{k}=s\,(k/V_d)^{1/d}$, hence $s=r_{k}\,(V_d/k)^{1/d}$; substituting the
+calibrated $r_{k}=c_{d,k}\sqrt\tau$ (S2.5.5) gives the anchor
+\[
+C_Q^{\mathrm{knn}}(d)=c_{d,k}\Bigl(\tfrac{V_d}{k}\Bigr)^{1/d},
+\qquad V_d=\frac{\pi^{d/2}}{\Gamma(d/2+1)},
+\label{eq:si-cq-anchor}
+\]
+used as the runtime fallback \texttt{c\_q\_analytic} for dimensions outside the
+tabulated grid. Using the \emph{calibrated} $c_{d,k}$ (not its analytic form) is
+what makes this track the measured table: the equilibrium catchment variance
+sits below the cap, which a bare cell-radius argument $R=\sqrt{(d+2)/d}\,\sqrt\tau$
+would miss (it both conflates the spacing with the cell radius and assumes a
+cap-saturated cell). The shipped table (uniform $d$-ball ensemble, $n=3000$
+samples, four ensembles, $N_\star=120$, $k=8$, interior fraction $0.5$;
+\texttt{CQ\_CALIBRATION\_META}) is
+\[
+\begin{array}{c|cccc}
+d & 1 & 2 & 3 & 4\\
+\hline
+C_Q(d) & 2.35 & 1.66 & 1.49 & 1.44\\
+C_Q^{\mathrm{knn}}(d) & 2.43 & 1.78 & 1.30 & 1.17\\
+\end{array}
+\]
+The anchor brackets the calibrated values within $\pm25\%$ across $d=1$--$4$,
+confirming that the interior star radius scales as the inter-node spacing.
 
 \subsection*{S3.4 Dirichlet--Multinomial Evidence Score}
 \label{sec:si-dm-evidence}
@@ -846,7 +1429,7 @@ For finite-epoch training, $A_T<\infty$ over each epoch. Indefinite streaming is
 \section*{S4. Stage 2 Complex Construction}
 
 \subsection*{S4.1 Flag-Complex Invariant}
-For a fixed region $C$, Stage~2 represents topology as the top-dimensional flag complex of the current Hebbian graph. A $d$-simplex $\sigma=\{v_0,\dots,v_d\}$ is present exactly when every pair of vertices in $\sigma$ is a Hebbian edge and the local intrinsic-dimension rule permits a $d$-simplex in that star. Node and link edits therefore induce simplex edits automatically: deleting a link deletes every simplex containing that link, and deleting a node deletes its full star. Geometric motion alone does not change simplex membership.
+For a fixed region $C$, Stage~2 represents topology as the top-dimensional flag complex of the current \emph{lifted} Hebbian graph (S2.3.3). A $d$-simplex $\sigma=\{v_0,\dots,v_d\}$ is present exactly when every pair of vertices in $\sigma$ is a lifted Hebbian edge and the local intrinsic-dimension rule permits a $d$-simplex in that star. Node and link edits therefore induce simplex edits automatically: deleting a link deletes every simplex containing that link, and deleting a node deletes its full star. Geometric motion alone does not change simplex membership.
 
 This invariant avoids separate Delaunay or alpha-complex maintenance. The graph owns topology; the complex is the closure of that topology at the locally estimated dimension. Geometry-dependent caches are recomputed only when the affected simplex geometry changes.
 
@@ -892,7 +1475,7 @@ The core convergence theory holds with a scalar variance tracker, but the recomm
 Recommended clipping defaults:
 \begin{itemize}[leftmargin=1.5em]
   \item Set $\varepsilon$ in $\rho_i=\|\mathbf m_i\|/(\sigma_i+\varepsilon)$ to between $10^{-8}$ and $10^{-6}$ depending on data scale.
-  \item Clip the GNG-style learning rate to $|\eta_{\mathrm{GNG}}|\le 0.3$ in Stage~1 and $|\eta_{\mathrm{GNG}}|\le 0.05$ in Stage~2 (where $k\approx d$ makes the per-update displacement larger).
+  \item Bound the per-update centering contribution $\eta_{\mathrm{cent}}\rho_i\|\mathbf m_i\|$ so that a single sample cannot push the deferred accumulator by more than a small fraction of $\delta_{\min}$; the realized move is additionally gated by the $\delta_{\min}$ threshold and the $\|\mathbf a_i\|$ bound below. (The GNG-equivalent rate $\eta_{\mathrm{GNG}}$ of S2.3 is an analysis quantity, not an applied update, and needs no separate runtime clip.)
   \item Constrain spline-flow slopes/bins to avoid near-singular Jacobians during warp fits.
   \item Bound $\|\mathbf a_i\|$ growth between deferred-nudge applications, so a single sample cannot push the accumulator above several $\delta_{\min}$.
 \end{itemize}
@@ -1633,7 +2216,7 @@ The deterministic term decays with half-life $k$. Azuma--Hoeffding gives the dis
 \begin{algorithmic}[1]
 \Procedure{ApplyRankWeightedUpdates}{$\mathbf x,G_C,\mathcal N_k$}
     \For{$r=1,\dots,k$ \textbf{in rank order}}
-        \State $i\gets\mathcal N_k[r]$; $\omega_r\gets 2^{-(r-1)}$
+        \State $i\gets\mathcal N_k[r]$; $\omega_r\gets$ routing weight (S2.2: rank-decay $2^{-(r-1)}$, or Gaussian-relative if $D_{\mathrm{subspace}}\le d_{\mathrm{cut}}$)
         \State $\mathbf e_i\gets\mathbf x-\mathbf w_i$
         \State $\mathbf m_i\gets(1-\alpha\omega_r)\mathbf m_i+\alpha\omega_r\mathbf e_i$
         \State $\mathbf s_i\gets(1-\alpha\omega_r)\mathbf s_i+\alpha\omega_r(\mathbf e_i^{\circ2})$
@@ -1732,15 +2315,46 @@ Defaults are listed here for implementers while remaining defined in their ownin
 \begin{array}{llll}
 \textbf{Object} & \textbf{Default} & \textbf{Owner} & \textbf{Status}\\
 \hline
+r_{\min}\ (\text{T2 child PCA rank floor}) & 3 & \text{S1.4} & \text{operational}\\
+r_{0.999}\ (\text{PCA retained-energy rank}) & \text{cum.\ explained}\ge0.999 & \text{S1.4} & \text{operational}\\
+d_{\mathrm{final}}\text{ estimator} & \text{degree proxy (default); Levina--Bickel cross-check} & \text{S1.4.1} & \text{calibrated/diagnostic}\\
+k_{\min},k_{\max}\ (\text{Levina--Bickel }k\text{ range}) & 6,\ 12 & \text{S1.4.1} & \text{operational}\\
 \alpha & \ln2/k & \text{S2.1} & \text{theory/operational}\\
+d_{\mathrm{cut}} & 8\ (\text{Gaussian vs rank-decay routing}) & \text{S2.2} & \text{operational}\\
 \eta_{\mathrm{cent}} & \kappa(1-r)/k,\ \kappa=0.5 & \text{S2.2} & \text{operational}\\
-s_{\mathrm{control}}\mapsto\tau_i & -d_i\log(1-s_{\mathrm{control}}) & \text{S2.4} & \text{theory}\\
+\eta_{\mathrm{Oja}}\ (\text{Oja direction rate}) & 0.05 & \text{S2.3.2} & \text{operational}\\
+\rho_{\max}\ (\text{deferred-nudge incoherence clamp}) & 10 & \text{S2.3} & \text{operational}\\
+\text{split offset} & \tfrac12\sqrt{\tau_{\mathrm{local}}}\ \text{along }\mathbf u_i & \text{S2.3.2} & \text{operational}\\
+\text{split budget} & h_i\ge2h_{\mathrm{prune}},\ h_{\mathrm{prune}}=0.20\,\bar h_{\mathrm{active}} & \text{S2.3.2} & \text{operational}\\
+\tau\ (\text{operational scale}) & \text{searched on grid; }\tau_{\mathrm{local},i}=\tau & \text{S2.4} & \text{operational}\\
+s_{\mathrm{control}}\ (\text{reporting only}) & 1-e^{-\tau/D_{\mathrm{subspace}}} & \text{S2.4} & \text{normalization}\\
 \text{scale grid} & r=1/\sqrt2 & \text{S2.5} & \text{operational}\\
-\Phi_C\text{ peak floor} & 5\%\text{ of grid max} & \text{S2.5.1} & \text{empirical}\\
+\text{grid search range} & \tau\in[10^{-5},10],\ \le12\text{ pts},\ 8\text{ seeds} & \text{S2.5.1} & \text{operational}\\
+\beta_{\mathrm{cv}} & 1.5\ (\mathrm{CV}(\sigma^2)<\beta_{\mathrm{cv}}\sqrt{2/k}) & \text{S2.5.1} & \text{operational}\\
+M_{\mathrm{eq}} & 3\text{ consecutive epochs} & \text{S2.5.1} & \text{operational}\\
+N_{\min},N_{\max}\ (\text{node-count bounds}) & 4,\ 128 & \text{S2.5.1} & \text{operational}\\
+M_{\max}\ (\text{epoch safety cap}) & 40 & \text{S2.5.1} & \text{operational}\\
+k\ (\text{scaffold }k\text{-NN}) & 8 & \text{S2.5.1} & \text{operational}\\
+\tau^\star\text{ selector} & \text{variance-load }L=1\text{ up-crossing} & \text{S2.5.1} & \text{derived}\\
+\Phi_C,V_C\text{ traces} & \text{scale diagnostics (not selector)} & \text{S2.5.1} & \text{diagnostic}\\
+\Sigma_{\mathrm{smooth}} & \tau I\ (\text{heat-kernel bridge, isotropic}) & \text{S2.5.4} & \text{convention}\\
+c_{d,k} & \text{uniform }d\text{-ball table (S2.5.5); } c_{d,k}^{\mathrm{iso}}\text{ fallback} & \text{S2.5.5} & \text{calibrated}\\
+\text{AP damping} & 0.8 & \text{S2.6.1} & \text{operational}\\
+\text{AP max/convergence iters} & 400,\ 25 & \text{S2.6.1} & \text{operational}\\
+\text{clustering cleanup stand-ins} & \text{provisional; see OPEN\_ISSUES \#27} & \text{S2.6.1} & \text{operational}\\
+N_{\min}^{\mathrm{rec}},\ \mathrm{depth}_{\max}\ (\text{recursion}) & 100,\ 5 & \text{S2.6} & \text{operational}\\
+P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{operational}\\
+\theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
+\texttt{coarse\_anchored} & \text{true}\ (\text{coarsest split must persist}) & \text{S2.6.2} & \text{operational}\\
+\texttt{cold\_start\_recheck} & \text{false}\ (\text{refuted gate; see S2.6.2}) & \text{S2.6.2} & \text{diagnostic}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
-z_{\mathrm{Wilson}} & 1.2816 & \text{S3.1} & \text{statistical}\\
+\text{node maturity}\ (\texttt{prune\_after}) & 25\text{ updates} & \text{S3.2} & \text{operational}\\
+\text{neonatal link guard}\ (\texttt{protected\_until}) & 25\text{ iters} & \text{S3.1} & \text{operational}\\
+\beta_{\mathrm{prune}} & 0.5\ (\text{directed-floor share}) & \text{S3.1} & \text{operational}\\
+z_{\mathrm{Wilson}} & 1.2816\ (\text{alternative}) & \text{S3.1} & \text{statistical}\\
 \text{node prune hit} & h_i<0.5\,\bar h_{\mathcal N(i)} & \text{S3.2} & \text{operational}\\
 \text{node prune variance} & \sigma_i^2<0.5\,\tau_i & \text{S3.2} & \text{operational}\\
+C_Q(d) & \text{uniform }d\text{-ball star radius (S3.3); }c_{d,k}(V_d/k)^{1/d}\text{ anchor} & \text{S3.3} & \text{calibrated}\\
 \rho_{\mathrm{merge}} & \le 2C_Q(d) & \text{S3.3} & \text{operational}\\
 p_{\mathrm{merge}} & \le \bar h/N & \text{S3.3} & \text{operational}\\
 v_{\mathrm{merge}} & \le 1 & \text{S3.3} & \text{operational}\\
@@ -1761,9 +2375,10 @@ n_{\min} & \max(10d,1000) & \text{S8.2} & \text{operational}\\
 \theta_{\mathrm{dip}} & 0.05 & \text{S8.4} & \text{empirical}\\
 \theta_A & 0.5 & \text{S8.4} & \text{empirical}\\
 \theta_{\mathrm{rej}} & 0.8 & \text{S8.4} & \text{empirical}\\
+\rho_{\min} & 10^{-4}\ (\text{conservative }10^{-3}) & \text{S10.4} & \text{operational}\\
 \end{array}
 \]
-Defaults marked empirical are expected to be retuned after benchmark evidence; defaults marked theory/statistical follow directly from the corresponding derivation or test convention.
+Defaults marked empirical are expected to be retuned after benchmark evidence; defaults marked theory/statistical follow directly from the corresponding derivation or test convention. Defaults marked \emph{calibrated} are measured on a declared reference ensemble by a written protocol (e.g.\ $c_{d,k}$ via S2.5.5, $C_Q(d)$ via S3.3) and shipped as a lookup table. This table now covers every algorithmic constant in the reference implementation (\texttt{src/proteus/}): the acceptance-path quantities are derived or calibrated, and the proposal-path constants are free operational defaults backstopped by the evidence gate (S3.4). Two classes are deliberately excluded as non-algorithmic and logged per S14.4 rather than tabulated: pure numerical guards (floors $\epsilon\sim10^{-8}$--$10^{-12}$ against division by zero) and ANN-index library hyperparameters (HNSW $M{=}16$, $\mathrm{ef}_{\mathrm{construction}}{=}200$, $\mathrm{ef}_{\mathrm{search}}{=}100$), which affect recall/runtime but not the learned object. The calibration reference ensemble's own parameters (uniform $d$-ball, $\approx\!3000$ samples, $4$ ensembles, target $\approx\!120$ nodes) are specified with the protocol in S2.5.5. The clustering cleanup stand-ins remain provisional (OPEN\_ISSUES~\#27): they are operational placeholders slated for removal once the S3.4 evidence gate lands.
 
 \subsection*{S14.4 Logging Checklist}
 Required logs are per region $C$ unless otherwise stated.

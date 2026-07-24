@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from tests.contracts.state import Link
+from proteus.types import Link
 
 
 class LinkCounters:
