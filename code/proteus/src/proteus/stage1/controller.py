@@ -24,11 +24,29 @@ class ScaleSearchConfig:
     """Configuration for the geometric-grid scale search.
 
     ``selector`` chooses the characteristic-scale rule (SI S2.5.1 / S2.6.2):
-    ``"load_band"`` is the legacy variance-load heuristic kept as the transition
-    default (OPEN_ISSUES #28), and ``"persistence"`` uses the Q-partition
-    persistence signal --- the coarsest ``tau`` at which a multi-cluster
-    partition persists across adjacent grid points.  Persistence requires the
-    per-grid-point partitions, so selecting it implies ``record_partitions``.
+
+    * ``"load_band"`` --- legacy variance-load band heuristic (coarsest
+      stabilized grid point with ``band_lo <= load <= 1``, plus a one-step
+      patch).  Kept behind the flag as the transition default and for
+      regression bisection only (OPEN_ISSUES #28); its ``band_lo`` constant is
+      dataset-motivated and is being retired.
+    * ``"load_crossing"`` --- principled primary signal (SI S2.5.1): the scale
+      at which the mean variance load ``sigma^2/tau`` crosses the cap
+      (``load = 1``), i.e. equilibrium residual variance equals the variance
+      cap.  Found by log-interpolation between the coarsest stabilized adjacent
+      grid points that bracket the cap; falls back to ``load_band`` if the load
+      never crosses the cap between stabilized points.
+    * ``"persistence"`` --- Q-partition persistence (SI S2.6.2): the coarsest
+      ``tau`` at which a multi-cluster partition persists across adjacent grid
+      points.  Discriminates genuinely multi-modal regions from uniform
+      manifolds sampled into transient arcs.
+    * ``"combined"`` --- acceptance-path arbiter (SI S2.6.2): use the
+      persistence scale when a multi-cluster feature persists (a splittable
+      region), otherwise the ``load_crossing`` operating scale for a single
+      feature, otherwise the ``load_band`` fallback.
+
+    ``"persistence"`` and ``"combined"`` require the per-grid-point partitions,
+    so selecting either implies ``record_partitions``.
     """
 
     grid_ratio: float = 1.0 / np.sqrt(2.0)
@@ -61,6 +79,7 @@ class ScaleSearchResult:
     peak_index: int
     scaffold_at_star: Stage1Scaffold
     stabilized_flags: list[bool]
+    node_count_trace: np.ndarray = field(default_factory=lambda: np.empty(0))
     epochs_at_tau_star: int = 0
     partition_snapshots: Optional[list[PartitionSnapshot]] = None
     persistence_result: Optional[PersistenceResult] = None
@@ -123,7 +142,7 @@ def run_scale_search(
     load_trace = np.full(len(tau_grid), np.nan)
     node_counts = np.zeros(len(tau_grid), dtype=float)
 
-    record_partitions = config.record_partitions or config.selector == "persistence"
+    record_partitions = config.record_partitions or config.selector in ("persistence", "combined")
     snapshots: list[PartitionSnapshot] | None = [] if record_partitions else None
 
     last_history: dict[str, list[float]] | None = None
@@ -154,17 +173,40 @@ def run_scale_search(
     if snapshots is not None:
         persistence_result = compute_persistence(snapshots, config.persistence)
 
+    # Legacy band selector doubles as the ultimate fallback for every rule.
     peak_idx = _select_characteristic_scale(
         load_trace, node_counts, tau_grid, stabilized,
     )
-    if (
-        config.selector == "persistence"
-        and persistence_result is not None
-        and persistence_result.tau_star_index is not None
-    ):
-        peak_idx = int(persistence_result.tau_star_index)
-
     tau_star = float(tau_grid[peak_idx])
+
+    persist_idx = (
+        int(persistence_result.tau_star_index)
+        if persistence_result is not None
+        and persistence_result.tau_star_index is not None
+        else None
+    )
+    crossing_tau, _crossing_bracket = _load_crossing(load_trace, tau_grid, stabilized)
+
+    selector = config.selector
+    if selector == "load_band":
+        pass
+    elif selector == "persistence":
+        if persist_idx is not None:
+            peak_idx = persist_idx
+            tau_star = float(tau_grid[peak_idx])
+    elif selector == "load_crossing":
+        if crossing_tau is not None:
+            tau_star = crossing_tau
+            peak_idx = int(np.argmin(np.abs(tau_grid - crossing_tau)))
+    elif selector == "combined":
+        if persist_idx is not None:
+            peak_idx = persist_idx
+            tau_star = float(tau_grid[peak_idx])
+        elif crossing_tau is not None:
+            tau_star = crossing_tau
+            peak_idx = int(np.argmin(np.abs(tau_grid - crossing_tau)))
+    else:
+        raise ValueError(f"unknown scale-search selector {selector!r}")
     epochs_at_star = 0
     if last_history is not None and abs(float(scaffold.tau) - tau_star) <= 1e-12:
         epochs_at_star = len(last_history["cv"])
@@ -190,6 +232,7 @@ def run_scale_search(
         peak_index=peak_idx,
         scaffold_at_star=best_scaffold,
         stabilized_flags=stabilized,
+        node_count_trace=node_counts,
         epochs_at_tau_star=epochs_at_star,
         partition_snapshots=snapshots,
         persistence_result=persistence_result,
@@ -297,6 +340,46 @@ def _select_characteristic_scale(
         return best_idx
 
     return int(np.argmin(np.abs(finite_load - 1.0)))
+
+
+def _load_crossing(
+    load_trace: np.ndarray,
+    tau_grid: np.ndarray,
+    stabilized: list[bool],
+) -> tuple[Optional[float], Optional[int]]:
+    """Interpolated ``tau`` where the mean variance load crosses the cap (SI S2.5.1).
+
+    On the descending-``tau`` grid the mean load ``E[sigma_i^2/tau]`` rises from
+    below the cap at over-coarse scales (the cap is under-filled and the support
+    is over-smoothed) to above it at over-fine scales (residual variance can no
+    longer shrink to the shrinking cap within the node budget).  The
+    characteristic scale is the crossover ``load = 1``: equilibrium residual
+    variance equals the variance cap.  The target ``1`` is derived (it *is* the
+    cap), not a tuned constant.
+
+    Returns the log-interpolated ``tau`` at the **coarsest** stabilized adjacent
+    bracket ``[load_j < 1 <= load_{j+1}]`` (and that bracket's coarse index), or
+    ``(None, None)`` when the load never crosses the cap between two adjacent
+    stabilized grid points (e.g. a dense multi-modal region whose load exceeds
+    the cap everywhere --- handled by the persistence signal instead).
+    """
+
+    n = len(tau_grid)
+    log_tau = np.log(tau_grid)
+    for j in range(n - 1):
+        if not (stabilized[j] and stabilized[j + 1]):
+            continue
+        lo = float(load_trace[j])
+        hi = float(load_trace[j + 1])
+        if not (np.isfinite(lo) and np.isfinite(hi)):
+            continue
+        if lo < 1.0 <= hi:
+            frac = (1.0 - lo) / (hi - lo)
+            tau_star = float(
+                np.exp(log_tau[j] + frac * (log_tau[j + 1] - log_tau[j])),
+            )
+            return tau_star, j
+    return None, None
 
 
 def _legacy_slope_selector(
