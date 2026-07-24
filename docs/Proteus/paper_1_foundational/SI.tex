@@ -43,6 +43,7 @@ T_C & \text{optional region warp} & \text{S5,S7}\\
 \boldsymbol\mu_C,\Sigma_C & \text{Gaussian mode and covariance} & \text{S7}\\
 \mu_C,\mu_C^{\mathrm{PL}},\boldsymbol\mu(\mathbf x) & \text{Gaussian, PL, and path memberships} & \text{S7}\\
 \Phi_C(\tau),R_i(\tau) & \text{cluster and node scale responses} & \text{S2.5}\\
+\bar L(\tau) & \text{mean variance load }\mathbb E_i[\sigma_i^2/\tau]\text{ over mature nodes} & \text{S2.5.1}\\
 \alpha_{0,i} & \text{BDeu concentration} & \text{S2.7}\\
 F_{\mathrm{DM}},\tau_{\mathrm{BF}} & \text{evidence score and Bayes-factor margin} & \text{S3.4}\\
 W,\ T_{\mathrm{hyst}},A_T & \text{gate window, hysteresis, jump budget} & \text{S3.6,S12}\\
@@ -431,6 +432,37 @@ The support trace $V_C(\tau)$ is a cheap secondary diagnostic: robust characteri
 \subsection*{S2.5.1 Scale Controller Procedure}
 Evaluate $\Phi_C(\tau)$ on a geometric grid in $\log \tau$. Candidate peaks are detected by sign changes in the centered second difference, then refined with a small number of additional evaluations near each bracket. A support trace, such as a summed local volume proxy $V_C(\tau)$, is logged as a cross-check: robust characteristic scales should coincide with the expected transition between unresolved support and redundant over-refinement. A grid point is eligible only if its Stage~1 scaffold stabilizes under the fixed-scale criteria. If no robust peak exists, the region is terminal for the searched band.
 
+\paragraph{Characteristic-scale selector.}
+The raw response $\Phi_C(\tau)$ is self-normalizing at equilibrium: a converged
+scaffold equalizes hit masses and locks the $k$-NN radius to the cap
+($r_{k,i}\approx c_{d,k}\sqrt\tau$), so the $\tau$-dependence in $R_i(\tau)$
+cancels and the trace is nearly flat regardless of how well $c_{d,k}$ is
+calibrated. The operative characteristic-scale signal must therefore come from a
+quantity that equilibration cannot normalize away. The reference implementation
+uses the \emph{variance-load crossing}: on the descending-$\tau$ grid the mean
+load $\bar L(\tau)=\mathbb E_{i}[\sigma_i^2/\tau]$ over mature nodes rises from
+below the cap at over-coarse scales (the cap is under-filled and the support is
+over-smoothed) to above it at over-fine scales (residual variance can no longer
+shrink to the shrinking cap within the node budget). The characteristic scale
+$\tau_C^\star$ is the coarsest crossover
+\[
+\bar L(\tau_C^\star)=1,
+\]
+i.e. equilibrium residual variance equals the variance cap; the target value $1$
+is derived (it \emph{is} the cap), not a tuned constant. It is located by
+log-linear interpolation between the coarsest pair of adjacent stabilized grid
+points that bracket the cap. A genuinely multi-modal region can have
+$\bar L>1$ at every grid point (the cap is never merely filled); such regions
+have no load crossing and their scale is set by feature persistence
+(S2.6.2) instead. Two alternative signals are diagnostics rather than the
+selector: the summed support trace $V_C(\tau)\propto N(\tau)\,\tau^{d/2}$
+(compensated node count), whose plateau marks a resolved $d$-dimensional support
+but which is confounded once the node count saturates the operational
+budget~$N_{\max}$; and the earlier variance-load \emph{band} rule (accept the
+coarsest stabilized point with $\text{band}_{\mathrm{lo}}\le \bar L\le 1$), which
+is retained only behind an implementation flag for regression bisection because
+its band floor is dataset-motivated (OPEN\_ISSUES~\#28).
+
 The fixed-$\tau$ stopping rule has a canonical operational default and a
 recommended hardening.
 
@@ -746,6 +778,22 @@ backstopped by the persistence count. A uniform manifold sampled into transient
 arcs fails this test (its arc-partition does not recur across scales), whereas a
 genuinely multi-modal region passes, which is precisely the discrimination the
 single-scale $Q$ of S2.6.1 cannot make.
+
+\paragraph{Combined characteristic-scale arbitration.}
+The two acceptance-path signals answer different questions and are combined
+accordingly. Feature persistence answers \emph{whether} a region carries a
+multi-cluster feature worth recursing into and, when it does, at \emph{which}
+scale that feature is born (its coarse-end death $v_{\mathrm{death}}^+$); the
+variance-load crossing of S2.5.1 answers at which scale a \emph{single} feature
+is best operated (its residual variance just fills the cap). The controller's
+combined rule is therefore: if a multi-cluster partition persists over
+$P_{\mathrm{persist}}$ adjacent grid points, take its coarsest persistent grid
+point as $\tau_C^\star$ (the region is splittable and this scale also sets
+recursion timing); otherwise take the load-crossing scale as the operating
+$\tau_C^\star$ of the single resolved feature; if neither signal fires, fall back
+to the legacy band rule. This unifies characteristic-scale selection with
+recursion timing under one criterion and removes the dependence of $\tau_C^\star$
+on the dataset-motivated load band.
 
 \subsection*{S2.7 Dirichlet Concentration from the BDeu Prior}
 \label{sec:si-bdeu-prior}
@@ -1907,6 +1955,9 @@ s_{\mathrm{control}}\ (\text{reporting only}) & 1-e^{-\tau/D_{\mathrm{subspace}}
 \beta_{\mathrm{cv}} & 1.5\ (\mathrm{CV}(\sigma^2)<\beta_{\mathrm{cv}}\sqrt{2/k}) & \text{S2.5.1} & \text{operational}\\
 M_{\mathrm{eq}} & 3\text{ consecutive epochs} & \text{S2.5.1} & \text{operational}\\
 \Phi_C\text{ peak floor} & 5\%\text{ of grid max} & \text{S2.5.1} & \text{empirical}\\
+\bar L\text{ crossing target} & 1\ (\text{residual variance}=\text{cap}) & \text{S2.5.1} & \text{derived}\\
+\tau_C^\star\text{ selector} & \text{persistence, else }\bar L=1\text{ crossing} & \text{S2.5.1/S2.6.2} & \text{operational}\\
+\text{band}_{\mathrm{lo}}\ (\text{legacy, flagged}) & 0.65\ (\bar L\text{ band floor}) & \text{S2.5.1} & \text{operational}\\
 P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{derived}\\
 \theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
