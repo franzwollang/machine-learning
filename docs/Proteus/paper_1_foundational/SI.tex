@@ -1105,6 +1105,71 @@ is the only currently validated resolution, so until it lands
 $P_{\mathrm{persist}}$ is an operational default and the S2.6.1 stand-ins remain
 the operating acceptance path.
 
+\subsection*{S2.6.3 Dirichlet--Multinomial Cluster-Acceptance Reduction (proposed)}
+\label{sec:si-dm-cluster-reduction}
+S2.6.1 identifies the Stage-2 Dirichlet--multinomial evidence gate (S3.4) as the
+complementary non-degenerate likelihood-ratio null for cluster acceptance, but
+S3.4 is written for \emph{node/star topology edits} and does not state how a
+Stage-1 partition-into-$K$ decision reduces to an $F_{\mathrm{DM}}$ comparison.
+This subsection specifies that reduction. It is \textbf{operational / proposed}
+(default off, implemented as \texttt{stage1.dm\_cluster} behind
+\texttt{RecursionConfig.require\_dm\_split}); it is validated below but does not
+yet license deleting the S2.6.1 stand-ins.
+
+\paragraph{Block-model homogeneity test.} A candidate partition of a region into
+blocks $C_1,\dots,C_K$ induces a directed block-flow matrix
+\[
+N_{k\ell}=\sum_{a\in C_k}\sum_{b\in C_\ell} n_{a\to b}
+\]
+from the Hebbian transition counts (all tiers, per S2.3.3/S3.4). The question
+``one feature or $K$?'' is then a Dirichlet--multinomial test of homogeneity of
+the $K$ routing rows over a fixed $K$-outcome space (the blocks): the
+one-feature \emph{keep} model scores the pooled row $\sum_k N_{k\cdot}$ under a
+single $\mathrm{DM}(J{=}K,\alpha_0)$ marginal, while the \emph{split} model
+scores each row $N_{k\cdot}$ separately. By the standard contingency Bayes
+factor this is exactly the S3.4 acceptance rule $F_{\mathrm{DM}}(M_{\mathrm{edit}})
+< F_{\mathrm{DM}}(M_{\mathrm{keep}}) - \log\tau_{\mathrm{BF}}$ with
+\[
+\log \mathrm{BF}
+=\sum_{k=1}^{K}\log m\!\left(N_{k\cdot}\right)-\log m\!\left(\textstyle\sum_k N_{k\cdot}\right),
+\qquad
+m(\cdot)=\text{$\mathrm{DM}$ marginal of Eq.~\eqref{eq:si-fdm}},
+\]
+and the BDeu concentration $\alpha_0=1/(d_{\mathrm{final}}+1)$ of S2.7. For
+$K{=}2$ this coincides term-for-term with the two-subpopulation gate of S3.5,
+and the one-feature null is \emph{non-degenerate} (unlike $Q(\mathcal P;v)\to+\infty$).
+An agglomerative variant (merge the adjacent block pair with the lowest pairwise
+$\log\mathrm{BF}$, recomputing $N$ each step until every remaining adjacent split
+clears $\log\tau_{\mathrm{BF}}$) replaces the S2.6.1 cleanup passes with a single
+evidence criterion.
+
+\paragraph{Finding: single-scale DM inherits the S2.6.1 under-determination.}
+Applied at a \emph{single} scale, and run through the full recursion, this
+reduction \emph{over-fragments at every level}: a uniform ring yields tens of
+leaves ($\sim 56$), a Swiss roll $\sim 76$, and even the genuinely $6$-leaf
+hierarchical Gaussian fragments to $\sim 32$ because each recovered blob is
+itself re-split by the single-scale gate. The arcs of a developable manifold
+have band-concentrated block rows (each arc routes to itself and its two
+neighbors) that the homogeneity test reads as heterogeneous. This is the
+same single-scale limitation as $Q$ (S2.6.1): the intrinsic-vs-composite
+distinction is a cross-scale statement, and no single-snapshot statistic --- $Q$,
+conductance, or block-model $\log\mathrm{BF}$ --- separates a uniform arc-partition
+from a real multi-modal one. The DM margin's discriminating power is therefore
+\emph{complementary} to, not a replacement for, the persistence signal.
+
+\paragraph{Composition with persistence.} Combining the DM reduction with the
+S2.6.2 coarse-anchored persistence gate (\texttt{require\_persistent\_split} $\wedge$
+\texttt{require\_dm\_split}) recovers all three canonical scenarios --- circle
+$\to 1$, hierarchical Gaussian $\to 6$, Swiss roll $\to 1$ --- with the
+within-region partition produced by the DM-gated merge rather than the S2.6.1
+stand-ins: persistence rejects the uniform-manifold arc-partitions cross-scale,
+and the DM Bayes factor supplies the heuristic-free within-region merge and the
+principled acceptance margin the persistence overlap threshold lacked. This
+matches the default (stand-in) leaf counts on all three scenarios. Deletion of
+the stand-ins remains gated on the fuller scenario suite (nested spheres, linked
+tori, manifold zoo) and the acceptance-path audit (OPEN\_ISSUES~\#27); the
+reduction is retained as an operational, default-off path until then.
+
 \subsection*{S2.7 Dirichlet Concentration from the BDeu Prior}
 \label{sec:si-bdeu-prior}
 Let $J_i$ be the effective number of outgoing outcomes for node $i$, approximated by the local branching factor $d_{\mathrm{final},i}+1$. The BDeu convention assigns one equivalent pseudo-observation spread uniformly over these outcomes:

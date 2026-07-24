@@ -9,6 +9,11 @@ import numpy as np
 
 from proteus.stage1.clustering import run_clustering
 from proteus.stage1.controller import ScaleSearchConfig, run_scale_search
+from proteus.stage1.dm_cluster import (
+    DMClusterConfig,
+    dm_partition_verdict,
+    run_clustering_dm,
+)
 from proteus.stage1.pruning import demote_lifted_by_cluster
 from proteus.stage1.stabilization import StabilizationConfig
 from proteus.stage1.transfer import apply_t2_transfer
@@ -34,6 +39,18 @@ class RecursionConfig:
     whose coarsest partition is a few arcs still over-fragments under the gate
     alone, pending the Stage 2 DM evidence gate (S3.4, M4).  See the "residual
     limitation" note in SI S2.6.2.  Default off during the M2 transition.
+
+    ``require_dm_split`` turns on the **DM cluster-acceptance path** (SI S3.4
+    reduction, proposed S2.6.3, OPEN_ISSUES #27): AP proposals are merged by
+    the Dirichlet--multinomial block-homogeneity Bayes factor
+    (:func:`proteus.stage1.dm_cluster.run_clustering_dm`) instead of the
+    S2.6.1 single-scale cleanup stand-ins, and a region's split is retained
+    only if the K-way block partition clears the ``log(tau_bf)`` margin
+    against the one-feature null -- the non-degenerate likelihood-ratio null
+    the graph-local ``Q`` cannot provide.  Independent of and complementary to
+    persistence (the two flags may be combined).  It is a **proposed /
+    operational** path pending validation, and is **not** a licence to delete
+    the S2.6.1 stand-ins.  Default off.
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
@@ -42,6 +59,8 @@ class RecursionConfig:
     r_min: int = 3
     explained_energy: float = 0.999
     require_persistent_split: bool = False
+    require_dm_split: bool = False
+    dm_cluster: DMClusterConfig = field(default_factory=DMClusterConfig)
     seed: int = 42
 
 
@@ -83,6 +102,17 @@ class RecursionTree:
     @property
     def leaves(self) -> list[RecursionNode]:
         return [n for n in self.nodes if n.is_leaf]
+
+
+def _clusters_from_labels(labels: np.ndarray) -> list[set[int]]:
+    """Group node ids by non-negative cluster label into member sets."""
+
+    groups: dict[int, set[int]] = {}
+    for node_id, lbl in enumerate(np.asarray(labels, dtype=int)):
+        if lbl < 0:
+            continue
+        groups.setdefault(int(lbl), set()).add(int(node_id))
+    return [groups[k] for k in sorted(groups)]
 
 
 def assign_samples_to_clusters(
@@ -184,11 +214,31 @@ def run_recursive_discovery(
         if persistence is None or persistence.tau_star_index is None:
             return tree
 
-    cluster_result = run_clustering(scaffold)
+    if config.require_dm_split:
+        # DM cluster-acceptance path (SI S3.4 reduction, proposed S2.6.3):
+        # AP proposals merged by the block-homogeneity Bayes factor instead of
+        # the S2.6.1 single-scale cleanup stand-ins (OPEN_ISSUES #27).
+        cluster_result = run_clustering_dm(scaffold, config.dm_cluster)
+    else:
+        cluster_result = run_clustering(scaffold)
     node.n_clusters = cluster_result.n_clusters
 
     if cluster_result.n_clusters <= 1 or cluster_result.partition_q_score <= 0.0:
         return tree
+
+    if config.require_dm_split:
+        # Region-level accept gate: retain the multi-cluster split only if it
+        # clears the Bayes-factor margin against the one-feature null. A region
+        # whose split is not evidence-bearing is a single intrinsic feature
+        # (terminal leaf), the non-degenerate likelihood-ratio null that the
+        # graph-local Q cannot supply (SI S2.6.1 / S3.4, OPEN_ISSUES #27).
+        clusters = _clusters_from_labels(cluster_result.labels)
+        _log_bf, accepted = dm_partition_verdict(
+            scaffold, clusters, config.dm_cluster,
+        )
+        if not accepted:
+            node.n_clusters = 1
+            return tree
 
     demote_lifted_by_cluster(
         scaffold, cluster_result.labels,
@@ -235,6 +285,8 @@ def run_recursive_discovery(
             r_min=config.r_min,
             explained_energy=config.explained_energy,
             require_persistent_split=config.require_persistent_split,
+            require_dm_split=config.require_dm_split,
+            dm_cluster=config.dm_cluster,
             seed=config.seed + region_id + label,
         )
 

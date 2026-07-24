@@ -1,21 +1,22 @@
 {
-  "updated_at": "2026-07-24T11:10-05:00",
-  "turn": 22,
-  "focus": { "milestone": "M4", "issue": 27, "goal": "consolidated the M0–M4 agent stack onto main; next lever = wire DM gate into runtime to unblock M1 Part B" },
+  "updated_at": "2026-07-24T16:55-05:00",
+  "turn": 24,
+  "focus": { "milestone": "M1", "issue": 27, "goal": "DM cluster-acceptance reduction: implemented behind a flag, validated, cross-family audited + fixes applied; stand-ins retained" },
   "recent": [
-    "MERGED the whole progression stack into main: 21 cursor/next-task-progression PRs were a single stacked lineage (head #21/402e contained all 20 others). --no-ff merge 7fab454 pushed to origin/main; all 21 PRs retired (#1–#18 MERGED, #19–#21 CLOSED-but-merged, clarifying comments added).",
-    "Verified before merge (no CI exists on repo): full suite green 189 passed / 26 xfailed / 0 failed (10 real_data deselected). awaiting=strict xfail, 0 xpassed. Test integrity intact (196 asserts added, tolerances tightened not loosened).",
-    "Tidied tracking: PLANNING 'Current state' test count 110/31->189/26 + Stage-2 stubs->flag_complex+evidence-gate landed; OPEN_ISSUES #27 blocker narrowed (DM gate module exists on main; remaining = runtime wiring)."
+    "Implemented the DM->clustering reduction the SI never specified (block-model homogeneity BF) as stage1/dm_cluster.py + RecursionConfig.require_dm_split (default off), proposed SI S2.6.3. Region BF = evaluate_edit for K=2 (verified).",
+    "Cross-family audit (gpt-5.4-high, agent 0419cc8a) reconciled. Fixes: (a) recursion child configs now propagate require_dm_split/dm_cluster (were dropped below root); (b) dm_gated_merge holds outcome space FIXED (compute N once over fragments, pool rows only) so pairwise BF = exact F_DM edit delta; (c) merge adjacency uses full shadow+lifted graph (matches block_flow_matrix tiers).",
+    "VALIDATED after fixes (recursion leaves; gt c1/h6/s1): dm-alone=56/32/76 (over-fragments at EVERY level - worse once flag propagates), persist+dm=1/6/1 (robust). Finding: single-scale DM inherits S2.6.1 cross-scale under-determination; complementary to persistence, not a replacement.",
+    "7 tests in tests/stage1/test_dm_cluster.py green (added exact-edit-delta lock); recursion + dm_consistency green. SI S2.6.3 / #27 / PLANNING updated with corrected numbers."
   ],
   "discoveries": [
-    "The '21 parallel PRs' were NOT best-of-N alternatives but one stacked chain (all fork from b58cfcc; single DAG tip). Reviewing/merging the head retires the whole stack.",
-    "Repo has NO CI (gh: checks=none on every PR); test verification must be run locally before trusting agent PRs."
+    "SI S3.4 DM gate is Stage-2 node/star-edit; the partition-into-K reduction was NEVER specified (spec gap, now proposed S2.6.3). Faithful form = block-model homogeneity BF over J=K outcomes = evaluate_edit(keep=pooled, edit=per-block).",
+    "With FIXED outcome columns, the pairwise merge homogeneity BF equals the exact partition-edit delta (other rows cancel) - the correct non-degenerate merge; contracting columns (audit's first suggestion) is degenerate/ambiguous.",
+    "persist+dm gives c1/h6/s1 with within-region partition heuristic-free (DM merge); persistence does the uniform-manifold rejection, DM does merge + acceptance margin."
   ],
   "open_threads": [
-    "M1 Part B (acceptance-path, audit): wire evidence.gate into Stage-1 clustering/recursion loop, validate cluster counts vs stand-ins ablated across all scenarios, then default the gate + rescope single-scale tests + delete clustering.py stand-ins (#27).",
-    "#43 dual-subgraph connectivity: score_edit has dual_connected hook but nothing computes it until the S6 dual graph lands.",
-    "M4 remaining: T3/T0 flow-conserving count transfer S4.3/S4.4; #41 topology-recovery PH; S6 dual flow + density."
+    "Do NOT delete stand-ins / flip default yet: needs fuller scenario suite (nested spheres, linked tori, manifold zoo) under persist+dm with stand-ins ablated (#27).",
+    "#43 dual-subgraph connectivity blocks on S6 dual graph; M4 remaining T3/T0 count transfer, #41 PH."
   ],
-  "next_step": "Strongest lever: wire the DM gate into the runtime scaffold/clustering loop to enable M1 Part B stand-in deletion (acceptance-path, cross-family audit). Smaller alternatives: S4.3/S4.4 count transfer (proposal-path) or #41 PH reading (evidence-path).",
-  "blockers": ["#43 dual-connectivity blocks on the S6 dual graph (gate defaults dual_connected=True meanwhile)"]
+  "next_step": "Checkpoint commit (flag-gated, non-default, stand-ins retained). Next lever for #27: run persist+dm on nested spheres / linked tori / manifold zoo with stand-ins ablated.",
+  "blockers": []
 }
