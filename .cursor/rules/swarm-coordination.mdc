@@ -9,18 +9,29 @@ alwaysApply: true
 branches. Supersedes ordinary “no push” caution for the scoped auth below; does **not**
 weaken testing-integrity, OPEN_ISSUES conventions, or history rewriting bans.
 
-## Identities and branches
+## Durable identities and branches
 
-| ID | Branch | Role | Primary ownership |
-|---|---|---|---|
-| `A1` | `coord/A1-tracker` | Tracker / planner / integrator | `OPEN_ISSUES.md`, `OPEN_ISSUES_LOG.jsonl`, `PLANNING.md`, `SCRATCHPAD.json`, `SCRATCHPAD_LOG.jsonl`, `SWARM_TASKS.json`; sole merger into `coord/integration` |
-| `A2` | `coord/A2-issue44-descent` | Worker | `#44` recursion finer-scale descent — `code/proteus/src/proteus/stage1/recursion.py` (+ focused tests) |
-| `A3` | `coord/A3-issue42-star-matrix` | Worker | `#42` star-matrix SI/runtime form — `docs/.../SI.tex` S10.4, `evidence/star_matrix.py` |
-| `A4` | `coord/A4-issue41-topology` | Worker | `#41` PH topology harness — `tests/metrics/`, scenario topology stubs |
-| `A5` | `coord/A5-issue43-dual-connectivity` | Worker | `#43` dual-subgraph connectivity hook — `evidence/gate.py` + `tests/**/test*gate*` / new dual-connectivity tests (no Stage-1 edits) |
-| `A6` | `coord/A6-issue28-docs` | Worker | `#28` — load-band cleanup prep in `controller.py` + `paper.tex` prose (no `recursion.py`; no `SI.tex` while A3 owns S10.4 — request SI #28 edits via tracker or after A3 DONE) |
+Branch names are **stable agent identities**. They must **not** embed issue numbers or
+task titles — current work lives in `SWARM_TASKS.json` and can change over time.
+
+| ID | Branch | Standing role |
+|---|---|---|
+| `A1` | `coord/A1` | Tracker / planner / integrator |
+| `A2` | `coord/A2` | Worker |
+| `A3` | `coord/A3` | Worker |
+| `A4` | `coord/A4` | Worker |
+| `A5` | `coord/A5` | Worker |
+| `A6` | `coord/A6` | Worker |
 
 Integration branch: **`coord/integration`** (not `main` until the user promotes).
+
+**Current** issue/file ownership and task queues are **only** in `SWARM_TASKS.json`
+(A1 maintains). Do not hardcode issue numbers into branch names or assume today’s
+assignment is permanent.
+
+A1 standing ownership (stable): `OPEN_ISSUES.md`, `OPEN_ISSUES_LOG.jsonl`,
+`PLANNING.md`, `SCRATCHPAD.json`, `SCRATCHPAD_LOG.jsonl`, `SWARM_TASKS.json`; sole
+merger into `coord/integration`.
 
 ## Standing git auth (burn only)
 
@@ -35,7 +46,7 @@ push to `main`, or amending commits you did not create this session.
   `git show origin/<branch>:COORDINATION.jsonl` (last 10–20 lines). Prefer
   `/tmp/coord_<id>.jsonl` dumps — do not checkout other branches over a dirty tree.
 - Also read `origin/coord/integration:SWARM_TASKS.json` and (workers)
-  `origin/coord/A1-tracker:COORDINATION.jsonl` for planner directives.
+  `origin/coord/A1:COORDINATION.jsonl` for planner directives.
 - Every line is one JSON object; required fields: `ts` (ISO 8601), `from` (`A1`…`A6`),
   `type`. See `COORDINATION.md` for the schema.
 
@@ -56,7 +67,7 @@ push to `main`, or amending commits you did not create this session.
 
 ## Merge heartbeat (bounded conflicts)
 
-1. **A1** appends `MERGE_START` on `coord/A1-tracker`, pushes, then merges worker tips
+1. **A1** appends `MERGE_START` on `coord/A1`, pushes, then merges worker tips
    into `coord/integration` in fixed order: **A2 → A3 → A4 → A5 → A6**, then A1
    tracking-doc commits as needed.
 2. On `MERGE_START`, each **worker**: finish the current file edit if mid-edit; commit;
@@ -65,7 +76,7 @@ push to `main`, or amending commits you did not create this session.
 3. **A1** resolves textual conflicts, runs tests (`cd code/proteus && pipenv run pytest`
    or the subset touched), updates `SWARM_TASKS.json` / OPEN_ISSUES / PLANNING as needed,
    appends `MERGE_DONE` + short conflict/`note`, pushes `coord/integration` and
-   `coord/A1-tracker`.
+   `coord/A1`.
 4. **Workers’ next turn:** `git fetch` + `git merge origin/coord/integration` into their
    branch (resolve if needed), then resume assigned tasks only.
 
@@ -74,11 +85,12 @@ push to `main`, or amending commits you did not create this session.
 - **Only A1** edits `OPEN_ISSUES.md`, `OPEN_ISSUES_LOG.jsonl`, `PLANNING.md`,
   `SCRATCHPAD.json`, `SCRATCHPAD_LOG.jsonl`, `SWARM_TASKS.json`.
 - Workers request issue/plan changes via `REQUEST_TRACKER`; they may **read** those
-  files from `origin/coord/integration` or `origin/coord/A1-tracker` after merges.
-- Workers edit only files inside their ownership / active `CLAIM`. No drive-by fixes
-  on another agent’s primary files.
+  files from `origin/coord/integration` or `origin/coord/A1` after merges.
+- Workers edit only files inside their **current** ownership / active `CLAIM` in
+  `SWARM_TASKS.json`. No drive-by fixes on another agent’s claimed files.
 - A1 keeps each worker’s queue at **2–3 ready tasks** in `SWARM_TASKS.json` so planning
-  lag never idles the swarm.
+  lag never idles the swarm. When an issue closes, A1 reassigns via `TASK_ASSIGN` /
+  queue refill — branches stay `coord/A*`.
 
 ## Models
 
@@ -88,4 +100,4 @@ Obey `.cursor/rules/subagent-models.mdc` temporary override: subagents only
 ## Testing integrity
 
 Never weaken tests to pass. Prefer flag-gated / proposed-path changes for acceptance-path
-code (`#44`). Run the relevant pytest subset before `DONE`.
+code. Run the relevant pytest subset before `DONE`.
