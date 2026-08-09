@@ -2,40 +2,33 @@
 
 The evidence gate (S3.4) may only claim an ``F_DM`` improvement where the local
 transition router actually identifies the mass field. Identifiability is checked
-locally by *star matrices*: for node ``i`` the star matrix ``K_i`` maps the
-masses of the simplices in ``Star(i)`` to the outgoing transition probabilities
-from ``i``. Up to normalization ``K_i`` is the Jacobian of ``q(.|i; m)`` with
-respect to ``m^{(i)}`` (SI S10.4), and the local Fisher information is
-``I_i(m) = n_i K_i^T diag(1/q) K_i``; the local rank condition is exactly
-nonsingularity of ``I_i`` on the tangent of the simplex, i.e. that ``K_i`` has
-full rank modulo the one-dimensional global scaling direction.
+locally by *star matrices*: for node ``i`` the star matrix maps the masses of
+the simplices in ``Star(i)`` to the outgoing transition probabilities from
+``i``.
 
-Operationally, an outgoing transition ``i -> j`` is supported by exactly the
-simplices in ``Star(i)`` that contain the edge ``(i, j)``, so the natural
-(unnormalized) star matrix is the *edge--simplex incidence matrix* of the star:
-rows are the outgoing edges from ``i``, columns are the simplices containing
-``i``, with a unit entry where the edge lies in the simplex. A star is
-router-ill-conditioned when this map is near-degenerate --- e.g. several
-simplices routing through an identical set of edges --- so their masses cannot be
-told apart from transition counts.
+**Theory (Fisher / Jacobian).** Up to normalization the theoretical ``K_i`` is
+the Jacobian of ``q(.|i; m)`` with respect to ``m^{(i)}`` at the canonical
+``kappa`` (SI S10.1 / S10.4). The local Fisher information is
+``I_i(m) = n_i K_i^T diag(1/q) K_i``; local rank condition (A1) is nonsingularity
+of ``I_i`` on the tangent of the simplex (full rank modulo the one-dimensional
+global scaling direction), together with dual-graph connectivity (A2).
 
-The runtime test uses the conditioning ratio ``rho_i = sigma_min(K_i) /
-sigma_max(K_i)`` with default flag threshold ``rho_min = 1e-4`` (conservative
-``1e-3`` for noise-sensitive runs); stars below ``rho_min`` are quarantined and
-contribute no likelihood term to ``F_DM`` (SI S10.4 dynamic preservation rule).
+**Operational runtime form (blessed in SI S10.4).** The dry-run conditioning
+check uses the topology-only *edge--simplex incidence* proxy
+``K_i^{inc}[j,S] = 1[{i,j} subset S]`` (rows = outgoing neighbors, columns =
+incident simplices) rather than evaluating the mass-/kappa-dependent Jacobian.
+A star is router-ill-conditioned when this map is near-degenerate --- e.g.
+several simplices routing through an identical set of edges --- so their masses
+cannot be told apart from transition counts. The combinatorial stand-in for
+full rank modulo scaling is ``n_outcomes >= n_simplices`` (single-simplex stars
+are trivially identifiable). Both the incidence proxy and the count guard are
+labeled *operational* in S10.4; they may later be upgraded to the weighted
+Jacobian without changing the gate contract.
 
-S10.4 also requires each star to have "full rank modulo the one-dimensional
-scaling direction". Because the router ``q(.|i;m)`` is normalized (homogeneous of
-degree zero in ``m``), a star with more incident simplices than outgoing outcomes
-is under-determined: there are more simplex masses to identify than independent
-transition equations (``n_outcomes - 1`` free probabilities vs ``n_simplices - 1``
-free masses modulo scaling). Such stars are flagged non-evidence-bearing directly,
-in addition to the ``rho_min`` conditioning ratio.
-
-The exact runtime realization of ``K_i`` (the normalized-router Jacobian at the
-canonical ``kappa``) is under-specified by S10.4; the edge--simplex incidence
-matrix plus the ``n_outcomes >= n_simplices`` rank guard is the operational
-first-implementation proxy (OPEN_ISSUES #42).
+The runtime test uses ``rho_i = sigma_min(K_i^{inc}) / sigma_max(K_i^{inc})``
+with default ``rho_min = 1e-4`` (conservative ``1e-3``; SI S14.3). Stars below
+``rho_min`` or failing the count guard are quarantined and contribute no
+likelihood term to ``F_DM`` (S10.4 dynamic preservation rule).
 """
 from __future__ import annotations
 
@@ -63,7 +56,10 @@ def star_incidence_matrix(
     star_simplices: Sequence[Sequence[int]],
     node_id: int,
 ) -> np.ndarray:
-    """Edge--simplex incidence matrix ``K_i`` for the star of ``node_id`` (S10.4).
+    """Operational edge--simplex incidence ``K_i^{inc}`` for ``node_id`` (S10.4).
+
+    This is the SI-blessed first-implementation runtime matrix used by the
+    dry-run ``rho*`` test --- not the theoretical router Jacobian.
 
     Parameters
     ----------
@@ -123,13 +119,15 @@ def condition_ratio(K: np.ndarray) -> float:
 def is_evidence_bearing(K: np.ndarray, rho_min: float = RHO_MIN_DEFAULT) -> bool:
     """True iff the star can carry likelihood evidence (SI S10.4).
 
-    Requires both:
+    Requires both operational checks from the S10.4 runtime paragraph:
 
-    * *Full rank modulo scaling*: at least as many outgoing outcomes as incident
-      simplices (``n_outcomes >= n_simplices``); otherwise the simplex masses are
+    * *Count guard* (combinatorial stand-in for full rank modulo scaling): at
+      least as many outgoing outcomes as incident simplices
+      (``n_outcomes >= n_simplices``); otherwise the simplex masses are
       under-determined by the transition counts. A single-simplex star is
       trivially identifiable for its lone mass.
-    * *Conditioning*: ``sigma_min(K)/sigma_max(K) >= rho_min``.
+    * *Conditioning*: ``sigma_min(K)/sigma_max(K) >= rho_min`` on the incidence
+      proxy ``K = K_i^{inc}``.
     """
 
     K = np.asarray(K, dtype=float)
