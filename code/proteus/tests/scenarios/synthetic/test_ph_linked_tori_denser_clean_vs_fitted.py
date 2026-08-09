@@ -78,8 +78,10 @@ class LinkedToriDenserCleanVsFittedBundle:
     clean_rows: tuple[CleanDensityRow, ...]
     fitted_rows: tuple[FittedDensityRow, ...]
     clean_all_recover: bool
-    fitted_any_recover: bool
+    fitted_any_full_recover: bool
+    fitted_any_b1_eq_2: bool
     fitted_max_b1: int
+    fitted_b1_eq_2_cells: tuple[tuple[int, int, tuple[int, ...]], ...]
 
 
 @pytest.fixture(scope="module")
@@ -177,12 +179,22 @@ def linked_tori_denser_clean_vs_fitted_bundle() -> LinkedToriDenserCleanVsFitted
             )
         )
 
+    b1_cells: list[tuple[int, int, tuple[int, ...]]] = []
+    for row in fitted_rows:
+        for lab, betti in row.betti.items():
+            if len(betti) > 1 and int(betti[1]) >= 2:
+                b1_cells.append(
+                    (int(row.n_per_torus_data), int(lab), tuple(betti))
+                )
+
     return LinkedToriDenserCleanVsFittedBundle(
         clean_rows=tuple(clean_rows),
         fitted_rows=tuple(fitted_rows),
         clean_all_recover=all(r.all_match is True for r in clean_rows),
-        fitted_any_recover=any(r.all_match is True for r in fitted_rows),
+        fitted_any_full_recover=any(r.all_match is True for r in fitted_rows),
+        fitted_any_b1_eq_2=bool(b1_cells),
         fitted_max_b1=max((r.max_b1 for r in fitted_rows), default=0),
+        fitted_b1_eq_2_cells=tuple(b1_cells),
     )
 
 
@@ -208,8 +220,9 @@ def test_linked_tori_denser_clean_vs_fitted_documents_gap(
 ) -> None:
     """Clean denser grids stay green; document fitted denser gap; no awaiting flip.
 
-    Soft: if fitted recovers at denser n_per_torus, record as proposal-path
-    evidence. Otherwise keep explicit fitted_max_b1 < 2 and clean_all_recover.
+    Soft: full ``(1,2,1)`` or partial ``b1≥2`` on fitted denser scaffolds are
+    proposal-path evidence. Otherwise keep explicit fitted_max_b1 < 2.
+    Never flip ``@awaiting`` on partial b1 alone (b2 / both-tori still open).
     """
     bundle = linked_tori_denser_clean_vs_fitted_bundle
     assert bundle.clean_all_recover is True
@@ -217,11 +230,18 @@ def test_linked_tori_denser_clean_vs_fitted_documents_gap(
         assert row.all_match is True
         assert row.max_b1 >= 2
         assert all(b == EXPECTED_TORI for b in row.betti.values())
-    if bundle.fitted_any_recover:
+    if bundle.fitted_any_full_recover or bundle.fitted_any_b1_eq_2:
         assert FILTRATION_MULTIPLIER == 1.5
-        assert any(r.all_match is True for r in bundle.fitted_rows)
+        assert bundle.fitted_max_b1 >= 2
+        if bundle.fitted_any_b1_eq_2:
+            assert len(bundle.fitted_b1_eq_2_cells) >= 1
+        # Full SI match still required to flip awaiting — partial b1 ≠ done.
+        if not bundle.fitted_any_full_recover:
+            assert all(r.all_match is not True for r in bundle.fitted_rows)
     else:
-        assert bundle.fitted_any_recover is False
+        assert bundle.fitted_any_full_recover is False
+        assert bundle.fitted_any_b1_eq_2 is False
         assert bundle.fitted_max_b1 < 2
+        assert bundle.fitted_b1_eq_2_cells == ()
         for row in bundle.fitted_rows:
             assert row.all_match is not True
