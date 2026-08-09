@@ -10,6 +10,7 @@ from proteus.evidence.dm_score import (
 from proteus.evidence.gate import (
     EvidenceGate,
     GateConfig,
+    affected_dual_subgraph_connected,
     edit_budget,
     gate_window,
     hysteresis_window,
@@ -40,6 +41,7 @@ __all__ = [
     "gate_window",
     "hysteresis_window",
     "edit_budget",
+    "affected_dual_subgraph_connected",
     "score_edit",
     "EvidenceGate",
 ]
