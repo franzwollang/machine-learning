@@ -39,9 +39,15 @@ class ScaleSearchConfig:
     experimental probe (``"mid_interval"``, ``"mid_interval_load_screened"``,
     ``"two_thirds_interval"``, ``"two_thirds_load_screened"``,
     ``"three_quarter_interval"``, ``"three_quarter_load_screened"``,
-    ``"fine_end_of_block"``), persistence still decides accept/reject but
-    ``tau*`` is re-picked inside that persistent subgrid (default ``"none"``
-    preserves coarse-end ``tau*``).
+    ``"load_weighted_interval"``, ``"fine_end_of_block"``), persistence still
+    decides accept/reject but ``tau*`` is re-picked inside that persistent
+    subgrid (default ``"none"`` preserves coarse-end ``tau*``).
+
+    ``halve_grid_steps`` (default ``False``) is an **experimental** denser
+    geometric grid: effective ratio becomes ``sqrt(grid_ratio)`` (half the
+    log-step) with up to ``2 * max_grid_points`` slots, so persistent blocks
+    contain more candidate ``tau`` values under mid/two-thirds/three-quarter
+    probes (OPEN_ISSUES #28).  Not an acceptance-path default.
 
     The legacy ``load_band`` selector (OPEN_ISSUES #28) is **deprecated**:
     passing it emits :class:`DeprecationWarning` and redirects to
@@ -64,6 +70,8 @@ class ScaleSearchConfig:
     record_partitions: bool = False
     persistence: PersistenceConfig = field(default_factory=PersistenceConfig)
     seed: int = 42
+    # Experimental denser geometric grid (half log-step); default off (#28).
+    halve_grid_steps: bool = False
 
 
 # Deprecated ScaleSearchConfig.selector aliases (OPEN_ISSUES #28). Kept only so
@@ -92,14 +100,34 @@ class ScaleSearchResult:
     persistence_result: Optional[PersistenceResult] = None
 
 
+def _effective_grid_ratio(config: ScaleSearchConfig) -> float:
+    """Geometric step ratio; ``sqrt(grid_ratio)`` when ``halve_grid_steps``."""
+
+    ratio = float(config.grid_ratio)
+    if config.halve_grid_steps:
+        # Half the |log| step ⇒ denser within-block candidates (A6-T46).
+        return float(np.sqrt(ratio))
+    return ratio
+
+
+def _effective_max_grid_points(config: ScaleSearchConfig) -> int:
+    """Cap on grid length; doubled when ``halve_grid_steps`` is on."""
+
+    cap = int(config.max_grid_points)
+    if config.halve_grid_steps:
+        return max(cap, 2 * cap)
+    return cap
+
+
 def _build_tau_grid(config: ScaleSearchConfig) -> np.ndarray:
     """Return a geometric grid of tau values from tau_max down to tau_min."""
 
     log_min = np.log(config.tau_min)
     log_max = np.log(config.tau_max)
+    ratio = _effective_grid_ratio(config)
     n_points = min(
-        config.max_grid_points,
-        max(3, int(np.ceil((log_max - log_min) / abs(np.log(config.grid_ratio)))) + 1),
+        _effective_max_grid_points(config),
+        max(3, int(np.ceil((log_max - log_min) / abs(np.log(ratio)))) + 1),
     )
     return np.exp(np.linspace(log_max, log_min, n_points))
 
@@ -431,6 +459,40 @@ def _apply_load_screen(
     return candidate
 
 
+def _load_weighted_index(
+    i_lo: int,
+    i_hi: int,
+    load_trace: np.ndarray,
+    *,
+    screen_min: float = _WITHIN_INTERVAL_LOAD_SCREEN_MIN,
+) -> int:
+    """Pick the persistent-block index whose load is closest to 1.
+
+    Experimental probe (OPEN_ISSUES #28 / A6-T47): among indices in
+    ``[i_lo, i_hi]`` with finite ``load >= screen_min``, maximize
+    ``-abs(log(load))`` (unit load preferred).  If no index clears the
+    ≪1 screen, fall back to coarse-end ``i_lo``.  Distinct from
+    :func:`_select_load_crossover` (straddle-pair rule) and from fixed
+    fractional landings.
+    """
+
+    best_idx = i_lo
+    best_score = -np.inf
+    found = False
+    for idx in range(i_lo, i_hi + 1):
+        load_at = float(load_trace[idx])
+        if not np.isfinite(load_at) or load_at < screen_min:
+            continue
+        # Prefer load≈1; clamp away from 0 for log safety (screen already
+        # enforces load >= screen_min > 0).
+        score = -abs(float(np.log(load_at)))
+        if score > best_score:
+            best_score = score
+            best_idx = idx
+            found = True
+    return best_idx if found else i_lo
+
+
 def _resolve_persistence_tau_index(
     persistence_result: PersistenceResult,
     load_trace: np.ndarray,
@@ -455,6 +517,8 @@ def _resolve_persistence_tau_index(
     the way from ``i_lo`` toward ``i_hi``; with experimental
     ``"three_quarter_load_screened"``, take that three-quarter landing only
     when ``load[idx]`` is not ≪ 1 (else fall back to ``i_lo``); with
+    experimental ``"load_weighted_interval"``, pick the block index whose
+    variance load is closest to 1 among those not ≪ 1 (else ``i_lo``); with
     experimental ``"fine_end_of_block"``, land at ``i_hi`` (probe only;
     default stays ``"none"``).
     """
@@ -499,6 +563,10 @@ def _resolve_persistence_tau_index(
             _three_quarter_index(i_lo, i_hi), i_lo, load_trace
         )
 
+    if mode == "load_weighted_interval":
+        # Closest-to-unit load in the block; reject ≪1 indices (A6-T47).
+        return _load_weighted_index(i_lo, i_hi, load_trace)
+
     if mode == "fine_end_of_block":
         # Finest index of the accepted persistent block; experimental probe.
         return i_hi
@@ -509,7 +577,8 @@ def _resolve_persistence_tau_index(
             "expected 'none', 'load_crossover', 'mid_interval', "
             "'mid_interval_load_screened', 'two_thirds_interval', "
             "'two_thirds_load_screened', 'three_quarter_interval', "
-            "'three_quarter_load_screened', or 'fine_end_of_block'."
+            "'three_quarter_load_screened', 'load_weighted_interval', "
+            "or 'fine_end_of_block'."
         )
 
     sub_load = np.asarray(load_trace[i_lo : i_hi + 1], dtype=float)

@@ -1149,6 +1149,205 @@ def test_two_thirds_load_screened_rejects_low_load_and_matches_raw_when_ok() -> 
     assert PersistenceConfig().resolve_within_interval == "none"
 
 
+def test_halve_grid_steps_densifies_two_thirds_three_quarter_phi() -> None:
+    # Experimental denser geometric grid (A6-T46): halve_grid_steps uses
+    # sqrt(grid_ratio) and up to 2× max_grid_points so persistent blocks have
+    # more tau candidates under two_thirds / three_quarter. Report Phi deltas
+    # vs the standard grid; do not flip defaults.
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=0,
+    )
+    gt = dataset.ground_truth
+    assert gt.expected_tau is not None
+    tau_lo, tau_hi = gt.tau_grid_hint
+    base = ScaleSearchConfig(
+        tau_min=tau_lo,
+        tau_max=tau_hi,
+        max_grid_points=8,
+        k=8,
+        n_seeds=12,
+        min_nodes=8,
+        max_nodes=128,
+        ann_backend="naive",
+        selector="persistence",
+        stabilization=StabilizationConfig(min_equilibrium_epochs=2, max_epochs=12),
+        seed=0,
+    )
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+    modes = ("two_thirds_interval", "three_quarter_interval")
+    rows: list[dict[str, float | int | str | bool]] = []
+    for dense in (False, True):
+        for mode in modes:
+            result = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=replace(
+                    base,
+                    halve_grid_steps=dense,
+                    persistence=PersistenceConfig(resolve_within_interval=mode),
+                ),
+            )
+            assert result.persistence_result is not None
+            rows.append(
+                {
+                    "dense": dense,
+                    "mode": mode,
+                    "n_grid": int(len(result.tau_grid)),
+                    "peak_index": int(result.peak_index),
+                    "tau_star": float(result.tau_star),
+                    "phi_star": float(result.phi_trace[result.peak_index]),
+                    "tau_over_expected": float(result.tau_star / gt.expected_tau),
+                }
+            )
+
+    header = (
+        f"{'dense':5s} {'mode':22s} {'n':>3s} {'idx':>3s} "
+        f"{'tau*':>10s} {'Phi*':>10s} {'tau*/E':>10s}"
+    )
+    print("\nA6-T46 denser grid (halve steps) under two_thirds / three_quarter")
+    print(header)
+    print("-" * len(header))
+    for row in rows:
+        print(
+            f"{str(row['dense']):5s} {row['mode']:22s} {row['n_grid']:3d} "
+            f"{row['peak_index']:3d} {row['tau_star']:10.4g} "
+            f"{row['phi_star']:10.4g} {row['tau_over_expected']:10.3f}"
+        )
+
+    by = {(bool(r["dense"]), str(r["mode"])): r for r in rows}
+    # Denser grid must actually add points (within tau_min/max budget).
+    assert int(by[(True, "two_thirds_interval")]["n_grid"]) > int(
+        by[(False, "two_thirds_interval")]["n_grid"]
+    )
+    # Ordering preserved on each grid: two_thirds coarser (larger tau*) than 3q.
+    for dense in (False, True):
+        assert float(by[(dense, "two_thirds_interval")]["tau_star"]) >= float(
+            by[(dense, "three_quarter_interval")]["tau_star"]
+        )
+        assert np.isfinite(float(by[(dense, "two_thirds_interval")]["phi_star"]))
+        assert np.isfinite(float(by[(dense, "three_quarter_interval")]["phi_star"]))
+    # Pin: on seed-0 hierarchy, three_quarter remains closer to E[tau] than
+    # two_thirds on *both* grids (discrete densification does not flip the
+    # ranking that motivates keeping 3q as the closest fractional probe).
+    for dense in (False, True):
+        err_tt = abs(float(by[(dense, "two_thirds_interval")]["tau_over_expected"]) - 1.0)
+        err_tq = abs(
+            float(by[(dense, "three_quarter_interval")]["tau_over_expected"]) - 1.0
+        )
+        assert err_tq <= err_tt + 1e-9
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
+def test_load_weighted_interval_picks_closest_load_and_rejects_low() -> None:
+    # Experimental probe (A6-T47): load_weighted_interval selects the
+    # persistent-block index with load closest to 1 among load >= screen floor;
+    # all-below-floor ⇒ coarse-end. Contrast vs two_thirds / three_quarter.
+    # Default resolve_within_interval stays "none".
+    from proteus.stage1.controller import _load_weighted_index
+
+    run_lengths = np.array([8, 0, 0, 0, 0, 0, 0, 0], dtype=int)
+    # Synthetic loads: indices 0..7; closest-to-1 among screened is idx 3
+    # (load=1.05); idx 1 has load 0.2 ≪ floor and must be ignored.
+    load = np.array([4.0, 0.2, 2.5, 1.05, 1.4, 1.8, 2.2, 3.0], dtype=float)
+    pers = PersistenceResult(
+        tau_star=1.0,
+        tau_star_index=0,
+        run_lengths=run_lengths,
+        match_overlaps=np.ones(7),
+    )
+    cfg_w = PersistenceConfig(resolve_within_interval="load_weighted_interval")
+    cfg_tt = PersistenceConfig(resolve_within_interval="two_thirds_interval")
+    cfg_tq = PersistenceConfig(resolve_within_interval="three_quarter_interval")
+    stab = [True] * 8
+    assert _resolve_persistence_tau_index(pers, load, stab, cfg_w) == 3
+    assert _load_weighted_index(0, 7, load) == 3
+    # two_thirds = 0 + 14//3 = 4; three_quarter = 0 + 21//4 = 5.
+    assert _resolve_persistence_tau_index(pers, load, stab, cfg_tt) == 4
+    assert _resolve_persistence_tau_index(pers, load, stab, cfg_tq) == 5
+    # All loads ≪ floor ⇒ fall back to i_lo.
+    low = np.full(8, 0.1, dtype=float)
+    assert _resolve_persistence_tau_index(pers, low, stab, cfg_w) == 0
+
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=0,
+    )
+    gt = dataset.ground_truth
+    assert gt.expected_tau is not None
+    tau_lo, tau_hi = gt.tau_grid_hint
+    base = ScaleSearchConfig(
+        tau_min=tau_lo,
+        tau_max=tau_hi,
+        max_grid_points=8,
+        k=8,
+        n_seeds=12,
+        min_nodes=8,
+        max_nodes=128,
+        ann_backend="naive",
+        selector="persistence",
+        stabilization=StabilizationConfig(min_equilibrium_epochs=2, max_epochs=12),
+        seed=0,
+    )
+    weighted = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(resolve_within_interval="load_weighted_interval"),
+        ),
+    )
+    two_thirds = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(resolve_within_interval="two_thirds_interval"),
+        ),
+    )
+    three_q = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(
+                resolve_within_interval="three_quarter_interval"
+            ),
+        ),
+    )
+    none = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(resolve_within_interval="none"),
+        ),
+    )
+    assert weighted.persistence_result is not None
+    i_lo = int(weighted.persistence_result.tau_star_index)  # type: ignore[arg-type]
+    run_len = int(weighted.persistence_result.run_lengths[i_lo])
+    i_hi = i_lo + run_len - 1
+    assert i_lo <= weighted.peak_index <= i_hi
+    load_w = float(weighted.load_trace[weighted.peak_index])
+    assert load_w >= _WITHIN_INTERVAL_LOAD_SCREEN_MIN
+    # On hierarchy seed-0, loads in the block are ≫ 1, so load-weighted tends
+    # toward the smallest load in-block (closest to 1) — typically finer than
+    # coarse-end; report contrast vs fractional landings.
+    print(
+        "\nA6-T47 load_weighted vs two_thirds / three_quarter "
+        f"(hierarchy seed=0): weighted idx={weighted.peak_index} "
+        f"tau*={weighted.tau_star:.4g} load={load_w:.3f} "
+        f"tau*/E={weighted.tau_star / gt.expected_tau:.3f}; "
+        f"2/3 idx={two_thirds.peak_index} tau*/E="
+        f"{two_thirds.tau_star / gt.expected_tau:.3f}; "
+        f"3q idx={three_q.peak_index} tau*/E="
+        f"{three_q.tau_star / gt.expected_tau:.3f}; "
+        f"none idx={none.peak_index}"
+    )
+    assert np.isfinite(float(weighted.phi_trace[weighted.peak_index]))
+    assert PersistenceConfig().resolve_within_interval == "none"
+
+
 def test_default_selector_is_load_crossover() -> None:
     # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
     assert ScaleSearchConfig().selector == "load_crossover"
