@@ -2000,10 +2000,10 @@ This is the multiscale Dirichlet refinement used by P\'olya trees, applied here 
 \subsection*{S10.4 Star Matrix Identifiability}
 Identifiability is checked locally by star matrices that map simplex masses in $\mathrm{Star}(i)$ to transition probabilities from node $i$. If each star has full rank modulo the one-dimensional scaling direction and the dual graph is connected, the full set of routers identifies $m$ up to the simplex constraint $\sum_Sm_S=1$. At runtime, candidate edits perform a dry-run conditioning check using $\sigma_{\min}/\sigma_{\max}$ on affected stars. Edits that fail the check cannot claim an $F_{\mathrm{DM}}$ improvement; they are rejected or treated as geometry-only remediation with likelihood terms quarantined.
 
-The remainder of this section makes that statement operational: Fisher information explains why rank matters, the runtime threshold defines the numerical test, and the dynamic preservation rule states when an edit is allowed to use likelihood evidence.
+The remainder of this section makes that statement operational: Fisher information explains why rank matters, the \emph{operational} runtime matrix and rank guard define what is computed in a dry run, the runtime threshold defines the numerical test, and the dynamic preservation rule states when an edit is allowed to use likelihood evidence.
 
 \paragraph{Fisher-information identity.}
-Up to normalization, the star matrix $K_i$ is the Jacobian of $q(\cdot\mid i;m)$ with respect to $m^{(i)}=m\big|_{\mathrm{Star}(i)}$ at the canonical $\kappa$. The local Fisher information of the per-node transition likelihood is therefore
+Up to normalization, the theoretical star matrix $K_i$ is the Jacobian of $q(\cdot\mid i;m)$ with respect to $m^{(i)}=m\big|_{\mathrm{Star}(i)}$ at the canonical $\kappa$. The local Fisher information of the per-node transition likelihood is therefore
 \[
 I_i(m)
 =
@@ -2011,11 +2011,25 @@ n_i\,K_i^\top\,\mathrm{diag}\!\bigl(1/q(\cdot\mid i;m)\bigr)\,K_i.
 \]
 Local rank condition (A1) is exactly nonsingularity of $I_i(m)$ on the tangent of the simplex at $m$; combined with dual-graph connectivity (A2) this yields global identifiability and standard MLE consistency as $\min_i n_i\to\infty$.
 
+\paragraph{Operational runtime matrix (first implementation).}
+\label{par:si-star-runtime-matrix}
+The exact normalized-router Jacobian depends on the current mass field and on the canonical conductances $\kappa$. For the runtime dry-run conditioning check the reference implementation uses a cheaper \emph{operational} proxy that depends only on star topology: the unweighted edge--simplex incidence matrix $K_i^{\mathrm{inc}}\in\{0,1\}^{|\mathcal N(i)|\times|\mathrm{Star}(i)|}$ with
+\[
+\bigl(K_i^{\mathrm{inc}}\bigr)_{j,S}
+=
+\mathbf 1\bigl[\{i,j\}\subset S\bigr],
+\qquad
+j\in\mathcal N(i),\ S\in\mathrm{Star}(i).
+\]
+This proxy is justified because an outgoing transition $i\to j$ is supported exactly by the simplices in $\mathrm{Star}(i)$ that contain the edge $(i,j)$, so column degeneracy of $K_i^{\mathrm{inc}}$ (duplicate or nested edge supports) is a topology-only witness of non-identifiability of the corresponding simplex masses from transition counts. The proxy does \emph{not} replace the Fisher/Jacobian identity above; it is the declared first-implementation runtime form of $K_i$ for the $\rho^\star$ test and may be upgraded later to the weighted Jacobian at $\kappa$ without changing the gate contract.
+
+In addition to the singular-value ratio below, the operational check enforces a combinatorial stand-in for ``full rank modulo the one-dimensional scaling direction'': require $|\mathcal N(i)|\ge|\mathrm{Star}(i)|$ (at least as many outgoing outcomes as incident simplices), with a single-simplex star treated as trivially identifiable for its lone mass. Stars that fail this count guard are marked non-evidence-bearing even if $\rho_i^\star$ looks acceptable. Both the incidence proxy and the count guard are \emph{operational} (diagnostic/audit-adjacent), not derived acceptance-path constants; $\rho_{\min}$ remains the sole tabulated S10.4 threshold (S14.3).
+
 \paragraph{Runtime conditioning threshold.}
-Compute $\rho_i^\star=\sigma_{\min}(K_i)/\sigma_{\max}(K_i)$ at every star whose topology has just changed; default flag threshold $\rho_{\min}=10^{-4}$ (with conservative $10^{-3}$ for noise-sensitive runs). Stars with $\rho_i^\star<\rho_{\min}$ are marked \emph{router-ill-conditioned}.
+Compute $\rho_i^\star=\sigma_{\min}(K_i)/\sigma_{\max}(K_i)$ at every star whose topology has just changed, taking $K_i\leftarrow K_i^{\mathrm{inc}}$ under the operational runtime matrix above; default flag threshold $\rho_{\min}=10^{-4}$ (with conservative $10^{-3}$ for noise-sensitive runs). Stars with $\rho_i^\star<\rho_{\min}$ are marked \emph{router-ill-conditioned}.
 
 \paragraph{Dynamic preservation rule.}
-For every proposed edit, compute $\rho_i^\star$ on the affected stars both before and after applying the candidate topology in a dry run. An edit is \emph{evidence-bearing} only if every affected post-edit star satisfies $\rho_i^\star\ge\rho_{\min}$ and the affected dual subgraph remains connected. If this condition fails, the edit cannot claim an $F_{\mathrm{DM}}$ improvement; it may still be accepted as \emph{geometry-only remediation} when it improves an explicit shape or boundary diagnostic that caused the ill-conditioning, but in that case all likelihood terms from the affected ill-conditioned stars are quarantined until conditioning is restored.
+For every proposed edit, compute $\rho_i^\star$ on the affected stars both before and after applying the candidate topology in a dry run. An edit is \emph{evidence-bearing} only if every affected post-edit star satisfies the operational rank guard and $\rho_i^\star\ge\rho_{\min}$ and the affected dual subgraph remains connected. If this condition fails, the edit cannot claim an $F_{\mathrm{DM}}$ improvement; it may still be accepted as \emph{geometry-only remediation} when it improves an explicit shape or boundary diagnostic that caused the ill-conditioning, but in that case all likelihood terms from the affected ill-conditioned stars are quarantined until conditioning is restored.
 
 \paragraph{Trajectory-level conservative identifiability.}
 Along any trajectory obeying the dynamic preservation rule, every accepted edit that uses transition-count evidence does so only in locally identifiable stars. Geometry-only remediation edits may pass through ill-conditioned states, but those states contribute no likelihood terms and therefore cannot create spurious evidence improvements. Consequently, the mass field used by the evidence gate is identifiable at every evidence-bearing decision point, and ill-conditioned transients remain conservative numerical states rather than alternative statistically valid mass explanations.
