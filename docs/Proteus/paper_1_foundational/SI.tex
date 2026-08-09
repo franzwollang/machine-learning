@@ -1084,17 +1084,34 @@ grid block:
   block (A6-T31); hierarchy Phi probe \emph{undershoots}
   \texttt{expected\_tau} ($\approx 0.25\times$), so treat as an overshoot-risk
   diagnostic rather than a candidate default.
+  \item \texttt{"load\_weighted\_interval"} --- among indices in the accepted
+  block with load $\ge\texttt{\_WITHIN\_INTERVAL\_LOAD\_SCREEN\_MIN}$, pick
+  $\arg\min_i|\log L_i|$ (closest-to-unit load; A6-T47); fall back to
+  $i_{\mathrm{lo}}$ when none clear the screen. Distinct from the
+  load-crossover \emph{straddle} hybrid. On hierarchy (seed~$0$) the pick is
+  the coarse end ($L\sim 0.73$ at $i_{\mathrm{lo}}$; $\tau^\star/E[\tau]
+  \sim 16\times$) --- not a fine-leaf recovery. Default remains
+  \texttt{"none"}.
 \end{itemize}
-Ordering on the hierarchy Phi table (seed~$0$; A6-T41/T44): mid
+Ordering on the hierarchy Phi table (seed~$0$; A6-T41/T44; standard geometric
+grid $r{=}1/\sqrt{2}$, $\le 12$ pts): mid
 $\sim 2.69\times$ (raw${=}$load-screened) $\ge$ two-thirds $\sim 1.49\times$
 (raw${=}$load-screened) $\ge$ three-quarter $\sim 0.82\times$
 (raw${=}$load-screened; closest) $\ge$ fine-end $\sim 0.25\times$;
-load-crossover / \texttt{"none"} remain $\sim 16\times$. Circle and
+load-crossover / \texttt{"none"} / load-weighted remain $\sim 16\times$.
+Densifying the grid with experimental
+\texttt{ScaleSearchConfig.halve\_grid\_steps} (half log-step
+$r\!\mapsto\!\sqrt{r}$, up to $2\times\max\_grid\_points$; A6-T46) \emph{flips}
+the fractional ranking on the same scene: two-thirds $\sim 1.00\times$ while
+three-quarter undershoots further ($\sim 0.76\times$) --- evidence that
+standard-grid ``3q closest'' is discrete-grid quantization, not an intrinsic
+preference for the $3/4$ fraction (A6-T46..T48 / paper). Circle and
 swiss-roll hybrids / experimental modes (including load-screened mid /
-two-thirds / three-quarter) are identical no-ops --- no persistent split, so
-ordinary $L{=}1$ fallback already near geometric truth (A6-T42/T45 / paper).
-None of these modes is SI-justified as an acceptance rule; the flag remains
-operational / default-\texttt{"none"} (S14.3). Do not flip the default.
+two-thirds / three-quarter / load-weighted) are identical no-ops --- no
+persistent split, so ordinary $L{=}1$ fallback already near geometric truth
+(A6-T42/T45 / paper). None of these modes is SI-justified as an acceptance
+rule; the flag remains operational / default-\texttt{"none"} (S14.3). Do not
+flip the default.
 
 \paragraph{Coarse-anchoring of the persistence interval.} The bare two-point
 rule is made robust to warm-start path dependence by requiring the accepted
@@ -1315,9 +1332,13 @@ together with operational knobs
 \texttt{hollow\_require\_gabriel\_and\_h} (conjunction; default off; A2-T31),
 \texttt{hollow\_use\_a4\_primary} (A4 primary preset; default off; A2-T33),
 \texttt{hollow\_mst\_critical\_only} (MST$\cap$hollow; default off; A2-T34),
-and \texttt{hollow\_bridge\_critical\_only} (graph-bridge$\cap$hollow; default
-off; A2-T34-followon). When the prepass fires, Q is scored on the
-\emph{pruned} edge set. Protocol status (do \emph{not} flip awaiting):
+\texttt{hollow\_bridge\_critical\_only} (graph-bridge$\cap$hollow; default
+off; A2-T34-followon), and soft-capacity knobs
+\texttt{HollowEdgeConfig.soft\_capacity\_only} /
+\texttt{soft\_capacity\_frac} (Brandes betweenness $\ge
+f\cdot\max\mathrm{bet}$; default off / $f{=}0.25$; A2-T37). When the prepass
+fires, Q is scored on the \emph{pruned} edge set. Protocol status (do
+\emph{not} flip awaiting):
 \begin{itemize}[leftmargin=1.5em]
   \item Frozen-scaffold probe (A2-T27): theory direction supported; $L/4$ alone
   fails; joint $f_{\mathrm{mid}}{=}0.35$, $h_0{=}0.35$, Gabriel fallback is
@@ -1359,8 +1380,18 @@ off; A2-T34-followon). When the prepass fires, Q is scored on the
   this is a stricter true cut-set than MST-critical; independent of
   \texttt{mst\_critical\_only} (both may apply as successive intersections).
   Nested@$0.27$ majors $\le 1$ like MST; multi-seed A4-primary$+$bridge sample
-  ARI never recovers. Soft-capacity / betweenness / denser-scaffold probes
-  remain open --- still proposal-path; do \emph{not} flip awaiting.
+  ARI never recovers.
+  \item Soft-capacity cut-set (A2-T37; flags default off):
+  \texttt{soft\_capacity\_only} intersects hollow cuts with edges whose
+  Brandes betweenness is at least
+  \texttt{soft\_capacity\_frac}${}\cdot\max\mathrm{bet}$ (operational
+  $f{=}0.25$). Continuous capacity/flow proxy between hard bridges and
+  unrestricted hollow; independent of MST/bridge flags (successive
+  intersections). Nested@$0.27$ with A4-primary$+$soft majors $\le 1$ like
+  MST/bridge; sample-ARI unrecovered. Denser-scaffold
+  ($n$/$\texttt{max\_nodes}$) probes collapse nests $K{=}2\!\to\!\le 1$ and
+  do not restore ARI (A2-T36) --- still proposal-path; do \emph{not} flip
+  awaiting.
 \end{itemize}
 
 \paragraph{A4 primary \texttt{HollowEdgeConfig} handoff (proposed; A4-T24).}
@@ -1404,6 +1435,22 @@ still proposal-path. Raising $h_0$ toward the sheet $q_{01}$ (or a proper
 Poisson LR threshold) must be re-checked against TPR on gap bridges and
 against nested/tori sample-ARI (not $K$ alone). Do not flip S14.3 $h_0$ or
 awaiting on this table.
+
+\paragraph{Poisson-null sheet $H$ export (proposed; A2-T38).}
+Module \texttt{proteus.stage1.edge\_evidence} exports
+\texttt{format\_poisson\_null\_h0\_table} / frozen
+\texttt{POISSON\_NULL\_SHEET\_H\_QUANTILES} (adversarial sheet harness;
+seed~$0$; proposal-path handoff --- not a Youden / LR acceptance rule):
+\begin{itemize}[leftmargin=1.5em]
+  \item mid $0.25/0.35/0.5$: $q_{01}(H)\approx 0.15/0.43/0.76$ with
+  mean $H\approx 1$ (export rounds; exact table rows in code).
+  \item A4 primary mid${=}0.5$, $h_0{=}0.7$ remains $\le$ the recommend-harness
+  sheet $q_{01}\approx 0.82$ (gabriel off; sheet FPR$\approx 0$, bridge
+  TPR$\approx 0.9$).
+\end{itemize}
+Sheet-null safe $\neq$ nested cut-set / sample-ARI recovery. A proper
+Poisson-LR / Youden $h_0$ on the ROC grid is still open. Do not flip S14.3
+$h_0$ or awaiting on this export.
 
 \paragraph{Multi-$\tau$ ROC confirmation of the A4 primary (proposed; A4-T27).}
 Multi-$\tau$ sheet$+$gap ROC (A4-T27) keeps the primary
@@ -1969,6 +2016,17 @@ live sample routing yet --- it is a unit-tested sketch for dry-run / diagnostic
 paths only. Do not flip mass/density
 \texttt{@awaiting("stage2.dual\_flow")} on this stub.
 
+\paragraph{Stage-1 BMU$\to$face-tally wiring sketch (OPEN\_ISSUES~\#43; A5-T48).}
+\texttt{route\_stage1\_bmu\_face\_tallies} behind
+\texttt{DualFlowConfig.enable\_stage1\_bmu\_wiring} (default off; S14.3)
+bridges Stage-1 ANN winners to S6.1 tallies without calling Stage-1
+controllers: each sample carries a node BMU id; candidate simplices are
+\texttt{node\_to\_simplices[bmu]}; \texttt{locate\_bmu\_simplex} picks the
+winner and accumulates tallies there. Returns \texttt{None} when the flag is
+off. Does \emph{not} build \texttt{node\_to\_simplices} from a live Complex /
+ANN index --- callers supply the map. Still proposal-path; do not flip
+awaiting.
+
 \subsection*{S6.2 Conservative Reconstruction}
 For each simplex $S$ with facets $f_0,\dots,f_d$, outward unit normals $\mathbf n_{f_i}\in\mathbb R^d$, and facet areas $A_{f_i}$, stack the incident pressures as $\mathbf p_S=(p_{f_0},\dots,p_{f_d})^\top$ and define
 \[
@@ -2030,8 +2088,9 @@ After the dual-flow solve and simplex-mass normalization, log
 Require $\epsilon_{\mathrm{mass}}\le10^{-6}$ after normalization and warn if $\epsilon_{\mathrm{flux}}>10^{-3}$. Persistent flux warnings trigger boundary reclassification or local remediation in the next gate window.
 The two conservation residuals serve different purposes: $r_{\mathrm{cons}}$ is the normalized residual monitored during loopy Gaussian BP, while $\epsilon_{\mathrm{flux}}$ is the global post-solve health check on the reconstructed field.
 
-\paragraph{Landed proposal-path stubs (OPEN\_ISSUES~\#43; A5-T44 / A5-EXP-mu/flux).}
-Module \texttt{proteus.stage2.dual\_flow} ships three default-off sketches that
+\paragraph{Landed proposal-path stubs (OPEN\_ISSUES~\#43; A5-T44 / A5-EXP-mu/flux /
+A5-T46..T48).}
+Module \texttt{proteus.stage2.dual\_flow} ships default-off sketches that
 shape the S6.2 API without implementing loopy Gaussian BP on the face/factor
 graph (do \emph{not} flip mass/density/benchmark
 \texttt{@awaiting("stage2.dual\_flow")}):
@@ -2042,22 +2101,31 @@ graph (do \emph{not} flip mass/density/benchmark
   $r_{\mathrm{data}}$ / $r_{\mathrm{cons}}$ (A5-T44).
   \item \texttt{solve\_mu\_weighted\_pressures} behind
   \texttt{DualFlowConfig.enable\_mu\_weighted\_solve} --- single-simplex soft
-  gradient on the whitened $\lambda_f{=}1$ data term plus SI $\mu_S\|A_S\mathbf p\|_2^2$
+  gradient on the whitened data term plus SI $\mu_S\|A_S\mathbf p\|_2^2$
   (eq.~\ref{eq:si-dual-flow-weight}; A5-EXP-mu). Whitening uses running empirical
   std with floor \texttt{whiten\_floor}${=}10^{-8}$; operational
-  \texttt{mu\_scale}${=}0.1$ matches S14.3. When local Hessian
+  \texttt{mu\_scale}${=}0.1$ matches S14.3. Baseline $\lambda_f{=}1$; when
+  \texttt{enable\_count\_aware\_lambda} is on with face hit counts,
+  $\lambda_f{=}1+n_f/(1+\bar n)$ (A5-T46). When local Hessian
   $\mathrm{cond}(\mathrm{diag}(\lambda)+\mu A_S^\top A_S)$ exceeds
   \texttt{spectrum\_cond\_cap}${=}10^{6}$, the gradient step is halved each
   iteration (proposal-path stand-in for SI spectrum damping).
+  \item \texttt{solve\_patch\_mu\_weighted\_pressures} behind
+  \texttt{DualFlowConfig.enable\_patch\_mu\_solve} --- multi-simplex soft
+  objective $\sum_f\lambda_f(p_f-\hat p_f)^2+\sum_S\mu_S\|A_S\mathbf p_S\|_2^2$
+  over \emph{block-concatenated} per-simplex face pressures (A5-T47). Each
+  simplex owns a private facet copy --- shared-face glue / face registry /
+  loopy BP remain future work; reported $\mu_S$ sum is $\sum_S\mu_S$.
   \item Ungated helpers \texttt{mu\_S\_weight}, \texttt{whiten\_empirical\_pressures},
-  and \texttt{epsilon\_flux} expose the SI formulas unit-testably;
-  \texttt{epsilon\_flux} is the post-solve health check
+  \texttt{count\_aware\_lambda\_f}, and \texttt{epsilon\_flux} expose the SI
+  formulas unit-testably; \texttt{epsilon\_flux} is the post-solve health check
   $\|A_S\mathbf p\|_2^2/(\|\mathbf p\|_2^2+\epsilon)$ (distinct from
-  $r_{\mathrm{cons}}$). Multi-simplex face-graph summation remains future work.
+  $r_{\mathrm{cons}}$).
 \end{itemize}
-Gaps remain: Stage-1 live BMU$\to$solve wiring, real loopy BP, count-aware
-$\lambda_f{=}1+n_f/(1+\bar n)$ variants, and multi-simplex $\mu_S$ aggregation.
-Acceptance path stays \texttt{None}$\Rightarrow$flags off.
+Gaps remain: real loopy Gaussian BP on a shared face/factor graph,
+face-registry seam/ghost beyond scalar sketches, and live S6.4 density.
+Stage-1 BMU$\to$tally wiring sketch lands in S6.1 below. Acceptance path
+stays \texttt{None}$\Rightarrow$flags off.
 
 \paragraph{Online vs. offline schedule.}
 Empirical tallies $\hat p_f$ are written online during sample routing. The conservative field $p_f$ is solved offline after the accepted topology and mass field have settled. This schedule prevents double counting: transition counts select structure, online face tallies record interpolation evidence, and the offline solve converts the accepted representation into a queryable probability field.
@@ -2091,8 +2159,9 @@ Behind \texttt{DualFlowConfig.enable\_seam\_ghost} (default off; S14.3):
   ($p_f'=(1-\gamma)p_f$ on the mask). Weak coupling only --- not a full
   exterior solve.
 \end{itemize}
-Both return \texttt{None} when the flag is off. Gaps remain: Stage-1 live BMU
-wiring, real S6.2 loopy BP, face-registry seam/ghost, live S6.4 density. Do
+Both return \texttt{None} when the flag is off. Gaps remain: real S6.2 loopy
+BP, face-registry seam/ghost, live S6.4 density (Stage-1 BMU$\to$tally
+wiring sketch is landed behind \texttt{enable\_stage1\_bmu\_wiring}; S6.1). Do
 not flip mass/density/benchmark awaiting on these sketches.
 
 \subsection*{S6.4 Simplex-Local Density Formula}
@@ -2163,11 +2232,13 @@ contract (not full S6 dual-flow):
   A2 bool; when the flag is off it returns \texttt{True}.
 \end{itemize}
 Remaining S6 gaps (mass/density/benchmark
-\texttt{@awaiting("stage2.dual\_flow")} stay xfail): wire S6.1 tallies into
-live BMU routing; real S6.2 loopy Gaussian BP beyond the
+\texttt{@awaiting("stage2.dual\_flow")} stay xfail): real S6.2 loopy Gaussian
+BP on a shared face/factor graph beyond the
 \texttt{enable\_as\_message\_pass} /
-\texttt{enable\_mu\_weighted\_solve} soft sketches (S6.2); S6.3
-face-registry seam/ghost beyond the
+\texttt{enable\_mu\_weighted\_solve} /
+\texttt{enable\_patch\_mu\_solve} soft sketches (S6.2; count-aware
+$\lambda_f$ and Stage-1 BMU wiring are landed sketches, not acceptance);
+S6.3 face-registry seam/ghost beyond the
 \texttt{enable\_seam\_ghost} scalar sketches (S6.3); live S6.4 density path
 beyond the \texttt{enable\_simplex\_density} sketch (S6.4).
 
@@ -2864,6 +2935,17 @@ scaffolds. Do not flip topology-recovery awaiting tests until the
 coverage-first path (or a logged calibrated mult) recovers fitted regions at
 the stated reading.
 
+\paragraph{Per-shell filtration mult schedule (proposed; A4-T33).}
+A nested-shell probe shows that a \emph{per-shell} multiplier schedule
+$\{\mathrm{shell}_1{:}3,\mathrm{shell}_2{:}6\}$ recovers both fitted nested
+Betti signatures $(1,0,1)/(1,0,1)$ where a uniform mult${=}3$ or ${=}6$ alone
+is incomplete (A4-T33). Linked-tori local-$\sigma$ dual-scale and
+hollow(A4-primary)$+$cal-mult${=}6$ do \emph{not} restore $(1,2,1)$ /
+full nested recovery (A4-T34/T35). This is proposal-path schedule evidence
+only --- SI acceptance remains a single \texttt{filtration\_mult}${=}1.5$
+fixed-threshold reading; do \emph{not} flip awaiting or promote a schedule
+default.
+
 \paragraph{Maximum mean discrepancy.}
 Use an RBF kernel with bandwidth set by the median heuristic on the combined sample. Default to $1{,}000$ samples drawn from the model and $1{,}000$ samples from the held-out test set, repeated over $5$ seeds; report mean$\pm$std and a permutation test $p$-value.
 
@@ -2912,8 +2994,9 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
 \texttt{coarse\_anchored} & \text{true}\ (\text{coarsest split must persist}) & \text{S2.6.2} & \text{operational}\\
 \texttt{cold\_start\_recheck} & \text{false}\ (\text{refuted gate; see S2.6.2}) & \text{S2.6.2} & \text{diagnostic}\\
-\texttt{resolve\_within\_interval} & \texttt{"none"}\ (\texttt{"load\_crossover"} hybrid; \texttt{"mid\_interval"} / \texttt{"mid\_interval\_load\_screened"} / \texttt{"two\_thirds\_interval"} / \texttt{"two\_thirds\_load\_screened"} / \texttt{"three\_quarter\_interval"} / \texttt{"three\_quarter\_load\_screened"} / \texttt{"fine\_end\_of\_block"} experimental; Phi mid$\sim$2.69 / 2/3$\sim$1.49 / 3q$\sim$0.82; \#28) & \text{S2.6.2} & \text{operational}\\
-\texttt{\_WITHIN\_INTERVAL\_LOAD\_SCREEN\_MIN} & 0.5\ (\text{shared }\ll 1\text{ floor for mid/2/3/3q load-screened; alias }\texttt{\_THREE\_QUARTER\_LOAD\_SCREEN\_MIN}; \#28) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{resolve\_within\_interval} & \texttt{"none"}\ (\texttt{"load\_crossover"} hybrid; \texttt{"mid\_interval"} / \texttt{"mid\_interval\_load\_screened"} / \texttt{"two\_thirds\_interval"} / \texttt{"two\_thirds\_load\_screened"} / \texttt{"three\_quarter\_interval"} / \texttt{"three\_quarter\_load\_screened"} / \texttt{"load\_weighted\_interval"} / \texttt{"fine\_end\_of\_block"} experimental; std Phi mid$\sim$2.69 / 2/3$\sim$1.49 / 3q$\sim$0.82; dense-halve flips 2/3$\sim$1.00 / 3q$\sim$0.76; \#28) & \text{S2.6.2} & \text{operational}\\
+\texttt{\_WITHIN\_INTERVAL\_LOAD\_SCREEN\_MIN} & 0.5\ (\text{shared }\ll 1\text{ floor for mid/2/3/3q load-screened + load-weighted eligibility; alias }\texttt{\_THREE\_QUARTER\_LOAD\_SCREEN\_MIN}; \#28) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{ScaleSearchConfig.halve\_grid\_steps} & \text{false}\ (\text{half log-step denser }\tau\text{ grid; A6-T46; \#28}) & \text{S2.5.1/S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{allow\_finer\_research} & \text{false}\ (\text{finer-than-}\tau^\star\text{ re-search; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
@@ -2931,15 +3014,20 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{hollow\_use\_a4\_primary} & \text{false}\ (\text{A4 mid}{=}0.5/h_0{=}0.7/\text{noGab; A2-T33; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{hollow\_mst\_critical\_only} & \text{false}\ (\text{MST}\cap\text{hollow; A2-T34; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{hollow\_bridge\_critical\_only} & \text{false}\ (\text{graph-bridge}\cap\text{hollow; A2-T34-followon; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-h_0\ (\text{hollowness cut}) & 0.35\ \text{provisional}\ (\text{A4 primary handoff }0.7\text{ with mid }0.5\text{/noGab; multi-}\tau\text{ ROC confirms dens1; sheet }q_{01}\text{ tension; Poisson LR open; \#44}) & \text{S2.6.2} & \text{proposed (calibrated; \#44)}\\
+\texttt{HollowEdgeConfig.soft\_capacity\_only} & \text{false}\ (\text{Brandes bet}\ge f\cdot\max\cap\text{hollow; A2-T37; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{HollowEdgeConfig.soft\_capacity\_frac} & 0.25\ (\text{soft-capacity betweenness fraction; A2-T37; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+h_0\ (\text{hollowness cut}) & 0.35\ \text{provisional}\ (\text{A4 primary handoff }0.7\text{ with mid }0.5\text{/noGab; multi-}\tau\text{ ROC confirms dens1; sheet }q_{01}\text{ tension; A2-T38 Poisson-null export mid }0.25/0.35/0.5\text{ }q_{01}\approx0.15/0.43/0.76\text{; Poisson LR open; \#44}) & \text{S2.6.2} & \text{proposed (calibrated; \#44)}\\
 f_{\mathrm{mid}}\ (\text{mid-ball fraction}) & 0.35\ (L/4\text{ false-hollows; A4 primary handoff }0.5\text{; mid}{>}0.5\text{ TPR collapses; ROC AUC}\approx1.0\text{ at }0.35) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 n_{\mathrm{end}}^{\min} & 0.5\ (\text{else Gabriel empty-diameter}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 M_{\mathrm{transit}} & 1\ (\text{identity until online EWMA lands}) & \text{S2.6.1} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_dual\_adjacency} & \text{false} & \text{S6.6} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_conservative\_bp} & \text{false}\ (\text{identity/damped sketch only}) & \text{S6.6} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_face\_tallies} & \text{false}\ (\text{S6.1 stub; not live-routed; \#43}) & \text{S6.1} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.enable\_stage1\_bmu\_wiring} & \text{false}\ (\text{Stage-1 BMU}\to\text{S6.1 tally sketch; A5-T48; \#43}) & \text{S6.1} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_as\_message\_pass} & \text{false}\ (\text{S6.2 soft }A_S\text{ sketch; A5-T44; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_mu\_weighted\_solve} & \text{false}\ (\text{whitened }\lambda_f{+}\mu_S\text{ soft solve; A5-EXP-mu; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.enable\_count\_aware\_lambda} & \text{false}\ (\lambda_f{=}1+n_f/(1+\bar n)\text{; A5-T46; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.enable\_patch\_mu\_solve} & \text{false}\ (\text{block-concat }\sum\mu_S\text{ soft patch; A5-T47; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.mu\_scale} & 0.1\ (\text{SI }\mu_S\text{ leading constant; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.whiten\_floor} & 10^{-8}\ (\text{empirical-std floor; \#43}) & \text{S6.2} & \text{numerical}\\
 \texttt{DualFlowConfig.spectrum\_cond\_cap} & 10^{6}\ (\text{step-shrink when Hessian cond exceeds; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
@@ -2968,7 +3056,7 @@ R_S\text{ thresholds} & 0.05,\ 0.30,\ 0.60 & \text{S5.2} & \text{empirical}\\
 r_{LS} & \ell_{\max}/\ell_{\min}>5 & \text{S5.3} & \text{operational}\\
 P_\kappa & 25\%,50\% & \text{S5.5} & \text{empirical}\\
 P_{\max} & 64\text{ simplices} & \text{S5.5} & \text{operational}\\
-\lambda_f & 1 & \text{S6.2} & \text{operational}\\
+\lambda_f & 1\ (\text{baseline; count-aware }1+n_f/(1+\bar n)\text{ behind }\texttt{enable\_count\_aware\_lambda}\text{; A5-T46}) & \text{S6.2} & \text{operational}\\
 \mu_S & 0.1\bar\lambda_S/(\|A_S\|_F^2+\epsilon_A) & \text{S6.2} & \text{operational}\\
 \epsilon_A & 10^{-8} & \text{S6.2} & \text{numerical}\\
 \epsilon_V & 10^{-3} & \text{S6.4} & \text{numerical}\\
