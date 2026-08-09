@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T12:15-05:00",
+  "updated_at": "2026-08-09T12:25-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -14,19 +14,19 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T4",
+          "id": "A1-T7",
           "status": "ready",
-          "summary": "Next cadence: re-read worker mailboxes; merge A2→A6 if new tips; refill queues 2–3 deep"
+          "summary": "Next cadence: re-read mailboxes; scoop A2/A4 follow-ons + any A3/A5/A6 tips; keep queues 2–3 deep"
         },
         {
-          "id": "A1-T5",
+          "id": "A1-T8",
           "status": "ready",
-          "summary": "When A6 deletion checklist is ready, schedule load_band removal behind tests on integration"
+          "summary": "After A6-T4/T5 deletion-readiness matrix, schedule load_band/_legacy_slope_selector/_detect_peak deletion behind green scale_search+scenario"
         },
         {
-          "id": "A1-T6",
+          "id": "A1-T9",
           "status": "ready",
-          "summary": "Watch A2 #44 design spike; after NOTE, open follow-on tasks / SI assignment as needed"
+          "summary": "Watch #44 nested_spheres recovery notes; if evidence green, assign SI persist-pairing wording to A3"
         }
       ]
     },
@@ -37,26 +37,27 @@
         44
       ],
       "owns_files": [
-        "code/proteus/src/proteus/stage1/recursion.py"
+        "code/proteus/src/proteus/stage1/recursion.py",
+        "code/proteus/tests/stage1/test_recursion.py"
       ],
       "queue": [
         {
-          "id": "A2-T1",
+          "id": "A2-T4",
           "status": "ready",
           "issue": 44,
-          "summary": "Design spike: propose finer-than-parent-tau* re-search API + stop guarantee; write design note to COORDINATION (NOTE), no behavior change yet unless flag-gated"
+          "summary": "Measure nested_spheres/linked_tori leaf counts under recommended pairing (persist+allow_finer_research+steps<=4+min_samples); NOTE results; no awaiting flips"
         },
         {
-          "id": "A2-T2",
+          "id": "A2-T5",
           "status": "ready",
           "issue": 44,
-          "summary": "Prototype flag-gated descent into K=1 regions (default off); unit/recursion test sketch for nested_spheres cc=2 aspiration"
+          "summary": "Docstring/RecursionConfig help text: document required persist pairing for uniform manifolds; REQUEST_TRACKER if SI prose needed"
         },
         {
-          "id": "A2-T3",
+          "id": "A2-T6",
           "status": "ready",
           "issue": 44,
-          "summary": "Validate circle/swiss do not shatter under the flag; document results via REQUEST_TRACKER for #44"
+          "summary": "Either implement prefer_disconnected_prepass short-circuit or NOTE why keep stub; keep default off"
         }
       ]
     },
@@ -83,7 +84,7 @@
           "id": "A3-T6",
           "status": "ready",
           "issue": 44,
-          "summary": "After A2 design NOTE: sketch SI wording options for finer-descent stop/acceptance ownership (NOTE; no SI edit until A1 assigns)"
+          "summary": "After A2 design NOTE (landed): sketch SI wording for finer-descent stop/acceptance + required persist pairing (NOTE; no SI edit until A1 assigns)"
         }
       ]
     },
@@ -99,22 +100,22 @@
       ],
       "queue": [
         {
-          "id": "A4-T1",
+          "id": "A4-T4",
           "status": "ready",
           "issue": 41,
-          "summary": "Inventory existing PH helpers + @awaiting topology tests; NOTE the filtration/reading options"
+          "summary": "Diagnostics: lifetime vs fixed_threshold on clean+fitted circle/tori region node sets; NOTE numbers; do not flip awaiting"
         },
         {
-          "id": "A4-T2",
+          "id": "A4-T5",
           "status": "ready",
           "issue": 41,
-          "summary": "Scaffold per-region PH harness (still @awaiting if deps missing); do not flip tests without green evidence"
+          "summary": "Wire a scenario helper that feeds accepted-region node positions into per_region_topology; keep recovery tests awaiting"
         },
         {
-          "id": "A4-T3",
+          "id": "A4-T6",
           "status": "ready",
           "issue": 41,
-          "summary": "Document tissue-pollution + persistence-lifetime threshold proposal; REQUEST_TRACKER for #41/#25 notes"
+          "summary": "Draft SI S14.2/S14.3 log text for DEFAULT_LIFETIME_FRAC=0.5; REQUEST_TRACKER so A3 can place when assigned"
         }
       ]
     },
@@ -182,5 +183,5 @@
       ]
     }
   },
-  "notes": "2026-08-09T12:15: merged A2–A6 tips; resolved #42; trimmed #28/#43; refilled A3/A5/A6 queues. A2 still needs first CLAIM on #44. Integration turn-boundary only."
+  "notes": "2026-08-09T12:25: scooped A2 (#44 prototype) + A4 (#41 PH harness); trimmed #44/#41/#25; refilled A2/A4/A1 queues. A3/A5/A6 still on T4–T6."
 }
