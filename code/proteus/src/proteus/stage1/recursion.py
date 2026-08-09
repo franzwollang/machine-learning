@@ -158,10 +158,12 @@ class RecursionConfig:
     ``prefer_pca_axis_gap_prepass`` is the non-radial dual of the plain
     radial gap: project scaffold positions onto the leading principal
     component and take the largest balanced 1-D gap (same size /
-    ``min_gap_ratio`` / ``Q>0`` gates).  Recovers laterally **offset**
-    rings on unit scaffolds where radial-from-origin is the wrong cue;
-    interlocking linked_tori still unrecovered under e2e persist+pca
-    (geometry interpenetration) — do not flip awaiting.
+    ``min_gap_ratio`` / ``Q>0`` gates), plus a centroid-separation gate
+    ``||c0-c1||/(rms0+rms1) >= 1`` that rejects PC1 diameter cuts on
+    concentric scaffolds.  Recovers laterally **offset** rings on unit
+    scaffolds where radial-from-origin is the wrong cue; interlocking
+    linked_tori still unrecovered under e2e persist+pca (geometry
+    interpenetration) — do not flip awaiting.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
@@ -446,6 +448,7 @@ def _pca_axis_gap_partition(
     min_frac: float = 0.2,
     min_abs: int = 3,
     min_gap_ratio: float = 0.25,
+    min_centroid_sep_ratio: float = 1.0,
 ) -> ClusterResult | None:
     """Return a 2-way partition from a large PCA-axis gap, else ``None``.
 
@@ -454,9 +457,10 @@ def _pca_axis_gap_partition(
     but can separate along the leading principal axis of node positions.
     Center the scaffold, project onto PC1, take the largest balanced gap
     with the same size / ``gap / median(|proj|)`` / ``Q > 0`` gates as
-    :func:`_radial_gap_partition`.  Concentric shells are typically
-    rejected by the gap-ratio gate (isotropic PC1 diameter has no deep
-    trough).
+    :func:`_radial_gap_partition`.  An additional **centroid-separation**
+    gate ``||c0-c1|| / (rms0+rms1) >= min_centroid_sep_ratio`` (operational
+    default ``1.0``) rejects PC1 diameter cuts on concentric / isotropic
+    scaffolds that otherwise clear the 1-D gap ratio.
     """
 
     n = len(scaffold.nodes)
@@ -507,6 +511,16 @@ def _pca_axis_gap_partition(
         set(np.where(labels == cid)[0].tolist()) for cid in (0, 1)
     ]
     if min(len(c) for c in clusters) < threshold:
+        return None
+
+    # Offset vs diameter: require cluster centroids to be well separated
+    # relative to within-cluster RMS radii (rejects concentric PC1 halves).
+    c0 = positions[labels == 0].mean(axis=0)
+    c1 = positions[labels == 1].mean(axis=0)
+    rms0 = float(np.sqrt(((positions[labels == 0] - c0) ** 2).sum(axis=1).mean()))
+    rms1 = float(np.sqrt(((positions[labels == 1] - c1) ** 2).sum(axis=1).mean()))
+    sep = float(np.linalg.norm(c0 - c1))
+    if sep / (rms0 + rms1 + 1e-12) < float(min_centroid_sep_ratio):
         return None
 
     graph_lifted = scaffold.links.neighbour_graph(n)

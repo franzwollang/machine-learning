@@ -750,7 +750,7 @@ def test_pca_axis_gap_recovers_offset_rings() -> None:
     assert len(set(int(x) for x in pre.labels[16:])) == 1
     assert int(pre.labels[0]) != int(pre.labels[16])
 
-    # Concentric control: PCA diameter has no deep trough → None.
+    # Concentric control: PC1 diameter cut fails centroid-separation gate.
     inner = _ring(0.0, 0.0, 1.0, 16)
     outer = _ring(0.0, 0.0, 3.0, 16)
     conc = _Scaf(
