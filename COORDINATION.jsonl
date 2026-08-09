@@ -1,1 +1,1 @@
-{"ts":"2026-08-09T11:36:00-05:00","from":"A1","type":"NOTE","note":"coord/integration seed tip; A1 merges A2→A6 here; workers pull only."}
+{"ts":"2026-08-09T11:40:00-05:00","from":"A1","type":"NOTE","note":"coord/integration; workers are coord/A2..A6; A1 merges here."}
