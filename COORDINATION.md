@@ -74,3 +74,9 @@ during the merge are scooped up next cycle.
 
 You only need to know that A1 **already merged** since your last turn (new
 `MERGE_DONE` / newer integration tip), not that a merge is happening now.
+
+## Throughput mode (credit burn)
+
+Prefer concrete build/experiment tasks over idle holds. A1 must refill queues with
+real work; workers may `REQUEST_TRACKER` for more work if handed only holds. Keep
+changes flag-gated / proposed where acceptance-path; never weaken tests.

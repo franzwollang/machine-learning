@@ -1,6 +1,7 @@
 {
-  "updated_at": "2026-08-09T15:05-05:00",
+  "updated_at": "2026-08-09T15:10-05:00",
   "integration_branch": "coord/integration",
+  "throughput_mode": true,
   "merge_order": [
     "coord/A2",
     "coord/A3",
@@ -14,28 +15,26 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T40",
+          "id": "A1-T43",
           "status": "ready",
-          "summary": "Watch A2 non-radial linked_tori prototype; no awaiting flip until tori green"
+          "summary": "THROUGHPUT MODE: ban idle-hold refills; always assign concrete build/experiment tasks; expand owns_files when useful"
         },
         {
-          "id": "A1-T41",
+          "id": "A1-T44",
           "status": "ready",
-          "summary": "Scoop A4-T12..T14 reading-path NOTES when tips land"
+          "summary": "Scoop aggressively; keep queues 3-deep with experiments; annotate findings; still no awaiting flip without green evidence"
         },
         {
-          "id": "A1-T42",
+          "id": "A1-T45",
           "status": "ready",
-          "summary": "Keep dual_flow watch; do not close #43 until S6 lands"
+          "summary": "After each scoop, prefer parallel experimental tracks over waiting on blockers (e.g. stub S6 if absent)"
         }
       ]
     },
     "A2": {
       "branch": "coord/A2",
       "role": "worker",
-      "owns_issues": [
-        44
-      ],
+      "owns_issues": [44],
       "owns_files": [
         "code/proteus/src/proteus/stage1/recursion.py",
         "code/proteus/tests/stage1/test_recursion.py"
@@ -45,119 +44,115 @@
           "id": "A2-T21",
           "status": "ready",
           "issue": 44,
-          "summary": "Prototype non-radial linked_tori prepass (flag-gated default off); NOTE only \u2014 no awaiting flips"
+          "summary": "IMPLEMENT non-radial linked_tori prepass (flag-gated default off) — code + unit probe, not NOTE-only"
         },
         {
           "id": "A2-T22",
           "status": "ready",
           "issue": 44,
-          "summary": "Guard: persist+sd with max_finer_scale_steps<=4 must keep swiss/circle ~1 leaf; NOTE"
+          "summary": "Experiment: alternative tori cues (linking number / major-radius offset / angular separation); keep flag-gated; report leaf counts"
         },
         {
           "id": "A2-T23",
           "status": "ready",
           "issue": 44,
-          "summary": "Optional: document recommended pairing (persist+sd+steps<=4+keep_frac=0.55) in RecursionConfig docstring"
+          "summary": "Add regression harness covering circle/swiss/nested/tori under recommended pairing; document failures without flipping awaiting"
         }
       ]
     },
     "A3": {
       "branch": "coord/A3",
       "role": "worker",
-      "owns_issues": [],
+      "owns_issues": [28, 41, 44],
       "owns_files": [
         "docs/Proteus/paper_1_foundational/SI.tex"
       ],
       "queue": [
         {
-          "id": "A3-T31",
+          "id": "A3-T34",
           "status": "ready",
           "issue": 28,
-          "summary": "Optional: SI S2.6.2/S14.3 one-paragraph for PersistenceConfig.resolve_within_interval (default none); else hold"
+          "summary": "WRITE SI S2.6.2/S14.3 proposed paragraph for PersistenceConfig.resolve_within_interval (default none; experimental options)"
         },
         {
-          "id": "A3-T32",
+          "id": "A3-T35",
           "status": "ready",
           "issue": 41,
-          "summary": "Idle: no further #41 SI unless A1 assigns after SI-defensible fitted-region recovery"
+          "summary": "DRAFT SI S14.2 proposed reading-path section from A4 calib (mult/frac tables) labeled proposed/operational"
         },
         {
-          "id": "A3-T33",
+          "id": "A3-T36",
           "status": "ready",
-          "issue": 44,
-          "summary": "Idle hold: SI A+C already landed; no further #44 SI until awaiting flip decision"
+          "issue": 43,
+          "summary": "DRAFT SI S6 dual-flow / DualAdjacency stub section so A5 can implement against prose (proposed)"
         }
       ]
     },
     "A4": {
       "branch": "coord/A4",
       "role": "worker",
-      "owns_issues": [
-        41
-      ],
+      "owns_issues": [41],
       "owns_files": [
         "code/proteus/tests/metrics/persistent_homology.py",
         "code/proteus/tests/scenarios/synthetic/"
       ],
       "queue": [
         {
-          "id": "A4-T12",
+          "id": "A4-T15",
           "status": "ready",
           "issue": 41,
-          "summary": "NOTE: propose next SI-defensible reading path given calib (mult>=6 / frac>=4 fails SI defaults); no awaiting flips"
+          "summary": "IMPLEMENT lifetime_frac sweep harness (table artifact or pytest parametrize) for clean-shell + fitted-circle; keep recovery awaiting"
         },
         {
-          "id": "A4-T13",
+          "id": "A4-T16",
           "status": "ready",
           "issue": 41,
-          "summary": "Optional: clean-shell lifetime_frac sweep table in NOTE for A3; keep recovery awaiting"
+          "summary": "Prototype per-region PH runner API for nested_spheres/linked_tori (may stay xfail/@awaiting); maximize useful scaffolding"
         },
         {
-          "id": "A4-T14",
+          "id": "A4-T17",
           "status": "ready",
           "issue": 41,
-          "summary": "Idle: confirm PH subset still green after integration scoop; NOTE only"
+          "summary": "Experiment: signal-label filter + Fibonacci sampling notes encoded as helper flags/tests; report best mult/frac pairs"
         }
       ]
     },
     "A5": {
       "branch": "coord/A5",
       "role": "worker",
-      "owns_issues": [
-        43
-      ],
+      "owns_issues": [43],
       "owns_files": [
         "code/proteus/src/proteus/evidence/gate.py",
+        "code/proteus/src/proteus/stage2/",
         "code/proteus/tests/evidence/",
-        "code/proteus/tests/**/test*gate*"
+        "code/proteus/tests/**/test*gate*",
+        "code/proteus/tests/**/test*dual*"
       ],
       "queue": [
         {
-          "id": "A5-T28",
+          "id": "A5-T31",
           "status": "ready",
           "issue": 43,
-          "summary": "Re-check integration each turn for stage2/dual_flow; if present, CLAIM wiring into affected_dual_subgraph_connected"
+          "summary": "CREATE experimental stage2/dual_flow.py stub (DualAdjacency + affected_subgraph_connected) flag/proposed; do not wait for perfect S6"
         },
         {
-          "id": "A5-T29",
+          "id": "A5-T32",
           "status": "ready",
           "issue": 43,
-          "summary": "REPORT via NOTE if still blocked on S6; keep queue warm without drive-by Stage-1 edits"
+          "summary": "Wire stub into gate dual_connected path behind a flag; property tests for disconnect=>reject"
         },
         {
-          "id": "A5-T30",
+          "id": "A5-T33",
           "status": "ready",
           "issue": 43,
-          "summary": "Optional: confirm DualAdjacency SI anchors still accurate after any gate.py churn; NOTE only"
+          "summary": "Expand evidence tests / synthetic dual graphs; document gaps vs full S6; REQUEST_TRACKER with status"
         }
       ]
     },
     "A6": {
       "branch": "coord/A6",
       "role": "worker",
-      "owns_issues": [
-        28
-      ],
+      "owns_issues": [28],
       "owns_files": [
         "docs/Proteus/paper_1_foundational/paper.tex",
         "code/proteus/src/proteus/stage1/controller.py",
@@ -166,25 +161,25 @@
       ],
       "queue": [
         {
-          "id": "A6-T25",
+          "id": "A6-T28",
           "status": "ready",
           "issue": 28,
-          "summary": "Idle hold: no resolve_within_interval default flip; NOTE only if new SI-justified within-interval signal appears"
+          "summary": "IMPLEMENT experimental resolve_within_interval strategies behind flag (default none unchanged); add tests comparing coarse vs mid-interval"
         },
         {
-          "id": "A6-T26",
+          "id": "A6-T29",
           "status": "ready",
           "issue": 28,
-          "summary": "Optional: if A3 writes resolve_within_interval SI prose, stay hands-off SI.tex; else hold"
+          "summary": "Deletion-prep: isolate load_band / legacy selectors behind deprecated path; add tests locking default stays load_crossover"
         },
         {
-          "id": "A6-T27",
+          "id": "A6-T30",
           "status": "ready",
           "issue": 28,
-          "summary": "Idle: confirm hybrid lock + paper L=1 still green after any integration scoop; NOTE only"
+          "summary": "Paper/SI-adjacent paper.tex sync for experimental within-interval options; keep defaults stable"
         }
       ]
     }
   },
-  "notes": "2026-08-09T15:05: Late scoop A2-T18..T20: tori unrecovered; swiss steps<=4 only; keep_frac=0.55; no awaiting flip. Refilled A2."
+  "notes": "THROUGHPUT MODE ON (human 2026-08-09T15:10): no idle-hold queues. Prefer flag-gated experiments and stubs. Still never weaken tests or flip awaiting without green evidence. Branches remain coord/A1..A6."
 }

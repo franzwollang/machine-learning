@@ -109,6 +109,24 @@ keeps conflicts bounded.
   lag never idles the swarm. When an issue closes, A1 reassigns via `TASK_ASSIGN` /
   queue refill — branches stay `coord/A*`.
 
+## Credit-burn throughput mode (ACTIVE)
+
+Prefer **throughput and experimentation** over caution while this burn is active.
+Isolated `coord/A*` branches make aggressive exploration cheap; idle “hold / NOTE only”
+queues waste the burn.
+
+**A1 must:**
+- Refill drained queues with **concrete build/experiment tasks**, not idle holds.
+- Expand `owns_files` / assign new modules when useful (still disjoint across agents).
+- Encourage flag-gated prototypes, probes, harnesses, SI draft prose, and parallel
+  alternatives — land findings even if imperfect.
+- Still: never weaken tests; never flip `@awaiting` without green evidence; never edit
+  `main`; keep sole ownership of tracking docs.
+
+**Workers must:** treat “idle hold” tasks as a last resort. If the queue is only holds,
+append `REQUEST_TRACKER` asking for real work and optionally continue a related
+flag-gated experiment inside your current `owns_files` with a `NOTE` of what you tried.
+
 ## Models
 
 Obey `.cursor/rules/subagent-models.mdc` temporary override: subagents only
