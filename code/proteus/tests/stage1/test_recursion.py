@@ -441,10 +441,13 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
 
     Default path (flag off) terminates at K=1 at coarse tau*.  This test
     documents the aspiration and only asserts the default-off contract is
-    unchanged; a full green leaf-count assert is deferred until the finer
-    window + gate pairing is validated on the fuller suite (A2-T3/T4).
-    A2-T4: AP finer walks do not yet recover shell ARI; prefer_disconnected
-    prepass is wired for the obvious lifted-disconnect short-circuit.
+    unchanged; do **not** assert leaf-count==2 until recovery is green.
+
+    A2-T4 measurements (tissue_fraction=0): recommended pairing
+    (persist + allow_finer_research + steps<=4 + min_samples>=80) →
+    nested_spheres and linked_tori both stay at **1 leaf** (n=160 and n=240).
+    Deepening (steps=12–18 + prepass, min_samples=40) over-fragments
+    (nested leaves 5–20, tori 6–12) with ARI≈0 / <0.23 — not shell recovery.
     """
 
     from tests.datasets.synthetic.nested_spheres import make_nested_spheres
