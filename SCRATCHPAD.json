@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T12:50-05:00",
+  "updated_at": "2026-08-09T12:55-05:00",
   "turn": 32,
   "focus": {
     "milestone": "M2",
     "issue": 28,
-    "goal": "load_band deleted; #44 nested recovery still open"
+    "goal": "load_band deleted; #44 nested still 1-leaf"
   },
   "recent": [
-    "Scooped A2 #44c prepass + A4 accepted-region helper + A5 DualAdjacency + A6 load_band delete",
-    "Tests: 36 passed / 5 xfailed after deletion",
-    "Trimmed #28 deletion bullet; refilled A3-T10 SI cleanup"
+    "Final scoop: A2 nested/tori 1-leaf + pairing docs; A4 fitted-circle b1=0 at SI default",
+    "load_band deleted; DualAdjacency landed; tests 28p/1x on subset",
+    "Assigned A3-T10 SI load_band trim + A3-T12 lifetime_frac place"
   ],
   "discoveries": [
-    "Tissue filter load-bearing for PH; lifetime alone on whole scaffold insufficient",
-    "Prepass alone still ARI~0 on nested shells; deep walk false-hits circle"
+    "Fitted-circle SI 1.5*sigma* still b1=0; ~8*sigma* existence only",
+    "Recommended #44 pairing keeps nested/tori at 1 leaf"
   ],
   "open_threads": [
-    "A2 measuring nested/tori under recommended pairing",
-    "A3 #44 SI A+C held until nested evidence",
+    "A2 prepass/dm pairing studies for shell recovery",
+    "A3 SI cleanup + lifetime_frac place; #44 A+C still held",
     "S6 dual_flow still absent"
   ],
-  "next_step": "MERGE_DONE push; next turn scoop A2 measure NOTES + A3 SI trim",
+  "next_step": "MERGE_DONE push; next turn verify A3 SI edits",
   "blockers": []
 }

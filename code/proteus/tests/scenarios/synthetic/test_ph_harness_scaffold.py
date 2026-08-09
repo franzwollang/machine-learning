@@ -78,3 +78,34 @@ def test_ph_harness_fixed_threshold_mode_and_label_split() -> None:
     # Clean circle at 1.5*sigma with sigma=0.4 should still see the loop.
     assert betti[0] >= 1
     assert DEFAULT_LIFETIME_FRAC > 0.0
+
+
+@pytest.mark.scenario
+@pytest.mark.synthetic
+def test_topology_from_accepted_regions_wires_label_split() -> None:
+    """Accepted-region labels → per_region_topology via scenario helper.
+
+    Stand-in for fitted-scaffold cluster labels. Does **not** flip
+    nested_spheres / linked_tori / circle tissue ``@awaiting`` recovery tests.
+    """
+    c0 = _clean_circle(seed=5)
+    c1 = _clean_circle(seed=6) + np.array([6.0, 0.0])
+    # Label 99 stands in for tissue / non-accepted nodes to exclude.
+    tissue = np.array([[3.0, 3.0], [3.1, 2.9]])
+    all_pts = np.vstack([c0, c1, tissue])
+    labels = np.array([0] * len(c0) + [1] * len(c1) + [99] * len(tissue))
+    sigma = 0.4
+    reports = topology_from_accepted_regions(
+        all_pts,
+        labels,
+        sigma,
+        include_labels=[0, 1],
+        reading="lifetime",
+        max_dim=1,
+        lifetime_frac=0.25,
+    )
+    assert [r.region_id for r in reports] == [0, 1]
+    assert all(r.n_points == c0.shape[0] for r in reports)
+    for rep in reports:
+        assert rep.betti[0] >= 1
+        assert rep.betti[1] == 1

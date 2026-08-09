@@ -107,11 +107,14 @@ re-searched *finer* scales inside a single feature.
 - **Landed (flag-gated, default off):** `RecursionConfig.allow_finer_research` +
   `prefer_disconnected_prepass` / `finer_prepass_min_frac=0.2` in
   `stage1/recursion.py`; unit coverage in `tests/stage1/test_recursion.py`.
+  RecursionConfig docstring documents the recommended persist pairing.
+- **FINDING (A2-T4):** under recommended pairing
+  (persist+allow_finer_research+steps≤4+min_samples), nested_spheres and
+  linked_tori still yield **1 leaf** — aspiration not recovered; do not flip
+  awaiting tests.
 - **Remaining:** recover nested_spheres / linked_tori ground-truth component
-  counts under a recommended pairing (prepass alone still ARI~0 / needs deep walk);
-  document required persist pairing in SI / docstrings; do **not** flip `@awaiting`
-  component-separation tests until evidence is green. Distinct from #28
-  (which scale is picked, not descending past it).
+  counts (deeper pairing / prepass study); SI S2.6.2+S14.3 A+C paragraph still
+  held until recovery evidence is greener. Distinct from #28.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
@@ -135,11 +138,17 @@ circle `b1 = 1` target of #25.
   `lifetime_frac=0.5`. Do not flip awaiting recovery tests yet.
 - **Landed (helper):** `topology_from_accepted_regions` feeds accepted-region node
   positions into `per_region_topology` (recovery tests still awaiting).
+- **FINDING (A4 fitted-circle probe):** on `scaffold_at_star`, SI `1.5*sigma*`
+  yields `b1=0` (whole and accepted-region); lifetime inflates `b0` still with
+  `b1=0`. NN signal-label filter recovers `b1=1` only near `~8*sigma*` (existence
+  proof, not SI default). Do not flip awaiting tests.
+- **SI draft ready (A4 mailbox):** S14.2 lifetime clause + S14.3
+  `lifetime_frac=0.5` operational row — A3 to place when assigned (proposal-path;
+  do not claim fitted recovery in SI).
 - **Remaining before flipping recovery tests:**
-  1. *Fitted-region evidence* — PH on fitted circle / tori / spheres accepted-region nodes.
-  2. *Threshold logging* — defend `DEFAULT_LIFETIME_FRAC` in SI S14.2/S14.3 before flips
-     (A3 placement draft ready; wait for A4 log text + fitted evidence).
-  3. *Per-region harness on nested_spheres clean shells* as a stepping stone to fitted scaffolds.
+  1. *Fitted-region evidence* that recovers Betti at an SI-defensible reading.
+  2. *Threshold logging* — place A4’s `DEFAULT_LIFETIME_FRAC` draft in SI S14.2/S14.3.
+  3. *Per-region harness on nested_spheres clean shells* as a stepping stone.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 

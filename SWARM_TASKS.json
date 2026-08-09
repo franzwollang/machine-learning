@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T12:50-05:00",
+  "updated_at": "2026-08-09T12:55-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -16,12 +16,12 @@
         {
           "id": "A1-T13",
           "status": "ready",
-          "summary": "Next cadence: scoop mid-turn tips; verify A2 nested/tori NOTES; assign A3 #44 SI A+C only if recovery green enough"
+          "summary": "Next cadence: scoop tips; keep #44 SI A+C held (nested still 1-leaf); verify A3 SI load_band trim + lifetime_frac place"
         },
         {
           "id": "A1-T14",
           "status": "ready",
-          "summary": "When A4-T6 lifetime-frac log text arrives, assign A3 to place S14.2/S14.3 DEFAULT_LIFETIME_FRAC"
+          "summary": "Assigned A3-T12 to place A4 lifetime_frac SI draft; confirm after DONE"
         },
         {
           "id": "A1-T15",
@@ -42,22 +42,22 @@
       ],
       "queue": [
         {
-          "id": "A2-T4",
-          "status": "ready",
-          "issue": 44,
-          "summary": "Measure nested_spheres/linked_tori leaf counts under recommended pairing (persist+allow_finer_research+steps<=4+min_samples±prepass); NOTE results; no awaiting flips"
-        },
-        {
-          "id": "A2-T5",
-          "status": "ready",
-          "issue": 44,
-          "summary": "Docstring/RecursionConfig help text: document required persist pairing for uniform manifolds; REQUEST_TRACKER if SI prose needed"
-        },
-        {
           "id": "A2-T7",
           "status": "ready",
           "issue": 44,
           "summary": "Prepass pairing study: steps/min_frac/persist combos that avoid circle false-hits while probing nested shells; NOTE only — no awaiting flips"
+        },
+        {
+          "id": "A2-T8",
+          "status": "ready",
+          "issue": 44,
+          "summary": "Probe allow_finer_research with require_dm_split±persist on nested_spheres; NOTE leaf counts vs gt cc=2; no awaiting flips"
+        },
+        {
+          "id": "A2-T9",
+          "status": "ready",
+          "issue": 44,
+          "summary": "If a pairing recovers cc≈2 with ARI>0, REQUEST_TRACKER for A3 SI A+C assign; else NOTE blockers"
         }
       ]
     },
@@ -73,19 +73,19 @@
           "id": "A3-T10",
           "status": "ready",
           "issue": 28,
-          "summary": "CLAIM SI.tex: after load_band deletion on integration, drop S14.3/S2.5.1 'retained behind flag'/DEPRECATED load_band sentences"
-        },
-        {
-          "id": "A3-T11",
-          "status": "ready",
-          "issue": 44,
-          "summary": "Idle hold: #44 SI A+C paragraph until A1 assigns after nested_spheres evidence; re-read A2 mailbox"
+          "summary": "CLAIM SI.tex: drop S14.3/S2.5.1 'retained behind flag'/DEPRECATED load_band sentences (code deleted). Also flag stale persistence.py module docstring 'load-band transition default' via REQUEST_TRACKER (not A3-owned file)"
         },
         {
           "id": "A3-T12",
           "status": "ready",
           "issue": 41,
-          "summary": "Idle: hold DEFAULT_LIFETIME_FRAC SI placement until A1 assigns (A4-T6 log text + fitted evidence)"
+          "summary": "CLAIM SI.tex: place A4 mailbox draft for DEFAULT_LIFETIME_FRAC=0.5 (S14.2 clause + S14.3 operational row); include tissue/per-region caveat; do NOT claim fitted-circle recovery"
+        },
+        {
+          "id": "A3-T11",
+          "status": "ready",
+          "issue": 44,
+          "summary": "Idle hold: #44 SI A+C paragraph — nested/tori still 1-leaf under recommended pairing; wait for A1 assign after recovery evidence"
         }
       ]
     },
@@ -101,22 +101,22 @@
       ],
       "queue": [
         {
-          "id": "A4-T5",
+          "id": "A4-T8",
           "status": "ready",
           "issue": 41,
-          "summary": "Finish/verify topology_from_accepted_regions helper + smoke; keep recovery tests awaiting; DONE + REQUEST_TRACKER"
+          "summary": "nested_spheres clean-shell PH stepping stone via topology_from_accepted_regions / signal filter; NOTE Betti; no awaiting flips"
         },
         {
-          "id": "A4-T6",
+          "id": "A4-T9",
           "status": "ready",
           "issue": 41,
-          "summary": "Draft SI S14.2/S14.3 log text for DEFAULT_LIFETIME_FRAC=0.5; REQUEST_TRACKER so A3 can place when assigned"
+          "summary": "lifetime filtration_mult / lifetime_frac calibration study on fitted circle (document which mult recovers b1=1); NOTE only"
         },
         {
-          "id": "A4-T7",
+          "id": "A4-T10",
           "status": "ready",
           "issue": 41,
-          "summary": "Fitted-circle scaffold PH probe (signal nodes / accepted region); NOTE lifetime vs fixed_threshold; no awaiting flips"
+          "summary": "Optional: formalize radial/signal-band helper used in fitted-circle probe if duplicated; keep defaults unchanged"
         }
       ]
     },
@@ -165,25 +165,25 @@
       ],
       "queue": [
         {
-          "id": "A6-T8",
-          "status": "ready",
-          "issue": 28,
-          "summary": "REQUEST_TRACKER: confirm load_band deletion on integration; ask A1 to keep #28 coarse-end + A3 SI trim; mark A6-T7 done"
-        },
-        {
-          "id": "A6-T9",
-          "status": "ready",
-          "issue": 28,
-          "summary": "Optional prototype NOTE only: PersistenceConfig.resolve_within_interval='load_crossover' API sketch (default off; no behavior change)"
-        },
-        {
           "id": "A6-T10",
           "status": "ready",
           "issue": 28,
-          "summary": "Grep confirm no selector=load_band remains in repo after merge; NOTE any stale SI/paper pointers for A3/A1"
+          "summary": "Grep confirm no selector=load_band remains; NOTE any stale SI/paper/persistence.py pointers for A3/A1"
+        },
+        {
+          "id": "A6-T11",
+          "status": "ready",
+          "issue": 28,
+          "summary": "If A1 assigns: prototype PersistenceConfig.resolve_within_interval='load_crossover' behind default-off flag (else hold NOTE-only)"
+        },
+        {
+          "id": "A6-T12",
+          "status": "ready",
+          "issue": 28,
+          "summary": "Paper.tex: one-line check that load_band is not still described as live selector; REQUEST_TRACKER if SI-only fix needed"
         }
       ]
     }
   },
-  "notes": "2026-08-09T12:50: scooped A2 prepass + A4 accepted-region helper + A5 DualAdjacency + A6 load_band deletion; #28 deletion done; refilled A3/A5/A6; A2 still on nested/tori T4."
+  "notes": "2026-08-09T12:55: final scoop A2 nested/tori 1-leaf + docs, A4 fitted-circle FINDING + SI draft, A6 deletion DONE; assigned A3-T10/T12; refilled A2/A4/A6."
 }
