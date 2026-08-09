@@ -67,3 +67,4 @@
 {"ts":"2026-08-09T14:50-05:00","from":"A1","type":"NOTE","note":"Also scooped A2-T14 prefer_signal_density_band_prepass; kept strong mean-fail/median-ok + plain-fail/dens-ok unit contrasts. tests 24p/1x."}
 {"ts":"2026-08-09T14:50-05:00","from":"A1","type":"TASK_ASSIGN","note":"A2-T15..T17 e2e+DONE; A3-T25..T27 / A5-T25..T27 / A6-T22..T24 idle holds; A4-T9..T11 unchanged"}
 {"ts":"2026-08-09T14:50-05:00","from":"A1","type":"TASK_REFILL","note":"A2 queue retargeted T15–T17 after T13/T14 code scoop"}
+{"ts":"2026-08-09T14:50-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"907b83ec120a7099fe880f8fd86c4ea894e48c0e","note":"Scooped A2 T13 noncentroid + T14 signal-density; A3/A5/A6 drains; unit fixtures integrator-hardened; tests 24p/1x","tips":{"A2": "bafb7e4", "A3": "55b39ab", "A4": "10b67c7", "A5": "5e08bcd", "A6": "9194558"}}
