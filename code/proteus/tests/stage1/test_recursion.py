@@ -286,6 +286,8 @@ def test_finer_research_flag_defaults_off() -> None:
     assert cfg.finer_radial_hist_bins >= 8
     assert cfg.prefer_noncentroid_radial_band_prepass is False
     assert cfg.finer_radial_min_trough_rel == 0.0
+    assert cfg.prefer_signal_density_band_prepass is False
+    assert 0.0 < cfg.finer_signal_density_keep_frac <= 1.0
 
 
 def test_major_lifted_component_partition_requires_two_majors() -> None:
@@ -603,6 +605,83 @@ def test_radial_band_trough_gate_and_coord_median_origin() -> None:
     assert int(pre_nc.labels[0]) != int(pre_nc.labels[12])
 
 
+def test_signal_density_band_prefers_shell_arcs() -> None:
+    """#44 / A2-T14: knn-density residual mask keeps shell arcs over sparse mid tissue."""
+
+    from proteus.stage1.recursion import _radial_band_gap_partition
+    from proteus.types import Link
+
+    class _Links:
+        def __init__(self, edges: list[tuple[int, int]]):
+            self._edges = edges
+
+        def neighbour_graph(self, n: int) -> dict[int, list[int]]:
+            g = {i: [] for i in range(n)}
+            for i, j in self._edges:
+                g[i].append(j)
+                g[j].append(i)
+            return g
+
+        def lifted_links(self):
+            return [
+                Link(i=i, j=j, count_ij=1.0, count_ji=1.0, lifted=True)
+                for i, j in self._edges
+            ]
+
+    class _Node:
+        def __init__(self, pos, hits=1.0):
+            self.position = np.asarray(pos, dtype=float)
+            self.hit_count = hits
+            self.d_final = 1
+
+    class _Scaf:
+        def __init__(self, nodes, edges):
+            self.nodes = nodes
+            self.links = _Links(edges)
+            self.tau = 0.1
+
+    def _ring(radius: float, count: int) -> list:
+        angs = np.linspace(0.0, 2.0 * np.pi, count, endpoint=False)
+        return [
+            _Node([radius * np.cos(a), radius * np.sin(a)]) for a in angs
+        ]
+
+    inner = _ring(1.0, 12)
+    outer = _ring(3.0, 12)
+    # Sparse mid-radius tissue (low knn density vs dense rings).
+    # Integrator: n_shell=16/mid=20/keep=0.6 made plain succeed and dens
+    # collapse both shells to one label; use plain-fail / dens-recover contrast.
+    rng = np.random.default_rng(2)
+    mid = [
+        _Node([float(r) * np.cos(a), float(r) * np.sin(a)])
+        for r, a in zip(
+            rng.uniform(1.6, 2.4, size=12),
+            rng.uniform(0.0, 2.0 * np.pi, size=12),
+        )
+    ]
+    nodes = inner + outer + mid
+    edges = (
+        [(i, j) for i in range(12) for j in range(i + 1, 12)]
+        + [(12 + i, 12 + j) for i in range(12) for j in range(i + 1, 12)]
+        + [(0, 12)]
+    )
+    scaf = _Scaf(nodes, edges)
+    pre_plain = _radial_band_gap_partition(
+        scaf, min_frac=0.15, min_abs=3, min_gap_ratio=0.2, hist_bins=12,
+    )
+    assert pre_plain is None
+    pre = _radial_band_gap_partition(
+        scaf, min_frac=0.15, min_abs=3, min_gap_ratio=0.2,
+        hist_bins=12, signal_density_keep_frac=0.5,
+    )
+    assert pre is not None
+    assert pre.n_clusters == 2
+    assert pre.partition_q_score > 0.0
+    assert len(set(int(x) for x in pre.labels[:12])) == 1
+    assert len(set(int(x) for x in pre.labels[12:24])) == 1
+    assert int(pre.labels[0]) != int(pre.labels[12])
+
+
 def test_research_finer_split_rejects_invalid_cap() -> None:
     """#44: finer re-search is a no-op when the cap is not strictly inside (tau_min, tau*)."""
 
@@ -766,6 +845,7 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
         prefer_radial_gap_prepass=True,
         prefer_radial_band_prepass=True,
         prefer_noncentroid_radial_band_prepass=True,
+        prefer_signal_density_band_prepass=True,
         require_dm_split=True,
         finer_tau_cap_ratio=0.5,
         max_finer_scale_steps=12,
@@ -776,4 +856,5 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     assert _aspirational.prefer_radial_gap_prepass is True
     assert _aspirational.prefer_radial_band_prepass is True
     assert _aspirational.prefer_noncentroid_radial_band_prepass is True
+    assert _aspirational.prefer_signal_density_band_prepass is True
     assert _aspirational.max_finer_scale_steps == 12

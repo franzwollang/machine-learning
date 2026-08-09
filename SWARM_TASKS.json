@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T14:45-05:00",
+  "updated_at": "2026-08-09T14:48-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -42,22 +42,22 @@
       ],
       "queue": [
         {
-          "id": "A2-T13",
-          "status": "ready",
-          "issue": 44,
-          "summary": "Finish T13: DONE/REQUEST_TRACKER for prefer_noncentroid_radial_band_prepass (code scooped; unit fixture integrator-tightened)"
-        },
-        {
-          "id": "A2-T14",
-          "status": "ready",
-          "issue": 44,
-          "summary": "Optional: signal-density residual mask on top of band/noncentroid; thin prototype or NOTE"
-        },
-        {
           "id": "A2-T15",
           "status": "ready",
           "issue": 44,
-          "summary": "If recovers nested cc\u22482 ARI>0.5 without circle shatter, REQUEST_TRACKER for A3 SI A+C; else hold awaiting"
+          "summary": "E2e: nested cc\u22482 ARI>0.5 without circle shatter under noncentroid\u00b1signal-density; else blockers + hold awaiting"
+        },
+        {
+          "id": "A2-T16",
+          "status": "ready",
+          "issue": 44,
+          "summary": "DONE/REQUEST_TRACKER for T13\u2013T15 landings if not yet filed; annotate recovery or blockers"
+        },
+        {
+          "id": "A2-T17",
+          "status": "ready",
+          "issue": 44,
+          "summary": "Optional: pairing NOTE (persist+noncentroid+signal_density+steps) \u2014 no awaiting flips"
         }
       ]
     },
@@ -186,5 +186,5 @@
       ]
     }
   },
-  "notes": "2026-08-09T14:45: scooped A2 noncentroid T13 code + A3/A5 drains + A6-T19..T21; integrator fixed skew fixture (mean-fail/median-recover); refilled A3/A5/A6; A2 still mid T13\u2013T15."
+  "notes": "2026-08-09T14:48: scooped A2 T13 noncentroid + T14 signal-density; A3/A5/A6 drains; skew fixture kept strong."
 }

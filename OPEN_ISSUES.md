@@ -136,12 +136,12 @@ re-searched *finer* scales inside a single feature.
   green.
 - **FINDING (A2-T10..T12):** band e2e still unrecovered — persist+band
   `steps<=8` → 1 leaf; deeper over-fragments (not shells). Hold awaiting + SI A+C.
-- **Landed (A2-T13, mid-CLAIM scoop):** `prefer_noncentroid_radial_band_prepass`
-  (default off) + `finer_radial_min_trough_rel` (noncentroid path default 0.35) —
-  coord-median origin + trough-depth gate; unit locks mean-fail / median-recover.
-- **Remaining:** e2e check under noncentroid/trough (T14–T15); optional
-  signal-density residual mask; hold awaiting flips. SI S2.6.2+S14.3 A+C held
-  until recovery evidence is greener. Distinct from #28.
+- **Landed (A2-T13/T14 scoop):** `prefer_noncentroid_radial_band_prepass`
+  (default off) + `finer_radial_min_trough_rel` (noncentroid path default 0.35);
+  `prefer_signal_density_band_prepass` (default off) knn-density residual mask
+  (`finer_signal_density_keep_frac=0.55`). Units: mean-fail/median-recover + shell-arc mask.
+- **Remaining:** e2e nested recovery check (T15); hold awaiting flips. SI
+  S2.6.2+S14.3 A+C held until recovery evidence is greener. Distinct from #28.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 

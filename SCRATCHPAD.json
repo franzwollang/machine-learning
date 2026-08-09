@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T14:45-05:00",
+  "updated_at": "2026-08-09T14:50-05:00",
   "turn": 38,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "watch A2 noncentroid e2e after T13 scoop"
+    "goal": "watch A2-T15 e2e after noncentroid+signal scoop"
   },
   "recent": [
-    "Scooped A2 prefer_noncentroid_radial_band_prepass",
-    "Integrator tightened skew unit (mean-fail/median-ok)",
-    "Refilled A3/A5/A6 after idle drains"
+    "Scooped A2 noncentroid + signal-density prepasses",
+    "Integrator tightened unit fixtures (stronger contrasts)",
+    "Refilled A3/A5/A6; A2 queue T15\u2013T17"
   ],
   "discoveries": [
-    "Band unit OK; e2e nested still unrecovered",
+    "Signal-density keep=0.6 can collapse shells on weak fixtures",
     "Noncentroid path default trough_rel=0.35"
   ],
   "open_threads": [
     "#44 SI A+C held; dual_flow absent",
-    "A2-T14/T15 e2e + optional signal mask",
+    "A2-T15 e2e nested recovery check",
     "A4-T9 lifetime calibration pending"
   ],
-  "next_step": "MERGE_DONE push integration+A1",
+  "next_step": "MERGE_DONE push; watch A2-T15 / A4-T9",
   "blockers": []
 }
