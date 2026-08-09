@@ -2476,3 +2476,110 @@ def test_soft_capacity_persist_agree_leaf_harness() -> None:
                 frac=0.1, min_samples=40) == 1
     assert _run(nested.points, nested.points.shape[1], soft=True, persist=True,
                 frac=0.9, min_samples=40) == 1
+
+
+def test_soft_x_gabriel_conj_nested_tori_ari() -> None:
+    """#44 / A2-T41: soft×require_gabriel_and_h majors+sample-ARI table.
+
+    Soft alone collapses nested@0.27 spurious K=2 but keeps tori@0.5
+    chance-ARI K=2.  Gabriel∧H conjunction alone and soft×conj collapse
+    both scaffolds to ≤1 major — still **not** sample-ARI recovery.
+    Flags default-off; do **not** flip awaiting.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_X_GABRIEL_CONJ_TABLE,
+        a4_roc_primary_config,
+    )
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_require_gabriel_and_h is False
+
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+
+    def _adapt(points, tau: float):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
+            ann_backend="naive", rng=np.random.default_rng(0),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    cfg_a4 = a4_roc_primary_config()
+    cfg_soft = a4_roc_primary_config(
+        soft_capacity_only=True, soft_capacity_frac=0.25,
+    )
+    cfg_conj = a4_roc_primary_config(require_gabriel_and_h=True)
+    cfg_soft_conj = a4_roc_primary_config(
+        soft_capacity_only=True, soft_capacity_frac=0.25,
+        require_gabriel_and_h=True,
+    )
+
+    sc_n = _adapt(nested.points, 0.27)
+    sc_t = _adapt(tori.points, 0.5)
+
+    recovered = 0
+    live = {
+        "a4": (
+            *_hollow_majors_and_sample_ari(
+                sc_n, nested.points, nested.labels, cfg_a4,
+            ),
+            *_hollow_majors_and_sample_ari(
+                sc_t, tori.points, tori.labels, cfg_a4,
+            ),
+        ),
+        "soft": (
+            *_hollow_majors_and_sample_ari(
+                sc_n, nested.points, nested.labels, cfg_soft,
+            ),
+            *_hollow_majors_and_sample_ari(
+                sc_t, tori.points, tori.labels, cfg_soft,
+            ),
+        ),
+        "conj": (
+            *_hollow_majors_and_sample_ari(
+                sc_n, nested.points, nested.labels, cfg_conj,
+            ),
+            *_hollow_majors_and_sample_ari(
+                sc_t, tori.points, tori.labels, cfg_conj,
+            ),
+        ),
+        "soft_x_conj": (
+            *_hollow_majors_and_sample_ari(
+                sc_n, nested.points, nested.labels, cfg_soft_conj,
+            ),
+            *_hollow_majors_and_sample_ari(
+                sc_t, tori.points, tori.labels, cfg_soft_conj,
+            ),
+        ),
+    }
+
+    for mode, (nm, na, tm, ta) in live.items():
+        exp_nm, exp_na, exp_tm, exp_ta = SOFT_X_GABRIEL_CONJ_TABLE[mode]
+        assert nm == exp_nm
+        assert tm == exp_tm
+        if exp_na is not None:
+            assert na is not None and abs(na - exp_na) < 0.08
+        else:
+            assert na is None or na < 0.5
+        if exp_ta is not None:
+            assert ta is not None and abs(ta - exp_ta) < 0.08
+        else:
+            assert ta is None or ta < 0.5
+        for maj, ari in ((nm, na), (tm, ta)):
+            if maj >= 2 and ari is not None and ari >= 0.5:
+                recovered += 1
+
+    # Soft×conj and conj collapse both; soft alone still leaves tori K=2.
+    assert live["soft"][2] == 2
+    assert live["soft_x_conj"][0] <= 1
+    assert live["soft_x_conj"][2] <= 1
+    assert recovered == 0

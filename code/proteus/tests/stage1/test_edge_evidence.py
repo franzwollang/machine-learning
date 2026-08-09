@@ -616,3 +616,35 @@ def test_soft_capacity_frac_sweep_export() -> None:
     assert "nested" in tsv and "tori" in tsv
     assert "Defaults off" in SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE
     assert "awaiting" in SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE
+
+
+def test_soft_x_gabriel_conj_export() -> None:
+    """#44 / A2-T41: soft×Gabriel∧H conjunction export for A3/A4 SI sync.
+
+    Frozen majors+ARI table under A4 primary contrasting soft / conj /
+    soft×conj.  Defaults remain off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_X_GABRIEL_CONJ_SI_NOTE,
+        SOFT_X_GABRIEL_CONJ_SOFT_FRAC,
+        SOFT_X_GABRIEL_CONJ_SOFT_METHOD,
+        SOFT_X_GABRIEL_CONJ_TABLE,
+        format_soft_x_gabriel_conj_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().require_gabriel_and_h is False
+    assert SOFT_X_GABRIEL_CONJ_SOFT_FRAC == 0.25
+    assert SOFT_X_GABRIEL_CONJ_SOFT_METHOD == "betweenness"
+    assert SOFT_X_GABRIEL_CONJ_TABLE["a4"][0] == 2
+    assert SOFT_X_GABRIEL_CONJ_TABLE["soft"][2] == 2  # tori majors
+    assert SOFT_X_GABRIEL_CONJ_TABLE["conj"][0] <= 1
+    assert SOFT_X_GABRIEL_CONJ_TABLE["soft_x_conj"][0] <= 1
+    assert SOFT_X_GABRIEL_CONJ_TABLE["soft_x_conj"][2] <= 1
+    tsv = format_soft_x_gabriel_conj_table()
+    assert "mode\tdataset\ttau\tmajors\tsample_ari" in tsv
+    assert "soft_x_conj" in tsv and "nested" in tsv and "tori" in tsv
+    assert "sample-ARI" in SOFT_X_GABRIEL_CONJ_SI_NOTE
+    assert "defaults off" in SOFT_X_GABRIEL_CONJ_SI_NOTE
+    assert "awaiting" in SOFT_X_GABRIEL_CONJ_SI_NOTE

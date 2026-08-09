@@ -86,6 +86,12 @@ class HollowEdgeConfig:
     :data:`SOFT_CAPACITY_FRAC_SWEEP_*` exports.  Soft×persist-agree leaf
     harness stays uniform-safe and unrecovered on nested/tori.  Defaults
     remain off; sheet-null / collapse ≠ sample-ARI recovery.
+
+    A2-T41: soft×``require_gabriel_and_h`` conjunction (successive
+    intersections) — see :data:`SOFT_X_GABRIEL_CONJ_*`.  Soft alone keeps
+    tori@0.5 chance-ARI K=2; conj alone and soft×conj collapse both
+    nested@0.27 and tori@0.5 to ≤1 major (still not sample-ARI recovery).
+    Flags remain default-off.
     """
 
     mid_radius_frac: float = 0.35
@@ -246,6 +252,59 @@ def format_soft_capacity_frac_sweep_table() -> str:
             f"{frac:g}\t{maj}\t{ari_s}"
         )
     lines.append(f"# {SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Soft × Gabriel∧H conjunction export (A2-T41 → A3/A4 SI sync)
+# ---------------------------------------------------------------------------
+# Snapshot majors+sample-ARI under A4 primary with soft_capacity_only,
+# require_gabriel_and_h, and their successive intersection (soft×conj).
+# Soft alone collapses nested spurious K=2 but keeps tori chance-ARI K=2;
+# conj alone and soft×conj collapse both scaffolds to ≤1 major.  Collapse
+# ≠ sample-ARI recovery; keep flags default-off.
+
+SOFT_X_GABRIEL_CONJ_NESTED_TAU: float = 0.27
+SOFT_X_GABRIEL_CONJ_TORI_TAU: float = 0.5
+SOFT_X_GABRIEL_CONJ_SOFT_FRAC: float = 0.25
+SOFT_X_GABRIEL_CONJ_SOFT_METHOD: str = "betweenness"
+
+# mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+SOFT_X_GABRIEL_CONJ_TABLE: dict[str, tuple[int, float | None, int, float | None]] = {
+    "a4": (2, 0.12, 2, 0.26),
+    "soft": (1, None, 2, 0.26),
+    "conj": (1, None, 1, None),
+    "soft_x_conj": (1, None, 1, None),
+}
+
+SOFT_X_GABRIEL_CONJ_SI_NOTE: str = (
+    "A2-T41 soft×require_gabriel_and_h (A4 primary+betweenness frac=0.25): "
+    "soft alone nested@0.27→≤1 major, tori@0.5 keeps K=2 ARI≈0.26; "
+    "conj and soft×conj collapse nested+tori to ≤1 major. Collapse ≠ "
+    "sample-ARI recovery; HollowEdgeConfig / RecursionConfig defaults off; "
+    "no awaiting flip."
+)
+
+
+def format_soft_x_gabriel_conj_table() -> str:
+    """TSV export of soft×Gabriel∧H conjunction majors+ARI (A2-T41)."""
+
+    lines = [
+        "# soft × require_gabriel_and_h conjunction (A4 primary)",
+        f"# soft_frac={SOFT_X_GABRIEL_CONJ_SOFT_FRAC:g} "
+        f"method={SOFT_X_GABRIEL_CONJ_SOFT_METHOD}",
+        "mode\tdataset\ttau\tmajors\tsample_ari",
+    ]
+    for mode, (nm, na, tm, ta) in SOFT_X_GABRIEL_CONJ_TABLE.items():
+        na_s = "" if na is None else f"{na:.2f}"
+        ta_s = "" if ta is None else f"{ta:.2f}"
+        lines.append(
+            f"{mode}\tnested\t{SOFT_X_GABRIEL_CONJ_NESTED_TAU:g}\t{nm}\t{na_s}"
+        )
+        lines.append(
+            f"{mode}\ttori\t{SOFT_X_GABRIEL_CONJ_TORI_TAU:g}\t{tm}\t{ta_s}"
+        )
+    lines.append(f"# {SOFT_X_GABRIEL_CONJ_SI_NOTE}")
     return "\n".join(lines)
 
 

@@ -218,8 +218,10 @@ class RecursionConfig:
     ``hollow_soft_capacity_method`` selects ``"betweenness"`` (default) or
     ``"bridge_mass"`` (min-cut mass on bridges).  A2-T40: soft×persist_agree
     + ``hollow_soft_capacity_frac`` sweep — collapse / uniform-safe ≠
-    sample-ARI recovery; defaults off.
-
+    sample-ARI recovery; defaults off.  A2-T41: soft×
+    ``hollow_require_gabriel_and_h`` conjunction collapses nested+tori
+    majors≤1 (soft alone still leaves tori chance-ARI K=2); not recovery.
+   
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
       ``allow_finer_research`` + ``max_finer_scale_steps<=4`` +
