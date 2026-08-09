@@ -329,6 +329,149 @@ def test_resolve_within_interval_mid_vs_coarse() -> None:
     assert PersistenceConfig().resolve_within_interval == "none"
 
 
+def test_resolve_within_interval_fine_end_vs_mid_coarse() -> None:
+    # Experimental fine_end_of_block probe (A6-T31): lands at i_hi of the
+    # accepted persistent block; contrasts vs mid_interval and coarse-end
+    # (none). Default remains "none".
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=0,
+    )
+    gt = dataset.ground_truth
+    tau_lo, tau_hi = gt.tau_grid_hint
+    base = ScaleSearchConfig(
+        tau_min=tau_lo,
+        tau_max=tau_hi,
+        max_grid_points=8,
+        k=8,
+        n_seeds=12,
+        min_nodes=8,
+        max_nodes=128,
+        ann_backend="naive",
+        selector="persistence",
+        stabilization=StabilizationConfig(min_equilibrium_epochs=2, max_epochs=12),
+        seed=42,
+    )
+
+    coarse = run_scale_search(dataset.points, dim=gt.ambient_dim, config=base)
+    mid = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(resolve_within_interval="mid_interval"),
+        ),
+    )
+    fine = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(resolve_within_interval="fine_end_of_block"),
+        ),
+    )
+    assert coarse.persistence_result is not None
+    assert fine.persistence_result is not None
+    i_lo = coarse.persistence_result.tau_star_index
+    assert i_lo is not None
+    assert fine.persistence_result.tau_star_index == i_lo
+    run_len = int(fine.persistence_result.run_lengths[i_lo])
+    i_hi = i_lo + run_len - 1
+    assert fine.peak_index == i_hi
+    assert i_lo <= fine.peak_index <= i_hi
+    assert coarse.peak_index == i_lo
+    assert mid.peak_index == (i_lo + i_hi) // 2
+    if run_len >= 2:
+        assert fine.peak_index >= mid.peak_index >= coarse.peak_index
+    if run_len >= 3:
+        assert fine.peak_index > mid.peak_index
+    assert PersistenceConfig().resolve_within_interval == "none"
+
+
+def test_phi_within_interval_landing_vs_hierarchy_expected_tau() -> None:
+    # Diagnostic probe (A6-T32): correlate within-interval landing modes with
+    # Phi_C(tau*) and hierarchy fine-leaf expected_tau. Reports a small table;
+    # asserts category mismatch (all modes ≫ expected_tau) so a future default
+    # flip must be intentional. Does not change acceptance-path defaults.
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=0,
+    )
+    gt = dataset.ground_truth
+    assert gt.expected_tau is not None
+    fine_cluster_tau = float(gt.tau_grid_hint[1])
+    tau_lo, tau_hi = gt.tau_grid_hint
+    base = ScaleSearchConfig(
+        tau_min=tau_lo,
+        tau_max=tau_hi,
+        max_grid_points=8,
+        k=8,
+        n_seeds=12,
+        min_nodes=8,
+        max_nodes=128,
+        ann_backend="naive",
+        selector="persistence",
+        stabilization=StabilizationConfig(min_equilibrium_epochs=2, max_epochs=12),
+        seed=0,
+    )
+    modes = ("none", "mid_interval", "fine_end_of_block", "load_crossover")
+    rows: list[dict[str, float | int | str]] = []
+    for mode in modes:
+        result = run_scale_search(
+            dataset.points,
+            dim=gt.ambient_dim,
+            config=replace(
+                base,
+                persistence=PersistenceConfig(resolve_within_interval=mode),  # type: ignore[arg-type]
+            ),
+        )
+        assert result.persistence_result is not None
+        phi_star = float(result.phi_trace[result.peak_index])
+        rows.append(
+            {
+                "mode": mode,
+                "peak_index": int(result.peak_index),
+                "tau_star": float(result.tau_star),
+                "phi_star": phi_star,
+                "tau_over_expected": float(result.tau_star / gt.expected_tau),
+                "tau_over_fine_cluster": float(result.tau_star / fine_cluster_tau),
+            }
+        )
+
+    # Human-readable diagnostic table (pytest -s).
+    header = (
+        f"{'mode':22s} {'idx':>3s} {'tau*':>10s} {'Phi*':>10s} "
+        f"{'tau*/E[tau]':>12s} {'tau*/fine':>10s}"
+    )
+    print("\nA6-T32 Phi within-interval landing vs hierarchy expected_tau")
+    print(header)
+    print("-" * len(header))
+    for row in rows:
+        print(
+            f"{row['mode']:22s} {row['peak_index']:3d} {row['tau_star']:10.4g} "
+            f"{row['phi_star']:10.4g} {row['tau_over_expected']:12.3f} "
+            f"{row['tau_over_fine_cluster']:10.3f}"
+        )
+
+    by_mode = {str(r["mode"]): r for r in rows}
+    # Coarse-end (none) still tracks the bump-detect / fine_cluster scale.
+    assert 0.5 < float(by_mode["none"]["tau_over_fine_cluster"]) < 1.5
+    # Every within-interval mode remains many× fine-leaf expected_tau.
+    for mode in modes:
+        assert float(by_mode[mode]["tau_over_expected"]) > 5.0
+    # Ordering on this fixture: fine_end is finest (smallest tau), then mid,
+    # then none (coarse); load_crossover stays inside the block.
+    assert int(by_mode["fine_end_of_block"]["peak_index"]) >= int(
+        by_mode["mid_interval"]["peak_index"]
+    )
+    assert int(by_mode["mid_interval"]["peak_index"]) >= int(by_mode["none"]["peak_index"])
+    assert float(by_mode["fine_end_of_block"]["tau_star"]) <= float(
+        by_mode["none"]["tau_star"]
+    )
+    # Phi at landing is finite for every mode (diagnostic usability).
+    for mode in modes:
+        assert np.isfinite(float(by_mode[mode]["phi_star"]))
+    assert PersistenceConfig().resolve_within_interval == "none"
+
+
 def test_default_selector_is_load_crossover() -> None:
     # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
     assert ScaleSearchConfig().selector == "load_crossover"
