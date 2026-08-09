@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field, replace
 from typing import Optional
 
@@ -34,12 +35,14 @@ class ScaleSearchConfig:
     ``load_crossover`` resolution scale when no split persists.  Persistence
     requires the per-grid-point partitions, so selecting it implies
     ``record_partitions``.  When a persistent split exists and
-    ``persistence.resolve_within_interval="load_crossover"``, persistence still
-    decides accept/reject but ``tau*`` is the load-crossover pick restricted to
-    that persistent subgrid (default ``"none"`` preserves coarse-end ``tau*``).
+    ``persistence.resolve_within_interval`` is ``"load_crossover"`` or the
+    experimental ``"mid_interval"``, persistence still decides accept/reject
+    but ``tau*`` is re-picked inside that persistent subgrid (default
+    ``"none"`` preserves coarse-end ``tau*``).
 
-    The legacy ``load_band`` selector (OPEN_ISSUES #28) has been removed; unknown
-    selector values raise ``ValueError``.
+    The legacy ``load_band`` selector (OPEN_ISSUES #28) is **deprecated**:
+    passing it emits :class:`DeprecationWarning` and redirects to
+    ``load_crossover``.  Unknown selector values raise ``ValueError``.
     """
 
     grid_ratio: float = 1.0 / np.sqrt(2.0)
@@ -58,6 +61,14 @@ class ScaleSearchConfig:
     record_partitions: bool = False
     persistence: PersistenceConfig = field(default_factory=PersistenceConfig)
     seed: int = 42
+
+
+# Deprecated ScaleSearchConfig.selector aliases (OPEN_ISSUES #28). Kept only so
+# leftover callers fail soft with a warning instead of a hard break; do not use
+# on the acceptance path. Map value is the replacement selector.
+_DEPRECATED_SELECTORS: dict[str, str] = {
+    "load_band": "load_crossover",
+}
 
 
 @dataclass
@@ -174,9 +185,10 @@ def run_scale_search(
                 persistence_result, data_arr, dim, config, tau_grid, max_nodes,
             )
 
-    if config.selector == "load_crossover":
+    selector = _normalize_selector(config.selector)
+    if selector == "load_crossover":
         peak_idx = _select_load_crossover(load_trace, stabilized)
-    elif config.selector == "persistence":
+    elif selector == "persistence":
         peak_idx = _select_load_crossover(load_trace, stabilized)
         if (
             persistence_result is not None
@@ -189,7 +201,8 @@ def run_scale_search(
         raise ValueError(
             f"Unknown ScaleSearchConfig.selector={config.selector!r}; "
             "expected 'load_crossover' or 'persistence' "
-            "(legacy 'load_band' removed; see OPEN_ISSUES #28)."
+            "(legacy 'load_band' is a deprecated alias for 'load_crossover'; "
+            "see OPEN_ISSUES #28)."
         )
 
     tau_star = float(tau_grid[peak_idx])
@@ -357,6 +370,22 @@ def _cold_start_recheck(
     )
 
 
+def _normalize_selector(selector: str) -> str:
+    """Resolve deprecated selector aliases; warn once per call site path."""
+
+    replacement = _DEPRECATED_SELECTORS.get(selector)
+    if replacement is None:
+        return selector
+    warnings.warn(
+        f"ScaleSearchConfig.selector={selector!r} is deprecated "
+        f"(OPEN_ISSUES #28); use {replacement!r} instead. "
+        f"Redirecting to {replacement!r}.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return replacement
+
+
 def _resolve_persistence_tau_index(
     persistence_result: PersistenceResult,
     load_trace: np.ndarray,
@@ -369,23 +398,31 @@ def _resolve_persistence_tau_index(
     index from :func:`compute_persistence`.  With
     ``resolve_within_interval="load_crossover"``, keep that interval as the
     accept/reject gate but re-pick ``tau*`` via :func:`_select_load_crossover`
-    on the persistent subgrid only (OPEN_ISSUES #28 hybrid option A).
+    on the persistent subgrid only (OPEN_ISSUES #28 hybrid option).  With
+    experimental ``"mid_interval"``, land at the integer midpoint of the
+    accepted block (probe only; default stays ``"none"``).
     """
 
     i_lo = int(persistence_result.tau_star_index)  # type: ignore[arg-type]
     mode = persistence.resolve_within_interval
     if mode == "none":
         return i_lo
-    if mode != "load_crossover":
-        raise ValueError(
-            f"Unknown PersistenceConfig.resolve_within_interval={mode!r}; "
-            "expected 'none' or 'load_crossover'."
-        )
 
     run_len = int(persistence_result.run_lengths[i_lo])
     if run_len < 1:
         return i_lo
     i_hi = min(i_lo + run_len - 1, len(load_trace) - 1)
+
+    if mode == "mid_interval":
+        # Integer midpoint of [i_lo, i_hi]; experimental coarse-vs-mid probe.
+        return (i_lo + i_hi) // 2
+
+    if mode != "load_crossover":
+        raise ValueError(
+            f"Unknown PersistenceConfig.resolve_within_interval={mode!r}; "
+            "expected 'none', 'load_crossover', or 'mid_interval'."
+        )
+
     sub_load = np.asarray(load_trace[i_lo : i_hi + 1], dtype=float)
     sub_stab = list(stabilized[i_lo : i_hi + 1])
     return i_lo + _select_load_crossover(sub_load, sub_stab)

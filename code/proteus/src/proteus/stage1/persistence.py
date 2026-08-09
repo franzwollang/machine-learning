@@ -28,11 +28,13 @@ Characteristic-scale *resolution* defaults to the SI S2.5.1
 ``load_crossover`` selector (``ScaleSearchConfig.selector="load_crossover"``).
 ``selector="persistence"`` is the structural / recursion-timing path: it uses
 this module's interval as the accept/reject arbiter and, by default, lands
-``tau*`` at the coarse end of that interval.  Optional hybrid refinement
+``tau*`` at the coarse end of that interval.  Optional hybrid / experimental refinement
 (:attr:`PersistenceConfig.resolve_within_interval`, default ``"none"``) can
-re-pick ``tau*`` via ``load_crossover`` *within* the accepted persistent
-subgrid without changing the accept/reject arbiter (OPEN_ISSUES #28).  The
-legacy ``load_band`` selector has been removed.
+re-pick ``tau*`` via ``load_crossover`` or experimental ``mid_interval``
+*within* the accepted persistent subgrid without changing the accept/reject
+arbiter (OPEN_ISSUES #28).  The legacy ``load_band`` scale selector is gone
+from the acceptance path; the controller keeps a deprecated alias that
+warns and redirects to ``load_crossover``.
 
 .. note::
    The acceptance rule is **coarse-anchored** by default
@@ -123,18 +125,20 @@ class PersistenceConfig:
         :func:`compute_persistence`; it is ignored when ``coarse_anchored`` is
         ``False``.  Operational (S14.3).
     resolve_within_interval:
-        Optional **hybrid resolution** when
+        Optional **hybrid / experimental resolution** when
         ``ScaleSearchConfig.selector="persistence"`` (OPEN_ISSUES #28).
         ``"none"`` (default) keeps today's behavior: ``tau*`` is the coarsest
         persistent multi-cluster grid index from :func:`compute_persistence`.
         ``"load_crossover"`` keeps persistence as the accept/reject arbiter but
         re-picks ``tau*`` by running the SI S2.5.1 load-crossover rule on the
         accepted persistent *subgrid* only (indices ``[i_lo, i_hi]`` of the
-        coarse-anchored block).  Applied in the controller, not in
-        :func:`compute_persistence` (the ``PersistenceResult.tau_star*`` fields
-        still report the coarse-end arbiter index).  Default off; do not flip
-        until hierarchy ``tau*`` is validated against the expected resolution
-        scale.  Operational (S14.3).
+        coarse-anchored block).  ``"mid_interval"`` is an **experimental**
+        probe that lands ``tau*`` at the integer midpoint of that same block
+        (for coarse-vs-mid comparisons; not SI-justified).  Applied in the
+        controller, not in :func:`compute_persistence` (the
+        ``PersistenceResult.tau_star*`` fields still report the coarse-end
+        arbiter index).  Default off; do not flip until a SI-justified
+        within-interval signal exists.  Operational (S14.3).
     """
 
     min_persistence: int = 2
@@ -142,7 +146,7 @@ class PersistenceConfig:
     min_clusters: int = 2
     coarse_anchored: bool = True
     cold_start_recheck: bool = False
-    resolve_within_interval: Literal["none", "load_crossover"] = "none"
+    resolve_within_interval: Literal["none", "load_crossover", "mid_interval"] = "none"
 
 
 @dataclass

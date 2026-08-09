@@ -279,3 +279,96 @@ def test_hierarchy_within_interval_hybrid_stays_coarse_vs_expected() -> None:
     # Hybrid may refine within the block but remains ≫ fine-leaf expected_tau.
     assert hybrid.tau_star / gt.expected_tau > 5.0
     assert PersistenceConfig().resolve_within_interval == "none"
+
+
+def test_resolve_within_interval_mid_vs_coarse() -> None:
+    # Experimental mid_interval probe (A6-T28): default/none stays at coarse-end
+    # arbiter; mid_interval lands at the integer midpoint of the persistent
+    # block and is always inside [i_lo, i_hi]. Default remains "none".
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=0,
+    )
+    gt = dataset.ground_truth
+    tau_lo, tau_hi = gt.tau_grid_hint
+    base = ScaleSearchConfig(
+        tau_min=tau_lo,
+        tau_max=tau_hi,
+        max_grid_points=8,
+        k=8,
+        n_seeds=12,
+        min_nodes=8,
+        max_nodes=128,
+        ann_backend="naive",
+        selector="persistence",
+        stabilization=StabilizationConfig(min_equilibrium_epochs=2, max_epochs=12),
+        seed=42,
+    )
+
+    coarse = run_scale_search(dataset.points, dim=gt.ambient_dim, config=base)
+    mid = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(resolve_within_interval="mid_interval"),
+        ),
+    )
+    assert coarse.persistence_result is not None
+    assert mid.persistence_result is not None
+    i_lo = coarse.persistence_result.tau_star_index
+    assert i_lo is not None
+    assert mid.persistence_result.tau_star_index == i_lo
+    run_len = int(mid.persistence_result.run_lengths[i_lo])
+    i_hi = i_lo + run_len - 1
+    expected_mid = (i_lo + i_hi) // 2
+    assert mid.peak_index == expected_mid
+    assert i_lo <= mid.peak_index <= i_hi
+    assert coarse.peak_index == i_lo
+    if run_len >= 2:
+        assert mid.peak_index >= coarse.peak_index
+    assert PersistenceConfig().resolve_within_interval == "none"
+
+
+def test_default_selector_is_load_crossover() -> None:
+    # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
+    assert ScaleSearchConfig().selector == "load_crossover"
+
+
+def test_deprecated_load_band_alias_redirects_to_load_crossover() -> None:
+    # Deprecated path isolation: selector="load_band" warns and matches
+    # load_crossover on the same data (OPEN_ISSUES #28).
+    import warnings
+
+    dataset = make_circle(
+        n_samples=800, radius=1.0, noise=0.02, extrusion_dim=2, seed=21,
+    )
+    gt = dataset.ground_truth
+    tau_lo, tau_hi = gt.tau_grid_hint
+    base_kw = dict(
+        tau_min=tau_lo,
+        tau_max=tau_hi,
+        max_grid_points=6,
+        k=8,
+        n_seeds=8,
+        ann_backend="naive",
+        stabilization=StabilizationConfig(min_equilibrium_epochs=3, max_epochs=12),
+        seed=77,
+    )
+    canonical = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=ScaleSearchConfig(selector="load_crossover", **base_kw),
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        legacy = run_scale_search(
+            dataset.points,
+            dim=gt.ambient_dim,
+            config=ScaleSearchConfig(selector="load_band", **base_kw),
+        )
+    assert any(issubclass(w.category, DeprecationWarning) for w in caught)
+    assert any("load_band" in str(w.message) for w in caught)
+    assert legacy.peak_index == canonical.peak_index
+    assert legacy.tau_star == canonical.tau_star
+    assert legacy.persistence_result is None
+    assert ScaleSearchConfig().selector == "load_crossover"
