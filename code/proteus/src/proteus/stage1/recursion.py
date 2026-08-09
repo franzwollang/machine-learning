@@ -110,6 +110,16 @@ class RecursionConfig:
     ``max_finer_scale_steps`` (and preferably ``require_persistent_split``)
     so uniform manifolds that only fracture at extreme fine scales do not
     trigger a false prepass hit.
+
+    **A2 diagnostic (lifted-CC vs shells):** on nested_spheres the major-lifted
+    prepass usually misses concentric shells because the lifted graph stays
+    **one CC** (or splits into tiny noise fragments) across the finer walk —
+    shells remain radius-bridged.  A radial gap in distance-from-centroid on
+    scaffold positions recovers shell membership when a clear gap exists
+    (oracle / unit scaffold), which motivates
+    ``prefer_radial_gap_prepass`` (#44, proposed / operational, default off).
+    Pair with ``require_persistent_split``; do not flip awaiting tests until
+    e2e leaf/ARI recovery is green.
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
@@ -125,6 +135,8 @@ class RecursionConfig:
     max_finer_scale_steps: int = 8
     prefer_disconnected_prepass: bool = False
     finer_prepass_min_frac: float = 0.2
+    prefer_radial_gap_prepass: bool = False
+    finer_radial_min_gap_ratio: float = 0.25
     seed: int = 42
 
 
@@ -291,6 +303,82 @@ def _major_lifted_component_partition(
     )
 
 
+def _radial_gap_partition(
+    scaffold: "Stage1Scaffold",  # noqa: F821
+    *,
+    min_frac: float = 0.2,
+    min_abs: int = 3,
+    min_gap_ratio: float = 0.25,
+) -> ClusterResult | None:
+    """Return a 2-way partition from a large radial gap, else ``None``.
+
+    OPEN_ISSUES #44 proposed prepass: concentric shells can remain a single
+    lifted connected component while still separating in
+    distance-from-centroid.  Sort scaffold node radii about the position
+    centroid, take the largest gap that leaves both sides with at least
+    ``max(min_abs, ceil(n * min_frac))`` nodes, and require
+    ``gap / median(radius) >= min_gap_ratio`` plus ``Q > 0``.
+    """
+
+    n = len(scaffold.nodes)
+    if n < 2 * max(int(min_abs), 1):
+        return None
+    frac = float(min_frac)
+    if not (0.0 < frac <= 0.5):
+        frac = 0.2
+    threshold = max(int(min_abs), int(np.ceil(n * frac)))
+    if 2 * threshold > n:
+        return None
+
+    positions = np.asarray(
+        [scaffold.nodes[i].position for i in range(n)], dtype=float,
+    )
+    centroid = positions.mean(axis=0)
+    radii = np.linalg.norm(positions - centroid, axis=1)
+    order = np.argsort(radii)
+    gaps = np.diff(radii[order])
+    best: tuple[float, int] | None = None
+    for i, gap in enumerate(gaps):
+        left = i + 1
+        right = n - left
+        if left < threshold or right < threshold:
+            continue
+        g = float(gap)
+        if best is None or g > best[0]:
+            best = (g, i)
+    if best is None:
+        return None
+
+    med_r = float(np.median(radii)) + 1e-12
+    if best[0] / med_r < float(min_gap_ratio):
+        return None
+
+    thr = 0.5 * (
+        float(radii[order[best[1]]]) + float(radii[order[best[1] + 1]])
+    )
+    labels = (radii > thr).astype(int)
+    clusters: list[set[int]] = [
+        set(np.where(labels == cid)[0].tolist()) for cid in (0, 1)
+    ]
+    if min(len(c) for c in clusters) < threshold:
+        return None
+
+    graph_lifted = scaffold.links.neighbour_graph(n)
+    W = compute_edge_weights(scaffold)
+    pq = partition_q_score(clusters, n, W, graph_lifted)
+    if pq <= 0.0:
+        return None
+
+    hits = np.array([node.hit_count for node in scaffold.nodes], dtype=float)
+    exemplars = [int(max(c, key=lambda g: hits[g])) for c in clusters]
+    return ClusterResult(
+        labels=labels,
+        exemplar_indices=np.array(exemplars, dtype=int),
+        n_clusters=2,
+        partition_q_score=float(pq),
+    )
+
+
 def _research_finer_split(
     data: np.ndarray,
     dim: int,
@@ -308,6 +396,8 @@ def _research_finer_split(
 
     When ``prefer_disconnected_prepass`` is on, each step first tries the
     major-lifted-component short-circuit (#44c) before the general AP/DM path.
+    When ``prefer_radial_gap_prepass`` is on, a centroid-radial gap split is
+    tried next (concentric shells that stay lifted-connected).
     """
 
     ratio = float(config.finer_tau_cap_ratio)
@@ -353,6 +443,20 @@ def _research_finer_split(
                 and pre.partition_q_score > 0.0
             ):
                 return result, scaffold, pre
+
+        # #44: radial-gap prepass for concentric shells still lifted-connected.
+        if config.prefer_radial_gap_prepass:
+            radial = _radial_gap_partition(
+                scaffold,
+                min_frac=float(config.finer_prepass_min_frac),
+                min_gap_ratio=float(config.finer_radial_min_gap_ratio),
+            )
+            if (
+                radial is not None
+                and radial.n_clusters > 1
+                and radial.partition_q_score > 0.0
+            ):
+                return result, scaffold, radial
 
         cluster_result = _cluster_scaffold(scaffold, config)
         if (
@@ -451,6 +555,8 @@ def _descend_into_clusters(
             max_finer_scale_steps=config.max_finer_scale_steps,
             prefer_disconnected_prepass=config.prefer_disconnected_prepass,
             finer_prepass_min_frac=config.finer_prepass_min_frac,
+            prefer_radial_gap_prepass=config.prefer_radial_gap_prepass,
+            finer_radial_min_gap_ratio=config.finer_radial_min_gap_ratio,
             seed=config.seed + region_id + label,
         )
 
