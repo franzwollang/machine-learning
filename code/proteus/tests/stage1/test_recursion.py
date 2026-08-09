@@ -2324,3 +2324,155 @@ def test_bridge_mass_soft_capacity_vs_betweenness_nested() -> None:
     assert ari_b is None or ari_b < 0.5
     assert ari_m is None or ari_m < 0.5
     assert RecursionConfig().hollow_soft_capacity_method == "betweenness"
+
+
+def test_soft_capacity_frac_sweep_nested_tori_ari() -> None:
+    """#44 / A2-T40: soft_capacity_frac sweep majors+ARI (A4 primary).
+
+    Nested@0.27 collapses A4's spurious K=2 across frac∈{0.1,0.25,0.5,0.9}.
+    Tori@0.5 keeps chance-ARI K=2 until frac=0.9 collapses to 1 major.
+    Flags default-off; do **not** flip awaiting.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_CAPACITY_FRAC_SWEEP_NESTED_MAJORS,
+        SOFT_CAPACITY_FRAC_SWEEP_TORI,
+        a4_roc_primary_config,
+    )
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_soft_capacity_frac == 0.25
+
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+
+    def _adapt(points, tau: float):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
+            ann_backend="naive", rng=np.random.default_rng(0),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    sc_n = _adapt(nested.points, 0.27)
+    maj_a4, ari_a4 = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, a4_roc_primary_config(),
+    )
+    assert maj_a4 == 2
+    assert ari_a4 is not None and ari_a4 < 0.2
+
+    recovered = 0
+    for frac, expect_maj in SOFT_CAPACITY_FRAC_SWEEP_NESTED_MAJORS.items():
+        cfg = a4_roc_primary_config(
+            soft_capacity_only=True, soft_capacity_frac=float(frac),
+        )
+        maj, ari = _hollow_majors_and_sample_ari(
+            sc_n, nested.points, nested.labels, cfg,
+        )
+        assert maj == expect_maj
+        assert maj <= 1
+        assert ari is None or ari < 0.5
+        if maj >= 2 and ari is not None and ari >= 0.5:
+            recovered += 1
+
+    sc_t = _adapt(tori.points, 0.5)
+    for frac, (expect_maj, expect_ari) in SOFT_CAPACITY_FRAC_SWEEP_TORI.items():
+        cfg = a4_roc_primary_config(
+            soft_capacity_only=True, soft_capacity_frac=float(frac),
+        )
+        maj, ari = _hollow_majors_and_sample_ari(
+            sc_t, tori.points, tori.labels, cfg,
+        )
+        assert maj == expect_maj
+        if expect_maj >= 2:
+            assert ari is not None and ari < 0.5
+            if expect_ari is not None:
+                assert abs(ari - expect_ari) < 0.08
+        else:
+            assert ari is None or ari < 0.5
+        if maj >= 2 and ari is not None and ari >= 0.5:
+            recovered += 1
+    assert recovered == 0
+
+
+def test_soft_capacity_persist_agree_leaf_harness() -> None:
+    """#44 / A2-T40: soft-cap × persist-agree leaf harness (A4 primary).
+
+    Uniforms stay 1 leaf; soft alone collapses A4 tori K=2→1; soft+persist
+    stays unrecovered on nested/tori.  Flags default-off; no awaiting flip.
+    """
+
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+    from tests.datasets.synthetic.swiss_roll import make_swiss_roll
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_require_persistent_agree is False
+
+    def _lean() -> ScaleSearchConfig:
+        return ScaleSearchConfig(
+            tau_min=1e-3,
+            tau_max=2.0,
+            max_grid_points=6,
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=8,
+            ),
+            seed=42,
+            selector="persistence",
+            record_partitions=True,
+        )
+
+    def _run(points, dim, *, soft: bool, persist: bool, frac: float,
+             min_samples: int) -> int:
+        cfg = RecursionConfig(
+            scale_search=_lean(),
+            min_samples=min_samples,
+            max_depth=3,
+            require_persistent_split=True,
+            allow_finer_research=False,
+            prefer_hollow_edge_prepass=True,
+            hollow_use_a4_primary=True,
+            hollow_soft_capacity_only=soft,
+            hollow_soft_capacity_frac=frac,
+            hollow_require_persistent_agree=persist,
+            seed=42,
+        )
+        tree = run_recursive_discovery(points, dim=dim, config=cfg)
+        return len(tree.leaves)
+
+    circle = make_circle(
+        n_samples=300, radius=1.0, noise=0.02, extrusion_dim=2, seed=0,
+    )
+    swiss = make_swiss_roll(n_samples=400, noise=0.02, seed=0)
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+
+    # Uniform-safe under soft×persist.
+    assert _run(circle.points, circle.points.shape[1], soft=True, persist=True,
+                frac=0.25, min_samples=80) == 1
+    assert _run(swiss.points, swiss.points.shape[1], soft=True, persist=True,
+                frac=0.25, min_samples=80) == 1
+
+    # Soft collapses A4 tori's spurious 2-leaf hit; combo stays unrecovered.
+    assert _run(tori.points, tori.points.shape[1], soft=False, persist=False,
+                frac=0.25, min_samples=40) == 2
+    assert _run(tori.points, tori.points.shape[1], soft=True, persist=False,
+                frac=0.25, min_samples=40) == 1
+    assert _run(tori.points, tori.points.shape[1], soft=True, persist=True,
+                frac=0.25, min_samples=40) == 1
+    assert _run(nested.points, nested.points.shape[1], soft=True, persist=True,
+                frac=0.25, min_samples=40) == 1
+    assert _run(nested.points, nested.points.shape[1], soft=True, persist=True,
+                frac=0.1, min_samples=40) == 1
+    assert _run(nested.points, nested.points.shape[1], soft=True, persist=True,
+                frac=0.9, min_samples=40) == 1

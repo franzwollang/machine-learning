@@ -588,3 +588,31 @@ def test_poisson_null_h0_calibration_export_table() -> None:
     assert "primary mid=0.5" in tsv
     assert "sample-ARI" in POISSON_NULL_SI_NOTE
     assert "defaults off" in POISSON_NULL_SI_NOTE
+
+
+def test_soft_capacity_frac_sweep_export() -> None:
+    """#44 / A2-T40: soft_capacity_frac sweep export for A3/A4 SI sync.
+
+    Frozen majors table under A4 primary + soft betweenness on baseline
+    nested@0.27 / tori@0.5 scaffolds.  Defaults remain off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_CAPACITY_FRAC_SWEEP_METHOD,
+        SOFT_CAPACITY_FRAC_SWEEP_NESTED_MAJORS,
+        SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE,
+        SOFT_CAPACITY_FRAC_SWEEP_TORI,
+        format_soft_capacity_frac_sweep_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().soft_capacity_frac == 0.25
+    assert SOFT_CAPACITY_FRAC_SWEEP_METHOD == "betweenness"
+    assert all(m <= 1 for m in SOFT_CAPACITY_FRAC_SWEEP_NESTED_MAJORS.values())
+    assert SOFT_CAPACITY_FRAC_SWEEP_TORI[0.25][0] == 2
+    assert SOFT_CAPACITY_FRAC_SWEEP_TORI[0.9][0] == 1
+    tsv = format_soft_capacity_frac_sweep_table()
+    assert "dataset\ttau\tfrac\tmajors\tsample_ari" in tsv
+    assert "nested" in tsv and "tori" in tsv
+    assert "Defaults off" in SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE
+    assert "awaiting" in SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE
