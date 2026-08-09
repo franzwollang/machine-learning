@@ -120,6 +120,17 @@ class RecursionConfig:
     persist+radial+``steps<=4`` keeps circle=1 but nested stays 1 leaf;
     deeper steps (8–12) shatter circle (10–22 leaves) and yield nested 3–4
     leaves with ARI≈0 — still not shell recovery.  Hold awaiting / SI A+C.
+
+    **A2-T10 scaffold probe (n=160 nested, 12 recurse caps):** ``n_cc`` is 1
+    at most caps; when ``n_cc>=2`` sizes are noise fragments (e.g. 60+4), never
+    two majors.  Cross-shell lifted edges persist (≈7–38) and mid-radius
+    bridge nodes (≈3–9) keep shells in one component.  Plain radial-gap never
+    fires: the largest balanced gap sits in a tissue/mid-band continuum
+    (``gap_ratio`` typically < ``finer_radial_min_gap_ratio``) or is an
+    unbalanced tail (sides ≈62+2).  Dropping mid-band / shell-band-only nodes
+    before the gap search recovers shell ARI≈0.93–1.0 with ``Q>0`` on the
+    same scaffolds — hence ``prefer_radial_band_prepass`` (histogram-trough
+    exclusion, default off).  ``hit_count`` alone is a weak tissue filter.
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
@@ -137,6 +148,8 @@ class RecursionConfig:
     finer_prepass_min_frac: float = 0.2
     prefer_radial_gap_prepass: bool = False
     finer_radial_min_gap_ratio: float = 0.25
+    prefer_radial_band_prepass: bool = False
+    finer_radial_hist_bins: int = 16
     seed: int = 42
 
 
@@ -379,6 +392,116 @@ def _radial_gap_partition(
     )
 
 
+def _radial_band_gap_partition(
+    scaffold: "Stage1Scaffold",  # noqa: F821
+    *,
+    min_frac: float = 0.2,
+    min_abs: int = 3,
+    min_gap_ratio: float = 0.25,
+    hist_bins: int = 16,
+) -> ClusterResult | None:
+    """Radial-gap split after excluding the radius-histogram trough (#44).
+
+    Plain centroid radial gap fails on tissue-filled nested shells because
+    mid-radius bridge nodes fill the continuum between shell modes, so the
+    largest *balanced* gap is too small (or the max gap is an unbalanced
+    tail).  Operational remedy (flag-gated): build a 1-D radius histogram,
+    take the two tallest local peaks, drop nodes in the lowest-density bin
+    between them, then run the same gap rule on the remaining nodes and
+    apply the cut to the full scaffold.  Requires ``Q > 0``.
+    """
+
+    n = len(scaffold.nodes)
+    if n < 2 * max(int(min_abs), 1):
+        return None
+    frac = float(min_frac)
+    if not (0.0 < frac <= 0.5):
+        frac = 0.2
+    threshold = max(int(min_abs), int(np.ceil(n * frac)))
+    if 2 * threshold > n:
+        return None
+
+    bins = max(8, int(hist_bins))
+    positions = np.asarray(
+        [scaffold.nodes[i].position for i in range(n)], dtype=float,
+    )
+    centroid = positions.mean(axis=0)
+    radii = np.linalg.norm(positions - centroid, axis=1)
+    hist, edges = np.histogram(radii, bins=bins)
+    peaks = [
+        i for i in range(1, len(hist) - 1)
+        if hist[i] >= hist[i - 1] and hist[i] >= hist[i + 1] and hist[i] > 0
+    ]
+    if len(peaks) < 2:
+        return None
+    peaks = sorted(peaks, key=lambda i: int(hist[i]), reverse=True)[:2]
+    lo, hi = sorted(peaks)
+    if hi - lo < 2:
+        return None
+    valley = lo + int(np.argmin(hist[lo: hi + 1]))
+    # Exclude the trough bin (and immediate neighbors if still below peak floor).
+    exclude_bins = {valley}
+    peak_floor = max(1, int(min(hist[lo], hist[hi]) // 2))
+    for b in (valley - 1, valley + 1):
+        if lo < b < hi and int(hist[b]) <= peak_floor:
+            exclude_bins.add(b)
+    mask = np.ones(n, dtype=bool)
+    for b in exclude_bins:
+        mask &= ~((radii >= edges[b]) & (radii < edges[b + 1]))
+    # Include right edge of last bin.
+    if (bins - 1) in exclude_bins:
+        mask &= radii < edges[-1]
+
+    idx = np.where(mask)[0]
+    if len(idx) < 2 * threshold:
+        return None
+
+    r = radii[idx]
+    thr_masked = max(int(min_abs), int(np.ceil(len(idx) * frac)))
+    order = np.argsort(r)
+    gaps = np.diff(r[order])
+    best: tuple[float, int] | None = None
+    for i, gap in enumerate(gaps):
+        left = i + 1
+        right = len(idx) - left
+        if left < thr_masked or right < thr_masked:
+            continue
+        g = float(gap)
+        if best is None or g > best[0]:
+            best = (g, i)
+    if best is None:
+        return None
+
+    med_r = float(np.median(r)) + 1e-12
+    if best[0] / med_r < float(min_gap_ratio):
+        return None
+
+    thr_cut = 0.5 * (
+        float(r[order[best[1]]]) + float(r[order[best[1] + 1]])
+    )
+    labels = (radii > thr_cut).astype(int)
+    clusters: list[set[int]] = [
+        set(np.where(labels == cid)[0].tolist()) for cid in (0, 1)
+    ]
+    if min(len(c) for c in clusters) < threshold:
+        return None
+
+    graph_lifted = scaffold.links.neighbour_graph(n)
+    W = compute_edge_weights(scaffold)
+    pq = partition_q_score(clusters, n, W, graph_lifted)
+    if pq <= 0.0:
+        return None
+
+    hits = np.array([node.hit_count for node in scaffold.nodes], dtype=float)
+    exemplars = [int(max(c, key=lambda g: hits[g])) for c in clusters]
+    return ClusterResult(
+        labels=labels,
+        exemplar_indices=np.array(exemplars, dtype=int),
+        n_clusters=2,
+        partition_q_score=float(pq),
+    )
+
+
 def _research_finer_split(
     data: np.ndarray,
     dim: int,
@@ -397,7 +520,9 @@ def _research_finer_split(
     When ``prefer_disconnected_prepass`` is on, each step first tries the
     major-lifted-component short-circuit (#44c) before the general AP/DM path.
     When ``prefer_radial_gap_prepass`` is on, a centroid-radial gap split is
-    tried next (concentric shells that stay lifted-connected).
+    tried next (concentric shells that stay lifted-connected).  When
+    ``prefer_radial_band_prepass`` is on, a histogram-trough-masked radial
+    gap is tried (mid-band / tissue continuum exclusion).
     """
 
     ratio = float(config.finer_tau_cap_ratio)
@@ -457,6 +582,21 @@ def _research_finer_split(
                 and radial.partition_q_score > 0.0
             ):
                 return result, scaffold, radial
+
+        # #44: trough-masked radial-band prepass (mid-band continuum exclusion).
+        if config.prefer_radial_band_prepass:
+            band = _radial_band_gap_partition(
+                scaffold,
+                min_frac=float(config.finer_prepass_min_frac),
+                min_gap_ratio=float(config.finer_radial_min_gap_ratio),
+                hist_bins=int(config.finer_radial_hist_bins),
+            )
+            if (
+                band is not None
+                and band.n_clusters > 1
+                and band.partition_q_score > 0.0
+            ):
+                return result, scaffold, band
 
         cluster_result = _cluster_scaffold(scaffold, config)
         if (
@@ -557,6 +697,8 @@ def _descend_into_clusters(
             finer_prepass_min_frac=config.finer_prepass_min_frac,
             prefer_radial_gap_prepass=config.prefer_radial_gap_prepass,
             finer_radial_min_gap_ratio=config.finer_radial_min_gap_ratio,
+            prefer_radial_band_prepass=config.prefer_radial_band_prepass,
+            finer_radial_hist_bins=config.finer_radial_hist_bins,
             seed=config.seed + region_id + label,
         )
 
