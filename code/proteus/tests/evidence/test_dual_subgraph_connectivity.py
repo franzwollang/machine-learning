@@ -24,7 +24,9 @@ Green tests lock:
 * S6.2 count-aware ``λ_f=1+n_f/(1+n̄)`` behind ``enable_count_aware_lambda``
   (A5-T46); multi-simplex patch ``Σ μ_S`` soft solve behind
   ``enable_patch_mu_solve`` (A5-T47 stub); shared-face antisymmetry soft
-  glue behind ``enable_shared_face_glue`` (A5-EXP-glue).
+  glue behind ``enable_shared_face_glue`` (A5-EXP-glue); Complex →
+  node-star incidence + ANN BMU query behind ``enable_complex_ann_incidence``
+  (A5-EXP-ann-inc).
 * S6.3 boundary taxonomy behind ``enable_boundary_taxonomy``; seam stitch /
   ghost reservoir sketches behind ``enable_seam_ghost`` (A5-T45).
 * S6.4 simplex-local PL density *sketch* behind ``enable_simplex_density``
@@ -32,8 +34,9 @@ Green tests lock:
 
 Gaps vs full SI S6 (do **not** flip these elsewhere yet):
 
-* **S6.1** Tally + dry-run + BMU harness + Stage-1 wiring *sketch* exist;
-  acceptance-path Stage-1 integration still open.
+* **S6.1** Tally + dry-run + BMU harness + Stage-1 wiring *sketch* +
+  Complex/ANN incidence bridge exist; acceptance-path Stage-1 integration
+  still open.
 * **S6.2** Soft ``A_S`` / ``μ_S`` / count-aware / patch / shared-face glue
   sketches only — no loopy Gaussian BP / global face-registry graph. See
   module docstring acceptance-path plan (A5-T42).
@@ -65,7 +68,9 @@ from proteus.stage2 import (
     build_divergence_stencil,
     build_dual_adjacency,
     build_dual_adjacency_from_complex,
+    build_node_to_simplices_from_complex,
     build_shared_face_pairs,
+    build_simplex_positions_from_complex,
     classify_boundary_facets,
     conservation_residual_r_cons,
     count_aware_lambda_f,
@@ -73,9 +78,11 @@ from proteus.stage2 import (
     epsilon_flux,
     locate_bmu_simplex,
     mu_S_weight,
+    query_stage1_ann_bmus,
     resolve_dual_connected,
     route_live_bmu_face_tallies,
     route_stage1_bmu_face_tallies,
+    route_stage1_from_complex,
     simplex_local_density,
     simplex_outward_normals,
     simplex_volume,
@@ -756,6 +763,7 @@ def test_acceptance_path_plan_documented_in_dual_flow_module():
     assert cfg.enable_face_tallies is False
     assert cfg.enable_live_bmu_tally is False
     assert cfg.enable_stage1_bmu_wiring is False
+    assert cfg.enable_complex_ann_incidence is False
     assert cfg.enable_as_message_pass is False
     assert cfg.enable_mu_weighted_solve is False
     assert cfg.enable_count_aware_lambda is False
@@ -1253,3 +1261,97 @@ def test_stage1_bmu_wiring_routes_via_node_incident_simplices():
     assert out.tallies_by_simplex[0].tallies.shape == (3,)
     assert np.all(out.tallies_by_simplex[0].tallies >= 0.0)
     assert "Stage-1" in out.note or "stage-1" in out.note.lower()
+
+# ---------------------------------------------------------------------------
+# A5-EXP-ann-inc: Complex → node_to_simplices + ANN BMU (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_complex_ann_incidence_flag_off_returns_none():
+    """enable_complex_ann_incidence=False ⇒ builders / route return None."""
+
+    V = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    complex_ = Complex(
+        simplices=[Simplex(vertex_ids=(0, 1, 2), volume=0.5)],
+        vertex_positions=V,
+        intrinsic_dim=2,
+    )
+    assert build_node_to_simplices_from_complex(complex_) is None
+    assert build_simplex_positions_from_complex(complex_) is None
+    assert query_stage1_ann_bmus([np.array([0.1, 0.1])], node_positions=V) is None
+    assert route_stage1_from_complex([np.array([0.1, 0.1])], complex_) is None
+
+
+def test_complex_ann_incidence_builds_node_star_and_routes():
+    """Complex incidence + naive ANN BMU feeds Stage-1 tally sketch."""
+
+    # Two triangles sharing vertex 1: left {0,1,2}, right {1,3,4}.
+    V = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [0.5, 1.0],
+            [2.0, 0.0],
+            [1.5, 1.0],
+        ]
+    )
+    complex_ = Complex(
+        simplices=[
+            Simplex(vertex_ids=(0, 1, 2), volume=0.5),
+            Simplex(vertex_ids=(1, 3, 4), volume=0.5),
+        ],
+        vertex_positions=V,
+        intrinsic_dim=2,
+    )
+    cfg = DualFlowConfig(enable_complex_ann_incidence=True, tally_scale=1.0)
+
+    node_map = build_node_to_simplices_from_complex(complex_, config=cfg)
+    assert node_map is not None
+    assert node_map[0] == (0,)
+    assert node_map[1] == (0, 1)
+    assert node_map[3] == (1,)
+
+    pos_map = build_simplex_positions_from_complex(complex_, config=cfg)
+    assert pos_map is not None
+    assert pos_map[0].shape == (3, 2)
+    np.testing.assert_allclose(pos_map[0][0], V[0])
+
+    # Sample near node 0 → BMU 0 → only left simplex candidate.
+    samples = [np.array([0.1, 0.1]), np.array([1.8, 0.2])]
+    bmus = query_stage1_ann_bmus(samples, node_positions=V, config=cfg)
+    assert bmus == (0, 3)
+
+    out = route_stage1_from_complex(samples, complex_, config=cfg)
+    assert out is not None
+    assert out.node_bmus == (0, 3)
+    assert out.assignments == (0, 1)
+    assert 0 in out.tallies_by_simplex and 1 in out.tallies_by_simplex
+    assert np.all(out.tallies_by_simplex[0].tallies >= 0.0)
+
+
+def test_complex_ann_incidence_accepts_ann_duck_type():
+    """query_stage1_ann_bmus uses ann.query_knn when provided."""
+
+    class _FakeAnn:
+        def query_knn(self, point, k):
+            assert k == 1
+            # Always return node 2.
+            return np.array([2]), np.array([0.0])
+
+    V = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    cfg = DualFlowConfig(enable_complex_ann_incidence=True)
+    bmus = query_stage1_ann_bmus(
+        [np.array([9.0, 9.0])], ann=_FakeAnn(), config=cfg
+    )
+    assert bmus == (2,)
+    complex_ = Complex(
+        simplices=[Simplex(vertex_ids=(0, 1, 2), volume=0.5)],
+        vertex_positions=V,
+        intrinsic_dim=2,
+    )
+    out = route_stage1_from_complex(
+        [np.array([0.2, 0.2])], complex_, ann=_FakeAnn(), config=cfg
+    )
+    assert out is not None
+    assert out.node_bmus == (2,)
+    assert out.assignments == (0,)
