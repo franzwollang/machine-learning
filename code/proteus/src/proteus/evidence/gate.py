@@ -25,6 +25,7 @@ from collections import deque
 from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from math import log
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 
@@ -33,6 +34,7 @@ from proteus.evidence.dm_score import NodeTransition, evaluate_edit, f_dm
 from proteus.evidence.star_matrix import RHO_MIN_DEFAULT, quarantined_nodes
 
 __all__ = [
+    "DualAdjacency",
     "GateConfig",
     "gate_window",
     "hysteresis_window",
@@ -41,6 +43,40 @@ __all__ = [
     "score_edit",
     "EvidenceGate",
 ]
+
+
+@runtime_checkable
+class DualAdjacency(Protocol):
+    """S6 dual / face-graph adjacency list shape (SI S6.2 / S10.4; #43).
+
+    Contract for values passed as ``dual_adjacency`` (not invented here):
+
+    * **Vertices** — simplex ids of the *post-edit dry-run* complex.
+    * **Edges** — undirected; two simplices are adjacent iff they share a facet
+      (codim-1 face). Producer should keep the list symmetric.
+    * **Representation** — adjacency list ``Mapping``-like: ``adj.get(u, ())``
+      yields neighbor ids. A *missing* key is an isolated vertex (empty nbrs).
+    * **Affected set** — separate ``affected_simplices`` arg: ids touched by the
+      edit dry-run. Connectivity is of the *induced* subgraph on that set (BFS).
+    * **``None``** — S6 producer unavailable; :func:`affected_dual_subgraph_connected`
+      returns ``True`` (same default as ``score_edit(..., dual_connected=True)``).
+    * **Producer** — Stage-2 dual-flow / face-graph. Call path: dry-run adj →
+      ``affected_dual_subgraph_connected(adj, affected)`` →
+      ``score_edit(..., dual_connected=bool)``.
+
+    Vacuous ``True`` for empty / singleton affected sets. No behavior change vs
+    plain ``Mapping[Hashable, Sequence[Hashable]]`` — this Protocol documents the
+    S6 shape for typed call sites.
+    """
+
+    def get(
+        self,
+        key: Hashable,
+        default: Sequence[Hashable] = (),
+        /,
+    ) -> Sequence[Hashable]:
+        """Neighbors of ``key``, or ``default`` when missing / isolated."""
+        ...
 
 
 @dataclass(frozen=True)
@@ -90,7 +126,7 @@ def edit_budget(n_nodes: int) -> int:
 
 
 def affected_dual_subgraph_connected(
-    dual_adjacency: Mapping[Hashable, Sequence[Hashable]] | None,
+    dual_adjacency: DualAdjacency | None,
     affected_simplices: Sequence[Hashable],
 ) -> bool:
     """Whether the induced dual subgraph on ``affected_simplices`` is connected.
@@ -100,6 +136,8 @@ def affected_dual_subgraph_connected(
     the dual graph are simplices; an edge joins two simplices that share a
     facet (codim-1 face). That adjacency is a Stage-2 dual-flow / face-graph
     artifact (SI S6 / S10.4) and is **not built yet** (OPEN_ISSUES #43).
+
+    ``dual_adjacency`` shape: see :class:`DualAdjacency` (S6 adjacency contract).
 
     Behavior of this stub:
 

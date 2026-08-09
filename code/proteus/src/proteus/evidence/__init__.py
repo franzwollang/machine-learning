@@ -8,6 +8,7 @@ from proteus.evidence.dm_score import (
     node_log_marginal,
 )
 from proteus.evidence.gate import (
+    DualAdjacency,
     EvidenceGate,
     GateConfig,
     affected_dual_subgraph_connected,
@@ -37,6 +38,7 @@ __all__ = [
     "quarantined_nodes",
     "RHO_MIN_DEFAULT",
     "RHO_MIN_CONSERVATIVE",
+    "DualAdjacency",
     "GateConfig",
     "gate_window",
     "hysteresis_window",
