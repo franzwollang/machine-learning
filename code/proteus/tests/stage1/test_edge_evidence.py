@@ -723,3 +723,64 @@ def test_soft_capacity_frac_multiseed_export() -> None:
     assert "seed-fragile" in SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE
     assert "defaults off" in SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE
     assert "awaiting" in SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE
+
+
+def test_soft_x_proposed_h0_export() -> None:
+    """#44 / A2-T44-followon: soft×proposed h0 combo export.
+
+    Frozen majors+ARI under proposed Youden/Poisson-LR h0 ± soft
+    betweenness.  Defaults remain off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_X_PROPOSED_H0_SI_NOTE,
+        SOFT_X_PROPOSED_H0_SOFT_FRAC,
+        SOFT_X_PROPOSED_H0_TABLE,
+        format_soft_x_proposed_h0_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().h0 == 0.35
+    assert SOFT_X_PROPOSED_H0_SOFT_FRAC == 0.25
+    assert SOFT_X_PROPOSED_H0_TABLE["youden"][0] == 2
+    assert SOFT_X_PROPOSED_H0_TABLE["soft_x_youden"][0] <= 1
+    assert SOFT_X_PROPOSED_H0_TABLE["soft_x_youden"][2] == 2
+    assert SOFT_X_PROPOSED_H0_TABLE["soft_x_poisson_lr"][0] <= 1
+    tsv = format_soft_x_proposed_h0_table()
+    assert "mode\tdataset\ttau\tmajors\tsample_ari" in tsv
+    assert "soft_x_youden" in tsv and "poisson_lr" in tsv
+    assert "sample-ARI" in SOFT_X_PROPOSED_H0_SI_NOTE
+    assert "defaults off" in SOFT_X_PROPOSED_H0_SI_NOTE
+    assert "awaiting" in SOFT_X_PROPOSED_H0_SI_NOTE
+
+
+def test_denser_proposed_h0_export() -> None:
+    """#44 / A2-T44-followon: denser scaffold × proposed h0 export.
+
+    Frozen majors+ARI under denser n/max_nodes with youden ± soft.
+    Defaults remain off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_PROPOSED_H0_MAX_NODES,
+        DENSER_PROPOSED_H0_NESTED_N,
+        DENSER_PROPOSED_H0_SI_NOTE,
+        DENSER_PROPOSED_H0_TABLE,
+        DENSER_PROPOSED_H0_TORI_N,
+        format_denser_proposed_h0_table,
+    )
+
+    assert HollowEdgeConfig().h0 == 0.35
+    assert DENSER_PROPOSED_H0_NESTED_N == 160
+    assert DENSER_PROPOSED_H0_TORI_N == 240
+    assert DENSER_PROPOSED_H0_MAX_NODES == 128
+    assert DENSER_PROPOSED_H0_TABLE["youden"][0] <= 1
+    assert DENSER_PROPOSED_H0_TABLE["youden"][2] == 2
+    assert DENSER_PROPOSED_H0_TABLE["soft_x_youden"][0] <= 1
+    assert DENSER_PROPOSED_H0_TABLE["soft_x_youden"][2] <= 1
+    tsv = format_denser_proposed_h0_table()
+    assert "mode\tdataset\ttau\tmajors\tsample_ari" in tsv
+    assert "soft_x_youden" in tsv and "youden" in tsv
+    assert "sample-ARI" in DENSER_PROPOSED_H0_SI_NOTE
+    assert "defaults off" in DENSER_PROPOSED_H0_SI_NOTE
+    assert "awaiting" in DENSER_PROPOSED_H0_SI_NOTE
