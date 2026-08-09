@@ -63,12 +63,11 @@ The default selector is now the variance-load `L = 1` up-crossing
 (`controller._select_load_crossover`), which carries no `band_lo` / one-step-coarser
 constant and lands tau* within one grid step of geometric truth (circle 8.0x -> 1.6x,
 swiss 3.9x -> 0.9x). Scale-search test tolerance tightened `10x -> 3x` (plus a swiss-roll
-analog); SI S2.5.1 and the S14.3 table rewritten to match. The legacy load-band path is
-**docstring-deprecated** behind `ScaleSearchConfig.selector="load_band"` (flag retained for
-regression bisection; not deleted yet). Paper §3 now points to SI S2.6.2 persistence as the
-cluster-count arbiter. Q-partition persistence (`selector="persistence"`,
-`stage1/persistence.py`) remains the structural arbiter for recursion timing
-(`P_persist=2`, `theta_ovl=0.5`, SI S2.6.2).
+analog); SI S2.5.1 and the S14.3 table rewritten to match. The legacy load-band selector **has been deleted** from `controller.py` (unknown
+`selector` values raise; suite is `load_crossover` / `persistence` only). Paper §3
+points to SI S2.6.2 persistence as the cluster-count arbiter. Q-partition persistence
+(`selector="persistence"`, `stage1/persistence.py`) remains the structural arbiter for
+recursion timing (`P_persist=2`, `theta_ovl=0.5`, SI S2.6.2).
 
 **Finding (cross-family audited, cold-start validated):** the proposed *primary* signal —
 knees/plateaus in the compensated node count `N(tau) * tau^{d/2}` (equivalently `V_C(tau)`)
@@ -86,11 +85,8 @@ Remaining work:
   regions. Design recommendation (A6): hybrid — persistence as accept/reject arbiter, then
   within-interval `load_crossover` resolve behind a flag (default off); do not change defaults
   yet.
-- **Delete the legacy load-band selector** (and dormant `_legacy_slope_selector`,
-  `_detect_peak` in `controller.py`). **Deletion-ready:** zero tests set
-  `selector=load_band`; dormant helpers have zero callers; SI S14.3/S2.5.1 already mark
-  load_band DEPRECATED/flag-only (A3). Execute A6 checklist on next merge (also fix stale
-  `test_scale_search_persistence.py` comment "default load-band").
+- **SI cleanup after deletion:** drop S14.3/S2.5.1 "retained behind flag" / DEPRECATED
+  `load_band` sentences now that the code path is gone (A3).
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -104,15 +100,16 @@ re-searched *finer* scales inside a single feature.
 - **Design settled (A2):** (a) geometric multi-step cap strictly below parent
   `tau*` (`finer_tau_cap_ratio`); (b) one finer walk per region bounded by
   `max_finer_scale_steps` + gate reject + `min_samples`/`max_depth`; (c)
-  `prefer_disconnected_prepass` flag stub (currently no-op). Acceptance gate
-  owns stop/descent; pair with `require_persistent_split` so uniform manifolds
+  `prefer_disconnected_prepass` major-lifted-component short-circuit. Acceptance
+  gate owns stop/descent; pair with `require_persistent_split` so uniform manifolds
   do not shatter (flag alone ~circle 21 leaves; persist+flag+steps≤4+min_samples=80
   → circle=1 / swiss=1).
 - **Landed (flag-gated, default off):** `RecursionConfig.allow_finer_research` +
-  helper path in `stage1/recursion.py`; unit coverage in `tests/stage1/test_recursion.py`.
+  `prefer_disconnected_prepass` / `finer_prepass_min_frac=0.2` in
+  `stage1/recursion.py`; unit coverage in `tests/stage1/test_recursion.py`.
 - **Remaining:** recover nested_spheres / linked_tori ground-truth component
-  counts under a recommended pairing; document required persist pairing in SI /
-  docstrings; implement or drop the prepass stub; do **not** flip `@awaiting`
+  counts under a recommended pairing (prepass alone still ARI~0 / needs deep walk);
+  document required persist pairing in SI / docstrings; do **not** flip `@awaiting`
   component-separation tests until evidence is green. Distinct from #28
   (which scale is picked, not descending past it).
 
@@ -136,9 +133,12 @@ circle `b1 = 1` target of #25.
   clean Betti; **signal-label / per-region filtering is load-bearing** and restores
   `(b0,b1)=(1,1)` under both readings. Clean torus grid can recover `b1=2` at
   `lifetime_frac=0.5`. Do not flip awaiting recovery tests yet.
+- **Landed (helper):** `topology_from_accepted_regions` feeds accepted-region node
+  positions into `per_region_topology` (recovery tests still awaiting).
 - **Remaining before flipping recovery tests:**
   1. *Fitted-region evidence* — PH on fitted circle / tori / spheres accepted-region nodes.
-  2. *Threshold logging* — defend `DEFAULT_LIFETIME_FRAC` in SI S14.2/S14.3 before flips.
+  2. *Threshold logging* — defend `DEFAULT_LIFETIME_FRAC` in SI S14.2/S14.3 before flips
+     (A3 placement draft ready; wait for A4 log text + fitted evidence).
   3. *Per-region harness on nested_spheres clean shells* as a stepping stone to fitted scaffolds.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
@@ -156,7 +156,8 @@ circle `b1 = 1` target of #25.
 - Remaining: when the S6 dual/face graph lands (M4 dual-flow), supply real adjacency into
   that hook (or call sites) so connectivity is computed in the edit dry run rather than
   defaulting open. S6 adjacency contract documented (A5 NOTE: verts=simplex ids; edges=
-  facet-sharing; induced BFS on affected set; `None` ⇒ True). Placeholder
+  facet-sharing; induced BFS on affected set; `None` ⇒ True). `DualAdjacency` Protocol
+  typed on `gate.py` (docs-only; no behavior change). Placeholder
   `@awaiting("stage2.dual_flow")` test locks the future wiring. Dual-flow module still
   absent on integration (`flag_complex.py` only). Do not close until S6 wiring replaces
   the conservative default.

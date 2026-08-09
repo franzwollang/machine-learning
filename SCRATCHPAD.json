@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T12:35-05:00",
-  "turn": 31,
+  "updated_at": "2026-08-09T12:50-05:00",
+  "turn": 32,
   "focus": {
     "milestone": "M2",
     "issue": 28,
-    "goal": "A6 execute load_band deletion; #44 recovery still open"
+    "goal": "load_band deleted; #44 nested recovery still open"
   },
   "recent": [
-    "Second scoop: A3 SI DEPRECATED, A4 diagnostics, A5 S6 contract, A6 deletion-ready",
-    "Tests: 25 passed / 1 xfailed (dual_flow awaiting)",
-    "Scheduled A6-T7 load_band deletion; refilled A3/A5/A6"
+    "Scooped A2 #44c prepass + A4 accepted-region helper + A5 DualAdjacency + A6 load_band delete",
+    "Tests: 36 passed / 5 xfailed after deletion",
+    "Trimmed #28 deletion bullet; refilled A3-T10 SI cleanup"
   ],
   "discoveries": [
     "Tissue filter load-bearing for PH; lifetime alone on whole scaffold insufficient",
-    "load_band unused by entire test suite — deletion-ready"
+    "Prepass alone still ARI~0 on nested shells; deep walk false-hits circle"
   ],
   "open_threads": [
-    "A2 T4–T6 not claimed this cycle",
-    "A3 #44 SI A+C held until nested_spheres evidence",
+    "A2 measuring nested/tori under recommended pairing",
+    "A3 #44 SI A+C held until nested evidence",
     "S6 dual_flow still absent"
   ],
-  "next_step": "MERGE_DONE push; next turn verify A6 deletion",
+  "next_step": "MERGE_DONE push; next turn scoop A2 measure NOTES + A3 SI trim",
   "blockers": []
 }
