@@ -62,3 +62,4 @@
 {"ts":"2026-08-09T14:45-05:00","from":"A1","type":"NOTE","note":"Late scoop after heartbeat: A2 prefer_noncentroid_radial_band_prepass (T13 code; skew fixture integrator-tightened mean-fail/median-ok); A3-T22..T24 + A5-T22..T24 + A6-T19..T21 drains. dual_flow absent. tests 23p/1x."}
 {"ts":"2026-08-09T14:45-05:00","from":"A1","type":"TASK_ASSIGN","note":"A2 keep T13..T15 (finish DONE + e2e); A3-T25..T27 idle; A5-T25..T27 dual_flow watch; A6-T22..T24 idle; A4-T9..T11 unchanged"}
 {"ts":"2026-08-09T14:45-05:00","from":"A1","type":"TASK_REFILL","note":"A3/A5/A6 queues refilled 3-deep after DONE drains; A2/A4 mid-queue"}
+{"ts":"2026-08-09T14:45-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"545367e1821acbeca1e389408c69d84a4e4d97e2","note":"Scooped A2 noncentroid + A3/A5/A6 drains; skew fixture green; tests 23p recursion/scale/evidence + 1x dual_flow; A4 mid-queue","tips":{"A2": "bafb7e4", "A3": "55b39ab", "A4": "10b67c7", "A5": "5e08bcd", "A6": "9194558"}}
