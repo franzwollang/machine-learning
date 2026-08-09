@@ -27,17 +27,16 @@ class ScaleSearchConfig:
     ``selector`` chooses the characteristic-scale rule (SI S2.5.1 / S2.6.2):
     ``"load_crossover"`` (default) selects the grid point at the variance-load
     ``load approx 1`` up-crossing --- the coarsest scale at which the mean
-    per-node variance first reaches the cap ``tau`` (SI S2.5.1).  ``"load_band"``
-    is **DEPRECATED** (OPEN_ISSUES #28): the legacy ``0.65 <= load <= 1``
-    coarsest-in-band heuristic, retained only behind this flag for regression
-    bisection during the M2 transition; do not use for new work --- prefer
-    ``load_crossover`` (resolution) or ``persistence`` (structural timing).
+    per-node variance first reaches the cap ``tau`` (SI S2.5.1).
     ``"persistence"`` uses the Q-partition persistence signal --- the coarsest
     ``tau`` at which a multi-cluster partition persists across adjacent grid
     points --- for structural (recursion) timing, falling back to the
     ``load_crossover`` resolution scale when no split persists.  Persistence
     requires the per-grid-point partitions, so selecting it implies
     ``record_partitions``.
+
+    The legacy ``load_band`` selector (OPEN_ISSUES #28) has been removed; unknown
+    selector values raise ``ValueError``.
     """
 
     grid_ratio: float = 1.0 / np.sqrt(2.0)
@@ -172,18 +171,21 @@ def run_scale_search(
                 persistence_result, data_arr, dim, config, tau_grid, max_nodes,
             )
 
-    if config.selector == "load_band":
-        peak_idx = _select_load_band(
-            load_trace, node_counts, tau_grid, stabilized,
-        )
-    else:
+    if config.selector == "load_crossover":
         peak_idx = _select_load_crossover(load_trace, stabilized)
-    if (
-        config.selector == "persistence"
-        and persistence_result is not None
-        and persistence_result.tau_star_index is not None
-    ):
-        peak_idx = int(persistence_result.tau_star_index)
+    elif config.selector == "persistence":
+        peak_idx = _select_load_crossover(load_trace, stabilized)
+        if (
+            persistence_result is not None
+            and persistence_result.tau_star_index is not None
+        ):
+            peak_idx = int(persistence_result.tau_star_index)
+    else:
+        raise ValueError(
+            f"Unknown ScaleSearchConfig.selector={config.selector!r}; "
+            "expected 'load_crossover' or 'persistence' "
+            "(legacy 'load_band' removed; see OPEN_ISSUES #28)."
+        )
 
     tau_star = float(tau_grid[peak_idx])
     epochs_at_star = 0
@@ -397,145 +399,3 @@ def _select_load_crossover(
     if np.all(loads < 1.0):
         return int(idx[int(np.argmax(loads))])  # finest / most resolved
     return int(idx[0])  # coarsest stabilized (load already >= 1 everywhere)
-
-
-def _select_load_band(
-    load_trace: np.ndarray,
-    node_counts: np.ndarray,
-    tau_grid: np.ndarray,
-    stabilized: list[bool],
-) -> int:
-    """DEPRECATED (OPEN_ISSUES #28): legacy load-band characteristic-scale rule.
-
-    Retained only behind ``ScaleSearchConfig.selector="load_band"`` for
-    regression bisection.  New code should use ``_select_load_crossover``
-    (default resolution selector) or the persistence path.  Scheduled for
-    deletion once ``load_crossover`` dominates every scenario/recursion
-    regression (same issue: also drops dormant ``_legacy_slope_selector`` /
-    ``_detect_peak``).
-
-    The grid is in descending τ order (coarse to fine).  Among stabilized
-    grid points with ``0.65 <= load <= 1.0``, take the **coarsest**
-    (smallest index).  If exactly one index qualifies (the finest margin),
-    prefer **one step coarser** when that neighbor is still stabilized with
-    ``load <= 1`` — unstable interior grid points can otherwise leave a lone
-    fine-scale cell as the only band member.  If the band is empty, fall back
-    to the finest stabilized point with ``load <= 1.0`` and maximal load.
-    """
-
-    n = len(tau_grid)
-    if n == 0:
-        return 0
-
-    eligible = np.array(stabilized, dtype=bool)
-    if not eligible.any():
-        return int(np.argmin(np.abs(load_trace - 1.0)))
-
-    finite_load = np.where(np.isfinite(load_trace), load_trace, np.inf)
-
-    # Prefer a slightly **coarser** τ among stabilized points with load in
-    # ``[band_lo, 1]``, then take the **smallest index** (coarsest τ on this
-    # descending grid).  ``band_lo`` is below 0.7 so the last sub-threshold
-    # grid step (often ~0.65) is still eligible; using only ``>= 0.7`` leaves a
-    # single candidate at the finest end and skews τ* below geometric scales.
-    band_lo = 0.65
-    band_candidates = [
-        i
-        for i in range(n)
-        if eligible[i] and band_lo <= finite_load[i] <= 1.0
-    ]
-    if band_candidates:
-        c = int(min(band_candidates))
-        # If only the finest grid point qualifies, also allow one step coarser
-        # when it is still variance-feasible (fixes unstable middle grid rows
-        # that otherwise pin τ* to the finest cell with ratio << 0.5).
-        if len(band_candidates) == 1 and c > 0:
-            p = c - 1
-            if eligible[p] and np.isfinite(finite_load[p]) and finite_load[p] <= 1.0:
-                return p
-        return c
-
-    best_idx = -1
-    best_load = -np.inf
-    for i in range(n):
-        if not eligible[i]:
-            continue
-        if finite_load[i] <= 1.0 and finite_load[i] > best_load:
-            best_load = finite_load[i]
-            best_idx = i
-
-    if best_idx >= 0:
-        return best_idx
-
-    return int(np.argmin(np.abs(finite_load - 1.0)))
-
-
-def _legacy_slope_selector(
-    load_trace: np.ndarray,
-    node_counts: np.ndarray,
-    tau_grid: np.ndarray,
-    stabilized: list[bool],
-) -> int:
-    """DEPRECATED / dormant (OPEN_ISSUES #28): slope-based selector.
-
-    No callers remain; kept only until the load-band deletion pass removes it
-    with ``_select_load_band`` and ``_detect_peak``.
-    """
-
-    n = len(tau_grid)
-    if n < 3:
-        return int(np.argmin(np.abs(load_trace - 0.5)))
-
-    log_tau = np.log(tau_grid)
-    log_n = np.log(np.maximum(node_counts, 1))
-    slopes = np.abs(np.diff(log_n) / np.diff(log_tau))
-
-    eligible_mask = np.array(stabilized, dtype=bool)
-    mid_eligible = np.array([
-        eligible_mask[i] and eligible_mask[i + 1]
-        for i in range(n - 1)
-    ])
-
-    if not mid_eligible.any():
-        return int(np.argmin(np.abs(load_trace - 0.5)))
-
-    best_midpoint = -1
-    best_cost = np.inf
-    for i in range(n - 1):
-        if not mid_eligible[i]:
-            continue
-        cost = abs(slopes[i] - 0.5) + abs(load_trace[i] - 0.5) + abs(load_trace[i + 1] - 0.5)
-        if cost < best_cost:
-            best_cost = cost
-            best_midpoint = i
-
-    if best_midpoint < 0:
-        return int(np.argmin(np.abs(load_trace - 0.5)))
-    if load_trace[best_midpoint] < load_trace[best_midpoint + 1]:
-        return best_midpoint + 1
-    return best_midpoint
-
-
-def _detect_peak(phi: np.ndarray) -> int:
-    """DEPRECATED / dormant (OPEN_ISSUES #28): peak finder for response traces.
-
-    No callers remain in the active scale-search path; deletion is bundled
-    with the legacy load-band selector removal.
-
-    Uses centered second differences to find local maxima among eligible
-    (non -inf) grid points.  Falls back to argmax if no interior peak
-    is found.
-    """
-
-    n = len(phi)
-    if n < 3:
-        return int(np.argmax(phi))
-
-    candidates = []
-    for i in range(1, n - 1):
-        if phi[i] > phi[i - 1] and phi[i] > phi[i + 1]:
-            candidates.append(i)
-
-    if candidates:
-        return max(candidates, key=lambda i: phi[i])
-    return int(np.argmax(phi))

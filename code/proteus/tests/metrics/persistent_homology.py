@@ -302,6 +302,60 @@ def extract_region_node_positions(
     return [pos[labels == lab] for lab in uniq]
 
 
+def topology_from_accepted_regions(
+    all_positions: np.ndarray,
+    region_labels: np.ndarray,
+    sigma_star: float | Sequence[float],
+    *,
+    include_labels: Optional[Iterable[int]] = None,
+    reading: ReadingMode = "lifetime",
+    max_dim: int = 2,
+    filtration_mult: float = FILTRATION_MULTIPLIER,
+    lifetime_frac: float = DEFAULT_LIFETIME_FRAC,
+) -> list[RegionTopologyReport]:
+    """Scenario helper: accepted-region labels → per-region VR-PH reports (#41).
+
+    Splits ``all_positions`` by ``region_labels`` (typically Stage-1 cluster /
+    recursion-accepted region ids on scaffold nodes), then runs
+    ``per_region_topology``. Pass ``include_labels`` to drop tissue / noise
+    labels. Prefer ``reading="lifetime"`` on tissue-polluted scaffolds.
+
+    Does not flip recovery scenario assertions — callers gather evidence first.
+    """
+    region_points = extract_region_node_positions(
+        all_positions,
+        region_labels,
+        include_labels=include_labels,
+    )
+    # When include_labels is set, keep report region_id aligned with those labels.
+    reports = per_region_topology(
+        region_points,
+        sigma_star,
+        reading=reading,
+        max_dim=max_dim,
+        filtration_mult=filtration_mult,
+        lifetime_frac=lifetime_frac,
+    )
+    if include_labels is not None:
+        labs = [int(x) for x in include_labels]
+        if len(labs) != len(reports):
+            raise ValueError(
+                f"include_labels length {len(labs)} != n_regions {len(reports)}"
+            )
+        return [
+            RegionTopologyReport(
+                region_id=lab,
+                n_points=rep.n_points,
+                betti=rep.betti,
+                reading=rep.reading,
+                sigma_star=rep.sigma_star,
+                filtration_radius=rep.filtration_radius,
+            )
+            for lab, rep in zip(labs, reports)
+        ]
+    return reports
+
+
 @dataclass(frozen=True)
 class ReadingComparison:
     """Side-by-side fixed_threshold vs lifetime Betti readings (#41 diagnostics)."""

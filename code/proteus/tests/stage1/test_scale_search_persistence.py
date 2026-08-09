@@ -128,8 +128,8 @@ def test_cold_start_recheck_rejects_genuine_hierarchy_split() -> None:
 
 
 def test_default_selector_ignores_persistence() -> None:
-    # With the default load-band selector, partitions are not recorded and the
-    # persistence result is absent -- existing behavior is untouched.
+    # With the default load_crossover selector, partitions are not recorded and
+    # the persistence result is absent -- existing behavior is untouched.
     dataset = make_circle(
         n_samples=800, radius=1.0, noise=0.02, extrusion_dim=2, seed=21,
     )

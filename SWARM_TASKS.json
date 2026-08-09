@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T12:35-05:00",
+  "updated_at": "2026-08-09T12:50-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -14,19 +14,19 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T10",
+          "id": "A1-T13",
           "status": "ready",
-          "summary": "Next cadence: scoop any mid-turn tips; verify A6 load_band deletion green; refill queues"
+          "summary": "Next cadence: scoop mid-turn tips; verify A2 nested/tori NOTES; assign A3 #44 SI A+C only if recovery green enough"
         },
         {
-          "id": "A1-T11",
+          "id": "A1-T14",
           "status": "ready",
-          "summary": "When A2 nested_spheres NOTE is green enough, assign A3 SI S2.6.2+S14.3 A+C wording for #44"
+          "summary": "When A4-T6 lifetime-frac log text arrives, assign A3 to place S14.2/S14.3 DEFAULT_LIFETIME_FRAC"
         },
         {
-          "id": "A1-T12",
+          "id": "A1-T15",
           "status": "ready",
-          "summary": "After load_band deletion lands, trim #28 deletion bullet and update M2 board"
+          "summary": "Watch dual_flow landing; if present, re-point A5 from idle watch to wiring CLAIM"
         }
       ]
     },
@@ -45,7 +45,7 @@
           "id": "A2-T4",
           "status": "ready",
           "issue": 44,
-          "summary": "Measure nested_spheres/linked_tori leaf counts under recommended pairing (persist+allow_finer_research+steps<=4+min_samples); NOTE results; no awaiting flips"
+          "summary": "Measure nested_spheres/linked_tori leaf counts under recommended pairing (persist+allow_finer_research+steps<=4+min_samples±prepass); NOTE results; no awaiting flips"
         },
         {
           "id": "A2-T5",
@@ -54,10 +54,10 @@
           "summary": "Docstring/RecursionConfig help text: document required persist pairing for uniform manifolds; REQUEST_TRACKER if SI prose needed"
         },
         {
-          "id": "A2-T6",
+          "id": "A2-T7",
           "status": "ready",
           "issue": 44,
-          "summary": "Either implement prefer_disconnected_prepass short-circuit or NOTE why keep stub; keep default off"
+          "summary": "Prepass pairing study: steps/min_frac/persist combos that avoid circle false-hits while probing nested shells; NOTE only — no awaiting flips"
         }
       ]
     },
@@ -70,21 +70,22 @@
       ],
       "queue": [
         {
-          "id": "A3-T7",
-          "status": "ready",
-          "issue": 41,
-          "summary": "Draft-only NOTE: SI S14.2/S14.3 placement for DEFAULT_LIFETIME_FRAC=0.5 (await A4 calibration numbers; no SI edit until A1 assigns)"
-        },
-        {
-          "id": "A3-T8",
-          "status": "ready",
-          "summary": "Idle: hold #44 SI A+C paragraph until A1 assigns after nested_spheres evidence; re-read A2 mailbox and NOTE readiness"
-        },
-        {
-          "id": "A3-T9",
+          "id": "A3-T10",
           "status": "ready",
           "issue": 28,
-          "summary": "After A6 deletes load_band code: trim SI 'retained behind flag' sentences if still present (CLAIM only once deletion is on integration)"
+          "summary": "CLAIM SI.tex: after load_band deletion on integration, drop S14.3/S2.5.1 'retained behind flag'/DEPRECATED load_band sentences"
+        },
+        {
+          "id": "A3-T11",
+          "status": "ready",
+          "issue": 44,
+          "summary": "Idle hold: #44 SI A+C paragraph until A1 assigns after nested_spheres evidence; re-read A2 mailbox"
+        },
+        {
+          "id": "A3-T12",
+          "status": "ready",
+          "issue": 41,
+          "summary": "Idle: hold DEFAULT_LIFETIME_FRAC SI placement until A1 assigns (A4-T6 log text + fitted evidence)"
         }
       ]
     },
@@ -103,7 +104,7 @@
           "id": "A4-T5",
           "status": "ready",
           "issue": 41,
-          "summary": "Wire a scenario helper that feeds accepted-region node positions into per_region_topology; keep recovery tests awaiting"
+          "summary": "Finish/verify topology_from_accepted_regions helper + smoke; keep recovery tests awaiting; DONE + REQUEST_TRACKER"
         },
         {
           "id": "A4-T6",
@@ -132,19 +133,19 @@
       ],
       "queue": [
         {
-          "id": "A5-T7",
+          "id": "A5-T10",
           "status": "ready",
           "issue": 43,
-          "summary": "Re-check integration for stage2/dual_flow each turn; if present, CLAIM wiring into affected_dual_subgraph_connected"
+          "summary": "Re-check integration each turn for stage2/dual_flow; if present, CLAIM wiring into affected_dual_subgraph_connected"
         },
         {
-          "id": "A5-T8",
+          "id": "A5-T11",
           "status": "ready",
           "issue": 43,
-          "summary": "Optional: add typed Protocol/stub docstring on dual_adjacency shape matching S6 contract NOTE (no behavior change)"
+          "summary": "Optional: one NOTE cross-linking DualAdjacency Protocol to SI S6.2/S10.4 section anchors (no SI edit — REQUEST_TRACKER if prose needed)"
         },
         {
-          "id": "A5-T9",
+          "id": "A5-T12",
           "status": "ready",
           "issue": 43,
           "summary": "REPORT via NOTE if still blocked on S6; keep queue warm without drive-by Stage-1 edits"
@@ -164,25 +165,25 @@
       ],
       "queue": [
         {
-          "id": "A6-T7",
-          "status": "ready",
-          "issue": 28,
-          "summary": "EXECUTE load_band deletion per A6-T5 checklist: drop selector branch + helpers; fix stale load-band comment in test_scale_search_persistence.py; pytest scale_search+circle/swiss/hierarchy+recursion"
-        },
-        {
           "id": "A6-T8",
           "status": "ready",
           "issue": 28,
-          "summary": "REQUEST_TRACKER after deletion: ask A1 to trim #28 deletion bullet; note A3 follow-up for SI flag wording cleanup"
+          "summary": "REQUEST_TRACKER: confirm load_band deletion on integration; ask A1 to keep #28 coarse-end + A3 SI trim; mark A6-T7 done"
         },
         {
           "id": "A6-T9",
           "status": "ready",
           "issue": 28,
           "summary": "Optional prototype NOTE only: PersistenceConfig.resolve_within_interval='load_crossover' API sketch (default off; no behavior change)"
+        },
+        {
+          "id": "A6-T10",
+          "status": "ready",
+          "issue": 28,
+          "summary": "Grep confirm no selector=load_band remains in repo after merge; NOTE any stale SI/paper pointers for A3/A1"
         }
       ]
     }
   },
-  "notes": "2026-08-09T12:35: second scoop A3–A6 + A4-T4 diagnostics; #28 deletion-ready → A6-T7 execute; refilled A3/A5/A6; A2 still on T4–T6."
+  "notes": "2026-08-09T12:50: scooped A2 prepass + A4 accepted-region helper + A5 DualAdjacency + A6 load_band deletion; #28 deletion done; refilled A3/A5/A6; A2 still on nested/tori T4."
 }
