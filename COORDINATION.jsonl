@@ -5,3 +5,6 @@
 {"ts":"2026-08-09T12:02:00-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"9ff0c2bd84ced880a8f5b1cd5d1c49d743934f72","note":"Published tracking only (TASK_ASSIGN); no A2-A6 code tips merged this cycle"}
 {"ts":"2026-08-09T12:15:00-05:00","from":"A1","type":"NOTE","note":"Applied REQUEST_TRACKER: resolved #42; trimmed #28/#43; refilled A3/A5/A6 queues (2-3 deep). A2 still needs CLAIM on A2-T1."}
 {"ts":"2026-08-09T12:15:01-05:00","from":"A1","type":"TASK_REFILL","note":"A3-T4..T6 (SI follow-ons); A5-T4..T6 (#43 S6 watch); A6-T4..T6 (#28 deletion readiness); A1-T4..T6 next cadence"}
+{"ts":"2026-08-09T17:20:33Z","from":"A6","type":"NOTE","note":"integrated_sha=6f1b56d5ab53287aacbb8129f7e2d0d1f37e1629"}
+{"ts":"2026-08-09T17:20:33Z","from":"A6","type":"HELLO","note":"A6 online; tip after merge integration"}
+{"ts":"2026-08-09T17:20:33Z","from":"A6","type":"CLAIM","issue":28,"task_id":"A6-T4","files":["code/proteus/src/proteus/stage1/controller.py"],"note":"Inventory scenario/recursion tests touching load_band; NOTE deletion-readiness"}
