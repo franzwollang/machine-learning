@@ -1,25 +1,26 @@
 {
-  "updated_at": "2026-08-09T15:15-05:00",
-  "turn": 42,
+  "updated_at": "2026-08-09T15:35-05:00",
+  "turn": 43,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "tori cues after PCA miss; no awaiting flip"
+    "goal": "tori still unrecovered after tube/spectral; no awaiting flip"
   },
   "recent": [
-    "Scooped A2-T21..T23 PCA prepass; tori e2e still 1 leaf",
-    "Scooped A3-T31 resolve_within_interval SI A+C",
-    "Scooped A4-T12..T14 reading path; PH 15/15"
+    "Scooped A2-T24..T26 tube+spectral; unit ok; e2e tori=1",
+    "Scooped A5-T31..T33 dual_flow stub+gate wire",
+    "Scooped A3 SI drafts + A4 PH harnesses + A6 mid_interval"
   ],
   "discoveries": [
-    "PCA-axis gap recovers offset rings; interlocking unrecovered",
-    "A4: prefer denser coverage for 1.5σ*; not mult=6 default"
+    "Tube Hopf unit recovers interlock; e2e tissue tori still 1 leaf",
+    "Spectral nested steps=8 shatters; uniforms safe steps<=4",
+    "Coverage probe recovers SI 1.5σ* on clean circles"
   ],
   "open_threads": [
     "No awaiting flip — tori unrecovered",
-    "A5 dual_flow stub still pending T31+",
-    "Throughput mode ON — no idle holds"
+    "#43 dual_flow landed but acceptance still None=>True",
+    "Throughput mode ON — refill linking-number next"
   ],
-  "next_step": "MERGE_DONE push; watch A2-T24 tube/spectral",
+  "next_step": "MERGE_DONE push; watch A2-T27 linking-number",
   "blockers": []
 }

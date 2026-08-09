@@ -91,8 +91,12 @@ Remaining work:
   with coarse-end resolution until a SI-justified within-interval signal exists.
 - **Landed (A3-T31 SI A+C):** SI S2.6.2 + S14.3 document
   `PersistenceConfig.resolve_within_interval` (`none` | `load_crossover`, default
-  `none`; hybrid ≤ fine-leaf). Experimental within-interval strategies remain open
-  (A6 throughput queue); default stays `none`.
+  `none`; hybrid ≤ fine-leaf).
+- **Landed (A6-T28..T30 experimental):** `resolve_within_interval="mid_interval"`
+  midpoint probe (default still `"none"`); `load_band` deprecated alias →
+  `load_crossover` + DeprecationWarning; paper §scale notes experimental
+  mid-interval / hybrid default-off. Do **not** flip default. Remaining: more
+  within-interval experiments + A3 SI row for `mid_interval`.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -163,9 +167,19 @@ re-searched *finer* scales inside a single feature.
   centroid-separation gate; unit offset rings recover ARI=1.0; concentric
   rejected. Linked_tori e2e under persist+pca(+sd) steps 4/8/12 still **1 leaf**.
   Docstring documents recommended pairing (uniforms steps≤4; nested sd+steps≥8;
-  tori PCA prototype). Recursion tests 15 passed.
-- **Remaining:** tube / spectral / linking-number tori cues (throughput
-  experiments); flip awaiting only after A1 confirms tori recovery + swiss-safe
+  tori PCA prototype).
+- **Landed (A3-T37 SI A+C):** SI S2.6.2 + S14.3 document
+  `prefer_pca_axis_gap_prepass` (proposal-path, default off; interlocking
+  unrecovered).
+- **Landed (A2-T24..T26):** `prefer_tube_major_radius_prepass` (Hopf tube
+  residual, default off) — unit interlocking rings ARI=1.0; concentric rejected.
+  `prefer_spectral_gap_prepass` (Fiedler/lifted+kNN, default off) — unit offset
+  rings ok; nested spectral steps=8 shatters (~8 leaves). Linked_tori e2e under
+  persist+tube/pca/spectral/sd+pca+tube steps 4/8/12 still **1 leaf**. Harness
+  guards circle/swiss persist+sd+pca steps=4 → 1. Recursion tests 18 passed.
+  **Do not flip awaiting** (tori unrecovered).
+- **Remaining:** linking-number / scaffold-level tube / tissue-filtered combo
+  (throughput); flip awaiting only after A1 confirms tori recovery + swiss-safe
   pairing. Distinct from #28.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
@@ -214,10 +228,16 @@ circle `b1 = 1` target of #25.
   to raise `filtration_mult`. Prefer denser accepted-region coverage so true H1
   births ≤`1.5σ*`. Optional fallback: declared calibration protocol → S14.3 log —
   do **not** silently adopt mult=6 / frac≥4. Lifetime stays proposal-path;
-  clean-shell modest-n window frac≥~0.75 (A4-T13 sweep). PH synthetic 15/15 green.
-- **Remaining before flipping recovery tests:** scaffold-coverage probe toward
-  SI-defensible `1.5σ*` fixed_threshold; optional calibrated-mult protocol harness;
-  lifetime_frac sweep harness (A4 throughput queue).
+  clean-shell modest-n window frac≥~0.75 (A4-T13 sweep).
+- **Landed (A3-T35 SI draft):** S14.2 proposed reading-path (coverage-first;
+  calibrated `filtration_mult` fallback labeled proposed) + S14.3 rows.
+- **Landed (A4-T15..T17):** `sweep_lifetime_frac` harness; `run_per_region_ph`
+  prototype (nested clean shells / linked_tori grids); denser-coverage probe
+  recovers SI `1.5σ*` on clean circles (prefer coverage over raising mult).
+  PH synthetic 32/32 green. Recovery `@awaiting` unchanged.
+- **Remaining before flipping recovery tests:** denser *fitted-scaffold*
+  coverage toward SI `1.5σ*`; optional calibrated-mult protocol harness; wire
+  runner into recovery scaffolding (stay `@awaiting`).
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -231,11 +251,11 @@ circle `b1 = 1` target of #25.
   induced-subgraph hook; `tests/evidence/test_dual_subgraph_connectivity.py` locks
   disconnect ⇒ evidence-path reject. When adjacency is `None`, the helper conservatively
   returns `True` (same default as `score_edit(..., dual_connected=True)`).
-- Remaining: when the S6 dual/face graph lands (M4 dual-flow), supply real adjacency into
-  that hook (or call sites) so connectivity is computed in the edit dry run rather than
-  defaulting open. S6 adjacency contract documented (A5 NOTE: verts=simplex ids; edges=
-  facet-sharing; induced BFS on affected set; `None` ⇒ True). `DualAdjacency` Protocol
-  typed on `gate.py` (docs-only; no behavior change). Placeholder
-  `@awaiting("stage2.dual_flow")` test locks the future wiring. Dual-flow module still
-  absent on integration (`flag_complex.py` only). Do not close until S6 wiring replaces
-  the conservative default.
+- **Landed (A5-T31..T33 experimental):** `stage2/dual_flow.py` builds facet-sharing
+  `DualAdjacency` behind `DualFlowConfig.enable_dual_adjacency` (default off);
+  `GateConfig.apply_dual_adjacency` wires into `score_edit`/`evaluate`
+  (disconnect ⇒ reject). Wiring test flipped green; evidence subset 10 passed.
+  A3-T36 drafted SI S6.6 DualAdjacency stub. Mass/density/benchmark remain
+  `@awaiting("stage2.dual_flow")`. Acceptance path still `None` ⇒ True / flags
+  default off — **do not close #43** until acceptance-path default replaces the
+  conservative open default / fuller S6 (BP, boundary taxonomy, density).

@@ -41,3 +41,4 @@
 {"ts":"2026-08-09T15:00-05:00","focus":"M1 #44/#41 scoop","summary":"MERGE A2 multiply + A3 SI A+C + A4 calib/helper + A5/A6 drains; tests 32p/1x; refilled queues; dens fixture seed=1","next":"watch A2-T18..T20 linked_tori/swiss"}
 {"ts":"2026-08-09T15:05-05:00","focus":"M1 #44 late A2 scoop","summary":"A2 guards: tori unrecovered / swiss steps<=4; refilled A2 non-radial path; tests recursion 14p","next":"watch A2-T21"}
 {"ts":"2026-08-09T15:15-05:00","focus":"M1 #44 scoop","summary":"MERGE A2-T21..T23 PCA + A3 SI hybrid + A4 reading path + A5/A6 drains; throughput refill A2/A3; tests 40p/1x","next":"watch A2-T24 tube/spectral tori"}
+{"ts":"2026-08-09T15:35-05:00","focus":"M1/M4 scoop","summary":"MERGE A2-T24..T26 + A3-T35..T37 + A4-T15..T17 + A5-T31..T33 + A6-T28..T30; dual_flow landed flag-off; tori still unrecovered; tests 70p","next":"watch A2-T27 linking-number"}
