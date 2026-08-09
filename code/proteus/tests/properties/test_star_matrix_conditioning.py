@@ -1,4 +1,4 @@
-"""Star-matrix conditioning invariants (SI S10.4)."""
+"""Star-matrix conditioning invariants (SI S10.4 operational runtime form)."""
 from __future__ import annotations
 
 import numpy as np
@@ -18,10 +18,27 @@ from proteus.evidence import (
 from proteus.types import EditProposal, EditType
 
 
+def test_incidence_proxy_matches_si_runtime_definition():
+    """K_i^{inc}[j,S] = 1[{i,j} subset S] (SI S10.4 operational runtime matrix)."""
+
+    K = star_incidence_matrix(
+        out_edges=[1, 2, 3],
+        star_simplices=[[0, 1, 2], [0, 1], [0, 3, 4]],
+        node_id=0,
+    )
+    assert K.shape == (3, 3)
+    # triangle {0,1,2}: edges to 1 and 2
+    assert list(K[:, 0]) == [1.0, 1.0, 0.0]
+    # edge {0,1}: only neighbor 1
+    assert list(K[:, 1]) == [1.0, 0.0, 0.0]
+    # triangle {0,3,4}: only neighbor 3 is an out-edge; 4 is outside out_edges
+    assert list(K[:, 2]) == [0.0, 0.0, 1.0]
+
+
 def test_conditioning_above_rho_min():
-    """sigma_min(K_i)/sigma_max(K_i) must be >= rho_min for an identifiable star
-    (SI S10.4). A generic simplicial star (distinct simplices spanning distinct
-    edge sets) is well conditioned and evidence-bearing."""
+    """sigma_min(K_i^{inc})/sigma_max(K_i^{inc}) >= rho_min for an identifiable
+    star (SI S10.4). Distinct simplices with distinct edge supports are well
+    conditioned and evidence-bearing under the incidence proxy."""
 
     # Node 0 sits in two triangles sharing only the apex: edges to {1,2} and
     # {3,4}. The incidence map has orthogonal columns -> perfectly conditioned.
@@ -41,9 +58,8 @@ def test_conditioning_above_rho_min():
 
 
 def test_underdetermined_star_not_evidence_bearing():
-    """S10.4 requires full rank modulo the 1D scaling direction: a star with more
-    incident simplices than outgoing outcomes cannot identify its simplex masses,
-    even when the raw sigma_min/sigma_max ratio looks acceptable."""
+    """S10.4 operational count guard: more incident simplices than outgoing
+    outcomes => not evidence-bearing, even when sigma_min/sigma_max looks fine."""
 
     # 2 outcomes, 3 simplices routing through overlapping edge sets.
     K = star_incidence_matrix(
