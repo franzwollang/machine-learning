@@ -293,6 +293,70 @@ def test_finer_research_flag_defaults_off() -> None:
     assert cfg.finer_tube_min_residual_ratio > 0.0
     assert cfg.prefer_spectral_gap_prepass is False
     assert cfg.finer_spectral_knn >= 2
+    assert cfg.prefer_hollow_edge_prepass is False
+    assert cfg.hollow_mid_radius_frac > 0.0
+    assert cfg.hollow_h0 > 0.0
+    assert cfg.hollow_min_end_count >= 0.0
+    assert cfg.hollow_gabriel_fallback is True
+
+
+def test_hollow_edge_partition_splits_bridged_blobs() -> None:
+    """#44: hollow prepass recovers two majors after cutting a void bridge."""
+
+    from proteus.stage1.recursion import _hollow_edge_partition
+    from proteus.types import Link
+
+    class _Links:
+        def __init__(self, edges: list[tuple[int, int]]):
+            self._edges = edges
+
+        def neighbour_graph(self, n: int) -> dict[int, list[int]]:
+            g = {i: [] for i in range(n)}
+            for i, j in self._edges:
+                g[i].append(j)
+                g[j].append(i)
+            return g
+
+        def lifted_links(self):
+            return [
+                Link(i=i, j=j, count_ij=5.0, count_ji=5.0, lifted=True)
+                for i, j in self._edges
+            ]
+
+    class _Node:
+        def __init__(self, pos, hits=10.0):
+            self.position = np.asarray(pos, dtype=float)
+            self.hit_count = hits
+            self.d_final = 1
+
+    class _Scaf:
+        def __init__(self, nodes, edges):
+            self.nodes = nodes
+            self.links = _Links(edges)
+            self.tau = 0.2
+
+    rng = np.random.default_rng(0)
+    data = np.vstack([
+        rng.normal([-2.5, 0.0], 0.15, size=(60, 2)),
+        rng.normal([2.5, 0.0], 0.15, size=(60, 2)),
+    ])
+    nodes = [
+        _Node([-2.6, 0.0]), _Node([-2.4, 0.1]), _Node([-2.4, -0.1]),
+        _Node([2.4, 0.1]), _Node([2.5, 0.0]), _Node([2.6, -0.1]),
+    ]
+    edges = [
+        (0, 1), (1, 2), (0, 2),
+        (3, 4), (4, 5), (3, 5),
+        (0, 3),  # hollow bridge
+    ]
+    pre = _hollow_edge_partition(
+        _Scaf(nodes, edges), data, min_frac=0.2, min_abs=2,
+        mid_radius_frac=0.35, h0=0.35, min_end_count=0.5,
+    )
+    assert pre is not None
+    assert pre.n_clusters == 2
+    assert pre.partition_q_score > 0.0
+    assert int(pre.labels[0]) != int(pre.labels[3])
 
 
 def test_major_lifted_component_partition_requires_two_majors() -> None:
