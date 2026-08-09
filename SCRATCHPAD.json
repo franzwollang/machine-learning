@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T12:25-05:00",
-  "turn": 30,
+  "updated_at": "2026-08-09T12:35-05:00",
+  "turn": 31,
   "focus": {
-    "milestone": "M1",
-    "issue": 44,
-    "goal": "scoop #44/#41 tips; nested_spheres recovery still open"
+    "milestone": "M2",
+    "issue": 28,
+    "goal": "A6 execute load_band deletion; #44 recovery still open"
   },
   "recent": [
-    "Merged A2+A4 into integration; A3/A5/A6 already contained",
-    "Tests: recursion 9, dual 3, star_matrix 5, ph_harness 3, scale_search 2 green",
-    "Trimmed #44/#41/#25; refilled A2/A4/A1 queues"
+    "Second scoop: A3 SI DEPRECATED, A4 diagnostics, A5 S6 contract, A6 deletion-ready",
+    "Tests: 25 passed / 1 xfailed (dual_flow awaiting)",
+    "Scheduled A6-T7 load_band deletion; refilled A3/A5/A6"
   ],
   "discoveries": [
-    "allow_finer_research alone shatters circle; needs persist pairing",
-    "PH harness clean-geometry green; fitted tissue b1=1 still open"
+    "Tissue filter load-bearing for PH; lifetime alone on whole scaffold insufficient",
+    "load_band unused by entire test suite — deletion-ready"
   ],
   "open_threads": [
-    "A3/A5/A6 T4–T6 not claimed this cycle",
-    "#28 deletion waits A6 readiness matrix",
-    "nested_spheres cc=2 not recovered cleanly yet"
+    "A2 T4–T6 not claimed this cycle",
+    "A3 #44 SI A+C held until nested_spheres evidence",
+    "S6 dual_flow still absent"
   ],
-  "next_step": "MERGE_DONE push; next turn scoop follow-on tips",
+  "next_step": "MERGE_DONE push; next turn verify A6 deletion",
   "blockers": []
 }
