@@ -19,6 +19,7 @@ from tests.metrics.persistent_homology import (
     per_region_topology,
     region_betti_numbers,
     sigma_star_from_tau,
+    topology_from_accepted_regions,
 )
 
 
