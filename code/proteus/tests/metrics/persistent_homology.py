@@ -302,6 +302,33 @@ def extract_region_node_positions(
     return [pos[labels == lab] for lab in uniq]
 
 
+def nearest_data_labels(
+    node_positions: np.ndarray,
+    data_points: np.ndarray,
+    data_labels: np.ndarray,
+) -> np.ndarray:
+    """Label each scaffold node by its nearest data point (1-NN).
+
+    Probe/harness helper for signal vs tissue filtering when Stage-1 cluster
+    labels alone do not separate generative components (#41 fitted-circle
+    probes). Does not change SI filtration defaults.
+    """
+    from sklearn.neighbors import NearestNeighbors
+
+    pos = np.asarray(node_positions, dtype=float)
+    pts = np.asarray(data_points, dtype=float)
+    labs = np.asarray(data_labels)
+    if pos.ndim != 2 or pts.ndim != 2:
+        raise ValueError("node_positions and data_points must be 2-D")
+    if pts.shape[0] != labs.shape[0]:
+        raise ValueError("data_points and data_labels must have the same length")
+    if pos.shape[0] == 0:
+        return np.empty((0,), dtype=labs.dtype)
+    nn = NearestNeighbors(n_neighbors=1).fit(pts)
+    _, idx = nn.kneighbors(pos)
+    return np.asarray(labs)[idx[:, 0]]
+
+
 def topology_from_accepted_regions(
     all_positions: np.ndarray,
     region_labels: np.ndarray,

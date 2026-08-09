@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from sklearn.neighbors import NearestNeighbors
 
 from proteus.stage1.controller import ScaleSearchConfig, run_scale_search
 from proteus.stage1.stabilization import StabilizationConfig
@@ -30,6 +29,7 @@ from tests.metrics.persistent_homology import (
     FILTRATION_MULTIPLIER,
     betti_numbers,
     lifetime_betti_numbers,
+    nearest_data_labels,
     sigma_star_from_tau,
 )
 
@@ -58,9 +58,7 @@ def fitted_circle_signal_nodes():
     pos = result.scaffold_at_star.node_positions()
     sigma = sigma_star_from_tau(result.tau_star)
 
-    nn = NearestNeighbors(n_neighbors=1).fit(dataset.points)
-    _, idx = nn.kneighbors(pos)
-    node_labels = np.asarray(dataset.labels)[idx[:, 0]]
+    node_labels = nearest_data_labels(pos, dataset.points, dataset.labels)
     signal = pos[node_labels == 0]
     assert signal.shape[0] >= 8
     return signal, sigma
