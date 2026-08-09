@@ -25,8 +25,11 @@ Green tests lock:
   (A5-T46); multi-simplex patch ``Σ μ_S`` soft solve behind
   ``enable_patch_mu_solve`` (A5-T47 stub); shared-face antisymmetry soft
   glue behind ``enable_shared_face_glue`` (A5-EXP-glue); global face-id
-  soft solve behind ``enable_global_face_solve`` (A5-T49); Complex →
-  node-star incidence + ANN BMU query behind ``enable_complex_ann_incidence``
+  soft solve behind ``enable_global_face_solve`` (A5-T49); loopy Gaussian
+  BP *message schedule* behind ``enable_loopy_bp_schedule``
+  (A5-EXP-loopy-bp); mass normalization behind
+  ``enable_mass_normalization`` (A5-EXP-mass); Complex → node-star
+  incidence + ANN BMU query behind ``enable_complex_ann_incidence``
   (A5-EXP-ann-inc).
 * S6.3 boundary taxonomy behind ``enable_boundary_taxonomy``; seam stitch /
   ghost reservoir sketches behind ``enable_seam_ghost`` (A5-T45).
@@ -41,11 +44,12 @@ Gaps vs full SI S6 (do **not** flip these elsewhere yet):
   Complex/ANN incidence bridge exist; acceptance-path Stage-1 integration
   still open.
 * **S6.2** Soft ``A_S`` / ``μ_S`` / count-aware / patch / shared-face glue /
-  global face-id sketches only — no loopy Gaussian BP. See
-  module docstring acceptance-path plan (A5-T42).
+  global face-id / loopy-BP *schedule* sketches only — not production BP.
+  Mass-norm harness exists; conservation awaiting stays. See module
+  docstring acceptance-path plan (A5-T42).
 * **S6.3** Seam/ghost sketches are scalar; no face registry / patch graph.
-* **S6.4** Density sketch + live Complex/ANN harness only; mass
-  normalization / acceptance-path density open.
+* **S6.4** Density sketch + live Complex/ANN harness only; acceptance-path
+  density open.
 * Mass-conservation / density / benchmark ``@awaiting("stage2.dual_flow")``
   (and ``stage2.density``) remain xfail until that producer lands.
 * Acceptance path still defaults open when adjacency is ``None`` / flags off.
@@ -81,8 +85,10 @@ from proteus.stage2 import (
     count_aware_lambda_f,
     dry_run_dual_from_edit,
     epsilon_flux,
+    epsilon_mass,
     locate_bmu_simplex,
     mu_S_weight,
+    normalize_simplex_masses,
     query_stage1_ann_bmus,
     resolve_dual_connected,
     route_live_bmu_face_tallies,
@@ -95,6 +101,7 @@ from proteus.stage2 import (
     solve_as_message_pass,
     solve_conservative_pressures,
     solve_global_face_mu_pressures,
+    solve_loopy_bp_schedule,
     solve_mu_weighted_pressures,
     solve_patch_mu_weighted_pressures,
     stitch_orientation_seam_pressures,
@@ -864,6 +871,8 @@ def test_acceptance_path_plan_documented_in_dual_flow_module():
     assert cfg.enable_patch_mu_solve is False
     assert cfg.enable_shared_face_glue is False
     assert cfg.enable_global_face_solve is False
+    assert cfg.enable_loopy_bp_schedule is False
+    assert cfg.enable_mass_normalization is False
     assert cfg.enable_boundary_taxonomy is False
     assert cfg.enable_seam_ghost is False
     assert cfg.enable_simplex_density is False
@@ -1401,6 +1410,104 @@ def test_global_face_solve_missing_simplex_raises():
             simplices={9: (0, 1, 2)},  # wrong id
             config=cfg,
         )
+
+
+# ---------------------------------------------------------------------------
+# A5-EXP-loopy-bp: loopy Gaussian BP message schedule (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_loopy_bp_schedule_flag_off_returns_none():
+    """enable_loopy_bp_schedule=False ⇒ solve_loopy_bp_schedule is None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    A0 = build_divergence_stencil(left)
+    A1 = build_divergence_stencil(right)
+    hat = {0: np.array([2.0, 0.1, 0.1]), 1: np.array([0.2, 1.5, 0.2])}
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    assert (
+        solve_loopy_bp_schedule(
+            hat, {0: A0, 1: A1}, simplices, config=DualFlowConfig()
+        )
+        is None
+    )
+
+
+def test_loopy_bp_schedule_runs_and_antisym_shared():
+    """Flag on ⇒ message schedule yields finite residuals + antisym locals."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    A0 = build_divergence_stencil(left)
+    A1 = build_divergence_stencil(right)
+    hat = {0: np.array([3.0, 0.1, 0.1]), 1: np.array([0.1, 3.0, 0.1])}
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    cfg = DualFlowConfig(
+        enable_loopy_bp_schedule=True,
+        bp_max_iters=8,
+        bp_damping=0.5,
+        mu_scale=0.05,
+    )
+    out = solve_loopy_bp_schedule(
+        hat, {0: A0, 1: A1}, simplices, config=cfg
+    )
+    assert out is not None
+    assert out.n_faces == 5
+    assert out.n_interior_faces == 1
+    assert out.n_factors == 2
+    assert out.message_updates == 8 * (3 + 3)
+    assert out.pressures_global.shape == (5,)
+    assert out.pressures_local.shape == (6,)
+    assert np.all(np.isfinite(out.pressures_global))
+    assert out.r_data >= 0.0
+    assert out.r_cons >= 0.0
+    assert out.epsilon_flux >= 0.0
+    # Shared facet {1,2}: left local 0, right local 1 → indices 0 and 4.
+    assert out.pressures_local[0] == pytest.approx(
+        -out.pressures_local[4], abs=1e-8
+    )
+    assert "loopy" in out.note.lower()
+    assert "awaiting" in out.note.lower() or "do not flip" in out.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-EXP-mass: simplex-mass normalization harness (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_mass_normalization_flag_off_returns_none():
+    """enable_mass_normalization=False ⇒ normalize_simplex_masses is None."""
+
+    assert normalize_simplex_masses({0: 0.3, 1: 0.7}) is None
+    assert normalize_simplex_masses(
+        {0: 0.3, 1: 0.7}, config=DualFlowConfig()
+    ) is None
+
+
+def test_mass_normalization_rescales_and_reports_epsilon():
+    """Flag on ⇒ Σ m = 1 and ε_mass ≤ 1e-6; ungated epsilon_mass matches."""
+
+    raw = {0: 2.0, 1: 6.0, "c": 2.0}
+    assert epsilon_mass(raw) == pytest.approx(9.0)  # |10 - 1|
+    cfg = DualFlowConfig(enable_mass_normalization=True)
+    out = normalize_simplex_masses(raw, config=cfg)
+    assert out is not None
+    assert out.total_before == pytest.approx(10.0)
+    assert sum(out.masses.values()) == pytest.approx(1.0)
+    assert out.epsilon_mass <= 1e-6
+    assert out.epsilon_mass == pytest.approx(epsilon_mass(out.masses))
+    assert out.masses[0] == pytest.approx(0.2)
+    assert out.masses[1] == pytest.approx(0.6)
+    assert "awaiting" in out.note.lower() or "do not flip" in out.note.lower()
+
+
+def test_mass_normalization_nonpositive_total_raises():
+    """Zero / negative mass total → ValueError."""
+
+    cfg = DualFlowConfig(enable_mass_normalization=True)
+    with pytest.raises(ValueError, match="mass total"):
+        normalize_simplex_masses({0: 0.0, 1: 0.0}, config=cfg)
 
 
 # ---------------------------------------------------------------------------

@@ -28,11 +28,17 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   still not a global face registry / loopy BP). Global face-id soft
   solve (one pressure per unique facet, signed local incidence) lands
   behind ``enable_global_face_solve`` (A5-T49 stub — still **not** loopy
-  Gaussian BP). Complex → node-star incidence + ANN BMU query for
+  Gaussian BP). A loopy Gaussian BP *message schedule* on the shared
+  face/factor graph lands behind ``enable_loopy_bp_schedule``
+  (A5-EXP-loopy-bp; cavity / factor-to-variable messages — still a
+  sketch, not production BP with spectrum-safe convergence). Simplex
+  mass normalization (``ε_mass``) lands behind
+  ``enable_mass_normalization`` (A5-EXP-mass; ungated ``epsilon_mass``
+  helper). Complex → node-star incidence + ANN BMU query for
   Stage-1 tally wiring lands behind ``enable_complex_ann_incidence``
-  (A5-EXP-ann-inc). Remaining real-BP gaps: full loopy Gaussian BP on
-  the multi-simplex face/factor graph; online tallies → offline solve
-  schedule; true-manifold flux zeroing (S6.3).
+  (A5-EXP-ann-inc). Remaining real-BP gaps: production loopy BP with
+  robust spectrum damping / online→offline schedule; true-manifold
+  flux zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
   seams land behind ``enable_boundary_taxonomy`` (proposed; default off).
   Heuristic single-owner → true-manifold; hint sets override. Seam stitch /
@@ -87,6 +93,13 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
   :func:`solve_global_face_mu_pressures` returns ``None``; when on,
   soft-solves one pressure per unique facet via a signed face registry
   (A5-T49 stub — **not** loopy Gaussian BP).
+* ``DualFlowConfig.enable_loopy_bp_schedule`` — when off,
+  :func:`solve_loopy_bp_schedule` returns ``None``; when on, runs a
+  damped Gaussian factor-graph message schedule on the global face /
+  simplex-factor graph (A5-EXP-loopy-bp sketch — **not** production BP).
+* ``DualFlowConfig.enable_mass_normalization`` — when off,
+  :func:`normalize_simplex_masses` returns ``None``; when on, rescales
+  simplex masses to sum to 1 and reports ``ε_mass`` (A5-EXP-mass).
 * ``DualFlowConfig.enable_boundary_taxonomy`` — when off,
   :func:`classify_boundary_facets` returns ``None``.
 * ``DualFlowConfig.enable_seam_ghost`` — when off, seam stitch / ghost
@@ -153,6 +166,8 @@ __all__ = [
     "GlobalFaceIncidence",
     "GlobalFaceRegistry",
     "GlobalFaceSolveResult",
+    "LoopyBPScheduleResult",
+    "MassNormalizationResult",
     "SharedFacePair",
     "build_dual_adjacency",
     "build_dual_adjacency_from_complex",
@@ -173,6 +188,8 @@ __all__ = [
     "build_divergence_stencil",
     "conservation_residual_r_cons",
     "epsilon_flux",
+    "epsilon_mass",
+    "normalize_simplex_masses",
     "solve_as_message_pass",
     "whiten_empirical_pressures",
     "mu_S_weight",
@@ -180,6 +197,7 @@ __all__ = [
     "solve_mu_weighted_pressures",
     "solve_patch_mu_weighted_pressures",
     "solve_global_face_mu_pressures",
+    "solve_loopy_bp_schedule",
     "classify_boundary_facets",
     "stitch_orientation_seam_pressures",
     "apply_ghost_reservoir",
@@ -271,6 +289,16 @@ class DualFlowConfig:
         data + ``Σ_S μ_S‖A_S p_S‖²`` objective over **one pressure per
         unique facet** with signed local incidence (A5-T49 stub). Still
         **not** loopy Gaussian BP — gradient soft solve only.
+    enable_loopy_bp_schedule:
+        When ``False`` (default), :func:`solve_loopy_bp_schedule` returns
+        ``None``. When ``True``, runs a damped Gaussian cavity / factor-
+        to-variable message schedule on the global face/factor graph
+        (A5-EXP-loopy-bp). Sketch only — not production loopy BP.
+    enable_mass_normalization:
+        When ``False`` (default), :func:`normalize_simplex_masses` returns
+        ``None``. When ``True``, rescales simplex masses so ``Σ m_S = 1``
+        and reports SI ``ε_mass`` (A5-EXP-mass). Does **not** flip
+        ``@awaiting("stage2.dual_flow")``.
     enable_boundary_taxonomy:
         When ``False`` (default), :func:`classify_boundary_facets` returns
         ``None``. When ``True``, labels single-owner facets via SI S6.3
@@ -317,7 +345,8 @@ class DualFlowConfig:
         Soft spectrum-damping trigger for :func:`solve_mu_weighted_pressures`
         (default ``1e6``). When local Hessian ``cond`` exceeds this, the
         gradient step is halved each iteration (proposal-path stand-in for
-        SI ``damping when spectra are poorly conditioned``).
+        SI ``damping when spectra are poorly conditioned``). Also used by
+        :func:`solve_loopy_bp_schedule` to ridge local factor precisions.
     shared_face_glue:
         Soft weight on shared-face antisymmetry residuals when
         ``enable_shared_face_glue`` is on (default ``1.0``). Operational
@@ -339,6 +368,8 @@ class DualFlowConfig:
     enable_patch_mu_solve: bool = False
     enable_shared_face_glue: bool = False
     enable_global_face_solve: bool = False
+    enable_loopy_bp_schedule: bool = False
+    enable_mass_normalization: bool = False
     enable_boundary_taxonomy: bool = False
     enable_seam_ghost: bool = False
     enable_simplex_density: bool = False
@@ -1657,6 +1688,52 @@ def epsilon_flux(
     return float(np.dot(flux, flux)) / (float(np.dot(p, p)) + float(eps))
 
 
+def epsilon_mass(
+    masses: Mapping[Hashable, float],
+    *,
+    target: float = 1.0,
+) -> float:
+    """SI S6.2 ``ε_mass = |Σ_S m_S - target|`` (ungated helper).
+
+    After :func:`normalize_simplex_masses`, this should be ``<= 1e-6``.
+    Does **not** flip ``@awaiting("stage2.dual_flow")``.
+    """
+
+    if not masses:
+        raise ValueError("masses must be non-empty")
+    total = float(sum(float(v) for v in masses.values()))
+    return abs(total - float(target))
+
+
+def normalize_simplex_masses(
+    masses: Mapping[Hashable, float],
+    *,
+    config: DualFlowConfig | None = None,
+) -> MassNormalizationResult | None:
+    """Rescale simplex masses so ``Σ m_S = 1`` (SI S6.2; A5-EXP-mass).
+
+    When ``enable_mass_normalization`` is off, returns ``None``. When on,
+    divides each mass by the pre-normalization total (must be ``> 0``)
+    and reports ``ε_mass``. Proposal-path harness only — do **not** flip
+    mass-conservation ``@awaiting``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_mass_normalization:
+        return None
+    if not masses:
+        raise ValueError("masses must be non-empty")
+    total = float(sum(float(v) for v in masses.values()))
+    if total <= 0.0:
+        raise ValueError("mass total must be > 0 for normalization")
+    scaled = {k: float(v) / total for k, v in masses.items()}
+    return MassNormalizationResult(
+        masses=scaled,
+        total_before=total,
+        epsilon_mass=epsilon_mass(scaled),
+    )
+
+
 def solve_as_message_pass(
     empirical_pressures: np.ndarray,
     divergence_stencil: np.ndarray,
@@ -2238,6 +2315,57 @@ class GlobalFaceSolveResult:
     )
 
 
+@dataclass(frozen=True)
+class LoopyBPScheduleResult:
+    """Loopy Gaussian BP message-schedule sketch (SI S6.2; A5-EXP-loopy-bp).
+
+    Face variables are unique global facets; simplex factors encode
+    ``μ_S‖A_S p_S‖²``. Cavity messages are 1-D Gaussian (precision,
+    information). Still a proposal-path sketch — not production BP.
+    """
+
+    empirical_local: np.ndarray
+    empirical_global: np.ndarray
+    pressures_global: np.ndarray
+    pressures_local: np.ndarray
+    lambda_f_global: np.ndarray
+    mu_S: Mapping[Hashable, float]
+    mu_S_sum: float
+    r_data: float
+    r_cons: float
+    epsilon_flux: float
+    iters: int
+    block_sizes: tuple[int, ...]
+    simplex_ids: tuple[Hashable, ...]
+    n_faces: int
+    n_interior_faces: int
+    n_factors: int
+    message_updates: int
+    registry: GlobalFaceRegistry
+    note: str = (
+        "sketch only: loopy Gaussian BP message schedule on face/factor "
+        "graph; not production BP; do not flip @awaiting(stage2.dual_flow)"
+    )
+
+
+@dataclass(frozen=True)
+class MassNormalizationResult:
+    """Simplex-mass normalization harness (SI S6.2; A5-EXP-mass).
+
+    After rescaling, ``Σ m_S = 1`` (up to float noise) and
+    ``epsilon_mass = |Σ m_S - 1|``. Does **not** flip mass-conservation
+    ``@awaiting``.
+    """
+
+    masses: Mapping[Hashable, float]
+    total_before: float
+    epsilon_mass: float
+    note: str = (
+        "sketch only: simplex-mass normalization; do not flip "
+        "@awaiting(stage2.dual_flow)"
+    )
+
+
 def solve_global_face_mu_pressures(
     empirical_by_simplex: Mapping[Hashable, np.ndarray],
     stencils_by_simplex: Mapping[Hashable, np.ndarray],
@@ -2447,6 +2575,295 @@ def solve_global_face_mu_pressures(
         simplex_ids=ids,
         n_faces=n_g,
         n_interior_faces=registry.n_interior,
+        registry=registry,
+    )
+
+
+def solve_loopy_bp_schedule(
+    empirical_by_simplex: Mapping[Hashable, np.ndarray],
+    stencils_by_simplex: Mapping[Hashable, np.ndarray],
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]],
+    *,
+    face_hit_counts_by_simplex: Mapping[Hashable, np.ndarray] | None = None,
+    config: DualFlowConfig | None = None,
+) -> LoopyBPScheduleResult | None:
+    """Loopy Gaussian BP message schedule on the face/factor graph (SI S6.2).
+
+    When ``enable_loopy_bp_schedule`` is off, returns ``None``. When on:
+
+    * Variables = unique global facet pressures (whitened).
+    * Unary data factors: ``λ_f (p_f - hat_f)²``.
+    * Simplex factors: ``μ_S ‖A_S p_S‖²`` with signed local incidence.
+    * Each iteration updates factor→variable cavity messages
+      (precision / information) with damping; beliefs = unary ⊕ messages.
+
+    Proposal-path sketch (A5-EXP-loopy-bp) — **not** production BP with
+    certified convergence. Do **not** flip ``@awaiting("stage2.dual_flow")``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_loopy_bp_schedule:
+        return None
+
+    if not empirical_by_simplex:
+        raise ValueError("empirical_by_simplex must be non-empty")
+    ids = tuple(empirical_by_simplex.keys())
+    for sid in ids:
+        if sid not in stencils_by_simplex:
+            raise ValueError(f"missing divergence stencil for simplex {sid!r}")
+
+    registry = build_global_face_registry(simplices)
+    loc_map: dict[tuple[Hashable, int], tuple[int, int]] = {}
+    for inc in registry.incidences:
+        loc_map[(inc.simplex_id, inc.local_face)] = (
+            inc.global_face,
+            inc.sign,
+        )
+
+    blocks_hat: list[np.ndarray] = []
+    blocks_A: list[np.ndarray] = []
+    blocks_lam: list[np.ndarray] = []
+    mu_map: dict[Hashable, float] = {}
+    block_sizes: list[int] = []
+    offsets: dict[Hashable, int] = {}
+    # Per-factor face index lists into global face ids / signs.
+    factor_faces: dict[Hashable, list[int]] = {}
+    factor_signs: dict[Hashable, list[float]] = {}
+
+    offset = 0
+    for sid in ids:
+        hat = np.asarray(empirical_by_simplex[sid], dtype=float).reshape(-1)
+        A_S = np.asarray(stencils_by_simplex[sid], dtype=float)
+        if A_S.ndim != 2 or A_S.shape[1] != hat.shape[0]:
+            raise ValueError(
+                f"stencil {sid!r} shape {A_S.shape} incompatible with "
+                f"pressures length {hat.shape[0]}"
+            )
+        n = hat.shape[0]
+        g_ids: list[int] = []
+        signs: list[float] = []
+        for i in range(n):
+            if (sid, i) not in loc_map:
+                raise ValueError(
+                    f"simplex {sid!r} local face {i} missing from face "
+                    f"registry (check simplices keys match empirical ids)"
+                )
+            g, s = loc_map[(sid, i)]
+            g_ids.append(g)
+            signs.append(float(s))
+        if cfg.enable_count_aware_lambda:
+            if (
+                face_hit_counts_by_simplex is None
+                or sid not in face_hit_counts_by_simplex
+            ):
+                raise ValueError(
+                    "enable_count_aware_lambda requires "
+                    "face_hit_counts_by_simplex for every simplex"
+                )
+            lam = count_aware_lambda_f(face_hit_counts_by_simplex[sid])
+            if lam.shape != (n,):
+                raise ValueError(
+                    f"hit counts for {sid!r} length {lam.shape[0]} != ({n},)"
+                )
+        else:
+            lam = np.ones(n, dtype=float)
+        bar_lam = float(np.mean(lam))
+        mu = mu_S_weight(
+            A_S,
+            bar_lambda=bar_lam,
+            mu_scale=float(cfg.mu_scale),
+            eps_A=float(cfg.as_eps),
+        )
+        mu_map[sid] = mu
+        blocks_hat.append(hat)
+        blocks_A.append(A_S)
+        blocks_lam.append(lam)
+        block_sizes.append(n)
+        offsets[sid] = offset
+        offset += n
+        factor_faces[sid] = g_ids
+        factor_signs[sid] = signs
+
+    hat_local = np.concatenate(blocks_hat)
+    lam_local = np.concatenate(blocks_lam)
+    n_local = hat_local.shape[0]
+    n_g = registry.n_faces
+    if n_g < 1:
+        raise ValueError("global face registry is empty")
+
+    M = np.zeros((n_local, n_g), dtype=float)
+    local_g: list[int] = [-1] * n_local
+    local_s: list[float] = [0.0] * n_local
+    for sid, n in zip(ids, block_sizes, strict=True):
+        off = offsets[sid]
+        for i in range(n):
+            g, s = loc_map[(sid, i)]
+            M[off + i, g] = float(s)
+            local_g[off + i] = g
+            local_s[off + i] = float(s)
+
+    hat_g = np.zeros(n_g, dtype=float)
+    lam_g = np.zeros(n_g, dtype=float)
+    counts_g = np.zeros(n_g, dtype=float)
+    for loc_i in range(n_local):
+        g = local_g[loc_i]
+        s = local_s[loc_i]
+        hat_g[g] += s * float(hat_local[loc_i])
+        lam_g[g] += float(lam_local[loc_i])
+        counts_g[g] += 1.0
+    counts_g = np.maximum(counts_g, 1.0)
+    hat_g = hat_g / counts_g
+    lam_g = lam_g / counts_g
+
+    damp = float(cfg.bp_damping)
+    if not 0.0 <= damp <= 1.0:
+        raise ValueError("bp_damping must be in [0, 1]")
+    iters = int(cfg.bp_max_iters)
+    if iters < 1:
+        raise ValueError("bp_max_iters must be >= 1")
+    cond_cap = float(cfg.spectrum_cond_cap)
+    if cond_cap <= 0.0:
+        raise ValueError("spectrum_cond_cap must be > 0")
+
+    hat_w, std = whiten_empirical_pressures(
+        hat_g, None, floor=float(cfg.whiten_floor)
+    )
+    # Unary natural params for energy λ(p-hat)² ↔ ½ P p² - i p:
+    # P_u = 2λ, i_u = 2λ hat.
+    P_u = 2.0 * lam_g
+    i_u = 2.0 * lam_g * hat_w
+
+    # Messages: factor → face index within factor. Precision / info.
+    msg_P: dict[Hashable, np.ndarray] = {
+        sid: np.zeros(n, dtype=float) for sid, n in zip(ids, block_sizes)
+    }
+    msg_i: dict[Hashable, np.ndarray] = {
+        sid: np.zeros(n, dtype=float) for sid, n in zip(ids, block_sizes)
+    }
+
+    # Face → list of (sid, local_idx_in_factor)
+    face_owners: dict[int, list[tuple[Hashable, int]]] = defaultdict(list)
+    for sid, n in zip(ids, block_sizes, strict=True):
+        for li, g in enumerate(factor_faces[sid]):
+            face_owners[g].append((sid, li))
+
+    message_updates = 0
+    for _ in range(iters):
+        for sid, A_S, n in zip(ids, blocks_A, block_sizes, strict=True):
+            g_ids = factor_faces[sid]
+            signs = factor_signs[sid]
+            # Cavity = unary ⊕ other factors' messages.
+            P_cav = np.zeros(n, dtype=float)
+            i_cav = np.zeros(n, dtype=float)
+            for li, g in enumerate(g_ids):
+                P_cav[li] = float(P_u[g])
+                i_cav[li] = float(i_u[g])
+                for oid, o_li in face_owners[g]:
+                    if oid == sid and o_li == li:
+                        continue
+                    P_cav[li] += float(msg_P[oid][o_li])
+                    i_cav[li] += float(msg_i[oid][o_li])
+
+            # Factor energy μ‖A p_S‖² with p_S[k] = sign_k * std_g * p_w[g].
+            # B columns: B[:,k] = sign_k * std[g_k] * A[:,k]
+            scale = np.array(
+                [signs[k] * float(std[g_ids[k]]) for k in range(n)],
+                dtype=float,
+            )
+            B = A_S * scale.reshape(1, -1)
+            # Energy μ p^T B^T B p = ½ p^T (2μ B^T B) p
+            J = np.diag(P_cav) + (2.0 * float(mu_map[sid])) * (B.T @ B)
+            # Spectrum ridge when poorly conditioned (SI damping stand-in).
+            try:
+                cond = float(np.linalg.cond(J))
+            except np.linalg.LinAlgError:
+                cond = float("inf")
+            if not np.isfinite(cond) or cond > cond_cap:
+                ridge = float(np.mean(np.abs(np.diag(J)))) + float(cfg.as_eps)
+                J = J + ridge * np.eye(n)
+            try:
+                mean = np.linalg.solve(J, i_cav)
+            except np.linalg.LinAlgError:
+                mean = np.linalg.lstsq(J, i_cav, rcond=None)[0]
+
+            # Local marginals → messages = marg ⊖ cavity (damped).
+            try:
+                cov = np.linalg.inv(J)
+            except np.linalg.LinAlgError:
+                cov = np.linalg.pinv(J)
+            for li in range(n):
+                var = float(cov[li, li])
+                if var <= 0.0 or not np.isfinite(var):
+                    P_marg = float(P_cav[li]) + float(cfg.as_eps)
+                else:
+                    P_marg = 1.0 / var
+                i_marg = P_marg * float(mean[li])
+                P_new = P_marg - float(P_cav[li])
+                i_new = i_marg - float(i_cav[li])
+                # Keep messages finite; clamp tiny negative precision noise.
+                if not np.isfinite(P_new):
+                    P_new = 0.0
+                if not np.isfinite(i_new):
+                    i_new = 0.0
+                if P_new < 0.0:
+                    P_new = 0.0
+                msg_P[sid][li] = (1.0 - damp) * float(msg_P[sid][li]) + damp * P_new
+                msg_i[sid][li] = (1.0 - damp) * float(msg_i[sid][li]) + damp * i_new
+                message_updates += 1
+
+    # Final beliefs → whitened means; unwhiten to physical pressures.
+    P_b = P_u.copy()
+    i_b = i_u.copy()
+    for sid, n in zip(ids, block_sizes, strict=True):
+        for li, g in enumerate(factor_faces[sid]):
+            P_b[g] += float(msg_P[sid][li])
+            i_b[g] += float(msg_i[sid][li])
+    p_w = np.zeros(n_g, dtype=float)
+    for g in range(n_g):
+        if P_b[g] > 0.0 and np.isfinite(P_b[g]):
+            p_w[g] = float(i_b[g]) / float(P_b[g])
+        else:
+            p_w[g] = float(hat_w[g])
+    p_g = p_w * std
+    p_loc = M @ p_g
+
+    eps = 1e-12
+    r_data = float(
+        np.sum((p_loc - hat_local) ** 2) / (np.sum(hat_local**2) + eps)
+    )
+    flux2 = 0.0
+    cons_num = 0.0
+    for sid, A_S, n in zip(ids, blocks_A, block_sizes, strict=True):
+        off = offsets[sid]
+        p_S = p_loc[off : off + n]
+        Ap = A_S @ p_S
+        f2 = float(np.dot(Ap, Ap))
+        fro2 = float(np.sum(A_S * A_S))
+        flux2 += f2
+        cons_num += f2 / (fro2 + float(cfg.as_eps))
+    denom = float(np.sum(p_g * p_g)) + eps
+    r_cons = cons_num / denom
+    e_flux = flux2 / denom
+
+    return LoopyBPScheduleResult(
+        empirical_local=hat_local,
+        empirical_global=hat_g,
+        pressures_global=p_g,
+        pressures_local=p_loc,
+        lambda_f_global=lam_g,
+        mu_S=mu_map,
+        mu_S_sum=float(sum(mu_map.values())),
+        r_data=r_data,
+        r_cons=r_cons,
+        epsilon_flux=e_flux,
+        iters=iters,
+        block_sizes=tuple(block_sizes),
+        simplex_ids=ids,
+        n_faces=n_g,
+        n_interior_faces=registry.n_interior,
+        n_factors=len(ids),
+        message_updates=message_updates,
         registry=registry,
     )
 
