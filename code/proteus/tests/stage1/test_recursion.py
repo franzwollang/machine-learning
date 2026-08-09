@@ -298,6 +298,8 @@ def test_finer_research_flag_defaults_off() -> None:
     assert cfg.hollow_h0 > 0.0
     assert cfg.hollow_min_end_count >= 0.0
     assert cfg.hollow_gabriel_fallback is True
+    assert cfg.hollow_require_gabriel_and_h is False
+    assert cfg.hollow_require_persistent_agree is False
 
 
 def test_hollow_edge_partition_splits_bridged_blobs() -> None:
@@ -1294,12 +1296,12 @@ def test_finer_research_persist_sd_pca_regression_harness() -> None:
 
 
 def test_hollow_edge_persist_no_descent_regression_harness() -> None:
-    """#44 / A2-T29: persist(+dm)+hollow, NO finer descent — leaf-count harness.
+    """#44 / A2-T29/T30: persist(+dm)+hollow, NO finer descent — leaf harness.
 
     Guards uniforms / zoo under hollow prepass without ``allow_finer_research``.
-    Documents nested/tori = 1 leaf at scale-search ``tau*`` (hollow fires on
-    fixed-tau oracle ~0.27/0.5 but not at load-crossover ``tau*``).  Do **not**
-    flip awaiting.
+    Documents nested/tori = 1 leaf at scale-search ``tau*``.  Fixed-tau
+    ``K=2`` at ~0.27/0.5 is **not** recovery (sample ARI near chance;
+    A2-T30).  Do **not** flip awaiting.
     """
 
     from proteus.stage1.recursion import _hollow_edge_partition
@@ -1362,7 +1364,10 @@ def test_hollow_edge_persist_no_descent_regression_harness() -> None:
     tori_leaves = _run(tori.points, tori.points.shape[1], persist=True, dm=False, min_samples=40)
     assert tori_leaves >= 1
 
-    # Fixed-tau oracle: hollow recovers majors when tau matches the probe.
+    # Fixed-tau "oracle": K=2 majors can appear at probe taus, but sample ARI
+    # is near chance (A2-T30) — do **not** treat K=2 as component recovery.
+    from sklearn.metrics import adjusted_rand_score
+
     def _oracle(points, tau: float):
         sc = Stage1Scaffold(
             dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
@@ -1373,13 +1378,238 @@ def test_hollow_edge_persist_no_descent_regression_harness() -> None:
             points,
             StabilizationConfig(max_epochs=40, min_equilibrium_epochs=3),
         )
-        return _hollow_edge_partition(
+        part = _hollow_edge_partition(
             sc, points,
             mid_radius_frac=0.35, h0=0.35, min_end_count=0.5, min_frac=0.2,
         )
+        return sc, part
 
-    h_nested = _oracle(nested.points, 0.27)
-    h_tori = _oracle(tori.points, 0.5)
+    def _sample_ari(sc, part, points, labels) -> float:
+        pos = np.asarray([sc.nodes[i].position for i in range(len(sc.nodes))])
+        nn = np.argmin(
+            ((points[:, None, :] - pos[None, :, :]) ** 2).sum(-1), axis=1,
+        )
+        pred = part.labels[nn]
+        mask = np.asarray(labels) >= 0
+        return float(adjusted_rand_score(labels[mask], pred[mask]))
+
+    sc_n, h_nested = _oracle(nested.points, 0.27)
+    sc_t, h_tori = _oracle(tori.points, 0.5)
     assert h_nested is not None and h_nested.n_clusters == 2
     assert h_tori is not None and h_tori.n_clusters == 2
-    assert tori_leaves in (1, 2)  # spurious 2-leaf possible; ARI not asserted
+    assert _sample_ari(sc_n, h_nested, nested.points, nested.labels) < 0.2
+    assert _sample_ari(sc_t, h_tori, tori.points, tori.labels) < 0.2
+    assert tori_leaves in (1, 2)  # spurious 2-leaf possible; ARI not recovery
+
+def test_multi_tau_hollow_prune_scan_harness() -> None:
+    """#44 / A2-T30: multi-tau hollow prune→CC scan (grid + E[tau] + tau*).
+
+    Documents that default H-or-Gabriel yields majors=2 at probe taus
+    nested@0.27 / tori@0.5 with sample ARI≈chance, while
+    ``require_gabriel_and_h`` suppresses those spurious K=2 hits.  At
+    scale-search ``tau*`` / expected_tau nested+tori stay ≤1 major under
+    default.  Do **not** flip awaiting.
+    """
+
+    from proteus.stage1.clustering import _lifted_components_covering_all_nodes
+    from proteus.stage1.controller import ScaleSearchConfig, run_scale_search
+    from proteus.stage1.edge_evidence import HollowEdgeConfig, prune_hollow_edges
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from sklearn.metrics import adjusted_rand_score
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+    from tests.datasets.synthetic.swiss_roll import make_swiss_roll
+
+    def _lean() -> ScaleSearchConfig:
+        return ScaleSearchConfig(
+            tau_min=1e-3,
+            tau_max=2.0,
+            max_grid_points=6,
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=8,
+            ),
+            seed=42,
+        )
+
+    def _adapt(points, tau: float):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
+            ann_backend="naive", rng=np.random.default_rng(0),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    def _majors_ari(sc, points, labels, cfg: HollowEdgeConfig):
+        n = len(sc.nodes)
+        pos = np.asarray([sc.nodes[i].position for i in range(n)])
+        edges = [(int(l.i), int(l.j)) for l in sc.links.lifted_links()]
+        kept = prune_hollow_edges(pos, edges, points, config=cfg)
+        graph = {i: [] for i in range(n)}
+        for i, j in kept:
+            graph[i].append(j)
+            graph[j].append(i)
+        comps = _lifted_components_covering_all_nodes(n, graph)
+        majors = [c for c in comps if len(c) >= max(3, int(np.ceil(n * 0.2)))]
+        ari = None
+        if labels is not None and len(majors) >= 2:
+            lab = np.full(n, -1, dtype=int)
+            for cid, c in enumerate(majors):
+                for m in c:
+                    lab[m] = cid
+            nn = np.argmin(
+                ((points[:, None, :] - pos[None, :, :]) ** 2).sum(-1), axis=1,
+            )
+            pred = lab[nn]
+            mask = np.asarray(labels) >= 0
+            ari = float(adjusted_rand_score(labels[mask], pred[mask]))
+        return len(majors), ari
+
+    cfg_def = HollowEdgeConfig()
+    cfg_conj = HollowEdgeConfig(require_gabriel_and_h=True)
+
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+    circle = make_circle(
+        n_samples=300, radius=1.0, noise=0.02, extrusion_dim=2, seed=0,
+    )
+    swiss = make_swiss_roll(n_samples=400, noise=0.02, seed=0)
+
+    # Nested / tori probe taus: default K=2 with ARI~chance; conjunction ≤1.
+    sc_n = _adapt(nested.points, 0.27)
+    maj_n, ari_n = _majors_ari(sc_n, nested.points, nested.labels, cfg_def)
+    maj_n_c, _ = _majors_ari(sc_n, nested.points, nested.labels, cfg_conj)
+    assert maj_n == 2
+    assert ari_n is not None and ari_n < 0.2
+    assert maj_n_c <= 1
+
+    sc_t = _adapt(tori.points, 0.5)
+    maj_t, ari_t = _majors_ari(sc_t, tori.points, tori.labels, cfg_def)
+    maj_t_c, _ = _majors_ari(sc_t, tori.points, tori.labels, cfg_conj)
+    assert maj_t == 2
+    assert ari_t is not None and ari_t < 0.2
+    assert maj_t_c <= 1
+
+    # Scale-search tau* + expected_tau: nested/tori not recovered under default.
+    for name, ds, labels in (
+        ("nested", nested, nested.labels),
+        ("tori", tori, tori.labels),
+    ):
+        r = run_scale_search(ds.points, dim=ds.points.shape[1], config=_lean())
+        et = float(ds.ground_truth.expected_tau)
+        for tau in (float(r.tau_star), et):
+            sc = _adapt(ds.points, tau)
+            maj, ari = _majors_ari(sc, ds.points, labels, cfg_def)
+            assert maj <= 1 or (ari is not None and ari < 0.2)
+
+    # Uniforms at tau*: default hollow prune stays connected (1 major).
+    for ds in (circle, swiss):
+        r = run_scale_search(ds.points, dim=ds.points.shape[1], config=_lean())
+        sc = _adapt(ds.points, float(r.tau_star))
+        maj, _ = _majors_ari(sc, ds.points, None, cfg_def)
+        assert maj <= 1
+
+
+def test_hollow_gabriel_and_h_seed_stability_on_probe_taus() -> None:
+    """#44 / A2-T31: conjunction seed-stable vs Gabriel-driven default K=2.
+
+    Seeds 0..2: default often emits majors=2 at nested@0.27; conjunction
+    stays ≤1.  Flag / prepass remain default-off.
+    """
+
+    from proteus.stage1.clustering import _lifted_components_covering_all_nodes
+    from proteus.stage1.edge_evidence import HollowEdgeConfig, prune_hollow_edges
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    cfg_def = HollowEdgeConfig()
+    cfg_conj = HollowEdgeConfig(require_gabriel_and_h=True)
+
+    def _majors(seed: int, cfg: HollowEdgeConfig) -> int:
+        sc = Stage1Scaffold(
+            dim=int(nested.points.shape[1]), tau=0.27, k=8, max_nodes=64,
+            ann_backend="naive", rng=np.random.default_rng(seed),
+        )
+        sc.init_from(nested.points, n_seeds=8)
+        sc.run_until_stable(
+            nested.points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        n = len(sc.nodes)
+        pos = np.asarray([sc.nodes[i].position for i in range(n)])
+        edges = [(int(l.i), int(l.j)) for l in sc.links.lifted_links()]
+        kept = prune_hollow_edges(pos, edges, nested.points, config=cfg)
+        graph = {i: [] for i in range(n)}
+        for i, j in kept:
+            graph[i].append(j)
+            graph[j].append(i)
+        comps = _lifted_components_covering_all_nodes(n, graph)
+        return len([c for c in comps if len(c) >= max(3, int(np.ceil(n * 0.2)))])
+
+    conj_majors = [_majors(s, cfg_conj) for s in range(3)]
+    assert all(m <= 1 for m in conj_majors)
+    # Default seed-0 probe remains the known spurious K=2 (Gabriel path).
+    assert _majors(0, cfg_def) == 2
+
+
+def test_hollow_persist_agree_couples_at_candidate_taus() -> None:
+    """#44 / A2-T32: hollow+persist-agree stays 1 leaf on uniforms; flag off.
+
+    Couples hollow prepass to persistence agreement at the region's
+    scale-search result.  Nested/tori remain unrecovered (no awaiting flip).
+    """
+
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+    from tests.datasets.synthetic.swiss_roll import make_swiss_roll
+
+    def _lean() -> ScaleSearchConfig:
+        return ScaleSearchConfig(
+            tau_min=1e-3,
+            tau_max=2.0,
+            max_grid_points=6,
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=8,
+            ),
+            seed=42,
+            selector="persistence",
+            record_partitions=True,
+        )
+
+    def _run(points, dim, *, conj: bool, persist_agree: bool, min_samples: int) -> int:
+        cfg = RecursionConfig(
+            scale_search=_lean(),
+            min_samples=min_samples,
+            max_depth=3,
+            require_persistent_split=True,
+            allow_finer_research=False,
+            prefer_hollow_edge_prepass=True,
+            hollow_require_gabriel_and_h=conj,
+            hollow_require_persistent_agree=persist_agree,
+            seed=42,
+        )
+        tree = run_recursive_discovery(points, dim=dim, config=cfg)
+        return len(tree.leaves)
+
+    circle = make_circle(
+        n_samples=300, radius=1.0, noise=0.02, extrusion_dim=2, seed=0,
+    )
+    swiss = make_swiss_roll(n_samples=400, noise=0.02, seed=0)
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+
+    assert _run(circle.points, circle.points.shape[1], conj=True, persist_agree=True, min_samples=80) == 1
+    assert _run(swiss.points, swiss.points.shape[1], conj=True, persist_agree=True, min_samples=80) == 1
+    # Coupled hollow does not recover nested/tori at operational tau*.
+    assert _run(nested.points, nested.points.shape[1], conj=True, persist_agree=True, min_samples=40) == 1
+    assert _run(tori.points, tori.points.shape[1], conj=True, persist_agree=True, min_samples=40) == 1
