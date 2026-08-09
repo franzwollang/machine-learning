@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T14:08-05:00",
+  "updated_at": "2026-08-09T14:20-05:00",
   "turn": 36,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "radial_band e2e after integrator harden"
+    "goal": "post-band strengthen after e2e miss"
   },
   "recent": [
-    "Scooped A2 radial_band + A6 paper L=1 sync",
-    "Hardened _radial_band_gap_partition (endpoint peaks+Q midband)",
-    "Refilled queues; #44/#28 annotated"
+    "Scooped A2 band T10\u2013T12 e2e unrecovered",
+    "Scooped A4-T8 clean-shell PH green",
+    "Resolved radial_band merge; tests green"
   ],
   "discoveries": [
-    "Endpoint hist peaks required for shell modes",
-    "#28 ~9x is category mismatch; coarse-end kept"
+    "Band unit OK; e2e nested still 1 leaf / over-fragment",
+    "Clean-shell PH needs lifetime_frac\u22480.75 at modest n"
   ],
   "open_threads": [
-    "A4-T8..T10 still mid-CLAIM",
-    "radial_band e2e nested still open",
-    "dual_flow absent"
+    "#44 SI A+C held; dual_flow absent",
+    "A2 next: trough/non-centroid/signal mask",
+    "A4-T9 lifetime calibration"
   ],
-  "next_step": "MERGE_DONE push integration+A1",
+  "next_step": "push MERGE_DONE integration+A1",
   "blockers": []
 }

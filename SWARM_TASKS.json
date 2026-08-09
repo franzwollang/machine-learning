@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T14:03-05:00",
+  "updated_at": "2026-08-09T14:20-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -14,19 +14,19 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T25",
+          "id": "A1-T28",
           "status": "ready",
-          "summary": "Next cadence: scoop A4-T8..T10 mid-turn tip; watch A2 tissue/signal radial mask"
+          "summary": "Next cadence: watch A2-T13..T15 band strengthen; scoop A4-T9..T11"
         },
         {
-          "id": "A1-T26",
+          "id": "A1-T29",
           "status": "ready",
-          "summary": "If A2 posts tissue/signal radial recovery with ARI>0.5, update #44 / consider A3 SI A+C"
+          "summary": "If A2 posts nested recovery ARI>0.5, update #44 / consider A3 SI A+C"
         },
         {
-          "id": "A1-T27",
+          "id": "A1-T30",
           "status": "ready",
-          "summary": "Watch dual_flow landing; re-point A5 from idle watch to wiring CLAIM when present"
+          "summary": "Watch dual_flow landing; re-point A5 wiring CLAIM when present"
         }
       ]
     },
@@ -42,22 +42,22 @@
       ],
       "queue": [
         {
-          "id": "A2-T10",
+          "id": "A2-T13",
           "status": "ready",
           "issue": 44,
-          "summary": "E2E probe prefer_radial_band_prepass on nested_spheres (±persist/steps); NOTE leaf/ARI; no awaiting flips"
+          "summary": "Strengthen trough/bimodality gate or non-centroid radial feature (flag-gated default off); NOTE; no awaiting flips"
         },
         {
-          "id": "A2-T11",
+          "id": "A2-T14",
           "status": "ready",
           "issue": 44,
-          "summary": "If band prepass still misses e2e, thin tissue/signal-aware mask on top (flag-gated default off); NOTE"
+          "summary": "Optional: signal-density residual mask on top of prefer_radial_band_prepass; thin prototype or NOTE"
         },
         {
-          "id": "A2-T12",
+          "id": "A2-T15",
           "status": "ready",
           "issue": 44,
-          "summary": "If recovers nested cc≈2 ARI>0.5 without circle shatter, REQUEST_TRACKER for A3 SI A+C; else NOTE blockers and hold awaiting"
+          "summary": "If recovers nested cc\u22482 ARI>0.5 without circle shatter, REQUEST_TRACKER for A3 SI A+C; else hold awaiting"
         }
       ]
     },
@@ -73,7 +73,7 @@
           "id": "A3-T22",
           "status": "ready",
           "issue": 44,
-          "summary": "Idle hold: #44 SI A+C paragraph — wait for A1 assign after tissue/signal radial recovery evidence"
+          "summary": "Idle hold: #44 SI A+C paragraph \u2014 wait for A1 assign after tissue/signal radial recovery evidence"
         },
         {
           "id": "A3-T23",
@@ -101,12 +101,6 @@
       ],
       "queue": [
         {
-          "id": "A4-T8",
-          "status": "ready",
-          "issue": 41,
-          "summary": "nested_spheres clean-shell PH stepping stone via topology_from_accepted_regions / signal filter; NOTE Betti; no awaiting flips"
-        },
-        {
           "id": "A4-T9",
           "status": "ready",
           "issue": 41,
@@ -117,6 +111,12 @@
           "status": "ready",
           "issue": 41,
           "summary": "Optional: formalize radial/signal-band helper used in fitted-circle probe if duplicated; keep defaults unchanged"
+        },
+        {
+          "id": "A4-T11",
+          "status": "ready",
+          "issue": 41,
+          "summary": "NOTE: summarize clean-shell stepping-stone caveats (lifetime_frac\u22480.75 modest n; avoid lat/lon grids); no awaiting flips"
         }
       ]
     },
@@ -186,5 +186,5 @@
       ]
     }
   },
-  "notes": "2026-08-09T14:03: scooped A2 prefer_radial_gap_prepass + A6 T16–T18 diagnose + paper L=1 sync; A3/A5 idle drains refilled; A4 mid T8–T10. #44 SI A+C held. Tests 18p recursion+persistence + 3p/1x evidence."
+  "notes": "2026-08-09T14:20: scooped A2 T10\u2013T12 band prepass (e2e unrecovered) + A4-T8 clean-shell PH; refilled A2/A4; #44 SI A+C held."
 }

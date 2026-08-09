@@ -167,9 +167,13 @@ circle `b1 = 1` target of #25.
 - **Landed (SI log):** S14.2 lifetime-reading clause + S14.3 `lifetime_frac=0.5`
   operational row (proposal-path; tissue/per-region caveat; no fitted-circle recovery
   claim).
+- **Landed (A4-T8 stepping stone):** Fibonacci nested-sphere clean-shell PH via
+  `topology_from_accepted_regions` + signal filter green (`test_ph_nested_spheres_clean_shells.py`);
+  fixed_threshold per shell `(1,0,1)`; lifetime needs `frac≈0.75` at modest n;
+  tissue whole-cloud polluted, `include_labels` restores. Recovery awaiting unchanged.
 - **Remaining before flipping recovery tests:**
   1. *Fitted-region evidence* that recovers Betti at an SI-defensible reading.
-  2. *Per-region harness on nested_spheres clean shells* as a stepping stone.
+  2. *lifetime filtration_mult / lifetime_frac calibration* on fitted circle.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
