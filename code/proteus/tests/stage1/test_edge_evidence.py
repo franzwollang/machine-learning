@@ -500,6 +500,48 @@ def test_soft_capacity_default_off() -> None:
 
     assert HollowEdgeConfig().soft_capacity_only is False
     assert HollowEdgeConfig().soft_capacity_frac == 0.25
+    assert HollowEdgeConfig().soft_capacity_method == "betweenness"
+
+
+def test_bridge_mass_soft_capacity_method() -> None:
+    """#44 / A2-T39: bridge_mass scores only bridges; soft gate by mass.
+
+    Path 0-1-2-3: every edge is a bridge; middle edge has mass min(2,2)=2,
+    ends have mass min(1,3)=1.  ``frac=0.9`` keeps only the peak-mass mid.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        bridge_mass_scores,
+        soft_capacity_edge_mask,
+    )
+
+    pos = np.array(
+        [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [3.0, 0.0]], dtype=float,
+    )
+    edges = [(0, 1), (1, 2), (2, 3)]
+    rng = np.random.default_rng(1)
+    data = np.vstack([
+        rng.normal([0.0, 0.0], 0.05, size=(40, 2)),
+        rng.normal([3.0, 0.0], 0.05, size=(40, 2)),
+    ])
+    mass = bridge_mass_scores(edges, n_nodes=4)
+    assert mass[1] > mass[0]
+    assert mass[1] > mass[2]
+    soft = soft_capacity_edge_mask(
+        edges, n_nodes=4, frac=0.9, method="bridge_mass",
+    )
+    assert bool(soft[1]) is True
+    assert bool(soft[0]) is False
+    assert bool(soft[2]) is False
+
+    cfg = HollowEdgeConfig(
+        mid_radius_frac=0.5, h0=0.9, gabriel_fallback=False,
+        soft_capacity_only=True, soft_capacity_frac=0.9,
+        soft_capacity_method="bridge_mass",
+    )
+    cut = hollow_edge_mask(pos, edges, data, cfg)
+    assert not np.any(cut & ~soft)
+    assert HollowEdgeConfig().soft_capacity_method == "betweenness"
 
 
 def test_poisson_null_h0_calibration_export_table() -> None:

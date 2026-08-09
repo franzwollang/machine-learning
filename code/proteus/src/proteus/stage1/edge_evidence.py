@@ -74,6 +74,12 @@ class HollowEdgeConfig:
     ``0.25``).  Continuous capacity/flow proxy between hard bridges and
     unrestricted hollow; default off. Independent of MST/bridge flags
     (successive intersections when combined).
+
+    A2-T39 follow-on: ``soft_capacity_method`` selects the score —
+    ``"betweenness"`` (default Brandes) or ``"bridge_mass"`` (min-cut
+    mass on bridges: ``min(|comp_u|,|comp_v|)`` after removing a bridge;
+    non-bridges score 0).  Operational / proposal-path; default method
+    remains betweenness.
     """
 
     mid_radius_frac: float = 0.35
@@ -85,6 +91,7 @@ class HollowEdgeConfig:
     bridge_critical_only: bool = False
     soft_capacity_only: bool = False
     soft_capacity_frac: float = 0.25
+    soft_capacity_method: str = "betweenness"
     eps: float = _EPS
 
 
@@ -193,6 +200,7 @@ def a4_roc_primary_config(**overrides: object) -> HollowEdgeConfig:
         bridge_critical_only=False,
         soft_capacity_only=False,
         soft_capacity_frac=0.25,
+        soft_capacity_method="betweenness",
     )
     base.update(overrides)
     return HollowEdgeConfig(**base)  # type: ignore[arg-type]
@@ -468,21 +476,82 @@ def edge_betweenness_scores(
     return cb * 0.5
 
 
+def bridge_mass_scores(
+    edges: list[tuple[int, int]],
+    *,
+    n_nodes: int | None = None,
+) -> np.ndarray:
+    """Min-cut mass scores: bridge ``min(|comp_u|,|comp_v|)``, else 0.
+
+    Operational soft-capacity alternative to Brandes betweenness
+    (A2-T39).  Only true bridges carry positive mass; the mass equals
+    the smaller side of the cut after removing that edge (unit-capacity
+    global min-cut contribution when the edge is the unique cut edge).
+    """
+
+    if not edges:
+        return np.zeros(0, dtype=float)
+    if n_nodes is None:
+        n_nodes = 0
+        for i, j in edges:
+            n_nodes = max(n_nodes, int(i) + 1, int(j) + 1)
+    n = int(n_nodes)
+    is_br = bridge_edge_mask(edges, n_nodes=n)
+    scores = np.zeros(len(edges), dtype=float)
+    if not np.any(is_br):
+        return scores
+
+    adj: list[list[tuple[int, int]]] = [[] for _ in range(n)]
+    for k, (i, j) in enumerate(edges):
+        ii, jj = int(i), int(j)
+        if ii == jj or ii < 0 or jj < 0 or ii >= n or jj >= n:
+            continue
+        adj[ii].append((jj, k))
+        adj[jj].append((ii, k))
+
+    for k, (i, j) in enumerate(edges):
+        if not bool(is_br[k]):
+            continue
+        ii, jj = int(i), int(j)
+        # BFS from ii avoiding edge k; mass = min(|reach|, n-|reach|).
+        seen = [False] * n
+        stack = [ii]
+        seen[ii] = True
+        reached = 0
+        while stack:
+            u = stack.pop()
+            reached += 1
+            for v, ek in adj[u]:
+                if ek == k or seen[v]:
+                    continue
+                seen[v] = True
+                stack.append(v)
+        scores[k] = float(min(reached, n - reached))
+    return scores
+
+
 def soft_capacity_edge_mask(
     edges: list[tuple[int, int]],
     *,
     n_nodes: int | None = None,
     frac: float = 0.25,
+    method: str = "betweenness",
 ) -> np.ndarray:
-    """Boolean mask ``True`` iff edge betweenness ≥ ``frac * max``.
+    """Boolean mask ``True`` iff capacity score ≥ ``frac * max``.
 
-    Operational soft-capacity gate (A2-T37).  ``frac`` in ``(0, 1]``;
-    values ≤0 keep all edges, values >1 keep none with positive max.
+    Operational soft-capacity gate (A2-T37 / A2-T39).  ``method`` is
+    ``"betweenness"`` (Brandes) or ``"bridge_mass"`` (min-cut mass on
+    bridges).  ``frac`` in ``(0, 1]``; values ≤0 keep all edges, values
+    >1 keep none with positive max.
     """
 
     if not edges:
         return np.zeros(0, dtype=bool)
-    scores = edge_betweenness_scores(edges, n_nodes=n_nodes)
+    m = str(method).strip().lower()
+    if m in ("bridge_mass", "mincut_mass", "min_cut_mass"):
+        scores = bridge_mass_scores(edges, n_nodes=n_nodes)
+    else:
+        scores = edge_betweenness_scores(edges, n_nodes=n_nodes)
     f = float(frac)
     if f <= 0.0:
         return np.ones(len(edges), dtype=bool)
@@ -512,8 +581,9 @@ def hollow_edge_mask(
     When ``mst_critical_only`` is set, intersect the hollow mask with the
     Euclidean MST edge mask (A2-T34).  When ``bridge_critical_only`` is set,
     further (or instead) intersect with graph-theoretic bridges (capacity /
-    flow cut-set beyond the MST proxy).  When ``soft_capacity_only`` is set,
-    intersect with high-betweenness edges (A2-T37 soft capacity / flow).
+    flow cut-set beyond the MST proxy).      When ``soft_capacity_only`` is set,
+    intersect with high soft-capacity scores (A2-T37 betweenness /
+    A2-T39 bridge-mass min-cut; see ``soft_capacity_method``).
     """
 
     cfg = config if config is not None else HollowEdgeConfig()
@@ -561,6 +631,7 @@ def hollow_edge_mask(
                 edges,
                 n_nodes=int(pos.shape[0]),
                 frac=float(cfg.soft_capacity_frac),
+                method=str(cfg.soft_capacity_method),
             ),
         )
     return cut
