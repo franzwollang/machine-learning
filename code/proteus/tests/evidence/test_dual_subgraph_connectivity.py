@@ -9,11 +9,18 @@ Green tests lock:
   (proposal-path, default off).
 * Wired path: build dual adj → ``affected_dual_subgraph_connected`` →
   ``score_edit`` / ``EvidenceGate.evaluate`` rejects disconnect.
+* Dry-run helper: Complex edit → affected simplices → DualAdjacency
+  (``dry_run_dual_from_edit``, flag default off).
+* Conservative BP *sketch* behind ``enable_conservative_bp`` (identity/damped;
+  not the SI S6.2 loopy Gaussian solve).
 
 Gaps vs full SI S6 (do **not** flip these elsewhere yet):
 
-* No online face-pressure tallies (S6.1), conservative BP solve (S6.2), boundary
-  taxonomy (S6.3), or simplex-local density (S6.4).
+* **S6.1** No online face-pressure tallies (fractional residual → facet normals).
+* **S6.2** No real loopy Gaussian BP / ``A_S p_S`` conservation solve (sketch
+  only; ``r_cons`` stubbed at 0).
+* **S6.3** No boundary-face taxonomy (manifold / computational / orientation).
+* **S6.4** No simplex-local PL density formula.
 * Mass-conservation / density / benchmark ``@awaiting("stage2.dual_flow")``
   tests remain xfail until that producer lands.
 * Acceptance path still defaults open when adjacency is ``None`` / flags off.
@@ -36,7 +43,9 @@ from proteus.stage2 import (
     DualFlowConfig,
     build_dual_adjacency,
     build_dual_adjacency_from_complex,
+    dry_run_dual_from_edit,
     resolve_dual_connected,
+    solve_conservative_pressures,
 )
 from proteus.types import Complex, EditProposal, EditType, Simplex
 
@@ -263,3 +272,200 @@ def test_s6_dual_adjacency_wires_into_evidence_gate():
         affected_simplices=[0, 2],
     )
     assert not v_gate.accepted
+
+
+# ---------------------------------------------------------------------------
+# A5-T34: dry-run helper
+# ---------------------------------------------------------------------------
+
+
+def _path_edge_complex() -> Complex:
+    """Three 1-simplices forming a path (dual path 0—1—2)."""
+
+    return Complex(
+        simplices=[
+            Simplex(vertex_ids=(0, 1)),
+            Simplex(vertex_ids=(1, 2)),
+            Simplex(vertex_ids=(2, 3)),
+        ],
+        vertex_positions=np.zeros((4, 2)),
+        intrinsic_dim=1,
+    )
+
+
+def test_dry_run_flag_off_returns_none_adj_connected_true():
+    """Dry-run with enable_dual_adjacency=False ⇒ None adj, dual_connected True."""
+
+    c = _path_edge_complex()
+    result = dry_run_dual_from_edit(c, remove_simplex_indices=[1])
+    assert result.dual_adjacency is None
+    assert result.dual_connected is True
+    assert len(result.post_edit_complex.simplices) == 2
+
+
+def test_dry_run_remove_middle_disconnects_affected_endpoints():
+    """Removing the middle edge leaves endpoints dual-disconnected (SI S10.4 A2)."""
+
+    c = _path_edge_complex()
+    cfg = DualFlowConfig(enable_dual_adjacency=True)
+    result = dry_run_dual_from_edit(c, remove_simplex_indices=[1], config=cfg)
+    # Survivors remapped: old 0→0, old 2→1; both touch removed middle vertices.
+    assert result.affected_simplices == (0, 1)
+    assert result.dual_adjacency is not None
+    assert result.dual_adjacency[0] == ()
+    assert result.dual_adjacency[1] == ()
+    assert result.dual_connected is False
+
+
+def test_dry_run_add_bridge_reconnects():
+    """Add a bridging edge after removing the middle → dual reconnects."""
+
+    c = _path_edge_complex()
+    cfg = DualFlowConfig(enable_dual_adjacency=True)
+    # Remove middle (1,2); add bridge (1,2) back — trivial reconnect.
+    result = dry_run_dual_from_edit(
+        c,
+        remove_simplex_indices=[1],
+        add_simplices=[(1, 2)],
+        config=cfg,
+    )
+    assert len(result.post_edit_complex.simplices) == 3
+    assert result.dual_connected is True
+    assert set(result.affected_simplices) == {0, 1, 2}
+
+
+def test_dry_run_proposal_affected_nodes_scopes_set():
+    """EditProposal.affected_node_ids scopes which post-edit simplices count."""
+
+    c = Complex(
+        simplices=[
+            Simplex(vertex_ids=(0, 1, 2)),
+            Simplex(vertex_ids=(0, 1, 3)),
+            Simplex(vertex_ids=(4, 5, 6)),
+        ],
+        vertex_positions=np.zeros((7, 2)),
+        intrinsic_dim=2,
+    )
+    cfg = DualFlowConfig(enable_dual_adjacency=True)
+    proposal = EditProposal(EditType.PRUNE, [0, 1], diagnostic_strength=0.5)
+    # No remove/add — only node-scoped affected set on the intact complex.
+    result = dry_run_dual_from_edit(c, proposal=proposal, config=cfg)
+    assert set(result.affected_simplices) == {0, 1}
+    assert result.dual_connected is True
+    # Far triangle (id 2) excluded from affected; induced on {0,1} stays connected.
+    assert 2 not in result.affected_simplices
+
+
+def test_dry_run_feeds_gate_apply_dual_adjacency():
+    """Dry-run result kwargs reject evidence path when dual disconnects."""
+
+    keep, edit, proposal, good_stars = _good_split_fixture()
+    c = _path_edge_complex()
+    cfg = DualFlowConfig(enable_dual_adjacency=True)
+    dry = dry_run_dual_from_edit(c, remove_simplex_indices=[1], config=cfg)
+    assert dry.dual_connected is False
+
+    v = score_edit(
+        keep,
+        edit,
+        proposal,
+        edit_stars=good_stars,
+        keep_stars=good_stars,
+        dual_adjacency=dry.dual_adjacency,
+        affected_simplices=list(dry.affected_simplices),
+        config=GateConfig(apply_dual_adjacency=True),
+    )
+    assert not v.accepted
+
+
+# ---------------------------------------------------------------------------
+# A5-T35: conservative BP sketch
+# ---------------------------------------------------------------------------
+
+
+def test_conservative_bp_flag_off_returns_none():
+    """enable_conservative_bp=False ⇒ solve_conservative_pressures is None."""
+
+    hat = np.array([1.0, 2.0, 0.5])
+    assert solve_conservative_pressures(hat) is None
+    assert solve_conservative_pressures(hat, config=DualFlowConfig()) is None
+
+
+def test_conservative_bp_sketch_identity_damped():
+    """Sketch returns p≈hat_p; r_data small; r_cons stubbed at 0 (not real BP)."""
+
+    hat = np.array([1.0, 2.0, 0.5, 0.0])
+    result = solve_conservative_pressures(
+        hat,
+        config=DualFlowConfig(
+            enable_conservative_bp=True, bp_damping=0.5, bp_max_iters=1
+        ),
+    )
+    assert result is not None
+    np.testing.assert_allclose(result.pressures, hat)
+    assert result.r_data == pytest.approx(0.0)
+    assert result.r_cons == 0.0
+    assert result.iters == 1
+    assert "sketch" in result.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T36: expanded synthetic dual graphs
+# ---------------------------------------------------------------------------
+
+
+def test_dual_flow_vertex_only_touch_not_adjacent():
+    """Triangles sharing only a vertex (not a facet) are dual-isolated."""
+
+    # Fan around vertex 0: faces (0,1,2) and (0,3,4) share vertex 0 only.
+    simplices = {
+        "T0": (0, 1, 2),
+        "T1": (0, 3, 4),
+    }
+    adj = build_dual_adjacency(
+        simplices, config=DualFlowConfig(enable_dual_adjacency=True)
+    )
+    assert adj is not None
+    assert adj["T0"] == ()
+    assert adj["T1"] == ()
+    assert affected_dual_subgraph_connected(adj, ["T0", "T1"]) is False
+
+
+def test_dual_flow_triangle_chain_path():
+    """Three triangles in a facet-sharing chain → dual path 0—1—2."""
+
+    # T0—(edge 1,2)—T1—(edge 2,3)—T2
+    simplices = [
+        (0, 1, 2),
+        (1, 2, 3),
+        (2, 3, 4),
+    ]
+    adj = build_dual_adjacency(
+        simplices, config=DualFlowConfig(enable_dual_adjacency=True)
+    )
+    assert adj is not None
+    assert set(adj[0]) == {1}
+    assert set(adj[1]) == {0, 2}
+    assert set(adj[2]) == {1}
+    assert resolve_dual_connected(
+        simplices, [0, 1, 2], config=DualFlowConfig(enable_dual_adjacency=True)
+    )
+    assert not resolve_dual_connected(
+        simplices, [0, 2], config=DualFlowConfig(enable_dual_adjacency=True)
+    )
+
+
+def test_dual_flow_tetrahedron_face_pair():
+    """Two tetrahedra sharing a triangular facet → dual edge."""
+
+    # Tet (0,1,2,3) and tet (0,1,2,4) share facet {0,1,2}.
+    simplices = {
+        "Tet0": (0, 1, 2, 3),
+        "Tet1": (0, 1, 2, 4),
+    }
+    adj = build_dual_adjacency(
+        simplices, config=DualFlowConfig(enable_dual_adjacency=True)
+    )
+    assert adj is not None
+    assert set(adj["Tet0"]) == {"Tet1"}
+    assert set(adj["Tet1"]) == {"Tet0"}
