@@ -193,8 +193,14 @@ class RecursionConfig:
     **not** require finer-scale descent.  A2-T27 probe: seed-0 nested+tori
     major-CC hit near ``mid_radius_frac=0.35`` / ``h0=0.35``; multi-seed
     fragile and ``h0`` uncalibrated — do **not** flip awaiting.  A2-T30:
-    fixed-tau ``K=2`` majors have sample ARI≈chance (empty-ball /
-    non-cut-set failure modes); treat as diagnostic only.
+    multi-tau scan + fixed-tau ``K=2`` majors have sample ARI≈chance
+    (Gabriel-driven at probe taus; empty-ball / non-cut-set); treat as
+    diagnostic only.  A2-T31: ``hollow_require_gabriel_and_h`` (default
+    False) cuts only when ``H < h0`` ∧ Gabriel-empty — suppresses
+    Gabriel-only spurious majors on the probe grid (A4 sheet q01≈0.57).
+    A2-T32: ``hollow_require_persistent_agree`` (default False) additionally
+    requires a persistent multi-cluster at the region's scale-search result
+    before accepting a hollow prepass split.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
@@ -242,6 +248,8 @@ class RecursionConfig:
     hollow_h0: float = 0.35
     hollow_min_end_count: float = 0.5
     hollow_gabriel_fallback: bool = True
+    hollow_require_gabriel_and_h: bool = False
+    hollow_require_persistent_agree: bool = False
     seed: int = 42
 
 
@@ -418,12 +426,14 @@ def _hollow_edge_partition(
     h0: float = 0.35,
     min_end_count: float = 0.5,
     gabriel_fallback: bool = True,
+    require_gabriel_and_h: bool = False,
 ) -> ClusterResult | None:
     """Partition via hollow-edge pruning + major CCs (OPEN_ISSUES #44).
 
     Cuts lifted edges with data-side hollowness ``H < h0`` (Gabriel
-    empty-diameter fallback when endpoint mass is low), then applies the
-    same major-component absorption / ``Q > 0`` gate as
+    empty-diameter fallback when endpoint mass is low; optional
+    ``require_gabriel_and_h`` conjunction), then applies the same
+    major-component absorption / ``Q > 0`` gate as
     :func:`_major_lifted_component_partition`.  Returns ``None`` unless ≥2
     majors survive.
     """
@@ -446,6 +456,7 @@ def _hollow_edge_partition(
         h0=float(h0),
         min_end_count=float(min_end_count),
         gabriel_fallback=bool(gabriel_fallback),
+        require_gabriel_and_h=bool(require_gabriel_and_h),
     )
     kept = prune_hollow_edges(positions, edges, data_arr, config=cfg)
 
@@ -514,6 +525,23 @@ def _hollow_edge_partition(
         n_clusters=len(clusters),
         partition_q_score=float(pq),
     )
+
+
+def _hollow_prepass_accepted(
+    config: RecursionConfig,
+    scale_result: "ScaleSearchResult | None",  # noqa: F821
+    hollow: ClusterResult | None,
+) -> bool:
+    """Whether a hollow partition clears Q (+ optional persistence) gates."""
+
+    if hollow is None or hollow.n_clusters <= 1 or hollow.partition_q_score <= 0.0:
+        return False
+    if not config.hollow_require_persistent_agree:
+        return True
+    if scale_result is None:
+        return False
+    persistence = getattr(scale_result, "persistence_result", None)
+    return persistence is not None and persistence.tau_star_index is not None
 
 
 def _radial_gap_partition(
@@ -1341,12 +1369,9 @@ def _research_finer_split(
                 h0=float(config.hollow_h0),
                 min_end_count=float(config.hollow_min_end_count),
                 gabriel_fallback=bool(config.hollow_gabriel_fallback),
+                require_gabriel_and_h=bool(config.hollow_require_gabriel_and_h),
             )
-            if (
-                hollow is not None
-                and hollow.n_clusters > 1
-                and hollow.partition_q_score > 0.0
-            ):
+            if _hollow_prepass_accepted(config, result, hollow):
                 return result, scaffold, hollow
 
         # #44: radial-gap prepass for concentric shells still lifted-connected.
@@ -1583,6 +1608,8 @@ def _descend_into_clusters(
             hollow_h0=config.hollow_h0,
             hollow_min_end_count=config.hollow_min_end_count,
             hollow_gabriel_fallback=config.hollow_gabriel_fallback,
+            hollow_require_gabriel_and_h=config.hollow_require_gabriel_and_h,
+            hollow_require_persistent_agree=config.hollow_require_persistent_agree,
             seed=config.seed + region_id + label,
         )
 
@@ -1692,12 +1719,9 @@ def run_recursive_discovery(
             h0=float(config.hollow_h0),
             min_end_count=float(config.hollow_min_end_count),
             gabriel_fallback=bool(config.hollow_gabriel_fallback),
+            require_gabriel_and_h=bool(config.hollow_require_gabriel_and_h),
         )
-        if (
-            hollow is not None
-            and hollow.n_clusters > 1
-            and hollow.partition_q_score > 0.0
-        ):
+        if _hollow_prepass_accepted(config, result, hollow):
             cluster_result = hollow
             node.n_clusters = hollow.n_clusters
 

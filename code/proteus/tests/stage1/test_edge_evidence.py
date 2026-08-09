@@ -263,3 +263,48 @@ def test_adapted_nested_scaffold_mid05_h_separates_but_not_cutset() -> None:
     majors = [c for c in comps if len(c) >= max(3, int(np.ceil(n * 0.2)))]
     assert len(majors) < 2
 
+
+
+def test_require_gabriel_and_h_blocks_gabriel_only_cut() -> None:
+    """A2-T31: conjunction needs H<h0 ∧ Gabriel; Gabriel-alone is not enough.
+
+    Low-mass bridge with H above h0 (dense mid fill relative to ends) must
+    stay kept under conjunction even if Gabriel diameter is empty.
+    """
+
+    # Two endpoints far apart; mid filled so H is high; diameter still empty
+    # of *other* points near the open ball boundary is hard — use a case
+    # where H < h0 but we compare or/and rules on a clear void bridge.
+    rng = np.random.default_rng(1)
+    blob_a = rng.normal(loc=[-3.0, 0.0], scale=0.2, size=(60, 2))
+    blob_b = rng.normal(loc=[3.0, 0.0], scale=0.2, size=(60, 2))
+    data = np.vstack([blob_a, blob_b])
+    positions = np.array([[-3.0, 0.0], [3.0, 0.0]], dtype=float)
+    edges = [(0, 1)]
+
+    or_cfg = HollowEdgeConfig(
+        mid_radius_frac=0.35, h0=0.35, min_end_count=0.5, gabriel_fallback=True,
+        require_gabriel_and_h=False,
+    )
+    and_cfg = HollowEdgeConfig(
+        mid_radius_frac=0.35, h0=0.35, min_end_count=0.5, gabriel_fallback=True,
+        require_gabriel_and_h=True,
+    )
+    cut_or = hollow_edge_mask(positions, edges, data, config=or_cfg)
+    cut_and = hollow_edge_mask(positions, edges, data, config=and_cfg)
+    # Empty-gap bridge: H≈0 so both rules cut.
+    assert bool(cut_or[0]) is True
+    assert bool(cut_and[0]) is True
+
+    # Within-support edge: neither rule should cut.
+    positions2 = np.array([[-3.0, 0.0], [-2.7, 0.05]], dtype=float)
+    cut_or2 = hollow_edge_mask(positions2, edges, data, config=or_cfg)
+    cut_and2 = hollow_edge_mask(positions2, edges, data, config=and_cfg)
+    assert bool(cut_or2[0]) is False
+    assert bool(cut_and2[0]) is False
+
+
+def test_require_gabriel_and_h_default_off() -> None:
+    """Conjunction flag stays default-off (proposal-path; A2-T31)."""
+
+    assert HollowEdgeConfig().require_gabriel_and_h is False

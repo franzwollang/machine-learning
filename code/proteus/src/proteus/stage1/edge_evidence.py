@@ -42,12 +42,22 @@ class HollowEdgeConfig:
     Hebbian paths) and fixed-tau ``K=2`` majors have sample ARI≈chance —
     do **not** treat major-CC count as recovery.  Gabriel fallback at low
     ``n_end`` amplifies spurious cuts.  Keep flag default-off.
+
+    A2-T30 multi-tau scan + A4 sheet null (q01≈0.57 > h0=0.35): default
+    ``H-or-Gabriel`` yields spurious majors=2 at probe taus (nested@0.27,
+    tori@0.5) with sample ARI≈chance, driven by Gabriel at low ``n_end``.
+    ``require_gabriel_and_h=True`` (cut iff ``H < h0`` ∧ Gabriel-empty)
+    suppresses those spurious K=2 hits on the probe grid while keeping
+    ``prefer_hollow_edge_prepass`` default-off.  Raising ``min_end_count``
+    alone *increases* Gabriel usage; prefer conjunction or
+    ``gabriel_fallback=False`` with a calibrated ``h0`` / mid_frac.
     """
 
     mid_radius_frac: float = 0.35
     h0: float = 0.35
     min_end_count: float = 0.5
     gabriel_fallback: bool = True
+    require_gabriel_and_h: bool = False
     eps: float = _EPS
 
 
@@ -161,7 +171,17 @@ def hollow_edge_mask(
     data: np.ndarray,
     config: HollowEdgeConfig | None = None,
 ) -> np.ndarray:
-    """Boolean mask ``True`` = cut (hollow) for each edge."""
+    """Boolean mask ``True`` = cut (hollow) for each edge.
+
+    Default rule (``require_gabriel_and_h=False``):
+    - ``n_end >= min_end_count`` → cut iff ``H < h0``;
+    - else if ``gabriel_fallback`` → cut iff Gabriel diameter ball is empty;
+    - else → keep.
+
+    Conjunction rule (``require_gabriel_and_h=True``, A2-T31 / A4 ROC):
+    cut iff ``H < h0`` **and** Gabriel diameter ball is empty.  Suppresses
+    empty-ball Gabriel-only spurious cuts; keep proposal-path / default-off.
+    """
 
     cfg = config if config is not None else HollowEdgeConfig()
     pos = np.asarray(positions, dtype=float)
@@ -175,14 +195,19 @@ def hollow_edge_mask(
         pos, edges, pts, mid_radius_frac=float(cfg.mid_radius_frac),
     )
 
-    cut = np.zeros(len(edges), dtype=bool)
+    need_gab = bool(cfg.gabriel_fallback) or bool(cfg.require_gabriel_and_h)
     gab = (
         gabriel_diameter_empty(pos, edges, pts)
-        if cfg.gabriel_fallback
+        if need_gab
         else np.zeros(len(edges), dtype=bool)
     )
     min_end = float(cfg.min_end_count)
     h0 = float(cfg.h0)
+    cut = np.zeros(len(edges), dtype=bool)
+    if cfg.require_gabriel_and_h:
+        for k in range(len(edges)):
+            cut[k] = bool(H[k] < h0) and bool(gab[k])
+        return cut
     for k in range(len(edges)):
         if end_mass[k] >= min_end:
             cut[k] = bool(H[k] < h0)
