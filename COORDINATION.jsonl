@@ -131,3 +131,4 @@
 {"ts":"2026-08-09T18:05-05:00","from":"A1","type":"TASK_ASSIGN","note":"Post-scoop refill: A2-T41..T43 soft\u00d7conj/multi-seed frac/Youden; A3-T53..T55; A4-T37..T39; A5-T49..T51; A6-T50..T52"}
 {"ts":"2026-08-09T18:05-05:00","from":"A1","type":"TASK_REFILL","note":"Queues 3-deep; A1-T49=#45 deferred until sample-ARI; throughput_mode on"}
 {"ts":"2026-08-09T18:05-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"043451aaf72c861b36d01d0c3361bb25dbcb753f","note":"Multi-scoop A2 soft/Poisson/frac; A3 SI; A4 schedule; A5 glue+ANN; A6 densify/load_weighted; tests 52+56+17+20; no awaiting flip","tips":{"A2":"15e9547","A3":"3d2b931","A4":"f6bfa01","A5":"621fd45","A6":"853738a"}}
+{"ts":"2026-08-09T18:05-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"2345916360046469df34430718e6977bcf119056","note":"Final tip SHA after MERGE_DONE mailbox sync","tips":{"A2":"15e9547","A3":"3d2b931","A4":"f6bfa01","A5":"621fd45","A6":"853738a"}}
