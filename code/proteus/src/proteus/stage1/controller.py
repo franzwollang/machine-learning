@@ -36,10 +36,11 @@ class ScaleSearchConfig:
     requires the per-grid-point partitions, so selecting it implies
     ``record_partitions``.  When a persistent split exists and
     ``persistence.resolve_within_interval`` is ``"load_crossover"`` or an
-    experimental probe (``"mid_interval"``, ``"three_quarter_interval"``,
-    ``"three_quarter_load_screened"``, ``"fine_end_of_block"``), persistence
-    still decides accept/reject but ``tau*`` is re-picked inside that
-    persistent subgrid (default ``"none"`` preserves coarse-end ``tau*``).
+    experimental probe (``"mid_interval"``, ``"mid_interval_load_screened"``,
+    ``"three_quarter_interval"``, ``"three_quarter_load_screened"``,
+    ``"fine_end_of_block"``), persistence still decides accept/reject but
+    ``tau*`` is re-picked inside that persistent subgrid (default ``"none"``
+    preserves coarse-end ``tau*``).
 
     The legacy ``load_band`` selector (OPEN_ISSUES #28) is **deprecated**:
     passing it emits :class:`DeprecationWarning` and redirects to
@@ -388,15 +389,39 @@ def _normalize_selector(selector: str) -> str:
 
 
 # Operational default (S14.3 / OPEN_ISSUES #28): variance-load floor below
-# which an experimental three-quarter landing is treated as ≪ 1 and rejected
-# (fall back to coarse-end).  Not an acceptance-path constant.
-_THREE_QUARTER_LOAD_SCREEN_MIN: float = 0.5
+# which an experimental within-interval landing is treated as ≪ 1 and rejected
+# (fall back to coarse-end).  Shared by mid/three-quarter load-screened probes.
+# Not an acceptance-path constant.
+_WITHIN_INTERVAL_LOAD_SCREEN_MIN: float = 0.5
+# Backward-compatible alias (A6-T38 naming).
+_THREE_QUARTER_LOAD_SCREEN_MIN: float = _WITHIN_INTERVAL_LOAD_SCREEN_MIN
 
 
 def _three_quarter_index(i_lo: int, i_hi: int) -> int:
     """Three-quarters of the way from coarse ``i_lo`` toward fine ``i_hi``."""
 
     return i_lo + (3 * (i_hi - i_lo)) // 4
+
+
+def _mid_interval_index(i_lo: int, i_hi: int) -> int:
+    """Integer midpoint of the accepted persistent block ``[i_lo, i_hi]``."""
+
+    return (i_lo + i_hi) // 2
+
+
+def _apply_load_screen(
+    candidate: int,
+    i_lo: int,
+    load_trace: np.ndarray,
+    *,
+    screen_min: float = _WITHIN_INTERVAL_LOAD_SCREEN_MIN,
+) -> int:
+    """Keep ``candidate`` when ``load[candidate]`` is not ≪ 1; else ``i_lo``."""
+
+    load_at = float(load_trace[candidate])
+    if not np.isfinite(load_at) or load_at < screen_min:
+        return i_lo
+    return candidate
 
 
 def _resolve_persistence_tau_index(
@@ -413,7 +438,9 @@ def _resolve_persistence_tau_index(
     accept/reject gate but re-pick ``tau*`` via :func:`_select_load_crossover`
     on the persistent subgrid only (OPEN_ISSUES #28 hybrid option).  With
     experimental ``"mid_interval"``, land at the integer midpoint of the
-    accepted block; with experimental ``"three_quarter_interval"``, land
+    accepted block; with experimental ``"mid_interval_load_screened"``, take
+    that midpoint only when ``load[idx]`` is not ≪ 1 (else fall back to
+    ``i_lo``); with experimental ``"three_quarter_interval"``, land
     three-quarters of the way from ``i_lo`` toward ``i_hi``; with
     experimental ``"three_quarter_load_screened"``, take that three-quarter
     landing only when ``load[idx]`` is not ≪ 1 (else fall back to ``i_lo``);
@@ -433,7 +460,13 @@ def _resolve_persistence_tau_index(
 
     if mode == "mid_interval":
         # Integer midpoint of [i_lo, i_hi]; experimental coarse-vs-mid probe.
-        return (i_lo + i_hi) // 2
+        return _mid_interval_index(i_lo, i_hi)
+
+    if mode == "mid_interval_load_screened":
+        # Same landing as mid_interval, but reject when load ≪ 1.
+        return _apply_load_screen(
+            _mid_interval_index(i_lo, i_hi), i_lo, load_trace
+        )
 
     if mode == "three_quarter_interval":
         # Three-quarters from coarse toward fine; between mid and fine-end.
@@ -441,11 +474,9 @@ def _resolve_persistence_tau_index(
 
     if mode == "three_quarter_load_screened":
         # Same landing as three_quarter_interval, but reject when load ≪ 1.
-        candidate = _three_quarter_index(i_lo, i_hi)
-        load_at = float(load_trace[candidate])
-        if not np.isfinite(load_at) or load_at < _THREE_QUARTER_LOAD_SCREEN_MIN:
-            return i_lo
-        return candidate
+        return _apply_load_screen(
+            _three_quarter_index(i_lo, i_hi), i_lo, load_trace
+        )
 
     if mode == "fine_end_of_block":
         # Finest index of the accepted persistent block; experimental probe.
@@ -455,8 +486,8 @@ def _resolve_persistence_tau_index(
         raise ValueError(
             f"Unknown PersistenceConfig.resolve_within_interval={mode!r}; "
             "expected 'none', 'load_crossover', 'mid_interval', "
-            "'three_quarter_interval', 'three_quarter_load_screened', "
-            "or 'fine_end_of_block'."
+            "'mid_interval_load_screened', 'three_quarter_interval', "
+            "'three_quarter_load_screened', or 'fine_end_of_block'."
         )
 
     sub_load = np.asarray(load_trace[i_lo : i_hi + 1], dtype=float)
