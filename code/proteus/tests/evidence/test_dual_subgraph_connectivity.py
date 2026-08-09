@@ -23,7 +23,8 @@ Green tests lock:
   ``enable_mu_weighted_solve`` (A5-EXP-mu; eq. si-dual-flow-weight).
 * S6.2 count-aware ``λ_f=1+n_f/(1+n̄)`` behind ``enable_count_aware_lambda``
   (A5-T46); multi-simplex patch ``Σ μ_S`` soft solve behind
-  ``enable_patch_mu_solve`` (A5-T47 stub).
+  ``enable_patch_mu_solve`` (A5-T47 stub); shared-face antisymmetry soft
+  glue behind ``enable_shared_face_glue`` (A5-EXP-glue).
 * S6.3 boundary taxonomy behind ``enable_boundary_taxonomy``; seam stitch /
   ghost reservoir sketches behind ``enable_seam_ghost`` (A5-T45).
 * S6.4 simplex-local PL density *sketch* behind ``enable_simplex_density``
@@ -33,9 +34,9 @@ Gaps vs full SI S6 (do **not** flip these elsewhere yet):
 
 * **S6.1** Tally + dry-run + BMU harness + Stage-1 wiring *sketch* exist;
   acceptance-path Stage-1 integration still open.
-* **S6.2** Soft ``A_S`` / ``μ_S`` / count-aware / patch sketches only — no
-  loopy Gaussian BP / shared face-registry graph. See module docstring
-  acceptance-path plan (A5-T42).
+* **S6.2** Soft ``A_S`` / ``μ_S`` / count-aware / patch / shared-face glue
+  sketches only — no loopy Gaussian BP / global face-registry graph. See
+  module docstring acceptance-path plan (A5-T42).
 * **S6.3** Seam/ghost sketches are scalar; no face registry / patch graph.
 * **S6.4** Density sketch only; live evaluator / mass normalization open.
 * Mass-conservation / density / benchmark ``@awaiting("stage2.dual_flow")``
@@ -64,6 +65,7 @@ from proteus.stage2 import (
     build_divergence_stencil,
     build_dual_adjacency,
     build_dual_adjacency_from_complex,
+    build_shared_face_pairs,
     classify_boundary_facets,
     conservation_residual_r_cons,
     count_aware_lambda_f,
@@ -758,6 +760,7 @@ def test_acceptance_path_plan_documented_in_dual_flow_module():
     assert cfg.enable_mu_weighted_solve is False
     assert cfg.enable_count_aware_lambda is False
     assert cfg.enable_patch_mu_solve is False
+    assert cfg.enable_shared_face_glue is False
     assert cfg.enable_boundary_taxonomy is False
     assert cfg.enable_seam_ghost is False
     assert cfg.enable_simplex_density is False
@@ -1109,6 +1112,102 @@ def test_patch_mu_solve_sums_mu_S_and_reduces_block_r_cons():
     assert out.epsilon_flux >= 0.0
     assert np.allclose(out.lambda_f, 1.0)
     assert "patch" in out.note.lower() or "μ_S" in out.note or "mu" in out.note.lower()
+    assert out.n_shared_faces == 0
+    assert out.shared_glue_residual == 0.0
+
+
+# ---------------------------------------------------------------------------
+# A5-EXP-glue: shared-face antisymmetry soft glue (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_shared_face_pairs_two_triangles():
+    """Adjacent triangles share one facet with matching local indices."""
+
+    # left verts [0,1,2]; right [1,3,2] — shared {1,2}.
+    # left local face 0 excludes 0 → {1,2}; right local face 1 excludes 3 → {1,2}.
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    pairs = build_shared_face_pairs(simplices)
+    assert len(pairs) == 1
+    p = pairs[0]
+    assert p.facet == frozenset({1, 2})
+    assert {p.simplex_a, p.simplex_b} == {0, 1}
+    assert sorted([p.local_face_a, p.local_face_b]) == [0, 1]
+
+
+def test_shared_face_glue_flag_off_keeps_independent_copies():
+    """enable_shared_face_glue=False ⇒ no glue even if simplices passed."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    A0 = build_divergence_stencil(left)
+    A1 = build_divergence_stencil(right)
+    # Disagreeing shared-face empirics (left face0 vs right face1).
+    hat = {0: np.array([3.0, 0.1, 0.1]), 1: np.array([0.1, 3.0, 0.1])}
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    cfg = DualFlowConfig(
+        enable_patch_mu_solve=True,
+        enable_shared_face_glue=False,
+        bp_max_iters=8,
+        as_step=0.5,
+    )
+    out = solve_patch_mu_weighted_pressures(
+        hat, {0: A0, 1: A1}, simplices=simplices, config=cfg
+    )
+    assert out is not None
+    assert out.n_shared_faces == 0
+    # Without glue, shared faces stay near empirics (same sign, large).
+    assert out.pressures[0] > 1.0 and out.pressures[4] > 1.0
+
+
+def test_shared_face_glue_reduces_antisymmetry_residual():
+    """Glue on ⇒ n_shared_faces=1 and shared residual drops vs unglued."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    A0 = build_divergence_stencil(left)
+    A1 = build_divergence_stencil(right)
+    hat = {0: np.array([3.0, 0.1, 0.1]), 1: np.array([0.1, 3.0, 0.1])}
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    base = dict(
+        enable_patch_mu_solve=True,
+        bp_max_iters=20,
+        as_step=0.35,
+        bp_damping=0.4,
+        mu_scale=0.05,
+    )
+    unglued = solve_patch_mu_weighted_pressures(
+        hat,
+        {0: A0, 1: A1},
+        simplices=simplices,
+        config=DualFlowConfig(enable_shared_face_glue=False, **base),
+    )
+    glued = solve_patch_mu_weighted_pressures(
+        hat,
+        {0: A0, 1: A1},
+        simplices=simplices,
+        config=DualFlowConfig(
+            enable_shared_face_glue=True, shared_face_glue=2.0, **base
+        ),
+    )
+    assert unglued is not None and glued is not None
+    assert glued.n_shared_faces == 1
+    # Unglued residual on (p0_face0 + p1_face1); glue should shrink it.
+    unglued_r = float(unglued.pressures[0] + unglued.pressures[4]) ** 2
+    assert glued.shared_glue_residual < unglued_r
+    assert "shared-face" in glued.note.lower() or "glue" in glued.note.lower()
+
+
+def test_shared_face_glue_requires_simplices():
+    """enable_shared_face_glue=True without simplices raises."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    A_S = build_divergence_stencil(P)
+    cfg = DualFlowConfig(
+        enable_patch_mu_solve=True, enable_shared_face_glue=True
+    )
+    with pytest.raises(ValueError, match="simplices"):
+        solve_patch_mu_weighted_pressures({0: np.ones(3)}, {0: A_S}, config=cfg)
 
 
 # ---------------------------------------------------------------------------

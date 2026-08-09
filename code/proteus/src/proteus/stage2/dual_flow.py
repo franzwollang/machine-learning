@@ -23,9 +23,11 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   ``λ_f=1+n_f/(1+n̄)`` lands behind ``enable_count_aware_lambda``
   (A5-T46; baseline remains ``λ_f=1``). Multi-simplex patch
   ``Σ_S μ_S‖A_S p_S‖²`` soft solve lands behind ``enable_patch_mu_solve``
-  (A5-T47 stub — not loopy BP). Remaining real-BP gaps: full loopy
-  Gaussian BP on the multi-simplex face/factor graph; online tallies →
-  offline solve schedule; true-manifold flux zeroing (S6.3).
+  (A5-T47 stub — not loopy BP). Shared-face antisymmetry soft glue for
+  that patch solve lands behind ``enable_shared_face_glue`` (A5-EXP-glue;
+  still not a global face registry / loopy BP). Remaining real-BP gaps:
+  full loopy Gaussian BP on the multi-simplex face/factor graph; online
+  tallies → offline solve schedule; true-manifold flux zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
   seams land behind ``enable_boundary_taxonomy`` (proposed; default off).
   Heuristic single-owner → true-manifold; hint sets override. Seam stitch /
@@ -66,6 +68,9 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
   weights (A5-T46).
 * ``DualFlowConfig.enable_patch_mu_solve`` — when off,
   :func:`solve_patch_mu_weighted_pressures` returns ``None`` (A5-T47).
+* ``DualFlowConfig.enable_shared_face_glue`` — when off, patch solve keeps
+  independent per-simplex face copies; when on (with ``simplices``), soft
+  antisymmetry glue on shared facets (A5-EXP-glue).
 * ``DualFlowConfig.enable_boundary_taxonomy`` — when off,
   :func:`classify_boundary_facets` returns ``None``.
 * ``DualFlowConfig.enable_seam_ghost`` — when off, seam stitch / ghost
@@ -125,8 +130,10 @@ __all__ = [
     "GhostReservoirResult",
     "MuWeightedSolveResult",
     "PatchMuSolveResult",
+    "SharedFacePair",
     "build_dual_adjacency",
     "build_dual_adjacency_from_complex",
+    "build_shared_face_pairs",
     "dry_run_dual_from_edit",
     "solve_conservative_pressures",
     "simplex_outward_normals",
@@ -214,6 +221,12 @@ class DualFlowConfig:
         patch objective ``Σ λ(p-hat)² + Σ_S μ_S‖A_S p_S‖²`` with
         concatenated per-simplex face blocks (A5-T47 stub — **not** a
         shared face-registry / loopy BP graph).
+    enable_shared_face_glue:
+        When ``False`` (default), the patch soft solve keeps independent
+        per-simplex face copies. When ``True`` (and ``simplices`` is
+        passed to :func:`solve_patch_mu_weighted_pressures`), adds a soft
+        antisymmetry penalty ``Σ_shared (p_a + p_b)²`` on shared facets
+        (A5-EXP-glue). Still **not** a global face variable / loopy BP.
     enable_boundary_taxonomy:
         When ``False`` (default), :func:`classify_boundary_facets` returns
         ``None``. When ``True``, labels single-owner facets via SI S6.3
@@ -256,6 +269,10 @@ class DualFlowConfig:
         (default ``1e6``). When local Hessian ``cond`` exceeds this, the
         gradient step is halved each iteration (proposal-path stand-in for
         SI ``damping when spectra are poorly conditioned``).
+    shared_face_glue:
+        Soft weight on shared-face antisymmetry residuals when
+        ``enable_shared_face_glue`` is on (default ``1.0``). Operational
+        proposal-path only (SI S14.3).
     ghost_coupling:
         Weak leak fraction in ``[0, 1]`` from computational-boundary
         pressures into the ghost reservoir (default ``0.1``). Operational.
@@ -270,6 +287,7 @@ class DualFlowConfig:
     enable_mu_weighted_solve: bool = False
     enable_count_aware_lambda: bool = False
     enable_patch_mu_solve: bool = False
+    enable_shared_face_glue: bool = False
     enable_boundary_taxonomy: bool = False
     enable_seam_ghost: bool = False
     enable_simplex_density: bool = False
@@ -282,6 +300,7 @@ class DualFlowConfig:
     mu_scale: float = 0.1
     whiten_floor: float = 1e-8
     spectrum_cond_cap: float = 1e6
+    shared_face_glue: float = 1.0
     ghost_coupling: float = 0.1
 
 
@@ -452,6 +471,71 @@ def _facets(vertices: frozenset[Hashable]) -> list[frozenset[Hashable]]:
     if len(vertices) <= 1:
         return []
     return [vertices - {v} for v in vertices]
+
+
+@dataclass(frozen=True)
+class SharedFacePair:
+    """One shared facet between two simplices with local face indices.
+
+    Local face index ``i`` is the facet opposite ordered vertex ``i``
+    (same convention as :func:`simplex_outward_normals` /
+    :func:`build_divergence_stencil` columns). ``facet`` is the unordered
+    vertex frozenset of the shared codim-1 face.
+    """
+
+    simplex_a: Hashable
+    local_face_a: int
+    simplex_b: Hashable
+    local_face_b: int
+    facet: frozenset[Hashable]
+
+
+def build_shared_face_pairs(
+    simplices: Sequence[Sequence[Hashable]] | Mapping[Hashable, Sequence[Hashable]],
+) -> tuple[SharedFacePair, ...]:
+    """Enumerate shared-facet owner pairs with local face indices (SI S6.2).
+
+    For each simplex with **ordered** vertex sequence ``V``, local face
+    ``i`` excludes ``V[i]``. Facets owned by two or more simplices yield
+    pairwise :class:`SharedFacePair` entries (first owner paired with each
+    later owner). Ungated geometry helper — not a Stage-2 face registry.
+    """
+
+    if isinstance(simplices, Mapping):
+        items: list[tuple[Hashable, tuple[Hashable, ...]]] = [
+            (sid, tuple(verts)) for sid, verts in simplices.items()
+        ]
+    else:
+        items = [(i, tuple(verts)) for i, verts in enumerate(simplices)]
+
+    # facet frozenset -> list of (simplex_id, local_face_index)
+    owners: dict[frozenset[Hashable], list[tuple[Hashable, int]]] = defaultdict(
+        list
+    )
+    for sid, verts in items:
+        if len(verts) < 2:
+            continue
+        for i, v in enumerate(verts):
+            facet = frozenset(verts) - {v}
+            owners[facet].append((sid, i))
+
+    pairs: list[SharedFacePair] = []
+    for facet, own in owners.items():
+        if len(own) < 2:
+            continue
+        for j in range(1, len(own)):
+            sa, ia = own[0]
+            sb, ib = own[j]
+            pairs.append(
+                SharedFacePair(
+                    simplex_a=sa,
+                    local_face_a=ia,
+                    simplex_b=sb,
+                    local_face_b=ib,
+                    facet=facet,
+                )
+            )
+    return tuple(pairs)
 
 
 def build_dual_adjacency(
@@ -1411,9 +1495,11 @@ def solve_mu_weighted_pressures(
 class PatchMuSolveResult:
     """Multi-simplex patch ``Σ_S μ_S`` soft solve stub (SI S6.2; A5-T47).
 
-    Pressures are concatenated per-simplex face blocks (independent copies —
-    shared-face identification / face registry is future work). ``mu_S`` maps
-    simplex id → local conservation weight; ``mu_S_sum`` is their sum.
+    Pressures are concatenated per-simplex face blocks. When shared-face
+    glue is off, blocks are independent copies (shared-face identification
+    is optional via ``enable_shared_face_glue`` / A5-EXP-glue). ``mu_S``
+    maps simplex id → local conservation weight; ``mu_S_sum`` is their sum.
+    ``n_shared_faces`` counts glued shared-facet pairs (0 when glue off).
     """
 
     empirical: np.ndarray
@@ -1427,6 +1513,8 @@ class PatchMuSolveResult:
     iters: int
     block_sizes: tuple[int, ...]
     simplex_ids: tuple[Hashable, ...]
+    n_shared_faces: int = 0
+    shared_glue_residual: float = 0.0
     note: str = (
         "sketch only: block-concat patch Σ μ_S‖A_S p_S‖²; not shared "
         "face-registry / loopy Gaussian BP (SI S6.2)"
@@ -1438,20 +1526,28 @@ def solve_patch_mu_weighted_pressures(
     stencils_by_simplex: Mapping[Hashable, np.ndarray],
     *,
     face_hit_counts_by_simplex: Mapping[Hashable, np.ndarray] | None = None,
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]]
+    | None = None,
     config: DualFlowConfig | None = None,
 ) -> PatchMuSolveResult | None:
-    """Multi-simplex patch soft solve (SI S6.2; A5-T47).
+    """Multi-simplex patch soft solve (SI S6.2; A5-T47 / A5-EXP-glue).
 
     When ``enable_patch_mu_solve`` is off, returns ``None``. When on,
     soft-minimizes
 
         Σ_f λ_f (p_f - hat_f)² + Σ_S μ_S ‖A_S p_S‖₂²
 
-    over **block-concatenated** per-simplex face pressures (each simplex
-    owns a private copy of its facet pressures — shared-face glue is not
-    implemented). ``μ_S`` uses :func:`mu_S_weight` per stencil; reported
-    ``mu_S_sum`` is ``Σ_S μ_S``. Optional count-aware ``λ_f`` when
-    ``enable_count_aware_lambda`` and hit counts are supplied.
+    over **block-concatenated** per-simplex face pressures. Optional
+    count-aware ``λ_f`` when ``enable_count_aware_lambda`` and hit counts
+    are supplied.
+
+    When ``enable_shared_face_glue`` is on, ``simplices`` (ordered vertex
+    ids per simplex) is required; shared facets contribute soft
+    antisymmetry residuals ``(p_a + p_b)²`` weighted by
+    ``shared_face_glue`` (outward normals on a shared face oppose, so
+    pressures should cancel). This is **not** a global face variable or
+    loopy BP — only a soft glue on private copies.
 
     Proposal-path stub only — do **not** flip ``@awaiting``.
     """
@@ -1467,12 +1563,26 @@ def solve_patch_mu_weighted_pressures(
         if sid not in stencils_by_simplex:
             raise ValueError(f"missing divergence stencil for simplex {sid!r}")
 
+    glue_pairs: tuple[SharedFacePair, ...] = ()
+    if cfg.enable_shared_face_glue:
+        if simplices is None:
+            raise ValueError(
+                "enable_shared_face_glue requires simplices (ordered "
+                "vertex ids per simplex)"
+            )
+        glue_pairs = build_shared_face_pairs(simplices)
+        glue_w = float(cfg.shared_face_glue)
+        if glue_w < 0.0:
+            raise ValueError("shared_face_glue must be >= 0")
+
     blocks_hat: list[np.ndarray] = []
     blocks_A: list[np.ndarray] = []
     blocks_lam: list[np.ndarray] = []
     mu_map: dict[Hashable, float] = {}
     block_sizes: list[int] = []
+    offsets: dict[Hashable, int] = {}
 
+    offset = 0
     for sid in ids:
         hat = np.asarray(empirical_by_simplex[sid], dtype=float).reshape(-1)
         A_S = np.asarray(stencils_by_simplex[sid], dtype=float)
@@ -1510,18 +1620,32 @@ def solve_patch_mu_weighted_pressures(
         blocks_A.append(A_S)
         blocks_lam.append(lam)
         block_sizes.append(n)
+        offsets[sid] = offset
+        offset += n
 
     hat_raw = np.concatenate(blocks_hat)
     lam_all = np.concatenate(blocks_lam)
     # Block-diagonal soft Hessian: per-simplex AtA scaled by μ_S.
     n_tot = hat_raw.shape[0]
     AtA_big = np.zeros((n_tot, n_tot), dtype=float)
-    offset = 0
     for sid, A_S, n in zip(ids, blocks_A, block_sizes, strict=True):
         AtA = A_S.T @ A_S
-        sl = slice(offset, offset + n)
+        sl = slice(offsets[sid], offsets[sid] + n)
         AtA_big[sl, sl] = float(mu_map[sid]) * AtA
-        offset += n
+
+    # Resolve glue pair global indices (skip pairs whose simplex is absent).
+    glue_idx: list[tuple[int, int]] = []
+    for pair in glue_pairs:
+        if pair.simplex_a not in offsets or pair.simplex_b not in offsets:
+            continue
+        ia = offsets[pair.simplex_a] + int(pair.local_face_a)
+        ib = offsets[pair.simplex_b] + int(pair.local_face_b)
+        if ia >= n_tot or ib >= n_tot:
+            raise ValueError(
+                f"shared-face local index out of range for pair "
+                f"{pair.simplex_a!r}/{pair.simplex_b!r}"
+            )
+        glue_idx.append((ia, ib))
 
     damp = float(cfg.bp_damping)
     if not 0.0 <= damp <= 1.0:
@@ -1538,34 +1662,69 @@ def solve_patch_mu_weighted_pressures(
         hat_raw, None, floor=float(cfg.whiten_floor)
     )
     p_w = hat_w.copy()
+    glue_w = float(cfg.shared_face_glue) if cfg.enable_shared_face_glue else 0.0
+    # Scale soft glue into whitened-data units so large |hat| faces do not
+    # dominate / diverge the soft step (proposal-path operational).
+    std2_bar = float(np.mean(std * std)) + float(cfg.whiten_floor)
+    lam_bar = float(np.mean(lam_all)) + float(cfg.whiten_floor)
+    glue_eff = glue_w * lam_bar / std2_bar
     for _ in range(iters):
         p_w = (1.0 - damp) * hat_w + damp * p_w
         p_phys = p_w * std
         # AtA_big already folds μ_S into each block; whitened conservation
         # gradient is std ⊙ (AtA_big @ p_phys).
         grad = lam_all * (p_w - hat_w) + std * (AtA_big @ p_phys)
+        if glue_eff > 0.0 and glue_idx:
+            # Soft ‖p_a + p_b‖² on physical pressures; chain-rule via std.
+            for ia, ib in glue_idx:
+                resid = float(p_phys[ia] + p_phys[ib])
+                grad[ia] += glue_eff * resid * float(std[ia])
+                grad[ib] += glue_eff * resid * float(std[ib])
         p_w = p_w - step * grad
 
     p = p_w * std
+    # Hard antisymmetry projection locks shared faces (sketch stand-in for
+    # identifying a single oriented face variable).
+    if cfg.enable_shared_face_glue and glue_idx:
+        for ia, ib in glue_idx:
+            a = float(p[ia])
+            b = float(p[ib])
+            p[ia] = 0.5 * (a - b)
+            p[ib] = 0.5 * (b - a)
     eps = 1e-12
     r_data = float(np.sum((p - hat_raw) ** 2) / (np.sum(hat_raw**2) + eps))
 
     # Aggregate r_cons / ε_flux over blocks.
     flux2 = 0.0
     cons_num = 0.0
-    offset = 0
-    for A_S, n in zip(blocks_A, block_sizes, strict=True):
-        p_S = p[offset : offset + n]
+    for sid, A_S, n in zip(ids, blocks_A, block_sizes, strict=True):
+        off = offsets[sid]
+        p_S = p[off : off + n]
         Ap = A_S @ p_S
         f2 = float(np.dot(Ap, Ap))
         fro2 = float(np.sum(A_S * A_S))
         flux2 += f2
         cons_num += f2 / (fro2 + float(cfg.as_eps))
-        offset += n
     denom = float(np.sum(p * p)) + eps
     r_cons = cons_num / denom
     e_flux = flux2 / denom
     mu_sum = float(sum(mu_map.values()))
+
+    glue_resid = 0.0
+    for ia, ib in glue_idx:
+        glue_resid += float(p[ia] + p[ib]) ** 2
+    n_shared = len(glue_idx)
+
+    note = (
+        "sketch only: block-concat patch Σ μ_S‖A_S p_S‖²; not shared "
+        "face-registry / loopy Gaussian BP (SI S6.2)"
+    )
+    if cfg.enable_shared_face_glue:
+        note = (
+            "sketch only: patch Σ μ_S + scaled soft shared-face glue + "
+            "hard antisym projection; not global face registry / loopy "
+            "Gaussian BP (SI S6.2)"
+        )
 
     return PatchMuSolveResult(
         empirical=hat_raw,
@@ -1579,6 +1738,9 @@ def solve_patch_mu_weighted_pressures(
         iters=iters,
         block_sizes=tuple(block_sizes),
         simplex_ids=ids,
+        n_shared_faces=n_shared,
+        shared_glue_residual=glue_resid,
+        note=note,
     )
 
 
