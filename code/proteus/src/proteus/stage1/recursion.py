@@ -214,7 +214,9 @@ class RecursionConfig:
     intersects with graph-theoretic bridges (true cut-set; stricter than
     MST).  A2-T37: ``hollow_soft_capacity_only`` (default False) intersects
     with high Brandes-betweenness edges (``hollow_soft_capacity_frac`` of
-    max; continuous soft capacity / flow proxy).  Sheet-null / bridge-safe
+    max; continuous soft capacity / flow proxy).  A2-T39:
+    ``hollow_soft_capacity_method`` selects ``"betweenness"`` (default) or
+    ``"bridge_mass"`` (min-cut mass on bridges).  Sheet-null / bridge-safe
     ≠ sample-ARI recovery.
 
     **Recommended pairing (A2-T19/T20/T23):**
@@ -270,6 +272,7 @@ class RecursionConfig:
     hollow_bridge_critical_only: bool = False
     hollow_soft_capacity_only: bool = False
     hollow_soft_capacity_frac: float = 0.25
+    hollow_soft_capacity_method: str = "betweenness"
     seed: int = 42
 
 
@@ -448,9 +451,10 @@ def _resolve_hollow_edge_config(
     bridge_critical_only: bool = False,
     soft_capacity_only: bool = False,
     soft_capacity_frac: float = 0.25,
+    soft_capacity_method: str = "betweenness",
     use_a4_primary: bool = False,
 ) -> HollowEdgeConfig:
-    """Build ``HollowEdgeConfig`` from recursion knobs (A2-T33/T34/T37)."""
+    """Build ``HollowEdgeConfig`` from recursion knobs (A2-T33/T34/T37/T39)."""
 
     if config is not None:
         use_a4_primary = bool(config.hollow_use_a4_primary)
@@ -458,6 +462,7 @@ def _resolve_hollow_edge_config(
         bridge_critical_only = bool(config.hollow_bridge_critical_only)
         soft_capacity_only = bool(config.hollow_soft_capacity_only)
         soft_capacity_frac = float(config.hollow_soft_capacity_frac)
+        soft_capacity_method = str(config.hollow_soft_capacity_method)
         mid_radius_frac = float(config.hollow_mid_radius_frac)
         h0 = float(config.hollow_h0)
         min_end_count = float(config.hollow_min_end_count)
@@ -470,6 +475,7 @@ def _resolve_hollow_edge_config(
             bridge_critical_only=bool(bridge_critical_only),
             soft_capacity_only=bool(soft_capacity_only),
             soft_capacity_frac=float(soft_capacity_frac),
+            soft_capacity_method=str(soft_capacity_method),
         )
     return HollowEdgeConfig(
         mid_radius_frac=float(mid_radius_frac),
@@ -481,6 +487,7 @@ def _resolve_hollow_edge_config(
         bridge_critical_only=bool(bridge_critical_only),
         soft_capacity_only=bool(soft_capacity_only),
         soft_capacity_frac=float(soft_capacity_frac),
+        soft_capacity_method=str(soft_capacity_method),
     )
 
 
@@ -499,6 +506,7 @@ def _hollow_edge_partition(
     bridge_critical_only: bool = False,
     soft_capacity_only: bool = False,
     soft_capacity_frac: float = 0.25,
+    soft_capacity_method: str = "betweenness",
     use_a4_primary: bool = False,
     hollow_config: HollowEdgeConfig | None = None,
 ) -> ClusterResult | None:
@@ -539,6 +547,7 @@ def _hollow_edge_partition(
         bridge_critical_only=bridge_critical_only,
         soft_capacity_only=soft_capacity_only,
         soft_capacity_frac=soft_capacity_frac,
+        soft_capacity_method=soft_capacity_method,
         use_a4_primary=use_a4_primary,
     )
     kept = prune_hollow_edges(positions, edges, data_arr, config=cfg)
@@ -1694,6 +1703,7 @@ def _descend_into_clusters(
             hollow_bridge_critical_only=config.hollow_bridge_critical_only,
             hollow_soft_capacity_only=config.hollow_soft_capacity_only,
             hollow_soft_capacity_frac=config.hollow_soft_capacity_frac,
+            hollow_soft_capacity_method=config.hollow_soft_capacity_method,
             seed=config.seed + region_id + label,
         )
 
