@@ -12,11 +12,17 @@ from dataclasses import replace
 
 import numpy as np
 
-from proteus.stage1.controller import ScaleSearchConfig, run_scale_search
-from proteus.stage1.persistence import PersistenceConfig
+from proteus.stage1.controller import (
+    ScaleSearchConfig,
+    _THREE_QUARTER_LOAD_SCREEN_MIN,
+    _resolve_persistence_tau_index,
+    run_scale_search,
+)
+from proteus.stage1.persistence import PersistenceConfig, PersistenceResult
 from proteus.stage1.stabilization import StabilizationConfig
 from tests.datasets.synthetic.circles import make_circle
 from tests.datasets.synthetic.hierarchical_gaussian import make_hierarchical_gaussian
+from tests.datasets.synthetic.swiss_roll import make_swiss_roll
 
 
 def test_uniform_manifold_has_no_persistent_split() -> None:
@@ -564,6 +570,201 @@ def test_phi_within_interval_landing_vs_hierarchy_expected_tau() -> None:
     # Phi at landing is finite for every mode (diagnostic usability).
     for mode in modes:
         assert np.isfinite(float(by_mode[mode]["phi_star"]))
+    assert PersistenceConfig().resolve_within_interval == "none"
+
+
+def test_phi_within_interval_landing_circle_and_swiss() -> None:
+    # Diagnostic probe (A6-T37): same within-interval Phi/tau* table on
+    # circle and swiss-roll manifolds (no persistent multi-cluster split).
+    # All resolve_within_interval modes must agree (controller falls back to
+    # load_crossover when persistence rejects), and default stays "none".
+    modes = (
+        "none",
+        "mid_interval",
+        "three_quarter_interval",
+        "fine_end_of_block",
+        "load_crossover",
+    )
+    fixtures = (
+        (
+            "circle",
+            make_circle(
+                n_samples=800, radius=1.0, noise=0.02, extrusion_dim=2, seed=21,
+            ),
+        ),
+        ("swiss", make_swiss_roll(n_samples=800, seed=0)),
+    )
+    for name, dataset in fixtures:
+        gt = dataset.ground_truth
+        assert gt.expected_tau is not None
+        tau_lo, tau_hi = gt.tau_grid_hint
+        base = ScaleSearchConfig(
+            tau_min=tau_lo,
+            tau_max=tau_hi,
+            max_grid_points=8,
+            k=8,
+            n_seeds=12,
+            min_nodes=8,
+            max_nodes=128,
+            ann_backend="naive",
+            selector="persistence",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=12,
+            ),
+            seed=0,
+        )
+        rows: list[dict[str, float | int | str]] = []
+        for mode in modes:
+            result = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=replace(
+                    base,
+                    persistence=PersistenceConfig(resolve_within_interval=mode),  # type: ignore[arg-type]
+                ),
+            )
+            assert result.persistence_result is not None
+            # Uniform / developable manifolds: no accepted persistent split.
+            assert result.persistence_result.tau_star_index is None
+            rows.append(
+                {
+                    "mode": mode,
+                    "peak_index": int(result.peak_index),
+                    "tau_star": float(result.tau_star),
+                    "phi_star": float(result.phi_trace[result.peak_index]),
+                    "load_star": float(result.load_trace[result.peak_index]),
+                    "tau_over_expected": float(result.tau_star / gt.expected_tau),
+                }
+            )
+
+        header = (
+            f"{'mode':22s} {'idx':>3s} {'tau*':>10s} {'Phi*':>10s} "
+            f"{'load*':>8s} {'tau*/E[tau]':>12s}"
+        )
+        print(f"\nA6-T37 Phi within-interval landing vs {name} expected_tau")
+        print(header)
+        print("-" * len(header))
+        for row in rows:
+            print(
+                f"{row['mode']:22s} {row['peak_index']:3d} {row['tau_star']:10.4g} "
+                f"{row['phi_star']:10.4g} {row['load_star']:8.3f} "
+                f"{row['tau_over_expected']:12.3f}"
+            )
+
+        # No persistent block ⇒ within-interval modes cannot diverge.
+        peak_indices = {int(r["peak_index"]) for r in rows}
+        tau_stars = {float(r["tau_star"]) for r in rows}
+        assert len(peak_indices) == 1
+        assert len(tau_stars) == 1
+        for row in rows:
+            assert np.isfinite(float(row["phi_star"]))
+            assert float(row["tau_star"]) > 0.0
+    assert PersistenceConfig().resolve_within_interval == "none"
+
+
+def test_three_quarter_load_screened_rejects_low_load_and_matches_raw_when_ok() -> None:
+    # Experimental probe (A6-T38): three_quarter_load_screened falls back to
+    # coarse-end when load at the three-quarter index is ≪ 1; otherwise matches
+    # raw three_quarter_interval. Default resolve_within_interval stays "none".
+    # Synthetic unit: low load at candidate → reject to i_lo.
+    run_lengths = np.array([8, 0, 0, 0, 0, 0, 0, 0], dtype=int)
+    low_load = np.array([0.2, 0.3, 0.35, 0.4, 0.42, 0.45, 0.48, 0.49])
+    high_load = np.array([0.7, 2.0, 4.0, 8.0, 12.0, 19.0, 30.0, 50.0])
+    stabilized = [True] * 8
+    pers = PersistenceResult(
+        tau_star=1.0,
+        tau_star_index=0,
+        run_lengths=run_lengths,
+        match_overlaps=np.ones(7),
+    )
+    cfg_screened = PersistenceConfig(
+        resolve_within_interval="three_quarter_load_screened",
+    )
+    cfg_raw = PersistenceConfig(resolve_within_interval="three_quarter_interval")
+    # i_lo=0, i_hi=7 → three_quarter index = 0 + 21//4 = 5.
+    assert _THREE_QUARTER_LOAD_SCREEN_MIN == 0.5
+    assert float(low_load[5]) < _THREE_QUARTER_LOAD_SCREEN_MIN
+    assert float(high_load[5]) >= _THREE_QUARTER_LOAD_SCREEN_MIN
+    assert (
+        _resolve_persistence_tau_index(pers, low_load, stabilized, cfg_screened)
+        == 0
+    )
+    assert (
+        _resolve_persistence_tau_index(pers, low_load, stabilized, cfg_raw) == 5
+    )
+    assert (
+        _resolve_persistence_tau_index(pers, high_load, stabilized, cfg_screened)
+        == 5
+    )
+    assert (
+        _resolve_persistence_tau_index(pers, high_load, stabilized, cfg_raw) == 5
+    )
+
+    # Integration contrast on hierarchy: three_quarter lands with load ≫ 1, so
+    # the ≪1 screen does not fire — screened matches raw (undershoot is not a
+    # low-load artifact).
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=0,
+    )
+    gt = dataset.ground_truth
+    tau_lo, tau_hi = gt.tau_grid_hint
+    base = ScaleSearchConfig(
+        tau_min=tau_lo,
+        tau_max=tau_hi,
+        max_grid_points=8,
+        k=8,
+        n_seeds=12,
+        min_nodes=8,
+        max_nodes=128,
+        ann_backend="naive",
+        selector="persistence",
+        stabilization=StabilizationConfig(min_equilibrium_epochs=2, max_epochs=12),
+        seed=0,
+    )
+    raw = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(
+                resolve_within_interval="three_quarter_interval"
+            ),
+        ),
+    )
+    screened = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(
+                resolve_within_interval="three_quarter_load_screened"
+            ),
+        ),
+    )
+    coarse = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(resolve_within_interval="none"),
+        ),
+    )
+    assert raw.persistence_result is not None
+    assert raw.persistence_result.tau_star_index is not None
+    load_at_raw = float(raw.load_trace[raw.peak_index])
+    print(
+        "\nA6-T38 load-screened three_quarter contrast "
+        f"(raw_load={load_at_raw:.3f}, screen_min={_THREE_QUARTER_LOAD_SCREEN_MIN})"
+    )
+    print(
+        f"  raw idx={raw.peak_index} tau*={raw.tau_star:.4g} "
+        f"screened idx={screened.peak_index} tau*={screened.tau_star:.4g} "
+        f"coarse idx={coarse.peak_index} tau*={coarse.tau_star:.4g}"
+    )
+    assert load_at_raw >= _THREE_QUARTER_LOAD_SCREEN_MIN
+    assert screened.peak_index == raw.peak_index
+    assert screened.tau_star == raw.tau_star
+    assert screened.peak_index > coarse.peak_index
     assert PersistenceConfig().resolve_within_interval == "none"
 
 
