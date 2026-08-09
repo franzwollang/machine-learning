@@ -614,5 +614,5 @@ def test_soft_capacity_frac_sweep_export() -> None:
     tsv = format_soft_capacity_frac_sweep_table()
     assert "dataset\ttau\tfrac\tmajors\tsample_ari" in tsv
     assert "nested" in tsv and "tori" in tsv
-    assert "defaults off" in SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE
+    assert "Defaults off" in SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE
     assert "awaiting" in SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE
