@@ -35,3 +35,4 @@
 {"ts":"2026-08-09T12:50-05:00","focus":"swarm merge+tracker","summary":"Merged A2–A6 tips; load_band deleted; #44c prepass landed; tests 36p/5x; refilled queues; A3-T10 SI cleanup assigned","next":"MERGE_DONE push; watch nested/tori NOTES"}
 {"ts":"2026-08-09T13:05-05:00","focus":"swarm merge+tracker","summary":"Scooped A2–A6 tips; A3 SI edits + A5 DualAdjacency anchors + A6 greps; tests 17p/1x; refilled A3/A5/A6; assigned hybrid flag","next":"MERGE_DONE push; watch A2/A4 pairing/PH NOTES"}
 {"ts":"2026-08-09T13:25:00-05:00","focus":"M2 #28 hybrid land","summary":"MERGE scoop A3+A5 mailboxes + A6 T13–T15 code; tests 11p/1x; refilled A3/A5/A6; #44 SI A+C held","next":"scoop A2/A4 mid-turn tips"}
+{"ts":"2026-08-09T13:40-05:00","focus":"M1 #44 pairing dead-end","summary":"MERGE scoop A2 code + A3/A5 mailboxes; tests 16p recursion+persistence + 3p/1x evidence; refilled A2-T10..T12; #44 SI A+C held","next":"scoop A4/A6 mid-turn tips"}
