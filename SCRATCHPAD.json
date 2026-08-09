@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-09T15:40-05:00",
-  "turn": 44,
+  "updated_at": "2026-08-09T16:05-05:00",
+  "turn": 45,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "hollow-edge evidence protocol; retire geometry cues"
+    "goal": "multi-tau hollow scan; ROC-calibrate h0"
   },
   "recent": [
-    "Scooped A2 tube+spectral + A5 dual_flow + A6 mid_interval",
-    "Merged HUMAN #44 hollow-edge directive + theory note",
-    "Retargeted A2-T27..T29 / A3-T38 / A4-T18"
+    "Scooped A2 hollow module + A3 SI + A4 ROC + A5 dual + A6 fine_end",
+    "Folded open-loop/max_nodes into M4; #45 deferred post-hollow",
+    "64p subset green; no awaiting flips"
   ],
   "discoveries": [
-    "Tube/spectral unit ok but e2e tori unrecovered",
-    "Directive: disconnection is scale-free; descent wrong family",
-    "Coverage probe recovers SI 1.5σ* on clean circles"
+    "L/4 mid-ball false-hollows; mid_frac=0.35 seed-fragile",
+    "Blocker: scale-search tau* ≠ hollowness-sensitive tau",
+    "Fitted circle max_nodes≥128 recovers SI 1.5σ*"
   ],
   "open_threads": [
-    "No awaiting flip pending hollow-edge green",
-    "#43 dual_flow landed; acceptance still None=>True",
-    "A2 frozen-scaffold hollowness probe next"
+    "A2-T30 multi-tau hollow scan next",
+    "A4-T21 ROC via edge_evidence scores",
+    "#45 open-loop gate-as-split after #44"
   ],
-  "next_step": "MERGE_DONE push; watch A2-T27 hollow probe",
+  "next_step": "MERGE_DONE push; watch A2-T30 / A4-T21",
   "blockers": []
 }
