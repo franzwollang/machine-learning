@@ -129,9 +129,12 @@ re-searched *finer* scales inside a single feature.
   `prefer_radial_gap_prepass` (default off) recovers shell membership on clean
   unit scaffolds / GT-signal-filtered radial gap (ARI_shell=1.0), but e2e
   tissue-filled nested_spheres still unrecovered (persist+radial+steps≤4 →
-  circle=1 nested=1; deeper shatters circle). Next: tissue/signal-aware radial
-  mask or non-centroid radial feature — not more AP/DM knobs.
-- **Remaining:** tissue/signal-aware radial mask (flag-gated, default off);
+  circle=1 nested=1; deeper shatters circle).
+- **Landed (A2, integrator-hardened):** `prefer_radial_band_prepass` (default
+  off) — histogram-trough / contiguous peak-support mask before radial gap,
+  with Q-maximizing mid-band assignment; unit fixture with mid-band bridges
+  green. Next e2e: tissue/signal-aware mask on nested_spheres; hold awaiting.
+- **Remaining:** tissue/signal-aware radial mask e2e (flag-gated, default off);
   gap vs persist depth study; hold awaiting flips. SI S2.6.2+S14.3 A+C paragraph
   held until recovery evidence is greener. Distinct from #28.
 

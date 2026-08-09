@@ -45,19 +45,19 @@
           "id": "A2-T10",
           "status": "ready",
           "issue": 44,
-          "summary": "Post-radial-gap: tissue/signal-aware radial mask design or thin prototype (flag-gated default off); NOTE; no awaiting flips"
+          "summary": "E2E probe prefer_radial_band_prepass on nested_spheres (±persist/steps); NOTE leaf/ARI; no awaiting flips"
         },
         {
           "id": "A2-T11",
           "status": "ready",
           "issue": 44,
-          "summary": "Gap vs persist depth study under prefer_radial_gap_prepass on nested_spheres; NOTE only"
+          "summary": "If band prepass still misses e2e, thin tissue/signal-aware mask on top (flag-gated default off); NOTE"
         },
         {
           "id": "A2-T12",
           "status": "ready",
           "issue": 44,
-          "summary": "If prototype recovers nested cc≈2 ARI>0.5 without circle shatter, REQUEST_TRACKER for A3 SI A+C; else NOTE blockers and hold awaiting"
+          "summary": "If recovers nested cc≈2 ARI>0.5 without circle shatter, REQUEST_TRACKER for A3 SI A+C; else NOTE blockers and hold awaiting"
         }
       ]
     },

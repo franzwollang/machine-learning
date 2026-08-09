@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T14:03-05:00",
+  "updated_at": "2026-08-09T14:08-05:00",
   "turn": 36,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "tissue/signal radial mask after radial-gap e2e miss"
+    "goal": "radial_band e2e after integrator harden"
   },
   "recent": [
-    "Scooped A2 prefer_radial_gap_prepass (default off)",
-    "Scooped A6 within-interval diagnose + paper L=1 sync",
-    "Refilled A3/A5/A6; A2 T10–T12 retargeted; A4 mid-CLAIM"
+    "Scooped A2 radial_band + A6 paper L=1 sync",
+    "Hardened _radial_band_gap_partition (endpoint peaks+Q midband)",
+    "Refilled queues; #44/#28 annotated"
   ],
   "discoveries": [
-    "Lifted graph radius-bridges shells; unit radial OK, e2e not",
-    "#28 ~9x is category mismatch (fine-leaf vs coarse persist)"
+    "Endpoint hist peaks required for shell modes",
+    "#28 ~9x is category mismatch; coarse-end kept"
   ],
   "open_threads": [
     "A4-T8..T10 still mid-CLAIM",
-    "#44 SI A+C held; dual_flow absent",
-    "Need tissue/signal-aware radial mask path"
+    "radial_band e2e nested still open",
+    "dual_flow absent"
   ],
-  "next_step": "MERGE_DONE push; next turn scoop A4",
+  "next_step": "MERGE_DONE push integration+A1",
   "blockers": []
 }

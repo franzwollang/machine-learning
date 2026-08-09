@@ -428,10 +428,16 @@ def _radial_band_gap_partition(
     centroid = positions.mean(axis=0)
     radii = np.linalg.norm(positions - centroid, axis=1)
     hist, edges = np.histogram(radii, bins=bins)
-    peaks = [
-        i for i in range(1, len(hist) - 1)
-        if hist[i] >= hist[i - 1] and hist[i] >= hist[i + 1] and hist[i] > 0
-    ]
+    # Include endpoint bins: concentric shells often land in the first/last
+    # radius bins (interior-only peak finders miss them on clean fixtures).
+    peaks: list[int] = []
+    if int(hist[0]) > 0 and int(hist[0]) >= int(hist[1]):
+        peaks.append(0)
+    for i in range(1, len(hist) - 1):
+        if hist[i] >= hist[i - 1] and hist[i] >= hist[i + 1] and hist[i] > 0:
+            peaks.append(i)
+    if int(hist[-1]) > 0 and int(hist[-1]) >= int(hist[-2]):
+        peaks.append(len(hist) - 1)
     if len(peaks) < 2:
         return None
     peaks = sorted(peaks, key=lambda i: int(hist[i]), reverse=True)[:2]
@@ -439,31 +445,48 @@ def _radial_band_gap_partition(
     if hi - lo < 2:
         return None
     valley = lo + int(np.argmin(hist[lo: hi + 1]))
-    # Exclude the trough bin (and immediate neighbors if still below peak floor).
-    exclude_bins = {valley}
-    peak_floor = max(1, int(min(hist[lo], hist[hi]) // 2))
-    for b in (valley - 1, valley + 1):
-        if lo < b < hi and int(hist[b]) <= peak_floor:
-            exclude_bins.add(b)
-    mask = np.ones(n, dtype=bool)
-    for b in exclude_bins:
-        mask &= ~((radii >= edges[b]) & (radii < edges[b + 1]))
-    # Include right edge of last bin.
-    if (bins - 1) in exclude_bins:
-        mask &= radii < edges[-1]
 
+    def _grow(peak: int, step: int) -> list[int]:
+        """Contiguous hist>0 support from ``peak`` toward the valley."""
+        out = [peak]
+        j = peak + step
+        while 0 <= j < bins and j != valley and int(hist[j]) > 0:
+            out.append(j)
+            j += step
+        return out
+
+    left_bins = set(_grow(lo, +1))
+    right_bins = set(_grow(hi, -1))
+    peak_bins = left_bins | right_bins
+    exclude_bins = set(range(bins)) - peak_bins
+    if not exclude_bins and valley not in peak_bins:
+        exclude_bins = {valley}
+
+    def _in_bins(r: float, bset: set[int]) -> bool:
+        for b in bset:
+            lo_e, hi_e = float(edges[b]), float(edges[b + 1])
+            if b == bins - 1:
+                if lo_e <= r <= hi_e:
+                    return True
+            elif lo_e <= r < hi_e:
+                return True
+        return False
+
+    peak_mask = np.array([_in_bins(float(radii[i]), peak_bins) for i in range(n)])
+    mask = peak_mask  # kept = peak-mode support; mid-band excluded
     idx = np.where(mask)[0]
     if len(idx) < 2 * threshold:
         return None
 
-    r = radii[idx]
-    thr_masked = max(int(min_abs), int(np.ceil(len(idx) * frac)))
+    peak_idx = idx
+    r = radii[peak_idx]
+    thr_masked = max(int(min_abs), int(np.ceil(len(peak_idx) * frac)))
     order = np.argsort(r)
     gaps = np.diff(r[order])
     best: tuple[float, int] | None = None
     for i, gap in enumerate(gaps):
         left = i + 1
-        right = len(idx) - left
+        right = len(peak_idx) - left
         if left < thr_masked or right < thr_masked:
             continue
         g = float(gap)
@@ -472,33 +495,49 @@ def _radial_band_gap_partition(
     if best is None:
         return None
 
-    med_r = float(np.median(r)) + 1e-12
+    med_r = float(np.median(radii[idx])) + 1e-12
     if best[0] / med_r < float(min_gap_ratio):
         return None
 
     thr_cut = 0.5 * (
         float(r[order[best[1]]]) + float(r[order[best[1] + 1]])
     )
-    labels = (radii > thr_cut).astype(int)
-    clusters: list[set[int]] = [
-        set(np.where(labels == cid)[0].tolist()) for cid in (0, 1)
-    ]
-    if min(len(c) for c in clusters) < threshold:
-        return None
-
+    base_labels = (radii > thr_cut).astype(int)
+    # Mid-band (non-peak-support) nodes: try both shell assignments for Q > 0.
+    midband = np.where(~mask)[0]
+    best_pq = -np.inf
+    best_labels: np.ndarray | None = None
+    candidates: list[np.ndarray] = [base_labels]
+    if len(midband) > 0:
+        for side in (0, 1):
+            lab = base_labels.copy()
+            lab[midband] = side
+            candidates.append(lab)
     graph_lifted = scaffold.links.neighbour_graph(n)
     W = compute_edge_weights(scaffold)
-    pq = partition_q_score(clusters, n, W, graph_lifted)
-    if pq <= 0.0:
+    for lab in candidates:
+        clusters = [
+            set(np.where(lab == cid)[0].tolist()) for cid in (0, 1)
+        ]
+        if min(len(c) for c in clusters) < threshold:
+            continue
+        pq = float(partition_q_score(clusters, n, W, graph_lifted))
+        if pq > best_pq:
+            best_pq = pq
+            best_labels = lab
+    if best_labels is None or best_pq <= 0.0:
         return None
 
     hits = np.array([node.hit_count for node in scaffold.nodes], dtype=float)
-    exemplars = [int(max(c, key=lambda g: hits[g])) for c in clusters]
+    clusters_final: list[set[int]] = [
+        set(np.where(best_labels == cid)[0].tolist()) for cid in (0, 1)
+    ]
+    exemplars = [int(max(c, key=lambda g: hits[g])) for c in clusters_final]
     return ClusterResult(
-        labels=labels,
+        labels=best_labels,
         exemplar_indices=np.array(exemplars, dtype=int),
         n_clusters=2,
-        partition_q_score=float(pq),
+        partition_q_score=float(best_pq),
     )
 
 
