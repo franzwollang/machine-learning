@@ -293,6 +293,70 @@ def test_finer_research_flag_defaults_off() -> None:
     assert cfg.finer_tube_min_residual_ratio > 0.0
     assert cfg.prefer_spectral_gap_prepass is False
     assert cfg.finer_spectral_knn >= 2
+    assert cfg.prefer_hollow_edge_prepass is False
+    assert cfg.hollow_mid_radius_frac > 0.0
+    assert cfg.hollow_h0 > 0.0
+    assert cfg.hollow_min_end_count >= 0.0
+    assert cfg.hollow_gabriel_fallback is True
+
+
+def test_hollow_edge_partition_splits_bridged_blobs() -> None:
+    """#44: hollow prepass recovers two majors after cutting a void bridge."""
+
+    from proteus.stage1.recursion import _hollow_edge_partition
+    from proteus.types import Link
+
+    class _Links:
+        def __init__(self, edges: list[tuple[int, int]]):
+            self._edges = edges
+
+        def neighbour_graph(self, n: int) -> dict[int, list[int]]:
+            g = {i: [] for i in range(n)}
+            for i, j in self._edges:
+                g[i].append(j)
+                g[j].append(i)
+            return g
+
+        def lifted_links(self):
+            return [
+                Link(i=i, j=j, count_ij=5.0, count_ji=5.0, lifted=True)
+                for i, j in self._edges
+            ]
+
+    class _Node:
+        def __init__(self, pos, hits=10.0):
+            self.position = np.asarray(pos, dtype=float)
+            self.hit_count = hits
+            self.d_final = 1
+
+    class _Scaf:
+        def __init__(self, nodes, edges):
+            self.nodes = nodes
+            self.links = _Links(edges)
+            self.tau = 0.2
+
+    rng = np.random.default_rng(0)
+    data = np.vstack([
+        rng.normal([-2.5, 0.0], 0.15, size=(60, 2)),
+        rng.normal([2.5, 0.0], 0.15, size=(60, 2)),
+    ])
+    nodes = [
+        _Node([-2.6, 0.0]), _Node([-2.4, 0.1]), _Node([-2.4, -0.1]),
+        _Node([2.4, 0.1]), _Node([2.5, 0.0]), _Node([2.6, -0.1]),
+    ]
+    edges = [
+        (0, 1), (1, 2), (0, 2),
+        (3, 4), (4, 5), (3, 5),
+        (0, 3),  # hollow bridge
+    ]
+    pre = _hollow_edge_partition(
+        _Scaf(nodes, edges), data, min_frac=0.2, min_abs=2,
+        mid_radius_frac=0.35, h0=0.35, min_end_count=0.5,
+    )
+    assert pre is not None
+    assert pre.n_clusters == 2
+    assert pre.partition_q_score > 0.0
+    assert int(pre.labels[0]) != int(pre.labels[3])
 
 
 def test_major_lifted_component_partition_requires_two_majors() -> None:
@@ -1134,6 +1198,7 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
         prefer_pca_axis_gap_prepass=True,
         prefer_tube_major_radius_prepass=True,
         prefer_spectral_gap_prepass=True,
+        prefer_hollow_edge_prepass=True,
         require_dm_split=True,
         finer_tau_cap_ratio=0.5,
         max_finer_scale_steps=12,
@@ -1148,6 +1213,7 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     assert _aspirational.prefer_pca_axis_gap_prepass is True
     assert _aspirational.prefer_tube_major_radius_prepass is True
     assert _aspirational.prefer_spectral_gap_prepass is True
+    assert _aspirational.prefer_hollow_edge_prepass is True
     assert _aspirational.max_finer_scale_steps == 12
 
 
@@ -1225,3 +1291,95 @@ def test_finer_research_persist_sd_pca_regression_harness() -> None:
     assert tori_tube >= 1
     # PCA path: interlocking linked_tori still unrecovered (known failure).
     assert tori_pca == 1
+
+
+def test_hollow_edge_persist_no_descent_regression_harness() -> None:
+    """#44 / A2-T29: persist(+dm)+hollow, NO finer descent — leaf-count harness.
+
+    Guards uniforms / zoo under hollow prepass without ``allow_finer_research``.
+    Documents nested/tori = 1 leaf at scale-search ``tau*`` (hollow fires on
+    fixed-tau oracle ~0.27/0.5 but not at load-crossover ``tau*``).  Do **not**
+    flip awaiting.
+    """
+
+    from proteus.stage1.recursion import _hollow_edge_partition
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.manifold_zoo import make_manifold_zoo
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+    from tests.datasets.synthetic.swiss_roll import make_swiss_roll
+
+    def _lean(seed: int = 42) -> ScaleSearchConfig:
+        return ScaleSearchConfig(
+            tau_min=1e-3,
+            tau_max=2.0,
+            max_grid_points=6,
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2,
+                max_epochs=8,
+            ),
+            seed=seed,
+        )
+
+    def _run(points, dim, *, persist: bool, dm: bool, min_samples: int) -> int:
+        cfg = RecursionConfig(
+            scale_search=_lean(),
+            min_samples=min_samples,
+            max_depth=3,
+            require_persistent_split=persist,
+            require_dm_split=dm,
+            allow_finer_research=False,
+            prefer_hollow_edge_prepass=True,
+            seed=42,
+        )
+        tree = run_recursive_discovery(points, dim=dim, config=cfg)
+        return len(tree.leaves)
+
+    circle = make_circle(
+        n_samples=300, radius=1.0, noise=0.02, extrusion_dim=2, seed=0,
+    )
+    swiss = make_swiss_roll(n_samples=400, noise=0.02, seed=0)
+    zoo = make_manifold_zoo(seed=0)
+    z = zoo.points
+    if z.shape[0] > 600:
+        z = z[np.random.default_rng(0).choice(z.shape[0], 600, replace=False)]
+
+    # Uniform / connected guards (persist+hollow, no descent).
+    assert _run(circle.points, circle.points.shape[1], persist=True, dm=False, min_samples=80) == 1
+    assert _run(swiss.points, swiss.points.shape[1], persist=True, dm=False, min_samples=80) == 1
+    assert _run(z, z.shape[1], persist=True, dm=False, min_samples=40) == 1
+    assert _run(circle.points, circle.points.shape[1], persist=True, dm=True, min_samples=80) == 1
+
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+    # E2E at scale-search tau*: nested unrecovered.  Tori may emit 2 leaves
+    # with near-zero ARI (spurious hollow cut at coarse tau_max) — not
+    # component recovery; do not flip awaiting.
+    assert _run(nested.points, nested.points.shape[1], persist=True, dm=False, min_samples=40) == 1
+    tori_leaves = _run(tori.points, tori.points.shape[1], persist=True, dm=False, min_samples=40)
+    assert tori_leaves >= 1
+
+    # Fixed-tau oracle: hollow recovers majors when tau matches the probe.
+    def _oracle(points, tau: float):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
+            ann_backend="naive", rng=np.random.default_rng(0),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=40, min_equilibrium_epochs=3),
+        )
+        return _hollow_edge_partition(
+            sc, points,
+            mid_radius_frac=0.35, h0=0.35, min_end_count=0.5, min_frac=0.2,
+        )
+
+    h_nested = _oracle(nested.points, 0.27)
+    h_tori = _oracle(tori.points, 0.5)
+    assert h_nested is not None and h_nested.n_clusters == 2
+    assert h_tori is not None and h_tori.n_clusters == 2
+    assert tori_leaves in (1, 2)  # spurious 2-leaf possible; ARI not asserted

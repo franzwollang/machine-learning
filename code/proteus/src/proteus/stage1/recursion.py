@@ -20,6 +20,7 @@ from proteus.stage1.dm_cluster import (
     dm_partition_verdict,
     run_clustering_dm,
 )
+from proteus.stage1.edge_evidence import HollowEdgeConfig, prune_hollow_edges
 from proteus.stage1.pruning import demote_lifted_by_cluster
 from proteus.stage1.transfer import apply_t2_transfer
 
@@ -181,6 +182,18 @@ class RecursionConfig:
     position kNN).  Alternate linking-structure cue; report circle / swiss /
     nested regressions under the flag — default remains off.
 
+    **A2-T28 (flag-gated, default off):**
+    ``prefer_hollow_edge_prepass`` cuts lifted edges whose data-side
+    hollowness ratio ``H = n_mid / n_end`` is below ``hollow_h0`` (Gabriel
+    empty-diameter fallback when endpoint mass is below
+    ``hollow_min_end_count``), then takes major connected components of the
+    pruned graph.  This is the #44 empty-region / support-topology path
+    (theory note ``empty_region_evidence_and_scale.md``): disconnection is
+    scale-free, so the prepass runs at the region's own ``tau*`` and does
+    **not** require finer-scale descent.  A2-T27 probe: seed-0 nested+tori
+    major-CC hit near ``mid_radius_frac=0.35`` / ``h0=0.35``; multi-seed
+    fragile and ``h0`` uncalibrated — do **not** flip awaiting.
+
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
       ``allow_finer_research`` + ``max_finer_scale_steps<=4`` +
@@ -192,7 +205,8 @@ class RecursionConfig:
       ``keep_frac=0.55`` + ``min_samples=20`` → 2 leaves ARI=1.0.
     - Linked tori: still open; try ``prefer_pca_axis_gap_prepass`` (offset
       cue) or ``prefer_tube_major_radius_prepass`` (interlock cue) —
-      e2e recovery not claimed.
+      e2e recovery not claimed.  Hollow-edge is the intended general
+      replacement (flag off until calibrated).
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
@@ -221,6 +235,11 @@ class RecursionConfig:
     finer_tube_min_residual_ratio: float = 0.15
     prefer_spectral_gap_prepass: bool = False
     finer_spectral_knn: int = 8
+    prefer_hollow_edge_prepass: bool = False
+    hollow_mid_radius_frac: float = 0.35
+    hollow_h0: float = 0.35
+    hollow_min_end_count: float = 0.5
+    hollow_gabriel_fallback: bool = True
     seed: int = 42
 
 
@@ -382,6 +401,114 @@ def _major_lifted_component_partition(
     return ClusterResult(
         labels=dense,
         exemplar_indices=np.array(exemplars, dtype=int),
+        n_clusters=len(clusters),
+        partition_q_score=float(pq),
+    )
+
+
+def _hollow_edge_partition(
+    scaffold: "Stage1Scaffold",  # noqa: F821
+    data: np.ndarray,
+    *,
+    min_frac: float = 0.2,
+    min_abs: int = 3,
+    mid_radius_frac: float = 0.35,
+    h0: float = 0.35,
+    min_end_count: float = 0.5,
+    gabriel_fallback: bool = True,
+) -> ClusterResult | None:
+    """Partition via hollow-edge pruning + major CCs (OPEN_ISSUES #44).
+
+    Cuts lifted edges with data-side hollowness ``H < h0`` (Gabriel
+    empty-diameter fallback when endpoint mass is low), then applies the
+    same major-component absorption / ``Q > 0`` gate as
+    :func:`_major_lifted_component_partition`.  Returns ``None`` unless ≥2
+    majors survive.
+    """
+
+    n = len(scaffold.nodes)
+    if n < 2:
+        return None
+    data_arr = np.asarray(data, dtype=float)
+    if data_arr.ndim != 2 or data_arr.shape[0] < 1:
+        return None
+
+    positions = np.asarray(
+        [scaffold.nodes[i].position for i in range(n)], dtype=float,
+    )
+    edges = [
+        (int(link.i), int(link.j)) for link in scaffold.links.lifted_links()
+    ]
+    cfg = HollowEdgeConfig(
+        mid_radius_frac=float(mid_radius_frac),
+        h0=float(h0),
+        min_end_count=float(min_end_count),
+        gabriel_fallback=bool(gabriel_fallback),
+    )
+    kept = prune_hollow_edges(positions, edges, data_arr, config=cfg)
+
+    graph_pruned: dict[int, list[int]] = {i: [] for i in range(n)}
+    for i, j in kept:
+        if i == j:
+            continue
+        graph_pruned[i].append(j)
+        graph_pruned[j].append(i)
+
+    frac = float(min_frac)
+    if not (0.0 < frac <= 0.5):
+        frac = 0.2
+    threshold = max(int(min_abs), int(np.ceil(n * frac)))
+
+    comps = _lifted_components_covering_all_nodes(n, graph_pruned)
+    majors = [c for c in comps if len(c) >= threshold]
+    if len(majors) < 2:
+        return None
+
+    major_centroids = [positions[sorted(c)].mean(axis=0) for c in majors]
+    labels = np.full(n, -1, dtype=int)
+    for cid, members in enumerate(majors):
+        for m in members:
+            labels[int(m)] = cid
+
+    leftovers = [c for c in comps if len(c) < threshold]
+    for tiny in leftovers:
+        for m in tiny:
+            dists = [
+                float(np.sum((positions[int(m)] - cen) ** 2))
+                for cen in major_centroids
+            ]
+            labels[int(m)] = int(np.argmin(dists))
+
+    clusters: list[set[int]] = [
+        set(np.where(labels == cid)[0].tolist()) for cid in range(len(majors))
+    ]
+    clusters = [c for c in clusters if c]
+    if len(clusters) < 2:
+        return None
+
+    # Score Q on the *pruned* edge set: hollow bridges are exactly the
+    # cross terms that would drive Q ≤ 0 on the raw lifted weights, even
+    # though the data-side cut is the intended support split (A2-T27/T29).
+    W_full = compute_edge_weights(scaffold)
+    kept_set = {tuple(sorted(e)) for e in kept}
+    W_pruned = {
+        (i, j): w for (i, j), w in W_full.items()
+        if tuple(sorted((i, j))) in kept_set
+    }
+    pq = partition_q_score(clusters, n, W_pruned, graph_pruned)
+    if pq <= 0.0:
+        return None
+
+    hits = np.array([node.hit_count for node in scaffold.nodes], dtype=float)
+    exemplars = [int(max(c, key=lambda g: hits[g])) for c in clusters]
+    dense = np.full(n, -1, dtype=int)
+    for cid, members in enumerate(clusters):
+        for m in members:
+            dense[int(m)] = cid
+
+    return ClusterResult(
+        labels=dense,
+        exemplar_indices=np.asarray(exemplars, dtype=int),
         n_clusters=len(clusters),
         partition_q_score=float(pq),
     )
@@ -1141,7 +1268,9 @@ def _research_finer_split(
 
     When ``prefer_disconnected_prepass`` is on, each step first tries the
     major-lifted-component short-circuit (#44c) before the general AP/DM path.
-    When ``prefer_radial_gap_prepass`` is on, a centroid-radial gap split is
+    When ``prefer_hollow_edge_prepass`` is on, hollow-edge pruning + major CCs
+    are tried next (support-topology / empty-region evidence).  When
+    ``prefer_radial_gap_prepass`` is on, a centroid-radial gap split is
     tried next (concentric shells that stay lifted-connected).  When
     ``prefer_radial_band_prepass`` is on, a histogram-trough-masked radial
     gap is tried (mid-band / tissue continuum exclusion).  When
@@ -1199,6 +1328,24 @@ def _research_finer_split(
                 and pre.partition_q_score > 0.0
             ):
                 return result, scaffold, pre
+
+        # #44: hollow-edge (empty-region) prepass — data-side bridge cut.
+        if config.prefer_hollow_edge_prepass:
+            hollow = _hollow_edge_partition(
+                scaffold,
+                data,
+                min_frac=float(config.finer_prepass_min_frac),
+                mid_radius_frac=float(config.hollow_mid_radius_frac),
+                h0=float(config.hollow_h0),
+                min_end_count=float(config.hollow_min_end_count),
+                gabriel_fallback=bool(config.hollow_gabriel_fallback),
+            )
+            if (
+                hollow is not None
+                and hollow.n_clusters > 1
+                and hollow.partition_q_score > 0.0
+            ):
+                return result, scaffold, hollow
 
         # #44: radial-gap prepass for concentric shells still lifted-connected.
         if config.prefer_radial_gap_prepass:
@@ -1429,6 +1576,11 @@ def _descend_into_clusters(
             finer_tube_min_residual_ratio=config.finer_tube_min_residual_ratio,
             prefer_spectral_gap_prepass=config.prefer_spectral_gap_prepass,
             finer_spectral_knn=config.finer_spectral_knn,
+            prefer_hollow_edge_prepass=config.prefer_hollow_edge_prepass,
+            hollow_mid_radius_frac=config.hollow_mid_radius_frac,
+            hollow_h0=config.hollow_h0,
+            hollow_min_end_count=config.hollow_min_end_count,
+            hollow_gabriel_fallback=config.hollow_gabriel_fallback,
             seed=config.seed + region_id + label,
         )
 
@@ -1527,7 +1679,27 @@ def run_recursive_discovery(
     need_finer = False
     cluster_result = None
 
-    if config.require_persistent_split:
+    # #44 hollow-edge at the region's own tau*: support disconnection is
+    # scale-free, so try before persistence / AP and before finer descent.
+    if config.prefer_hollow_edge_prepass:
+        hollow = _hollow_edge_partition(
+            scaffold,
+            data_arr,
+            min_frac=float(config.finer_prepass_min_frac),
+            mid_radius_frac=float(config.hollow_mid_radius_frac),
+            h0=float(config.hollow_h0),
+            min_end_count=float(config.hollow_min_end_count),
+            gabriel_fallback=bool(config.hollow_gabriel_fallback),
+        )
+        if (
+            hollow is not None
+            and hollow.n_clusters > 1
+            and hollow.partition_q_score > 0.0
+        ):
+            cluster_result = hollow
+            node.n_clusters = hollow.n_clusters
+
+    if cluster_result is None and config.require_persistent_split:
         # Accept a split only if a multi-cluster partition persists across
         # adjacent scales; a region with no persistent split is a single
         # intrinsic feature (terminal leaf), regardless of any transient
@@ -1545,7 +1717,7 @@ def run_recursive_discovery(
                 or cluster_result.partition_q_score <= 0.0
             ):
                 need_finer = True
-    else:
+    elif cluster_result is None:
         cluster_result = _cluster_scaffold(scaffold, config)
         node.n_clusters = cluster_result.n_clusters
         if (
