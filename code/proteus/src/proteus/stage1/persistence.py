@@ -31,7 +31,8 @@ this module's interval as the accept/reject arbiter and, by default, lands
 ``tau*`` at the coarse end of that interval.  Optional hybrid / experimental refinement
 (:attr:`PersistenceConfig.resolve_within_interval`, default ``"none"``) can
 re-pick ``tau*`` via ``load_crossover`` or experimental ``mid_interval`` /
-``mid_interval_load_screened`` / ``three_quarter_interval`` /
+``mid_interval_load_screened`` / ``two_thirds_interval`` /
+``two_thirds_load_screened`` / ``three_quarter_interval`` /
 ``three_quarter_load_screened`` /
 ``fine_end_of_block`` *within* the accepted persistent subgrid without
 changing the accept/reject arbiter (OPEN_ISSUES #28).  The legacy
@@ -143,6 +144,15 @@ class PersistenceConfig:
         ``≪ 1`` (below
         :data:`proteus.stage1.controller._WITHIN_INTERVAL_LOAD_SCREEN_MIN`);
         contrast vs raw ``mid_interval`` (OPEN_ISSUES #28).
+        ``"two_thirds_interval"`` is an **experimental** probe that lands
+        two-thirds of the way from ``i_lo`` toward ``i_hi`` (between mid
+        and three-quarter; bracket the mid-overshoot / 3q-undershoot gap).
+        ``"two_thirds_load_screened"`` is an **experimental** probe that
+        takes the same two-thirds landing but **rejects** it (falls back
+        to coarse-end ``i_lo``) when the variance load at that index is
+        ``≪ 1`` (below
+        :data:`proteus.stage1.controller._WITHIN_INTERVAL_LOAD_SCREEN_MIN`);
+        contrast vs raw ``two_thirds_interval`` (OPEN_ISSUES #28).
         ``"three_quarter_interval"`` is an **experimental** probe that lands
         three-quarters of the way from ``i_lo`` toward ``i_hi`` (between mid
         and fine-end; contrast for expected_tau undershoot).
@@ -171,6 +181,8 @@ class PersistenceConfig:
         "load_crossover",
         "mid_interval",
         "mid_interval_load_screened",
+        "two_thirds_interval",
+        "two_thirds_load_screened",
         "three_quarter_interval",
         "three_quarter_load_screened",
         "fine_end_of_block",

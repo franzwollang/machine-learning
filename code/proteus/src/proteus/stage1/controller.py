@@ -37,6 +37,7 @@ class ScaleSearchConfig:
     ``record_partitions``.  When a persistent split exists and
     ``persistence.resolve_within_interval`` is ``"load_crossover"`` or an
     experimental probe (``"mid_interval"``, ``"mid_interval_load_screened"``,
+    ``"two_thirds_interval"``, ``"two_thirds_load_screened"``,
     ``"three_quarter_interval"``, ``"three_quarter_load_screened"``,
     ``"fine_end_of_block"``), persistence still decides accept/reject but
     ``tau*`` is re-picked inside that persistent subgrid (default ``"none"``
@@ -390,8 +391,8 @@ def _normalize_selector(selector: str) -> str:
 
 # Operational default (S14.3 / OPEN_ISSUES #28): variance-load floor below
 # which an experimental within-interval landing is treated as ≪ 1 and rejected
-# (fall back to coarse-end).  Shared by mid/three-quarter load-screened probes.
-# Not an acceptance-path constant.
+# (fall back to coarse-end).  Shared by mid/two-thirds/three-quarter
+# load-screened probes.  Not an acceptance-path constant.
 _WITHIN_INTERVAL_LOAD_SCREEN_MIN: float = 0.5
 # Backward-compatible alias (A6-T38 naming).
 _THREE_QUARTER_LOAD_SCREEN_MIN: float = _WITHIN_INTERVAL_LOAD_SCREEN_MIN
@@ -401,6 +402,12 @@ def _three_quarter_index(i_lo: int, i_hi: int) -> int:
     """Three-quarters of the way from coarse ``i_lo`` toward fine ``i_hi``."""
 
     return i_lo + (3 * (i_hi - i_lo)) // 4
+
+
+def _two_thirds_index(i_lo: int, i_hi: int) -> int:
+    """Two-thirds of the way from coarse ``i_lo`` toward fine ``i_hi``."""
+
+    return i_lo + (2 * (i_hi - i_lo)) // 3
 
 
 def _mid_interval_index(i_lo: int, i_hi: int) -> int:
@@ -440,11 +447,15 @@ def _resolve_persistence_tau_index(
     experimental ``"mid_interval"``, land at the integer midpoint of the
     accepted block; with experimental ``"mid_interval_load_screened"``, take
     that midpoint only when ``load[idx]`` is not ≪ 1 (else fall back to
-    ``i_lo``); with experimental ``"three_quarter_interval"``, land
-    three-quarters of the way from ``i_lo`` toward ``i_hi``; with
-    experimental ``"three_quarter_load_screened"``, take that three-quarter
+    ``i_lo``); with experimental ``"two_thirds_interval"``, land two-thirds
+    of the way from ``i_lo`` toward ``i_hi`` (between mid and three-quarter);
+    with experimental ``"two_thirds_load_screened"``, take that two-thirds
     landing only when ``load[idx]`` is not ≪ 1 (else fall back to ``i_lo``);
-    with experimental ``"fine_end_of_block"``, land at ``i_hi`` (probe only;
+    with experimental ``"three_quarter_interval"``, land three-quarters of
+    the way from ``i_lo`` toward ``i_hi``; with experimental
+    ``"three_quarter_load_screened"``, take that three-quarter landing only
+    when ``load[idx]`` is not ≪ 1 (else fall back to ``i_lo``); with
+    experimental ``"fine_end_of_block"``, land at ``i_hi`` (probe only;
     default stays ``"none"``).
     """
 
@@ -468,6 +479,16 @@ def _resolve_persistence_tau_index(
             _mid_interval_index(i_lo, i_hi), i_lo, load_trace
         )
 
+    if mode == "two_thirds_interval":
+        # Two-thirds from coarse toward fine; between mid and three-quarter.
+        return _two_thirds_index(i_lo, i_hi)
+
+    if mode == "two_thirds_load_screened":
+        # Same landing as two_thirds_interval, but reject when load ≪ 1.
+        return _apply_load_screen(
+            _two_thirds_index(i_lo, i_hi), i_lo, load_trace
+        )
+
     if mode == "three_quarter_interval":
         # Three-quarters from coarse toward fine; between mid and fine-end.
         return _three_quarter_index(i_lo, i_hi)
@@ -486,7 +507,8 @@ def _resolve_persistence_tau_index(
         raise ValueError(
             f"Unknown PersistenceConfig.resolve_within_interval={mode!r}; "
             "expected 'none', 'load_crossover', 'mid_interval', "
-            "'mid_interval_load_screened', 'three_quarter_interval', "
+            "'mid_interval_load_screened', 'two_thirds_interval', "
+            "'two_thirds_load_screened', 'three_quarter_interval', "
             "'three_quarter_load_screened', or 'fine_end_of_block'."
         )
 
