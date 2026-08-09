@@ -230,9 +230,9 @@ Stage~1 also maintains a per-node intrinsic-dimension estimate $d_{\mathrm{final
 A fixed-$\tau$ scaffold is considered usable only after its local statistics stabilize. Operationally, the controller monitors hit-mass dispersion, variance-cap violations, deferred-motion activity, and queued proposal rates over an equilibration window. Grid points that fail to stabilize are excluded from scale peak detection or given an expanded budget before being declared unreliable. This avoids treating transient growth behavior as a scale-space signal.
 
 \subsection{Scale Response and Characteristic Scales}
-For each current region $C$, the controller evaluates a cluster-level response $\Phi_C(\tau)$ over a geometric grid of candidate variance caps. Intuitively, $\Phi_C(\tau)$ is large when the scaffold at scale $\tau$ resolves the region's support without over-refining it into redundant interior nodes. It is formed from per-node Lindeberg-normalized responses $R_i(\tau)$ summed over the cluster; those per-node responses are used for scale selection, not for within-cluster density evaluation.
+For each current region $C$, the controller evaluates a cluster-level response $\Phi_C(\tau)$ over a geometric grid of candidate variance caps. Intuitively, $\Phi_C(\tau)$ is large when the scaffold at scale $\tau$ resolves the region's support without over-refining it into redundant interior nodes. It is formed from per-node Lindeberg-normalized responses $R_i(\tau)$ summed over the cluster. Empirically, knees and plateaus in $\Phi_C$ (and in the compensated node count) are path-dependent diagnostics rather than a usable primary selector; the operational resolution rule is the variance-load up-crossing $L=1$ of \hyperref[sec:si-scale-response]{SI~S2.5.1}.
 
-Candidate characteristic scales are found by bracketing local maxima of $\Phi_C(\tau)$ using centered second differences, then refining promising brackets with a lightweight optimizer on $\log \tau$. A companion support trace checks whether the support volume is undergoing the expected plateau transition near the response peak. The selected scale $\tau_C^\star$ is the scale at which the region is handed either to recursion or to Stage~2 refinement.
+The selected scale $\tau_C^\star$ is the scale at which the region is handed either to recursion or to Stage~2 refinement. By default that handoff uses the $L=1$ load-crossover on the stabilized grid. When the optional persistence path is used as a scale selector, Q-partition persistence (\hyperref[sec:si-feature-persistence]{SI~S2.6.2}) remains the accept/reject arbiter for multi-cluster structure and lands $\tau_C^\star$ at the \emph{coarse end} of the accepted persistence interval; an optional within-interval hybrid may re-pick $\tau^\star$ by load-crossover inside that block, but ships default-off because it does not recover fine-leaf packing scales on hierarchical scenes.
 
 The discovery objective is explicitly coarse-to-fine: Stage~1 should identify features in decreasing characteristic scale, as close to each feature's best operating scale as possible without overshooting into an already-dying regime. This means (i) coarse composite structures are established before their children are sought, (ii) the selected operating scale should lie inside the feature's admissible persistence interval, (iii) child birth and parent death are dual recursion signals, and (iv) a feature should not be forced to survive below its useful operating scale merely because finer structure exists downstream. The characteristic-scale relations and parent/child handoff are formalized in \hyperref[sec:si-feature-persistence]{SI~S2.6.2}.
 
@@ -283,7 +283,7 @@ Algorithm~\ref{alg:paper-stage1} summarizes the scale-discovery loop at the leve
         \State Run the Stage~1 scaffold to stabilization at fixed $\tau$
         \State Record $\Phi_C(\tau)$ and support trace $V_C(\tau)$
     \EndFor
-    \State Select characteristic scale $\tau_C^\star$ from robust response peaks
+    \State Select characteristic scale $\tau_C^\star$ via load-crossover ($L=1$; SI~S2.5.1)
     \State Cluster the stabilized Hebbian graph by AP on smoothed transition evidence
     \For{each child cluster}
         \If{sample floor, response peak, and recursion budget pass}
@@ -300,7 +300,7 @@ Algorithm~\ref{alg:paper-stage1} summarizes the scale-discovery loop at the leve
 \begin{figure}[t]
     \centering
     \fbox{\parbox{0.9\linewidth}{\centering Scale-response placeholder: $\Phi_C(\tau)$ peak, support-trace plateau, and selected $\tau_C^\star$.}}
-    \caption{Characteristic-scale selection. The final figure should show how the cluster-local scale response and support trace identify the operating scale for a region.}
+    \caption{Characteristic-scale selection. The final figure should show the variance-load $L=1$ up-crossing (with $\Phi_C$ as a diagnostic companion) identifying the operating scale for a region.}
     \label{fig:scale-response}
 \end{figure}
 
