@@ -131,6 +131,14 @@ class RecursionConfig:
     before the gap search recovers shell ARI≈0.93–1.0 with ``Q>0`` on the
     same scaffolds — hence ``prefer_radial_band_prepass`` (histogram-trough
     exclusion, default off).  ``hit_count`` alone is a weak tissue filter.
+
+    **A2-T13 strengthen (flag-gated, default off):**
+    ``prefer_noncentroid_radial_band_prepass`` re-runs the band prepass with a
+    coordinate-median origin (resists dense one-sided tissue that collapses
+    Weiszfeld) and applies a relative trough-depth / bimodality gate
+    (``finer_radial_min_trough_rel``, default ``0.35`` on that path).  The
+    plain ``prefer_radial_band_prepass`` path stays unchanged unless
+    ``finer_radial_min_trough_rel`` is set ``> 0`` explicitly.
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
@@ -150,6 +158,8 @@ class RecursionConfig:
     finer_radial_min_gap_ratio: float = 0.25
     prefer_radial_band_prepass: bool = False
     finer_radial_hist_bins: int = 16
+    prefer_noncentroid_radial_band_prepass: bool = False
+    finer_radial_min_trough_rel: float = 0.0
     seed: int = 42
 
 
@@ -392,6 +402,39 @@ def _radial_gap_partition(
     )
 
 
+def _geometric_median(points: np.ndarray, *, max_iter: int = 32) -> np.ndarray:
+    """Weiszfeld geometric median (kept for experiments; prefer coord median)."""
+
+    pts = np.asarray(points, dtype=float)
+    if pts.ndim != 2 or pts.shape[0] == 0:
+        raise ValueError("points must be a non-empty (n, d) array")
+    if pts.shape[0] == 1:
+        return pts[0].copy()
+    x = pts.mean(axis=0)
+    for _ in range(max_iter):
+        diffs = pts - x
+        dists = np.linalg.norm(diffs, axis=1)
+        # Coincident points: stay put / skip zero-weight rows.
+        mask = dists > 1e-12
+        if not np.any(mask):
+            return x
+        weights = 1.0 / dists[mask]
+        x_new = (pts[mask] * weights[:, None]).sum(axis=0) / weights.sum()
+        if float(np.linalg.norm(x_new - x)) < 1e-9:
+            return x_new
+        x = x_new
+    return x
+
+
+def _coordinate_median(points: np.ndarray) -> np.ndarray:
+    """Per-axis median origin — resists dense one-sided tissue clumps (#44)."""
+
+    pts = np.asarray(points, dtype=float)
+    if pts.ndim != 2 or pts.shape[0] == 0:
+        raise ValueError("points must be a non-empty (n, d) array")
+    return np.median(pts, axis=0)
+
+
 def _radial_band_gap_partition(
     scaffold: "Stage1Scaffold",  # noqa: F821
     *,
@@ -399,6 +442,8 @@ def _radial_band_gap_partition(
     min_abs: int = 3,
     min_gap_ratio: float = 0.25,
     hist_bins: int = 16,
+    origin: str = "centroid",
+    min_trough_rel: float = 0.0,
 ) -> ClusterResult | None:
     """Radial-gap split after excluding the radius-histogram trough (#44).
 
@@ -409,6 +454,13 @@ def _radial_band_gap_partition(
     take the two tallest local peaks, drop nodes in the lowest-density bin
     between them, then run the same gap rule on the remaining nodes and
     apply the cut to the full scaffold.  Requires ``Q > 0``.
+
+    ``origin="coord_median"`` (alias ``geom_median``) uses the per-axis
+    median instead of the mean centroid — dense one-sided tissue clumps
+    collapse Weiszfeld, so the L1 / axis median is the operational
+    non-centroid default.  ``min_trough_rel > 0`` requires relative trough
+    depth ``(min(peak)-valley)/min(peak) >= min_trough_rel`` so weak /
+    unimodal histograms do not fake a two-shell cut.
     """
 
     n = len(scaffold.nodes)
@@ -425,8 +477,17 @@ def _radial_band_gap_partition(
     positions = np.asarray(
         [scaffold.nodes[i].position for i in range(n)], dtype=float,
     )
-    centroid = positions.mean(axis=0)
-    radii = np.linalg.norm(positions - centroid, axis=1)
+    origin_key = str(origin).lower().strip()
+    if origin_key in (
+        "coord_median", "coordinate_median", "geom_median",
+        "geometric_median", "median",
+    ):
+        center = _coordinate_median(positions)
+    elif origin_key in ("weiszfeld",):
+        center = _geometric_median(positions)
+    else:
+        center = positions.mean(axis=0)
+    radii = np.linalg.norm(positions - center, axis=1)
     hist, edges = np.histogram(radii, bins=bins)
     # Local maxima including edge bins (shell modes often land at ends).
     peaks: list[int] = []
@@ -451,6 +512,15 @@ def _radial_band_gap_partition(
     if hi - lo < 2:
         return None
     valley = lo + int(np.argmin(hist[lo: hi + 1]))
+    # Optional bimodality / trough-depth gate (A2-T13).
+    trough_rel = float(min_trough_rel)
+    if trough_rel > 0.0:
+        peak_h = float(min(int(hist[lo]), int(hist[hi])))
+        if peak_h <= 0.0:
+            return None
+        depth = (peak_h - float(int(hist[valley]))) / peak_h
+        if depth < trough_rel:
+            return None
 
     def _grow(peak: int, step: int) -> list[int]:
         """Contiguous hist>0 support from ``peak`` toward the valley."""
@@ -566,7 +636,9 @@ def _research_finer_split(
     When ``prefer_radial_gap_prepass`` is on, a centroid-radial gap split is
     tried next (concentric shells that stay lifted-connected).  When
     ``prefer_radial_band_prepass`` is on, a histogram-trough-masked radial
-    gap is tried (mid-band / tissue continuum exclusion).
+    gap is tried (mid-band / tissue continuum exclusion).  When
+    ``prefer_noncentroid_radial_band_prepass`` is on, the same band rule runs
+    with a coordinate-median origin and a trough-depth bimodality gate.
     """
 
     ratio = float(config.finer_tau_cap_ratio)
@@ -634,6 +706,8 @@ def _research_finer_split(
                 min_frac=float(config.finer_prepass_min_frac),
                 min_gap_ratio=float(config.finer_radial_min_gap_ratio),
                 hist_bins=int(config.finer_radial_hist_bins),
+                origin="centroid",
+                min_trough_rel=float(config.finer_radial_min_trough_rel),
             )
             if (
                 band is not None
@@ -641,6 +715,26 @@ def _research_finer_split(
                 and band.partition_q_score > 0.0
             ):
                 return result, scaffold, band
+
+        # #44 / A2-T13: non-centroid (coord-median) + trough-depth band prepass.
+        if config.prefer_noncentroid_radial_band_prepass:
+            trough = float(config.finer_radial_min_trough_rel)
+            if trough <= 0.0:
+                trough = 0.35  # operational default on the noncentroid path
+            band_nc = _radial_band_gap_partition(
+                scaffold,
+                min_frac=float(config.finer_prepass_min_frac),
+                min_gap_ratio=float(config.finer_radial_min_gap_ratio),
+                hist_bins=int(config.finer_radial_hist_bins),
+                origin="coord_median",
+                min_trough_rel=trough,
+            )
+            if (
+                band_nc is not None
+                and band_nc.n_clusters > 1
+                and band_nc.partition_q_score > 0.0
+            ):
+                return result, scaffold, band_nc
 
         cluster_result = _cluster_scaffold(scaffold, config)
         if (
@@ -743,6 +837,10 @@ def _descend_into_clusters(
             finer_radial_min_gap_ratio=config.finer_radial_min_gap_ratio,
             prefer_radial_band_prepass=config.prefer_radial_band_prepass,
             finer_radial_hist_bins=config.finer_radial_hist_bins,
+            prefer_noncentroid_radial_band_prepass=(
+                config.prefer_noncentroid_radial_band_prepass
+            ),
+            finer_radial_min_trough_rel=config.finer_radial_min_trough_rel,
             seed=config.seed + region_id + label,
         )
 
