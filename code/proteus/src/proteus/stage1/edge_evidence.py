@@ -80,6 +80,12 @@ class HollowEdgeConfig:
     mass on bridges: ``min(|comp_u|,|comp_v|)`` after removing a bridge;
     non-bridges score 0).  Operational / proposal-path; default method
     remains betweenness.
+
+    A2-T40 follow-on: ``soft_capacity_frac`` sweep (nested@0.27 / tori@0.5
+    under A4 primary+soft betweenness) — see
+    :data:`SOFT_CAPACITY_FRAC_SWEEP_*` exports.  Soft×persist-agree leaf
+    harness stays uniform-safe and unrecovered on nested/tori.  Defaults
+    remain off; sheet-null / collapse ≠ sample-ARI recovery.
     """
 
     mid_radius_frac: float = 0.35
@@ -179,6 +185,67 @@ def format_poisson_null_h0_table(
         f"gabriel={A4_PRIMARY_GABRIEL_FALLBACK}"
     )
     lines.append(f"# {POISSON_NULL_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Soft-capacity frac sweep export (A2-T40 → A3/A4 SI sync)
+# ---------------------------------------------------------------------------
+# Snapshot majors under A4 primary + soft_capacity_only (betweenness) on
+# baseline scaffolds (seed=0, max_nodes=64, k=8).  Higher ``frac`` is a
+# stricter high-betweenness gate → fewer hollow cuts → more edges kept.
+# Nested collapses spurious A4 K=2 across the operational frac grid;
+# tori retains chance-ARI K=2 until frac≳0.9.  Not acceptance-path.
+
+SOFT_CAPACITY_FRAC_SWEEP_NESTED_TAU: float = 0.27
+SOFT_CAPACITY_FRAC_SWEEP_TORI_TAU: float = 0.5
+SOFT_CAPACITY_FRAC_SWEEP_METHOD: str = "betweenness"
+
+# frac → majors (nested@0.27 A4+soft; A4-alone majors=2 ARI≈0.12)
+SOFT_CAPACITY_FRAC_SWEEP_NESTED_MAJORS: dict[float, int] = {
+    0.1: 1,
+    0.25: 1,
+    0.5: 1,
+    0.75: 1,
+    0.9: 1,
+}
+
+# frac → (majors, sample_ARI_or_None); ARI only when majors≥2
+SOFT_CAPACITY_FRAC_SWEEP_TORI: dict[float, tuple[int, float | None]] = {
+    0.1: (2, 0.26),
+    0.25: (2, 0.26),
+    0.5: (2, 0.26),
+    0.9: (1, None),
+}
+
+SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE: str = (
+    "A2-T40 soft_capacity_frac sweep (A4 primary+betweenness): nested@0.27 "
+    "collapses majors≤1 for frac∈{0.1,0.25,0.5,0.75,0.9}; tori@0.5 keeps "
+    "K=2 ARI≈0.26 until frac=0.9→1 major. Soft×persist_agree leaf harness "
+    "uniform-safe; nested/tori unrecovered. Defaults off; no awaiting flip."
+)
+
+
+def format_soft_capacity_frac_sweep_table() -> str:
+    """TSV export of soft-capacity frac sweep for A3/A4 SI sync (A2-T40)."""
+
+    lines = [
+        "# soft_capacity_frac sweep (A4 primary + soft betweenness)",
+        f"# method={SOFT_CAPACITY_FRAC_SWEEP_METHOD}",
+        "dataset\ttau\tfrac\tmajors\tsample_ari",
+    ]
+    for frac, maj in SOFT_CAPACITY_FRAC_SWEEP_NESTED_MAJORS.items():
+        lines.append(
+            f"nested\t{SOFT_CAPACITY_FRAC_SWEEP_NESTED_TAU:g}\t"
+            f"{frac:g}\t{maj}\t"
+        )
+    for frac, (maj, ari) in SOFT_CAPACITY_FRAC_SWEEP_TORI.items():
+        ari_s = "" if ari is None else f"{ari:.2f}"
+        lines.append(
+            f"tori\t{SOFT_CAPACITY_FRAC_SWEEP_TORI_TAU:g}\t"
+            f"{frac:g}\t{maj}\t{ari_s}"
+        )
+    lines.append(f"# {SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE}")
     return "\n".join(lines)
 
 

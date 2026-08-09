@@ -212,12 +212,13 @@ class RecursionConfig:
     cuts with the Euclidean MST edge set (conservative bridge proxy).
     Capacity/flow follow-on: ``hollow_bridge_critical_only`` (default False)
     intersects with graph-theoretic bridges (true cut-set; stricter than
-    MST).  A2-T37: ``hollow_soft_capacity_only`` (default False) intersects
+    MST).      A2-T37: ``hollow_soft_capacity_only`` (default False) intersects
     with high Brandes-betweenness edges (``hollow_soft_capacity_frac`` of
     max; continuous soft capacity / flow proxy).  A2-T39:
     ``hollow_soft_capacity_method`` selects ``"betweenness"`` (default) or
-    ``"bridge_mass"`` (min-cut mass on bridges).  Sheet-null / bridge-safe
-    ≠ sample-ARI recovery.
+    ``"bridge_mass"`` (min-cut mass on bridges).  A2-T40: soft×persist_agree
+    + ``hollow_soft_capacity_frac`` sweep — collapse / uniform-safe ≠
+    sample-ARI recovery; defaults off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
