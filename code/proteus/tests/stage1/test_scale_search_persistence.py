@@ -1363,16 +1363,16 @@ def test_load_weighted_interval_picks_closest_load_and_rejects_low() -> None:
 
 def test_load_weighted_matches_coarse_across_hierarchy_seeds() -> None:
     # Throughput probe (A6-T49): on hierarchical Gaussians, load_weighted_interval
-    # never refines past the default (``none``) landing across seeds. When an
-    # accepted persist split exists, within-block loads jump from
+    # lands at the coarse-end persistence arbiter whenever a multi-cluster
+    # interval is accepted. Root cause: within-block loads jump from
     # L(i_lo)~0.6–0.7 to L≫1 at the next grid point, so argmin|log L| among
-    # L≥0.5 is always i_lo (coarse-end). When no split is accepted,
-    # within-interval modes are no-ops (controller LC fallback) and weighted
-    # still matches ``none``. Dense densification does not help. Do not flip
-    # defaults.
+    # L≥0.5 is always i_lo. Seeds 1–2 never accept a persistent split
+    # (tau_star_index is None → LC fallback); seed-4 dense also rejects.
+    # When persistence rejects, load_weighted is a no-op vs resolve=none.
+    # Do not flip defaults. (A1 integrator harden: guard None tau_star_index.)
     seeds = (0, 1, 2, 3, 4)
-    rows: list[dict[str, float | int | bool | str]] = []
-    n_with_split = 0
+    rows: list[dict[str, float | int | bool]] = []
+    n_persist = 0
     for seed in seeds:
         for dense in (False, True):
             dataset = make_hierarchical_gaussian(
@@ -1417,45 +1417,47 @@ def test_load_weighted_matches_coarse_across_hierarchy_seeds() -> None:
             )
             assert none.persistence_result is not None
             assert weighted.persistence_result is not None
-            # Always identical to default landing (coarse-end or LC fallback).
-            assert weighted.peak_index == none.peak_index
-            assert weighted.tau_star == none.tau_star
-            i_lo_raw = none.persistence_result.tau_star_index
+            assert none.peak_index is not None and weighted.peak_index is not None
             load_w = float(weighted.load_trace[weighted.peak_index])
-            has_split = i_lo_raw is not None
-            if has_split:
-                n_with_split += 1
-                i_lo = int(i_lo_raw)
-                assert weighted.peak_index == i_lo
-                assert load_w >= _WITHIN_INTERVAL_LOAD_SCREEN_MIN
-                assert 0.5 <= load_w < 1.0
+            tau_idx = none.persistence_result.tau_star_index
             rows.append(
                 {
                     "seed": seed,
                     "dense": dense,
-                    "split": has_split,
+                    "none_idx": int(none.peak_index),
                     "weighted_idx": int(weighted.peak_index),
+                    "i_lo": -1 if tau_idx is None else int(tau_idx),
                     "load": load_w,
                     "tau_over_expected": float(
                         weighted.tau_star / gt.expected_tau
                     ),
                 }
             )
+            # Always: weighted reproduces the none landing (coarse or LC).
+            assert weighted.peak_index == none.peak_index
+            if tau_idx is None:
+                # No accepted multi-cluster interval — LC fallback; modes agree.
+                assert weighted.persistence_result.tau_star_index is None
+                continue
+            n_persist += 1
+            i_lo = int(tau_idx)
+            assert weighted.peak_index == i_lo
+            assert load_w >= _WITHIN_INTERVAL_LOAD_SCREEN_MIN
+            assert 0.5 <= load_w < 1.0
 
-    # At least seed-0 std/dense retain an accepted split (fixture sanity).
-    assert n_with_split >= 2
+    # Non-vacuous: at least seeds 0/3 (std+dense) and seed-4 std persist.
+    assert n_persist >= 5
+
     header = (
-        f"{'seed':4s} {'dense':5s} {'split':5s} {'idx':>3s} "
-        f"{'load':>7s} {'tau*/E':>8s}"
+        f"{'seed':4s} {'dense':5s} {'idx':>3s} {'load':>7s} {'tau*/E':>8s}"
     )
-    print("\nA6-T49 load_weighted ≡ none/coarse across hierarchy seeds")
+    print("\nA6-T49 load_weighted ≡ coarse-end across hierarchy seeds")
     print(header)
     print("-" * len(header))
     for row in rows:
         print(
             f"{int(row['seed']):4d} {str(row['dense']):5s} "
-            f"{str(row['split']):5s} {int(row['weighted_idx']):3d} "
-            f"{float(row['load']):7.3f} "
+            f"{int(row['weighted_idx']):3d} {float(row['load']):7.3f} "
             f"{float(row['tau_over_expected']):8.3f}"
         )
     assert PersistenceConfig().resolve_within_interval == "none"
@@ -1465,8 +1467,10 @@ def test_load_weighted_matches_coarse_across_hierarchy_seeds() -> None:
 def test_dense_ranking_flip_is_seed_fragile() -> None:
     # Throughput probe (A6-T49): seed-0 densify flip (2/3≈1.00× beats 3q) is
     # not universal. Seed 4 matches seed 0 on the *standard* grid (3q closer)
-    # but loses the accepted persist split under halve_grid_steps, so all
-    # fractional modes fall back identically (coarse LC). Do not flip default.
+    # but under halve_grid_steps persistence rejects (tau_star_index None) so
+    # all fractional modes fall back to the same LC coarse landing — densify
+    # fragility, not a preserved ranking flip. Seeds 1–2 are coarse-only
+    # no-ops. Do not flip default. (A1: guard None tau_star_index.)
     dataset = make_hierarchical_gaussian(
         children_per_coarse=2, n_samples=600, ambient_dim=4, seed=4,
     )
@@ -1486,8 +1490,8 @@ def test_dense_ranking_flip_is_seed_fragile() -> None:
         stabilization=StabilizationConfig(min_equilibrium_epochs=2, max_epochs=12),
         seed=4,
     )
-    modes = ("none", "two_thirds_interval", "three_quarter_interval", "mid_interval")
-    by: dict[tuple[bool, str], dict[str, float | int | bool]] = {}
+    modes = ("two_thirds_interval", "three_quarter_interval", "mid_interval")
+    by: dict[tuple[bool, str], dict[str, float | int | None]] = {}
     for dense in (False, True):
         for mode in modes:
             result = run_scale_search(
@@ -1500,15 +1504,16 @@ def test_dense_ranking_flip_is_seed_fragile() -> None:
                 ),
             )
             assert result.persistence_result is not None
-            i_lo_raw = result.persistence_result.tau_star_index
+            assert result.peak_index is not None
             by[(dense, mode)] = {
                 "peak_index": int(result.peak_index),
                 "tau_over_expected": float(result.tau_star / gt.expected_tau),
-                "has_split": i_lo_raw is not None,
+                "tau_star_index": result.persistence_result.tau_star_index,
             }
 
-    # Standard grid seed-4: accepted split + same 3q-closest pattern as seed-0.
-    assert by[(False, "none")]["has_split"] is True
+    # Standard grid seed-4: same 3q-closest pattern as seed-0; persist accepted.
+    for mode in modes:
+        assert by[(False, mode)]["tau_star_index"] is not None
     err_tt = abs(float(by[(False, "two_thirds_interval")]["tau_over_expected"]) - 1.0)
     err_tq = abs(
         float(by[(False, "three_quarter_interval")]["tau_over_expected"]) - 1.0
@@ -1517,22 +1522,19 @@ def test_dense_ranking_flip_is_seed_fragile() -> None:
     assert abs(float(by[(False, "three_quarter_interval")]["tau_over_expected"]) - 0.82) < 0.05
     assert abs(float(by[(False, "two_thirds_interval")]["tau_over_expected"]) - 1.49) < 0.05
 
-    # Dense seed-4: no accepted persist split ⇒ all within-interval modes
-    # identical to ``none`` (LC fallback); densify flip from seed-0 does not
-    # transfer.
-    assert by[(True, "none")]["has_split"] is False
-    none_idx = int(by[(True, "none")]["peak_index"])
-    none_ratio = float(by[(True, "none")]["tau_over_expected"])
+    # Dense seed-4: persistence rejects → all fractional modes share LC peak.
+    peak_dense = int(by[(True, "two_thirds_interval")]["peak_index"])
     for mode in modes:
-        assert int(by[(True, mode)]["peak_index"]) == none_idx
-        assert float(by[(True, mode)]["tau_over_expected"]) == none_ratio
-    assert none_ratio > 8.0
+        assert by[(True, mode)]["tau_star_index"] is None
+        assert int(by[(True, mode)]["peak_index"]) == peak_dense
+        assert float(by[(True, mode)]["tau_over_expected"]) > 8.0
 
     print(
         "\nA6-T49 seed-4 ranking fragility: "
         f"std 2/3={by[(False, 'two_thirds_interval')]['tau_over_expected']:.3f} "
         f"3q={by[(False, 'three_quarter_interval')]['tau_over_expected']:.3f}; "
-        f"dense no-split all→idx={none_idx} tau*/E={none_ratio:.3f}"
+        f"dense persist-reject all→LC idx={peak_dense} "
+        f"tau*/E={by[(True, 'two_thirds_interval')]['tau_over_expected']:.3f}"
     )
     assert PersistenceConfig().resolve_within_interval == "none"
     assert ScaleSearchConfig().halve_grid_steps is False

@@ -111,11 +111,18 @@ Remaining work:
 - **Landed (A6-T40..T42 + A3-T47 SI):** `mid_interval_load_screened` + shared
   `_WITHIN_INTERVAL_LOAD_SCREEN_MIN=0.5`; hierarchy mid/3q screened==raw
   (load≫1). SI S2.6.2/S14.3 rows present.
-- **Landed (A6-T43..T45):** `two_thirds_interval` + `two_thirds_load_screened`
-  (default `"none"`); hierarchy Phi seed0: mid~2.69× / two_thirds~1.49× /
-  3q~0.82× (still closest) / fine~0.25×; screened==raw. Paper lists ratios.
-  Remaining: A3 SI rows for two_thirds modes; optional denser-grid /
-  load-weighted within-block pick. Do **not** flip default.
+- **Landed (A6-T43..T45 + A3-T50 SI):** `two_thirds_interval` +
+  `two_thirds_load_screened` (default `"none"`); hierarchy Phi seed0: mid~2.69× /
+  two_thirds~1.49× / 3q~0.82× (still closest on **standard** grid) / fine~0.25×;
+  screened==raw. SI S2.6.2/S14.3 rows present.
+- **Landed (A6-T46..T49 + A3-EXP-si53 SI):** experimental
+  `ScaleSearchConfig.halve_grid_steps` (half log-step) +
+  `resolve_within_interval="load_weighted_interval"` (argmin `|log L|` among
+  `L≥0.5`). FINDING: densify **flips** ranking on seed-0 (dense two_thirds~1.00×
+  beats 3q~0.76× — quantization); seed-4 dense **rejects** persistence (LC
+  fallback); seeds 1–2 never accept a multi-cluster split; load_weighted
+  systematically reproduces coarse-end on hierarchy (`L(i_lo)~0.6–0.7`). Do
+  **not** flip default.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -243,10 +250,16 @@ re-searched *finer* scales inside a single feature.
 - **Landed (A2 bridge follow-on):** `bridge_critical_only` /
   `hollow_bridge_critical_only` (def off) — true cut-set beyond MST;
   nested@0.27 majors≤1; multi-seed A4+bridge ARI still unrecovered.
-- **Remaining:** soft-capacity / denser-scaffold hollow ARI; Poisson-null
-  h0 calibration export; fuller suite green with **sample-ARI** → retire
-  radial/PCA family + awaiting-flip review (A1 sign-off). **Do not flip
-  awaiting.** Distinct from #28. Post-track: open #45 open-loop /
+- **Landed (A2-T36..T40 + A3 SI soft/Poisson):** denser-scaffold hollow ARI
+  unrecovered (nests collapse K→≤1; tori ARI~chance); `soft_capacity_only` +
+  `soft_capacity_method` (`betweenness`|`bridge_mass`, def off) +
+  `soft_capacity_frac` sweep — nested@0.27 majors≤1 all fracs; denser×soft /
+  soft×persist_agree unrecovered; Poisson-null sheet export
+  (`format_poisson_null_h0_table`; mid q01≈0.15/0.43/0.76; primary h0=0.7≤q01).
+  **Do not flip awaiting.**
+- **Remaining:** soft×conj / multi-seed frac; fuller suite green with
+  **sample-ARI** → retire radial/PCA family + awaiting-flip review (A1
+  sign-off). Distinct from #28. Post-track: open #45 open-loop /
   `max_nodes` (`reference/open_loop_growth_and_node_cap.md`) into M4.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
@@ -320,9 +333,16 @@ circle `b1 = 1` target of #25.
   scales; per-shell local σ no outer gain; circle cal mult=6 recovers
   nested shell2 only (inverse of coarse=3). No single global mult hits
   both shells. Keep `@awaiting`.
-- **Remaining before flipping recovery tests:** per-shell mult schedule;
-  tori local-σ; hollow+cal-mult combo; keep recovery `@awaiting` until
-  SI-default fitted evidence is green.
+- **FINDING (A4-T33..T36 + A3 SI):** per-shell mult schedule `{1:3,2:6}`
+  recovers **both** nested shells on fitted scaffold (128 and denser 256);
+  first full nested fitted Betti on this harness — **proposal-path** only
+  (not SI single-mult default). Tori local-σ / crossed / denser / mult-sweep
+  (`mult∈{1..8}`, max b1=1) never reach `(1,2,1)`. Hollow+cal=6 no gain.
+  schedule×local-σ **regresses** nested shell2 — keep global σ. Keep
+  `@awaiting`.
+- **Remaining before flipping recovery tests:** tori lifetime×mult /
+  denser clean-grid levers beyond mult/σ schedule; keep recovery
+  `@awaiting` until SI-default fitted evidence is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -356,8 +376,12 @@ circle `b1 = 1` target of #25.
   `build_divergence_stencil` / `solve_as_message_pass` (A_S residual sketch);
   `stitch_orientation_seam_pressures` + `apply_ghost_reservoir`
   (`enable_seam_ghost`, default off). Evidence 36→42 with μ/ε follow-ons.
-- **Landed (A5-EXP-mu/flux):** whitened λ_f / μ_S soft solve + `epsilon_flux`
-  / spectrum step-shrink (flags off). Gaps remain: Stage-1 BMU wiring;
-  real loopy BP; face-registry seam/ghost; live S6.4 density.
-  Mass/density/benchmark stay `@awaiting`. **Do not close #43** until
-  acceptance-path default replaces the conservative open default / fuller S6.
+- **Landed (A5-EXP-mu/flux + T46..T48 + A3 SI):** whitened λ_f / μ_S soft
+  solve + `epsilon_flux` / spectrum damp; count-aware `λ_f`; patch `Σμ_S`;
+  Stage-1 BMU wiring sketch (flags off).
+- **Landed (A5-EXP-glue + ann-inc + A3 SI):** `enable_shared_face_glue` +
+  Complex→`node_to_simplices` / ANN BMU bridge (`enable_complex_ann_incidence`,
+  flags off). Gaps remain: real loopy BP / global face-id soft solve; live
+  S6.4 density; acceptance `None=>True`. Mass/density/benchmark stay
+  `@awaiting`. **Do not close #43** until acceptance-path default replaces
+  the conservative open default / fuller S6.

@@ -13,10 +13,10 @@ bodies below stay static descriptions.
 | Milestone | Status |
 |---|---|
 | M0 — Spec/implementation sync pass | done |
-| M1 — Canonical clustering objective | blocked on #44 (A4 primary+MST+bridge landed; sheet-safe≠sample-ARI; nested/tori unrecovered. Next: denser/soft-capacity hollow. No awaiting flip.) |
-| M2 — Characteristic-scale selection rebuild | in progress (mid/3q/two_thirds/load_screened experimental; Phi 3/4~0.82× closest, two_thirds~1.49×; screened==raw. Remaining #28: A3 SI two_thirds rows) |
+| M1 — Canonical clustering objective | blocked on #44 (soft-cap/bridge_mass/frac+Poisson export landed; denser×soft×persist still sheet-safe≠sample-ARI; nested/tori unrecovered. No awaiting flip.) |
+| M2 — Characteristic-scale selection rebuild | in progress (halve_grid_steps + load_weighted experimental; std 3q~0.82× closest, dense flips to 2/3~1.00×; load_weighted≡coarse. Do not flip default.) |
 | M3 — Constant audit & calibration tier | done (c_{d,k} + C_Q(d) calibrated on the shared uniform-d-ball ensemble; S14.3 three-tier audit #37 complete; intrinsic-dim estimator #39 validated vs GT + Levina–Bickel cross-check shipped, SI S1.4.1. Operational estimator-wiring divergence surfaced as #40, deferred to the M5 junction-detection consumer.) |
-| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 live BMU+A_S+seam/ghost+μ/ε sketches flags off; do not close. #41: dual-scale/local-σ/cal-mult split shells; no full recovery. Remaining: Stage-1 BMU wire / loopy BP / #45) |
+| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 count-aware/patch/glue/Complex-ANN sketches flags off; do not close. #41: nested schedule {1:3,2:6} green proposal-path; tori unrecovered. Remaining: loopy BP / #45) |
 | M5 — Inference interface & diagnostics | not started |
 | M6 — Evaluation, benchmarks, paper finalization | not started |
 

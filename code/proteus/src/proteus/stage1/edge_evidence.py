@@ -67,6 +67,25 @@ class HollowEdgeConfig:
     spanning tree, so this is a stricter true cut-set than MST-critical;
     default off.  Mutually independent of ``mst_critical_only`` (both may
     apply as successive intersections).
+
+    A2-T37 soft-capacity: ``soft_capacity_only=True`` intersects hollow
+    cuts with edges whose Brandes betweenness is at least
+    ``soft_capacity_frac * max(betweenness)`` (operational default
+    ``0.25``).  Continuous capacity/flow proxy between hard bridges and
+    unrestricted hollow; default off. Independent of MST/bridge flags
+    (successive intersections when combined).
+
+    A2-T39 follow-on: ``soft_capacity_method`` selects the score —
+    ``"betweenness"`` (default Brandes) or ``"bridge_mass"`` (min-cut
+    mass on bridges: ``min(|comp_u|,|comp_v|)`` after removing a bridge;
+    non-bridges score 0).  Operational / proposal-path; default method
+    remains betweenness.
+
+    A2-T40 follow-on: ``soft_capacity_frac`` sweep (nested@0.27 / tori@0.5
+    under A4 primary+soft betweenness) — see
+    :data:`SOFT_CAPACITY_FRAC_SWEEP_*` exports.  Soft×persist-agree leaf
+    harness stays uniform-safe and unrecovered on nested/tori.  Defaults
+    remain off; sheet-null / collapse ≠ sample-ARI recovery.
     """
 
     mid_radius_frac: float = 0.35
@@ -76,6 +95,9 @@ class HollowEdgeConfig:
     require_gabriel_and_h: bool = False
     mst_critical_only: bool = False
     bridge_critical_only: bool = False
+    soft_capacity_only: bool = False
+    soft_capacity_frac: float = 0.25
+    soft_capacity_method: str = "betweenness"
     eps: float = _EPS
 
 
@@ -84,6 +106,147 @@ A4_PRIMARY_MID_RADIUS_FRAC: float = 0.5
 A4_PRIMARY_H0: float = 0.7
 A4_PRIMARY_MIN_END_COUNT: float = 0.5
 A4_PRIMARY_GABRIEL_FALLBACK: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Poisson-null ``h0`` calibration export (A2-T38 → A3/A4 SI sync)
+# ---------------------------------------------------------------------------
+# Snapshot of sheet-null H quantiles (connected density-gradient sheet,
+# seed=0, n=49 edges) from ``tests.scenarios.synthetic.hollow_edge_nulls``.
+# Under a locally homogeneous Poisson field ``E[H]≈1``; the lower tail is
+# the practical null for choosing acceptance-path ``h0`` without fixture
+# seed-tuning.  Live harness may re-check within tolerance; do not flip
+# RecursionConfig / HollowEdgeConfig defaults from these numbers alone.
+
+POISSON_NULL_SHEET_SEED: int = 0
+POISSON_NULL_SHEET_N_EDGES: int = 49
+
+# mid_radius_frac → {quantile_label: H}
+POISSON_NULL_SHEET_H_QUANTILES: dict[float, dict[str, float]] = {
+    0.25: {
+        "q0.01": 0.15,
+        "q0.05": 0.4087,
+        "q0.1": 0.6925,
+        "q0.25": 0.8077,
+        "q0.5": 1.0,
+        "mean_h": 1.0177,
+    },
+    0.35: {
+        "q0.01": 0.4265,
+        "q0.05": 0.6596,
+        "q0.1": 0.7438,
+        "q0.25": 0.8913,
+        "q0.5": 1.0164,
+        "mean_h": 1.0328,
+    },
+    0.5: {
+        "q0.01": 0.7571,
+        "q0.05": 0.8164,
+        "q0.1": 0.8621,
+        "q0.25": 0.9362,
+        "q0.5": 1.0087,
+        "mean_h": 1.0177,
+    },
+}
+
+# A4 recommend_hollow_edge_configs primary (sheet FPR≈0, bridge TPR≈0.9):
+# h0=0.7 ≤ sheet q01≈0.82 at mid=0.5 with gabriel off.  SI should note
+# sheet-null safe ≠ nested/tori sample-ARI recovery.
+POISSON_NULL_PRIMARY_MID: float = A4_PRIMARY_MID_RADIUS_FRAC
+POISSON_NULL_PRIMARY_H0: float = A4_PRIMARY_H0
+POISSON_NULL_PRIMARY_SHEET_Q01: float = 0.82
+POISSON_NULL_SI_NOTE: str = (
+    "Poisson-null sheet H: mid=0.25/0.35/0.5 q01≈0.15/0.43/0.76 (meanH≈1); "
+    "A4 primary mid=0.5 h0=0.7≤q01≈0.82 gabriel=False (sheet FPR≈0, bridge "
+    "TPR≈0.9). Sheet-null safe ≠ nested cut-set / sample-ARI recovery; "
+    "keep HollowEdgeConfig / RecursionConfig defaults off."
+)
+
+
+def format_poisson_null_h0_table(
+    quantiles: dict[float, dict[str, float]] | None = None,
+) -> str:
+    """Compact TSV of sheet-null H quantiles for A3/A4 SI handoff (A2-T38)."""
+
+    qmap = POISSON_NULL_SHEET_H_QUANTILES if quantiles is None else quantiles
+    header = "mid\tq01\tq05\tq10\tq25\tq50\tmeanH"
+    lines = [header]
+    for mid in sorted(qmap):
+        row = qmap[mid]
+        lines.append(
+            f"{mid:g}\t{row['q0.01']:.4f}\t{row['q0.05']:.4f}\t"
+            f"{row['q0.1']:.4f}\t{row['q0.25']:.4f}\t{row['q0.5']:.4f}\t"
+            f"{row['mean_h']:.4f}"
+        )
+    lines.append(
+        f"# primary mid={POISSON_NULL_PRIMARY_MID:g} "
+        f"h0={POISSON_NULL_PRIMARY_H0:g} "
+        f"sheet_q01≈{POISSON_NULL_PRIMARY_SHEET_Q01:g} "
+        f"gabriel={A4_PRIMARY_GABRIEL_FALLBACK}"
+    )
+    lines.append(f"# {POISSON_NULL_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Soft-capacity frac sweep export (A2-T40 → A3/A4 SI sync)
+# ---------------------------------------------------------------------------
+# Snapshot majors under A4 primary + soft_capacity_only (betweenness) on
+# baseline scaffolds (seed=0, max_nodes=64, k=8).  Higher ``frac`` is a
+# stricter high-betweenness gate → fewer hollow cuts → more edges kept.
+# Nested collapses spurious A4 K=2 across the operational frac grid;
+# tori retains chance-ARI K=2 until frac≳0.9.  Not acceptance-path.
+
+SOFT_CAPACITY_FRAC_SWEEP_NESTED_TAU: float = 0.27
+SOFT_CAPACITY_FRAC_SWEEP_TORI_TAU: float = 0.5
+SOFT_CAPACITY_FRAC_SWEEP_METHOD: str = "betweenness"
+
+# frac → majors (nested@0.27 A4+soft; A4-alone majors=2 ARI≈0.12)
+SOFT_CAPACITY_FRAC_SWEEP_NESTED_MAJORS: dict[float, int] = {
+    0.1: 1,
+    0.25: 1,
+    0.5: 1,
+    0.75: 1,
+    0.9: 1,
+}
+
+# frac → (majors, sample_ARI_or_None); ARI only when majors≥2
+SOFT_CAPACITY_FRAC_SWEEP_TORI: dict[float, tuple[int, float | None]] = {
+    0.1: (2, 0.26),
+    0.25: (2, 0.26),
+    0.5: (2, 0.26),
+    0.9: (1, None),
+}
+
+SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE: str = (
+    "A2-T40 soft_capacity_frac sweep (A4 primary+betweenness): nested@0.27 "
+    "collapses majors≤1 for frac∈{0.1,0.25,0.5,0.75,0.9}; tori@0.5 keeps "
+    "K=2 ARI≈0.26 until frac=0.9→1 major. Soft×persist_agree leaf harness "
+    "uniform-safe; nested/tori unrecovered. Defaults off; no awaiting flip."
+)
+
+
+def format_soft_capacity_frac_sweep_table() -> str:
+    """TSV export of soft-capacity frac sweep for A3/A4 SI sync (A2-T40)."""
+
+    lines = [
+        "# soft_capacity_frac sweep (A4 primary + soft betweenness)",
+        f"# method={SOFT_CAPACITY_FRAC_SWEEP_METHOD}",
+        "dataset\ttau\tfrac\tmajors\tsample_ari",
+    ]
+    for frac, maj in SOFT_CAPACITY_FRAC_SWEEP_NESTED_MAJORS.items():
+        lines.append(
+            f"nested\t{SOFT_CAPACITY_FRAC_SWEEP_NESTED_TAU:g}\t"
+            f"{frac:g}\t{maj}\t"
+        )
+    for frac, (maj, ari) in SOFT_CAPACITY_FRAC_SWEEP_TORI.items():
+        ari_s = "" if ari is None else f"{ari:.2f}"
+        lines.append(
+            f"tori\t{SOFT_CAPACITY_FRAC_SWEEP_TORI_TAU:g}\t"
+            f"{frac:g}\t{maj}\t{ari_s}"
+        )
+    lines.append(f"# {SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE}")
+    return "\n".join(lines)
 
 
 def a4_roc_primary_config(**overrides: object) -> HollowEdgeConfig:
@@ -102,6 +265,9 @@ def a4_roc_primary_config(**overrides: object) -> HollowEdgeConfig:
         require_gabriel_and_h=False,
         mst_critical_only=False,
         bridge_critical_only=False,
+        soft_capacity_only=False,
+        soft_capacity_frac=0.25,
+        soft_capacity_method="betweenness",
     )
     base.update(overrides)
     return HollowEdgeConfig(**base)  # type: ignore[arg-type]
@@ -313,6 +479,155 @@ def bridge_edge_mask(
     return is_bridge
 
 
+def edge_betweenness_scores(
+    edges: list[tuple[int, int]],
+    *,
+    n_nodes: int | None = None,
+) -> np.ndarray:
+    """Brandes edge betweenness on the undirected multigraph of ``edges``.
+
+    Soft capacity / flow proxy (A2-T37): high-betweenness edges carry more
+    shortest paths and approximate min-cut mass without requiring a hard
+    bridge.  Returns one score per input edge (0 for self-loops / OOB).
+    """
+
+    from collections import deque
+
+    if not edges:
+        return np.zeros(0, dtype=float)
+    if n_nodes is None:
+        n_nodes = 0
+        for i, j in edges:
+            n_nodes = max(n_nodes, int(i) + 1, int(j) + 1)
+    n = int(n_nodes)
+    adj: list[list[tuple[int, int]]] = [[] for _ in range(n)]
+    for k, (i, j) in enumerate(edges):
+        ii, jj = int(i), int(j)
+        if ii == jj or ii < 0 or jj < 0 or ii >= n or jj >= n:
+            continue
+        adj[ii].append((jj, k))
+        adj[jj].append((ii, k))
+
+    cb = np.zeros(len(edges), dtype=float)
+    for s in range(n):
+        if not adj[s]:
+            continue
+        stack: list[int] = []
+        pred: list[list[tuple[int, int]]] = [[] for _ in range(n)]
+        sigma = np.zeros(n, dtype=float)
+        sigma[s] = 1.0
+        dist = [-1] * n
+        dist[s] = 0
+        q: deque[int] = deque([s])
+        while q:
+            v = q.popleft()
+            stack.append(v)
+            for w, ek in adj[v]:
+                if dist[w] < 0:
+                    dist[w] = dist[v] + 1
+                    q.append(w)
+                if dist[w] == dist[v] + 1:
+                    sigma[w] += sigma[v]
+                    pred[w].append((v, ek))
+        delta = np.zeros(n, dtype=float)
+        while stack:
+            w = stack.pop()
+            for v, ek in pred[w]:
+                if sigma[w] > 0.0:
+                    c = (sigma[v] / sigma[w]) * (1.0 + delta[w])
+                else:
+                    c = 0.0
+                cb[ek] += c
+                delta[v] += c
+    # Undirected convention: each undirected edge counted twice.
+    return cb * 0.5
+
+
+def bridge_mass_scores(
+    edges: list[tuple[int, int]],
+    *,
+    n_nodes: int | None = None,
+) -> np.ndarray:
+    """Min-cut mass scores: bridge ``min(|comp_u|,|comp_v|)``, else 0.
+
+    Operational soft-capacity alternative to Brandes betweenness
+    (A2-T39).  Only true bridges carry positive mass; the mass equals
+    the smaller side of the cut after removing that edge (unit-capacity
+    global min-cut contribution when the edge is the unique cut edge).
+    """
+
+    if not edges:
+        return np.zeros(0, dtype=float)
+    if n_nodes is None:
+        n_nodes = 0
+        for i, j in edges:
+            n_nodes = max(n_nodes, int(i) + 1, int(j) + 1)
+    n = int(n_nodes)
+    is_br = bridge_edge_mask(edges, n_nodes=n)
+    scores = np.zeros(len(edges), dtype=float)
+    if not np.any(is_br):
+        return scores
+
+    adj: list[list[tuple[int, int]]] = [[] for _ in range(n)]
+    for k, (i, j) in enumerate(edges):
+        ii, jj = int(i), int(j)
+        if ii == jj or ii < 0 or jj < 0 or ii >= n or jj >= n:
+            continue
+        adj[ii].append((jj, k))
+        adj[jj].append((ii, k))
+
+    for k, (i, j) in enumerate(edges):
+        if not bool(is_br[k]):
+            continue
+        ii, jj = int(i), int(j)
+        # BFS from ii avoiding edge k; mass = min(|reach|, n-|reach|).
+        seen = [False] * n
+        stack = [ii]
+        seen[ii] = True
+        reached = 0
+        while stack:
+            u = stack.pop()
+            reached += 1
+            for v, ek in adj[u]:
+                if ek == k or seen[v]:
+                    continue
+                seen[v] = True
+                stack.append(v)
+        scores[k] = float(min(reached, n - reached))
+    return scores
+
+
+def soft_capacity_edge_mask(
+    edges: list[tuple[int, int]],
+    *,
+    n_nodes: int | None = None,
+    frac: float = 0.25,
+    method: str = "betweenness",
+) -> np.ndarray:
+    """Boolean mask ``True`` iff capacity score ≥ ``frac * max``.
+
+    Operational soft-capacity gate (A2-T37 / A2-T39).  ``method`` is
+    ``"betweenness"`` (Brandes) or ``"bridge_mass"`` (min-cut mass on
+    bridges).  ``frac`` in ``(0, 1]``; values ≤0 keep all edges, values
+    >1 keep none with positive max.
+    """
+
+    if not edges:
+        return np.zeros(0, dtype=bool)
+    m = str(method).strip().lower()
+    if m in ("bridge_mass", "mincut_mass", "min_cut_mass"):
+        scores = bridge_mass_scores(edges, n_nodes=n_nodes)
+    else:
+        scores = edge_betweenness_scores(edges, n_nodes=n_nodes)
+    f = float(frac)
+    if f <= 0.0:
+        return np.ones(len(edges), dtype=bool)
+    peak = float(np.max(scores)) if scores.size else 0.0
+    if peak <= 0.0:
+        return np.zeros(len(edges), dtype=bool)
+    return scores >= (f * peak)
+
+
 def hollow_edge_mask(
     positions: np.ndarray,
     edges: list[tuple[int, int]],
@@ -333,7 +648,9 @@ def hollow_edge_mask(
     When ``mst_critical_only`` is set, intersect the hollow mask with the
     Euclidean MST edge mask (A2-T34).  When ``bridge_critical_only`` is set,
     further (or instead) intersect with graph-theoretic bridges (capacity /
-    flow cut-set beyond the MST proxy).
+    flow cut-set beyond the MST proxy).      When ``soft_capacity_only`` is set,
+    intersect with high soft-capacity scores (A2-T37 betweenness /
+    A2-T39 bridge-mass min-cut; see ``soft_capacity_method``).
     """
 
     cfg = config if config is not None else HollowEdgeConfig()
@@ -373,6 +690,16 @@ def hollow_edge_mask(
     if cfg.bridge_critical_only and len(edges) > 0:
         cut = np.logical_and(
             cut, bridge_edge_mask(edges, n_nodes=int(pos.shape[0])),
+        )
+    if cfg.soft_capacity_only and len(edges) > 0:
+        cut = np.logical_and(
+            cut,
+            soft_capacity_edge_mask(
+                edges,
+                n_nodes=int(pos.shape[0]),
+                frac=float(cfg.soft_capacity_frac),
+                method=str(cfg.soft_capacity_method),
+            ),
         )
     return cut
 

@@ -446,3 +446,173 @@ def test_bridge_critical_default_off() -> None:
     """Bridge-critical flag stays default-off (proposal-path)."""
 
     assert HollowEdgeConfig().bridge_critical_only is False
+
+
+def test_soft_capacity_only_intersects_hollow_mask() -> None:
+    """#44 / A2-T37: soft-capacity keeps only high-betweenness ∩ hollow.
+
+    Path graph 0-1-2-3: the middle edge has higher Brandes betweenness than
+    the ends.  With ``soft_capacity_frac`` near 1.0 only the peak-betweenness
+    edge may be cut; a hollow end-edge is suppressed.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        edge_betweenness_scores,
+        soft_capacity_edge_mask,
+    )
+
+    # Path of 4 nodes: edges (0,1), (1,2), (2,3). Mid edge has highest bet.
+    pos = np.array(
+        [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [3.0, 0.0]], dtype=float,
+    )
+    edges = [(0, 1), (1, 2), (2, 3)]
+    # Data only near endpoints so mid and end edges look hollow under H.
+    rng = np.random.default_rng(0)
+    data = np.vstack([
+        rng.normal([0.0, 0.0], 0.05, size=(40, 2)),
+        rng.normal([3.0, 0.0], 0.05, size=(40, 2)),
+    ])
+    scores = edge_betweenness_scores(edges, n_nodes=4)
+    assert scores[1] > scores[0]
+    assert scores[1] > scores[2]
+    soft = soft_capacity_edge_mask(edges, n_nodes=4, frac=0.9)
+    assert bool(soft[1]) is True
+    assert bool(soft[0]) is False or bool(soft[2]) is False
+
+    cfg_all = HollowEdgeConfig(
+        mid_radius_frac=0.5, h0=0.9, gabriel_fallback=False,
+        soft_capacity_only=False,
+    )
+    cfg_soft = HollowEdgeConfig(
+        mid_radius_frac=0.5, h0=0.9, gabriel_fallback=False,
+        soft_capacity_only=True, soft_capacity_frac=0.9,
+    )
+    cut_all = hollow_edge_mask(pos, edges, data, cfg_all)
+    cut_soft = hollow_edge_mask(pos, edges, data, cfg_soft)
+    # Soft capacity never cuts more than unrestricted hollow.
+    assert not np.any(cut_soft & ~cut_all)
+    assert not np.any(cut_soft & ~soft)
+    assert HollowEdgeConfig().soft_capacity_only is False
+
+
+def test_soft_capacity_default_off() -> None:
+    """Soft-capacity flag stays default-off (proposal-path; A2-T37)."""
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().soft_capacity_frac == 0.25
+    assert HollowEdgeConfig().soft_capacity_method == "betweenness"
+
+
+def test_bridge_mass_soft_capacity_method() -> None:
+    """#44 / A2-T39: bridge_mass scores only bridges; soft gate by mass.
+
+    Path 0-1-2-3: every edge is a bridge; middle edge has mass min(2,2)=2,
+    ends have mass min(1,3)=1.  ``frac=0.9`` keeps only the peak-mass mid.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        bridge_mass_scores,
+        soft_capacity_edge_mask,
+    )
+
+    pos = np.array(
+        [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [3.0, 0.0]], dtype=float,
+    )
+    edges = [(0, 1), (1, 2), (2, 3)]
+    rng = np.random.default_rng(1)
+    data = np.vstack([
+        rng.normal([0.0, 0.0], 0.05, size=(40, 2)),
+        rng.normal([3.0, 0.0], 0.05, size=(40, 2)),
+    ])
+    mass = bridge_mass_scores(edges, n_nodes=4)
+    assert mass[1] > mass[0]
+    assert mass[1] > mass[2]
+    soft = soft_capacity_edge_mask(
+        edges, n_nodes=4, frac=0.9, method="bridge_mass",
+    )
+    assert bool(soft[1]) is True
+    assert bool(soft[0]) is False
+    assert bool(soft[2]) is False
+
+    cfg = HollowEdgeConfig(
+        mid_radius_frac=0.5, h0=0.9, gabriel_fallback=False,
+        soft_capacity_only=True, soft_capacity_frac=0.9,
+        soft_capacity_method="bridge_mass",
+    )
+    cut = hollow_edge_mask(pos, edges, data, cfg)
+    assert not np.any(cut & ~soft)
+    assert HollowEdgeConfig().soft_capacity_method == "betweenness"
+
+
+def test_poisson_null_h0_calibration_export_table() -> None:
+    """#44 / A2-T38: export Poisson-null sheet H quantiles for A3/A4 SI.
+
+    Recomputes sheet-null quantiles via the A4 adversarial harness and
+    checks the frozen export in ``edge_evidence`` stays within tolerance.
+    Documents A4 primary ``h0=0.7 ≤ sheet q01`` at mid=0.5.  Defaults
+    remain off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        A4_PRIMARY_H0,
+        A4_PRIMARY_MID_RADIUS_FRAC,
+        POISSON_NULL_PRIMARY_H0,
+        POISSON_NULL_PRIMARY_MID,
+        POISSON_NULL_PRIMARY_SHEET_Q01,
+        POISSON_NULL_SHEET_H_QUANTILES,
+        POISSON_NULL_SHEET_N_EDGES,
+        POISSON_NULL_SI_NOTE,
+        a4_roc_primary_config,
+        format_poisson_null_h0_table,
+    )
+    from tests.scenarios.synthetic.hollow_edge_nulls import sheet_null_h_quantiles
+
+    assert HollowEdgeConfig().h0 == 0.35  # operational default unchanged
+    assert a4_roc_primary_config().h0 == A4_PRIMARY_H0 == POISSON_NULL_PRIMARY_H0
+    assert POISSON_NULL_PRIMARY_MID == A4_PRIMARY_MID_RADIUS_FRAC == 0.5
+
+    for mid, snap in POISSON_NULL_SHEET_H_QUANTILES.items():
+        live = sheet_null_h_quantiles(mid_radius_frac=float(mid), seed=0)
+        assert live.n_edges == POISSON_NULL_SHEET_N_EDGES
+        assert abs(live.mean_h - snap["mean_h"]) < 0.05
+        for key in ("q0.01", "q0.05", "q0.1", "q0.25", "q0.5"):
+            assert abs(live.quantiles[key] - snap[key]) < 0.08
+
+    # Primary discipline: h0 at/below sheet lower tail at mid=0.5.
+    q01_mid05 = POISSON_NULL_SHEET_H_QUANTILES[0.5]["q0.01"]
+    assert POISSON_NULL_PRIMARY_H0 <= POISSON_NULL_PRIMARY_SHEET_Q01
+    assert POISSON_NULL_PRIMARY_H0 <= q01_mid05 + 0.05  # allow snap rounding
+
+    tsv = format_poisson_null_h0_table()
+    assert tsv.splitlines()[0].startswith("mid\t")
+    assert "primary mid=0.5" in tsv
+    assert "sample-ARI" in POISSON_NULL_SI_NOTE
+    assert "defaults off" in POISSON_NULL_SI_NOTE
+
+
+def test_soft_capacity_frac_sweep_export() -> None:
+    """#44 / A2-T40: soft_capacity_frac sweep export for A3/A4 SI sync.
+
+    Frozen majors table under A4 primary + soft betweenness on baseline
+    nested@0.27 / tori@0.5 scaffolds.  Defaults remain off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_CAPACITY_FRAC_SWEEP_METHOD,
+        SOFT_CAPACITY_FRAC_SWEEP_NESTED_MAJORS,
+        SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE,
+        SOFT_CAPACITY_FRAC_SWEEP_TORI,
+        format_soft_capacity_frac_sweep_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().soft_capacity_frac == 0.25
+    assert SOFT_CAPACITY_FRAC_SWEEP_METHOD == "betweenness"
+    assert all(m <= 1 for m in SOFT_CAPACITY_FRAC_SWEEP_NESTED_MAJORS.values())
+    assert SOFT_CAPACITY_FRAC_SWEEP_TORI[0.25][0] == 2
+    assert SOFT_CAPACITY_FRAC_SWEEP_TORI[0.9][0] == 1
+    tsv = format_soft_capacity_frac_sweep_table()
+    assert "dataset\ttau\tfrac\tmajors\tsample_ari" in tsv
+    assert "nested" in tsv and "tori" in tsv
+    assert "Defaults off" in SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE
+    assert "awaiting" in SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE

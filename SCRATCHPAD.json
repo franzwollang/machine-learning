@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-09T17:15-05:00",
-  "turn": 48,
+  "updated_at": "2026-08-09T18:05-05:00",
+  "turn": 49,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "denser/soft-capacity hollow toward sample-ARI"
+    "goal": "soft×conj / multi-seed frac toward sample-ARI"
   },
   "recent": [
-    "Double scoop A2-A6 primary+bridge+PH+μ/ε+two_thirds",
-    "Loud: sheet-safe≠ARI; bridge majors≤1 still unrecovered",
-    "Nested: coarse=3 inner / cal6 outer inverse"
+    "Multi-scoop A2 soft/Poisson/frac + A4 nested schedule green",
+    "Dense-grid flips 3q-closest→two_thirds~1.00x (seed-fragile)",
+    "A5 Complex-ANN incidence + shared-face glue landed"
   ],
   "discoveries": [
-    "Bridge-critical cut-set beyond MST still no ARI",
-    "two_thirds~1.49x brackets mid/3q; 3q closest",
-    "No single global filtration_mult hits both shells"
+    "Nested schedule {1:3,2:6} recovers both shells (proposal-path)",
+    "schedule×local-σ regresses nested shell2 — keep global σ",
+    "load_weighted≡coarse on hierarchy; densify seed4 persist-reject"
   ],
   "open_threads": [
-    "A2-T36 denser-scaffold hollow ARI",
-    "A4-T33 per-shell mult schedule",
+    "A2-T41 soft×conj hollow ARI",
+    "Tori need lever beyond mult/σ schedule",
     "#45 open-loop after #44 ARI"
   ],
-  "next_step": "MERGE_DONE push; watch denser/soft-capacity ARI",
+  "next_step": "MERGE_DONE push; watch soft×conj ARI",
   "blockers": []
 }

@@ -303,6 +303,9 @@ def test_finer_research_flag_defaults_off() -> None:
     assert cfg.hollow_use_a4_primary is False
     assert cfg.hollow_mst_critical_only is False
     assert cfg.hollow_bridge_critical_only is False
+    assert cfg.hollow_soft_capacity_only is False
+    assert 0.0 < cfg.hollow_soft_capacity_frac <= 1.0
+    assert cfg.hollow_soft_capacity_method == "betweenness"
 
 
 def test_hollow_edge_partition_splits_bridged_blobs() -> None:
@@ -1987,3 +1990,489 @@ def test_a4_primary_multi_seed_sample_ari_table() -> None:
                 if maj >= 2 and ari is not None and ari >= 0.5:
                     recovered += 1
     assert recovered == 0  # no sample-ARI recovery across seeds/cfgs
+
+
+def test_denser_scaffold_hollow_ari_a4_primary_bridge() -> None:
+    """#44 / A2-T36: denser n/max_nodes hollow majors+ARI under A4+bridge.
+
+    Baseline harnesses use ``max_nodes=64`` / modest ``n``.  Raising sample
+    density and scaffold capacity can change empty-ball / cut-set geometry.
+    This documents majors+sample-ARI on denser nested/tori scaffolds under
+    A4 primary and bridge-critical (flags stay default-off).  Denser nests
+    often collapse spurious K=2 to 1 major; when K≥2 appears (e.g. denser
+    tori under A4), sample ARI stays near chance — **not** recovery.  Do
+    **not** flip awaiting.
+    """
+
+    from proteus.stage1.edge_evidence import HollowEdgeConfig, a4_roc_primary_config
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().prefer_hollow_edge_prepass is False
+    assert RecursionConfig().hollow_use_a4_primary is False
+    assert RecursionConfig().hollow_bridge_critical_only is False
+
+    cfg_a4 = a4_roc_primary_config()
+    cfg_br = a4_roc_primary_config(bridge_critical_only=True)
+    cfg_def = HollowEdgeConfig()
+
+    def _adapt(points, tau: float, *, max_nodes: int, seed: int = 0):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]),
+            tau=float(tau),
+            k=8,
+            max_nodes=int(max_nodes),
+            ann_backend="naive",
+            rng=np.random.default_rng(seed),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    # (dataset_builder_kwargs, tau, max_nodes) denser than baseline 80/64 & 120/64.
+    nested_cases = (
+        ({"n_per_sphere": 160, "extrusion_dim": 1, "seed": 0}, 0.27, 96),
+        ({"n_per_sphere": 240, "extrusion_dim": 1, "seed": 0}, 0.27, 128),
+    )
+    tori_cases = (
+        ({"n_per_torus": 200, "seed": 0}, 0.5, 96),
+        ({"n_per_torus": 240, "seed": 0}, 0.5, 128),
+    )
+
+    recovered = 0
+    denser_nested_collapsed = 0
+    for kwargs, tau, max_nodes in nested_cases:
+        ds = make_nested_spheres(**kwargs)
+        sc = _adapt(ds.points, tau, max_nodes=max_nodes)
+        assert len(sc.nodes) > 64 or max_nodes > 64
+        for cfg in (cfg_def, cfg_a4, cfg_br):
+            maj, ari = _hollow_majors_and_sample_ari(
+                sc, ds.points, ds.labels, cfg,
+            )
+            if maj >= 2:
+                assert ari is not None and ari < 0.5
+            else:
+                assert maj <= 1
+            if maj <= 1:
+                denser_nested_collapsed += 1
+            if maj >= 2 and ari is not None and ari >= 0.5:
+                recovered += 1
+
+    # At least one denser nested setting collapses A4/bridge to ≤1 major
+    # (density suppresses the baseline empty-ball K=2 artifact).
+    assert denser_nested_collapsed >= 1
+
+    for kwargs, tau, max_nodes in tori_cases:
+        ds = make_linked_tori(**kwargs)
+        sc = _adapt(ds.points, tau, max_nodes=max_nodes)
+        for cfg in (cfg_a4, cfg_br):
+            maj, ari = _hollow_majors_and_sample_ari(
+                sc, ds.points, ds.labels, cfg,
+            )
+            if maj >= 2:
+                assert ari is not None and ari < 0.5
+            else:
+                assert maj <= 1
+            if maj >= 2 and ari is not None and ari >= 0.5:
+                recovered += 1
+        # Bridge-critical remains a strict cut-set filter on denser tori.
+        maj_br, ari_br = _hollow_majors_and_sample_ari(
+            sc, ds.points, ds.labels, cfg_br,
+        )
+        assert maj_br <= 1
+        assert ari_br is None or ari_br < 0.5
+
+    assert recovered == 0  # denser scaffolds do not sample-ARI recover
+
+
+def test_soft_capacity_hollow_contrast_vs_mst_bridge() -> None:
+    """#44 / A2-T37: soft-capacity (betweenness) vs MST/bridge majors+ARI.
+
+    On nested@0.27, default/A4 primary can emit spurious K=2 with sample
+    ARI≈chance.  Soft-capacity (``soft_capacity_frac=0.25``) intersects
+    hollow with high-betweenness edges and collapses majors to ≤1 like
+    MST-critical and bridge-critical — still **not** sample-ARI recovery.
+    Flags default-off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import HollowEdgeConfig, a4_roc_primary_config
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_soft_capacity_frac == 0.25
+
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+
+    def _adapt(points, tau: float):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
+            ann_backend="naive", rng=np.random.default_rng(0),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    cfg_def = HollowEdgeConfig()
+    cfg_a4 = a4_roc_primary_config()
+    cfg_mst = a4_roc_primary_config(mst_critical_only=True)
+    cfg_br = a4_roc_primary_config(bridge_critical_only=True)
+    cfg_soft = a4_roc_primary_config(soft_capacity_only=True, soft_capacity_frac=0.25)
+    cfg_soft_def = HollowEdgeConfig(soft_capacity_only=True, soft_capacity_frac=0.25)
+
+    sc_n = _adapt(nested.points, 0.27)
+    maj_def, ari_def = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_def,
+    )
+    maj_a4, ari_a4 = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_a4,
+    )
+    maj_mst, _ = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_mst,
+    )
+    maj_br, _ = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_br,
+    )
+    maj_soft, ari_soft = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_soft,
+    )
+    maj_soft_def, _ = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_soft_def,
+    )
+
+    assert maj_def == 2
+    assert ari_def is not None and ari_def < 0.2
+    if maj_a4 >= 2:
+        assert ari_a4 is not None and ari_a4 < 0.5
+    assert maj_mst <= 1
+    assert maj_br <= 1
+    # Soft capacity collapses spurious A4/default K=2 like hard cut-set filters.
+    assert maj_soft <= 1
+    assert maj_soft_def <= 1
+    assert ari_soft is None or ari_soft < 0.5
+
+    sc_t = _adapt(tori.points, 0.5)
+    recovered = 0
+    for cfg in (cfg_a4, cfg_mst, cfg_br, cfg_soft):
+        maj, ari = _hollow_majors_and_sample_ari(
+            sc_t, tori.points, tori.labels, cfg,
+        )
+        if maj >= 2:
+            assert ari is not None and ari < 0.5
+        else:
+            assert maj <= 1
+        if maj >= 2 and ari is not None and ari >= 0.5:
+            recovered += 1
+    assert recovered == 0
+
+
+def test_soft_capacity_denser_scaffold_ari_combo() -> None:
+    """#44 / A2-T39: soft-cap × denser n/max_nodes majors+ARI (A4 primary).
+
+    Combines T36 denser scaffolds with T37 soft-capacity (betweenness and
+    bridge_mass methods).  Expect collapse of nested spurious K=2 and no
+    sample-ARI recovery on nested/tori.  Flags remain default-off; do
+    **not** flip awaiting.
+    """
+
+    from proteus.stage1.edge_evidence import HollowEdgeConfig, a4_roc_primary_config
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_soft_capacity_method == "betweenness"
+
+    cfg_a4 = a4_roc_primary_config()
+    cfg_soft = a4_roc_primary_config(
+        soft_capacity_only=True, soft_capacity_frac=0.25,
+        soft_capacity_method="betweenness",
+    )
+    cfg_mass = a4_roc_primary_config(
+        soft_capacity_only=True, soft_capacity_frac=0.25,
+        soft_capacity_method="bridge_mass",
+    )
+    cfg_soft_def = HollowEdgeConfig(
+        soft_capacity_only=True, soft_capacity_frac=0.25,
+        soft_capacity_method="betweenness",
+    )
+
+    def _adapt(points, tau: float, *, max_nodes: int, seed: int = 0):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]),
+            tau=float(tau),
+            k=8,
+            max_nodes=int(max_nodes),
+            ann_backend="naive",
+            rng=np.random.default_rng(seed),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    nested_cases = (
+        ({"n_per_sphere": 160, "extrusion_dim": 1, "seed": 0}, 0.27, 96),
+        ({"n_per_sphere": 240, "extrusion_dim": 1, "seed": 0}, 0.27, 128),
+    )
+    tori_cases = (
+        ({"n_per_torus": 200, "seed": 0}, 0.5, 96),
+        ({"n_per_torus": 240, "seed": 0}, 0.5, 128),
+    )
+
+    recovered = 0
+    soft_nested_collapsed = 0
+    for kwargs, tau, max_nodes in nested_cases:
+        ds = make_nested_spheres(**kwargs)
+        sc = _adapt(ds.points, tau, max_nodes=max_nodes)
+        maj_a4, ari_a4 = _hollow_majors_and_sample_ari(
+            sc, ds.points, ds.labels, cfg_a4,
+        )
+        for cfg in (cfg_soft, cfg_mass, cfg_soft_def):
+            maj, ari = _hollow_majors_and_sample_ari(
+                sc, ds.points, ds.labels, cfg,
+            )
+            if maj >= 2:
+                assert ari is not None and ari < 0.5
+            else:
+                assert maj <= 1
+                soft_nested_collapsed += 1
+            if maj >= 2 and ari is not None and ari >= 0.5:
+                recovered += 1
+        if maj_a4 >= 2 and ari_a4 is not None:
+            assert ari_a4 < 0.5
+
+    # Soft-capacity (either method) collapses at least one denser nested case.
+    assert soft_nested_collapsed >= 1
+
+    for kwargs, tau, max_nodes in tori_cases:
+        ds = make_linked_tori(**kwargs)
+        sc = _adapt(ds.points, tau, max_nodes=max_nodes)
+        for cfg in (cfg_a4, cfg_soft, cfg_mass):
+            maj, ari = _hollow_majors_and_sample_ari(
+                sc, ds.points, ds.labels, cfg,
+            )
+            if maj >= 2:
+                assert ari is not None and ari < 0.5
+            else:
+                assert maj <= 1
+            if maj >= 2 and ari is not None and ari >= 0.5:
+                recovered += 1
+        # Soft betweenness and bridge_mass remain ≤1 major on denser tori
+        # (capacity filters suppress A4's occasional chance-ARI K=2).
+        maj_s, _ = _hollow_majors_and_sample_ari(
+            sc, ds.points, ds.labels, cfg_soft,
+        )
+        maj_m, _ = _hollow_majors_and_sample_ari(
+            sc, ds.points, ds.labels, cfg_mass,
+        )
+        assert maj_s <= 1
+        assert maj_m <= 1
+
+    assert recovered == 0  # soft-cap×denser does not sample-ARI recover
+
+
+def test_bridge_mass_soft_capacity_vs_betweenness_nested() -> None:
+    """#44 / A2-T39: bridge_mass soft-cap collapses nested@0.27 like bet.
+
+    On baseline nested@0.27, A4 primary can emit spurious K=2; both
+    betweenness and bridge_mass soft-capacity (frac=0.25) collapse to ≤1
+    major.  Default method stays betweenness; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import a4_roc_primary_config
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    sc = Stage1Scaffold(
+        dim=int(nested.points.shape[1]), tau=0.27, k=8, max_nodes=64,
+        ann_backend="naive", rng=np.random.default_rng(0),
+    )
+    sc.init_from(nested.points, n_seeds=8)
+    sc.run_until_stable(
+        nested.points,
+        StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+    )
+    cfg_bet = a4_roc_primary_config(
+        soft_capacity_only=True, soft_capacity_frac=0.25,
+        soft_capacity_method="betweenness",
+    )
+    cfg_mass = a4_roc_primary_config(
+        soft_capacity_only=True, soft_capacity_frac=0.25,
+        soft_capacity_method="bridge_mass",
+    )
+    maj_b, ari_b = _hollow_majors_and_sample_ari(
+        sc, nested.points, nested.labels, cfg_bet,
+    )
+    maj_m, ari_m = _hollow_majors_and_sample_ari(
+        sc, nested.points, nested.labels, cfg_mass,
+    )
+    assert maj_b <= 1
+    assert maj_m <= 1
+    assert ari_b is None or ari_b < 0.5
+    assert ari_m is None or ari_m < 0.5
+    assert RecursionConfig().hollow_soft_capacity_method == "betweenness"
+
+
+def test_soft_capacity_frac_sweep_nested_tori_ari() -> None:
+    """#44 / A2-T40: soft_capacity_frac sweep majors+ARI (A4 primary).
+
+    Nested@0.27 collapses A4's spurious K=2 across frac∈{0.1,0.25,0.5,0.9}.
+    Tori@0.5 keeps chance-ARI K=2 until frac=0.9 collapses to 1 major.
+    Flags default-off; do **not** flip awaiting.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_CAPACITY_FRAC_SWEEP_NESTED_MAJORS,
+        SOFT_CAPACITY_FRAC_SWEEP_TORI,
+        a4_roc_primary_config,
+    )
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_soft_capacity_frac == 0.25
+
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+
+    def _adapt(points, tau: float):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
+            ann_backend="naive", rng=np.random.default_rng(0),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    sc_n = _adapt(nested.points, 0.27)
+    maj_a4, ari_a4 = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, a4_roc_primary_config(),
+    )
+    assert maj_a4 == 2
+    assert ari_a4 is not None and ari_a4 < 0.2
+
+    recovered = 0
+    for frac, expect_maj in SOFT_CAPACITY_FRAC_SWEEP_NESTED_MAJORS.items():
+        cfg = a4_roc_primary_config(
+            soft_capacity_only=True, soft_capacity_frac=float(frac),
+        )
+        maj, ari = _hollow_majors_and_sample_ari(
+            sc_n, nested.points, nested.labels, cfg,
+        )
+        assert maj == expect_maj
+        assert maj <= 1
+        assert ari is None or ari < 0.5
+        if maj >= 2 and ari is not None and ari >= 0.5:
+            recovered += 1
+
+    sc_t = _adapt(tori.points, 0.5)
+    for frac, (expect_maj, expect_ari) in SOFT_CAPACITY_FRAC_SWEEP_TORI.items():
+        cfg = a4_roc_primary_config(
+            soft_capacity_only=True, soft_capacity_frac=float(frac),
+        )
+        maj, ari = _hollow_majors_and_sample_ari(
+            sc_t, tori.points, tori.labels, cfg,
+        )
+        assert maj == expect_maj
+        if expect_maj >= 2:
+            assert ari is not None and ari < 0.5
+            if expect_ari is not None:
+                assert abs(ari - expect_ari) < 0.08
+        else:
+            assert ari is None or ari < 0.5
+        if maj >= 2 and ari is not None and ari >= 0.5:
+            recovered += 1
+    assert recovered == 0
+
+
+def test_soft_capacity_persist_agree_leaf_harness() -> None:
+    """#44 / A2-T40: soft-cap × persist-agree leaf harness (A4 primary).
+
+    Uniforms stay 1 leaf; soft alone collapses A4 tori K=2→1; soft+persist
+    stays unrecovered on nested/tori.  Flags default-off; no awaiting flip.
+    """
+
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+    from tests.datasets.synthetic.swiss_roll import make_swiss_roll
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_require_persistent_agree is False
+
+    def _lean() -> ScaleSearchConfig:
+        return ScaleSearchConfig(
+            tau_min=1e-3,
+            tau_max=2.0,
+            max_grid_points=6,
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=8,
+            ),
+            seed=42,
+            selector="persistence",
+            record_partitions=True,
+        )
+
+    def _run(points, dim, *, soft: bool, persist: bool, frac: float,
+             min_samples: int) -> int:
+        cfg = RecursionConfig(
+            scale_search=_lean(),
+            min_samples=min_samples,
+            max_depth=3,
+            require_persistent_split=True,
+            allow_finer_research=False,
+            prefer_hollow_edge_prepass=True,
+            hollow_use_a4_primary=True,
+            hollow_soft_capacity_only=soft,
+            hollow_soft_capacity_frac=frac,
+            hollow_require_persistent_agree=persist,
+            seed=42,
+        )
+        tree = run_recursive_discovery(points, dim=dim, config=cfg)
+        return len(tree.leaves)
+
+    circle = make_circle(
+        n_samples=300, radius=1.0, noise=0.02, extrusion_dim=2, seed=0,
+    )
+    swiss = make_swiss_roll(n_samples=400, noise=0.02, seed=0)
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+
+    # Uniform-safe under soft×persist.
+    assert _run(circle.points, circle.points.shape[1], soft=True, persist=True,
+                frac=0.25, min_samples=80) == 1
+    assert _run(swiss.points, swiss.points.shape[1], soft=True, persist=True,
+                frac=0.25, min_samples=80) == 1
+
+    # Soft collapses A4 tori's spurious 2-leaf hit; combo stays unrecovered.
+    assert _run(tori.points, tori.points.shape[1], soft=False, persist=False,
+                frac=0.25, min_samples=40) == 2
+    assert _run(tori.points, tori.points.shape[1], soft=True, persist=False,
+                frac=0.25, min_samples=40) == 1
+    assert _run(tori.points, tori.points.shape[1], soft=True, persist=True,
+                frac=0.25, min_samples=40) == 1
+    assert _run(nested.points, nested.points.shape[1], soft=True, persist=True,
+                frac=0.25, min_samples=40) == 1
+    assert _run(nested.points, nested.points.shape[1], soft=True, persist=True,
+                frac=0.1, min_samples=40) == 1
+    assert _run(nested.points, nested.points.shape[1], soft=True, persist=True,
+                frac=0.9, min_samples=40) == 1
