@@ -31,7 +31,8 @@ this module's interval as the accept/reject arbiter and, by default, lands
 ``tau*`` at the coarse end of that interval.  Optional hybrid / experimental refinement
 (:attr:`PersistenceConfig.resolve_within_interval`, default ``"none"``) can
 re-pick ``tau*`` via ``load_crossover`` or experimental ``mid_interval`` /
-``three_quarter_interval`` / ``three_quarter_load_screened`` /
+``mid_interval_load_screened`` / ``three_quarter_interval`` /
+``three_quarter_load_screened`` /
 ``fine_end_of_block`` *within* the accepted persistent subgrid without
 changing the accept/reject arbiter (OPEN_ISSUES #28).  The legacy
 ``load_band`` scale selector is gone from the acceptance path; the controller
@@ -136,13 +137,20 @@ class PersistenceConfig:
         coarse-anchored block).          ``"mid_interval"`` is an **experimental**
         probe that lands ``tau*`` at the integer midpoint of that same block
         (for coarse-vs-mid comparisons; not SI-justified).
+        ``"mid_interval_load_screened"`` is an **experimental** probe that
+        takes the same mid landing but **rejects** it (falls back to
+        coarse-end ``i_lo``) when the variance load at that index is
+        ``≪ 1`` (below
+        :data:`proteus.stage1.controller._WITHIN_INTERVAL_LOAD_SCREEN_MIN`);
+        contrast vs raw ``mid_interval`` (OPEN_ISSUES #28).
         ``"three_quarter_interval"`` is an **experimental** probe that lands
         three-quarters of the way from ``i_lo`` toward ``i_hi`` (between mid
         and fine-end; contrast for expected_tau undershoot).
         ``"three_quarter_load_screened"`` is an **experimental** probe that
         takes the same three-quarter landing but **rejects** it (falls back
         to coarse-end ``i_lo``) when the variance load at that index is
-        ``≪ 1`` (below :data:`proteus.stage1.controller._THREE_QUARTER_LOAD_SCREEN_MIN`);
+        ``≪ 1`` (below
+        :data:`proteus.stage1.controller._WITHIN_INTERVAL_LOAD_SCREEN_MIN`);
         contrast vs raw ``three_quarter_interval`` (OPEN_ISSUES #28).
         ``"fine_end_of_block"`` is an **experimental** probe that lands at
         the finest index ``i_hi`` of the accepted block (contrast vs mid /
@@ -162,6 +170,7 @@ class PersistenceConfig:
         "none",
         "load_crossover",
         "mid_interval",
+        "mid_interval_load_screened",
         "three_quarter_interval",
         "three_quarter_load_screened",
         "fine_end_of_block",
