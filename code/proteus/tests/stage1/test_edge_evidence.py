@@ -541,7 +541,10 @@ def test_bridge_mass_soft_capacity_method() -> None:
     )
     cut = hollow_edge_mask(pos, edges, data, cfg)
     assert not np.any(cut & ~soft)
-    assert HollowEdgeConfig().soft_capacity_method == "betweenness"def test_poisson_null_h0_calibration_export_table() -> None:
+    assert HollowEdgeConfig().soft_capacity_method == "betweenness"
+
+
+def test_poisson_null_h0_calibration_export_table() -> None:
     """#44 / A2-T38: export Poisson-null sheet H quantiles for A3/A4 SI.
 
     Recomputes sheet-null quantiles via the A4 adversarial harness and
