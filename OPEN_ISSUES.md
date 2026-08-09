@@ -150,8 +150,15 @@ re-searched *finer* scales inside a single feature.
   and radial-band / noncentroid / signal-density flags (proposal-path, default
   off; cites unit nested ARI=1.0). Score is `rho_knn * rho_radial` (A2 restored
   multiply after divide regression).
-- **Remaining:** linked_tori / swiss guards (A2-T18..T20); optional keep_frac
-  harden; flip awaiting only after A1 confirms. Distinct from #28.
+- **FINDING (A2-T18..T20 guards):** linked_tori under persist+signal_density
+  stays **1 leaf** (radial origin unsuitable for offset rings; deeper steps
+  over-fragment, ARI≈0). Swiss: steps≤4 → 1 leaf; steps=8 **shatters** (~17
+  leaves) — keep recommended pairing `max_finer_scale_steps≤4`.
+  `finer_signal_density_keep_frac=0.55` confirmed sweet spot (no default change).
+  **Do not flip awaiting** (tori unrecovered).
+- **Remaining:** non-radial linked_tori prepass (or alternate geometry cue);
+  flip awaiting only after A1 confirms tori recovery + swiss-safe pairing.
+  Distinct from #28.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 

@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T15:00-05:00",
-  "turn": 40,
+  "updated_at": "2026-08-09T15:05-05:00",
+  "turn": 41,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "A2 linked_tori/swiss guards before awaiting flip"
+    "goal": "non-radial linked_tori prepass (no awaiting flip)"
   },
   "recent": [
-    "Scooped A3 SI A+C + A4 calib + A2 multiply restore",
-    "Retuned dens fixture seed=2→1 for multiply contrast",
-    "Refilled A3/A4/A5/A6; A2 keeps T18..T20"
+    "Late scoop A2-T18..T20: tori unrecovered; swiss steps<=4",
+    "Scooped A3 SI A+C + A4 calib + multiply restore",
+    "Refilled A2-T21..T23 non-radial tori path"
   ],
   "discoveries": [
-    "Signal-density knn×radial recovers nested unit harness",
-    "Fitted-circle needs mult≥6; SI (1.5,0.5) still fails"
+    "Signal-density knn\u00d7radial recovers nested; not linked_tori",
+    "Fitted-circle needs mult\u22656; SI (1.5,0.5) still fails"
   ],
   "open_threads": [
-    "Hold awaiting flip pending linked_tori/swiss",
+    "No awaiting flip \u2014 tori unrecovered",
     "dual_flow still absent",
     "Optional #28 resolve_within_interval SI prose"
   ],
-  "next_step": "MERGE_DONE push; watch A2-T18..T20",
+  "next_step": "MERGE_DONE push; watch A2-T21 non-radial tori",
   "blockers": []
 }

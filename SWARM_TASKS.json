@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T15:00-05:00",
+  "updated_at": "2026-08-09T15:05-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -14,17 +14,17 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T37",
+          "id": "A1-T40",
           "status": "ready",
-          "summary": "Watch A2-T18..T20 linked_tori/swiss; consider awaiting flip only if green"
+          "summary": "Watch A2 non-radial linked_tori prototype; no awaiting flip until tori green"
         },
         {
-          "id": "A1-T38",
+          "id": "A1-T41",
           "status": "ready",
-          "summary": "Scoop A4 follow-ons after T12+ if fitted-region path emerges"
+          "summary": "Scoop A4-T12..T14 reading-path NOTES when tips land"
         },
         {
-          "id": "A1-T39",
+          "id": "A1-T42",
           "status": "ready",
           "summary": "Keep dual_flow watch; do not close #43 until S6 lands"
         }
@@ -42,22 +42,22 @@
       ],
       "queue": [
         {
-          "id": "A2-T18",
+          "id": "A2-T21",
           "status": "ready",
           "issue": 44,
-          "summary": "linked_tori unit harness under persist+signal_density; NOTE ARI/leaves; no awaiting flips"
+          "summary": "Prototype non-radial linked_tori prepass (flag-gated default off); NOTE only \u2014 no awaiting flips"
         },
         {
-          "id": "A2-T19",
+          "id": "A2-T22",
           "status": "ready",
           "issue": 44,
-          "summary": "swiss-roll guard: persist+signal_density must stay ~1 leaf (no shatter); NOTE"
+          "summary": "Guard: persist+sd with max_finer_scale_steps<=4 must keep swiss/circle ~1 leaf; NOTE"
         },
         {
-          "id": "A2-T20",
+          "id": "A2-T23",
           "status": "ready",
           "issue": 44,
-          "summary": "Optional: harden finer_signal_density_keep_frac / REQUEST_TRACKER to flip awaiting after A1 OK"
+          "summary": "Optional: document recommended pairing (persist+sd+steps<=4+keep_frac=0.55) in RecursionConfig docstring"
         }
       ]
     },
@@ -186,5 +186,5 @@
       ]
     }
   },
-  "notes": "2026-08-09T15:00: Scooped A3 SI A+C, A4-T9..T11 calib+helper, A2 multiply restore, A5/A6 drains; refilled A3/A4/A5/A6; A2 keeps T18..T20."
+  "notes": "2026-08-09T15:05: Late scoop A2-T18..T20: tori unrecovered; swiss steps<=4 only; keep_frac=0.55; no awaiting flip. Refilled A2."
 }
