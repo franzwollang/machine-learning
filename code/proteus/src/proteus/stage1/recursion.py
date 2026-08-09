@@ -153,6 +153,27 @@ class RecursionConfig:
     signal score, then runs the band gap on the kept subset (apply cut to
     full scaffold).  Do **not** divide by ``rho_radial`` — that upweights
     sparse mid-continuum tissue and regresses nested-shell recovery.
+
+    **A2-T21 (flag-gated, default off):**
+    ``prefer_pca_axis_gap_prepass`` is the non-radial dual of the plain
+    radial gap: project scaffold positions onto the leading principal
+    component and take the largest balanced 1-D gap (same size /
+    ``min_gap_ratio`` / ``Q>0`` gates).  Recovers laterally **offset**
+    rings on unit scaffolds where radial-from-origin is the wrong cue;
+    interlocking linked_tori still unrecovered under e2e persist+pca
+    (geometry interpenetration) — do not flip awaiting.
+
+    **Recommended pairing (A2-T19/T20/T23):**
+    - Uniforms (circle/swiss): ``require_persistent_split`` +
+      ``allow_finer_research`` + ``max_finer_scale_steps<=4`` +
+      ``min_samples>=80``; optional ``prefer_signal_density_band_prepass``
+      with ``finer_signal_density_keep_frac=0.55`` (steps=8 + sd shatters
+      swiss).
+    - Nested shells (unit harness): same persist + ``allow_finer_research``
+      + ``prefer_signal_density_band_prepass`` + ``steps>=8`` +
+      ``keep_frac=0.55`` + ``min_samples=20`` → 2 leaves ARI=1.0.
+    - Linked tori: still open; try ``prefer_pca_axis_gap_prepass`` (offset
+      cue) — e2e recovery not claimed.
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
@@ -176,6 +197,7 @@ class RecursionConfig:
     finer_radial_min_trough_rel: float = 0.0
     prefer_signal_density_band_prepass: bool = False
     finer_signal_density_keep_frac: float = 0.55
+    prefer_pca_axis_gap_prepass: bool = False
     seed: int = 42
 
 
@@ -396,6 +418,91 @@ def _radial_gap_partition(
         float(radii[order[best[1]]]) + float(radii[order[best[1] + 1]])
     )
     labels = (radii > thr).astype(int)
+    clusters: list[set[int]] = [
+        set(np.where(labels == cid)[0].tolist()) for cid in (0, 1)
+    ]
+    if min(len(c) for c in clusters) < threshold:
+        return None
+
+    graph_lifted = scaffold.links.neighbour_graph(n)
+    W = compute_edge_weights(scaffold)
+    pq = partition_q_score(clusters, n, W, graph_lifted)
+    if pq <= 0.0:
+        return None
+
+    hits = np.array([node.hit_count for node in scaffold.nodes], dtype=float)
+    exemplars = [int(max(c, key=lambda g: hits[g])) for c in clusters]
+    return ClusterResult(
+        labels=labels,
+        exemplar_indices=np.array(exemplars, dtype=int),
+        n_clusters=2,
+        partition_q_score=float(pq),
+    )
+
+
+def _pca_axis_gap_partition(
+    scaffold: "Stage1Scaffold",  # noqa: F821
+    *,
+    min_frac: float = 0.2,
+    min_abs: int = 3,
+    min_gap_ratio: float = 0.25,
+) -> ClusterResult | None:
+    """Return a 2-way partition from a large PCA-axis gap, else ``None``.
+
+    OPEN_ISSUES #44 / A2-T21 non-radial prepass: laterally offset rings
+    (linked-tori geometry cue) do not separate in distance-from-centroid,
+    but can separate along the leading principal axis of node positions.
+    Center the scaffold, project onto PC1, take the largest balanced gap
+    with the same size / ``gap / median(|proj|)`` / ``Q > 0`` gates as
+    :func:`_radial_gap_partition`.  Concentric shells are typically
+    rejected by the gap-ratio gate (isotropic PC1 diameter has no deep
+    trough).
+    """
+
+    n = len(scaffold.nodes)
+    if n < 2 * max(int(min_abs), 1):
+        return None
+    frac = float(min_frac)
+    if not (0.0 < frac <= 0.5):
+        frac = 0.2
+    threshold = max(int(min_abs), int(np.ceil(n * frac)))
+    if 2 * threshold > n:
+        return None
+
+    positions = np.asarray(
+        [scaffold.nodes[i].position for i in range(n)], dtype=float,
+    )
+    centered = positions - positions.mean(axis=0)
+    # Leading principal component via thin SVD (n × d, d small).
+    try:
+        _u, _s, vt = np.linalg.svd(centered, full_matrices=False)
+    except np.linalg.LinAlgError:
+        return None
+    if vt.size == 0:
+        return None
+    axis = vt[0]
+    proj = centered @ axis
+    spread = float(np.median(np.abs(proj))) + 1e-12
+    order = np.argsort(proj)
+    gaps = np.diff(proj[order])
+    best: tuple[float, int] | None = None
+    for i, gap in enumerate(gaps):
+        left = i + 1
+        right = n - left
+        if left < threshold or right < threshold:
+            continue
+        g = float(gap)
+        if best is None or g > best[0]:
+            best = (g, i)
+    if best is None:
+        return None
+    if best[0] / spread < float(min_gap_ratio):
+        return None
+
+    thr = 0.5 * (
+        float(proj[order[best[1]]]) + float(proj[order[best[1] + 1]])
+    )
+    labels = (proj > thr).astype(int)
     clusters: list[set[int]] = [
         set(np.where(labels == cid)[0].tolist()) for cid in (0, 1)
     ]
@@ -724,7 +831,8 @@ def _research_finer_split(
     ``prefer_noncentroid_radial_band_prepass`` is on, the same band rule runs
     with a coordinate-median origin and a trough-depth bimodality gate.
     When ``prefer_signal_density_band_prepass`` is on, knn-density residual
-    masking precedes the band gap.
+    masking precedes the band gap.  When ``prefer_pca_axis_gap_prepass`` is
+    on, a leading-PC 1-D gap is tried (offset / non-radial geometry cue).
     """
 
     ratio = float(config.finer_tau_cap_ratio)
@@ -842,6 +950,20 @@ def _research_finer_split(
             ):
                 return result, scaffold, band_sd
 
+        # #44 / A2-T21: non-radial PCA-axis gap (offset rings / linked_tori cue).
+        if config.prefer_pca_axis_gap_prepass:
+            pca_gap = _pca_axis_gap_partition(
+                scaffold,
+                min_frac=float(config.finer_prepass_min_frac),
+                min_gap_ratio=float(config.finer_radial_min_gap_ratio),
+            )
+            if (
+                pca_gap is not None
+                and pca_gap.n_clusters > 1
+                and pca_gap.partition_q_score > 0.0
+            ):
+                return result, scaffold, pca_gap
+
         cluster_result = _cluster_scaffold(scaffold, config)
         if (
             cluster_result.n_clusters > 1
@@ -951,6 +1073,7 @@ def _descend_into_clusters(
                 config.prefer_signal_density_band_prepass
             ),
             finer_signal_density_keep_frac=config.finer_signal_density_keep_frac,
+            prefer_pca_axis_gap_prepass=config.prefer_pca_axis_gap_prepass,
             seed=config.seed + region_id + label,
         )
 
