@@ -88,7 +88,14 @@ class RecursionConfig:
     same persist pairing — match the unit-test envelope when judging shatter.
     On nested_spheres none of persist±prepass±``require_dm_split`` recovered
     gt cc=2 with ARI>0.5 (steps≤8 → 1 leaf; deeper / dm-without-persist →
-    5–9 leaves, ARI≲0.09).  Hold A3 SI A+C until a real recovery path exists.
+    5–9 leaves, ARI≲0.09) until ``prefer_signal_density_band_prepass``
+    (knn×radial keep; A2-T15) recovered nested unit harness at steps≥8
+    (2 leaves ARI=1.0).  A2-T18: linked_tori still 1 leaf under that path
+    (radial origin unsuitable for offset rings).  A2-T19: swiss stays 1 leaf
+    at ``max_finer_scale_steps<=4`` with signal-density; steps=8 shatters.
+    ``finer_signal_density_keep_frac=0.55`` is the measured sweet spot
+    (0.4 misses nested; 0.8 over-fragments).  Hold awaiting flips until A1
+    confirms + a non-radial tori path exists.
     Optional SI prose for gate-owns-stop + persist pairing: see A3 mailbox
     Opt A+C sketch (REQUEST_TRACKER).
 
