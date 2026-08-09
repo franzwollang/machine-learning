@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T14:20-05:00",
+  "updated_at": "2026-08-09T14:40-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -16,7 +16,7 @@
         {
           "id": "A1-T28",
           "status": "ready",
-          "summary": "Next cadence: watch A2-T13..T15 band strengthen; scoop A4-T9..T11"
+          "summary": "Watch A2-T13..T15 / A4-T9..T11; scoop when tips ahead of integration"
         },
         {
           "id": "A1-T29",
@@ -186,5 +186,5 @@
       ]
     }
   },
-  "notes": "2026-08-09T14:20: scooped A2 T10\u2013T12 band prepass (e2e unrecovered) + A4-T8 clean-shell PH; refilled A2/A4; #44 SI A+C held."
+  "notes": "2026-08-09T14:40: heartbeat \u2014 no new tips; workers behind integration; queues 3-deep ready for next worker turns."
 }

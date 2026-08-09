@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T14:20-05:00",
-  "turn": 36,
+  "updated_at": "2026-08-09T14:40-05:00",
+  "turn": 37,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "post-band strengthen after e2e miss"
+    "goal": "await A2-T13..T15 / A4-T9..T11 claims"
   },
   "recent": [
-    "Scooped A2 band T10\u2013T12 e2e unrecovered",
-    "Scooped A4-T8 clean-shell PH green",
-    "Resolved radial_band merge; tests green"
+    "Heartbeat: all worker tips ahead=0 vs integration",
+    "Queues still 3-deep ready (A2-T13..T15 / A4-T9..T11)",
+    "Annotated #44 band e2e unrecovered FINDING"
   ],
   "discoveries": [
     "Band unit OK; e2e nested still 1 leaf / over-fragment",
-    "Clean-shell PH needs lifetime_frac\u22480.75 at modest n"
+    "Clean-shell PH needs lifetime_frac~0.75 at modest n"
   ],
   "open_threads": [
     "#44 SI A+C held; dual_flow absent",
-    "A2 next: trough/non-centroid/signal mask",
-    "A4-T9 lifetime calibration"
+    "Workers behind integration; next turn pull+claim",
+    "A4-T9 lifetime calibration pending"
   ],
-  "next_step": "push MERGE_DONE integration+A1",
+  "next_step": "scoop when A2/A4 push T13+/T9+ tips",
   "blockers": []
 }
