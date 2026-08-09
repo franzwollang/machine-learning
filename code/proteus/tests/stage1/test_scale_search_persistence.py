@@ -1361,6 +1361,165 @@ def test_load_weighted_interval_picks_closest_load_and_rejects_low() -> None:
     assert PersistenceConfig().resolve_within_interval == "none"
 
 
+def test_load_weighted_matches_coarse_across_hierarchy_seeds() -> None:
+    # Throughput probe (A6-T49): on hierarchical Gaussians, load_weighted_interval
+    # systematically lands at the coarse-end persistence arbiter across seeds.
+    # Root cause: within-block loads jump from L(i_lo)~0.6–0.7 to L≫1 at the
+    # next grid point, so argmin|log L| among L≥0.5 is always i_lo. Raising the
+    # screen floor still lands near-coarse (~8–12× E[τ]), not fine-leaf.
+    # Dense (halve_grid_steps) does not change this. Do not flip defaults.
+    seeds = (0, 1, 2, 3, 4)
+    rows: list[dict[str, float | int | bool]] = []
+    for seed in seeds:
+        for dense in (False, True):
+            dataset = make_hierarchical_gaussian(
+                children_per_coarse=2, n_samples=600, ambient_dim=4, seed=seed,
+            )
+            gt = dataset.ground_truth
+            assert gt.expected_tau is not None
+            tau_lo, tau_hi = gt.tau_grid_hint
+            base = ScaleSearchConfig(
+                tau_min=tau_lo,
+                tau_max=tau_hi,
+                max_grid_points=8,
+                k=8,
+                n_seeds=12,
+                min_nodes=8,
+                max_nodes=128,
+                ann_backend="naive",
+                selector="persistence",
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2, max_epochs=12
+                ),
+                seed=seed,
+                halve_grid_steps=dense,
+            )
+            none = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=replace(
+                    base,
+                    persistence=PersistenceConfig(resolve_within_interval="none"),
+                ),
+            )
+            weighted = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=replace(
+                    base,
+                    persistence=PersistenceConfig(
+                        resolve_within_interval="load_weighted_interval"
+                    ),
+                ),
+            )
+            assert none.persistence_result is not None
+            assert weighted.persistence_result is not None
+            i_lo = int(none.persistence_result.tau_star_index)  # type: ignore[arg-type]
+            load_w = float(weighted.load_trace[weighted.peak_index])
+            rows.append(
+                {
+                    "seed": seed,
+                    "dense": dense,
+                    "none_idx": int(none.peak_index),
+                    "weighted_idx": int(weighted.peak_index),
+                    "i_lo": i_lo,
+                    "load": load_w,
+                    "tau_over_expected": float(
+                        weighted.tau_star / gt.expected_tau
+                    ),
+                }
+            )
+            assert weighted.peak_index == none.peak_index == i_lo
+            assert load_w >= _WITHIN_INTERVAL_LOAD_SCREEN_MIN
+            assert 0.5 <= load_w < 1.0
+
+    header = (
+        f"{'seed':4s} {'dense':5s} {'idx':>3s} {'load':>7s} {'tau*/E':>8s}"
+    )
+    print("\nA6-T49 load_weighted ≡ coarse-end across hierarchy seeds")
+    print(header)
+    print("-" * len(header))
+    for row in rows:
+        print(
+            f"{int(row['seed']):4d} {str(row['dense']):5s} "
+            f"{int(row['weighted_idx']):3d} {float(row['load']):7.3f} "
+            f"{float(row['tau_over_expected']):8.3f}"
+        )
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
+def test_dense_ranking_flip_is_seed_fragile() -> None:
+    # Throughput probe (A6-T49): seed-0 densify flip (2/3≈1.00× beats 3q) is
+    # not universal. Seed 4 matches seed 0 on the *standard* grid (3q closer)
+    # but collapses all fractional modes to coarse under halve_grid_steps;
+    # seeds 1–2 are coarse-only no-ops (singleton / coarse persistence).
+    # Pins seed-4 std ranking + documents dense fragility — do not flip default.
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=4,
+    )
+    gt = dataset.ground_truth
+    assert gt.expected_tau is not None
+    tau_lo, tau_hi = gt.tau_grid_hint
+    base = ScaleSearchConfig(
+        tau_min=tau_lo,
+        tau_max=tau_hi,
+        max_grid_points=8,
+        k=8,
+        n_seeds=12,
+        min_nodes=8,
+        max_nodes=128,
+        ann_backend="naive",
+        selector="persistence",
+        stabilization=StabilizationConfig(min_equilibrium_epochs=2, max_epochs=12),
+        seed=4,
+    )
+    modes = ("two_thirds_interval", "three_quarter_interval", "mid_interval")
+    by: dict[tuple[bool, str], dict[str, float | int]] = {}
+    for dense in (False, True):
+        for mode in modes:
+            result = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=replace(
+                    base,
+                    halve_grid_steps=dense,
+                    persistence=PersistenceConfig(resolve_within_interval=mode),
+                ),
+            )
+            assert result.persistence_result is not None
+            by[(dense, mode)] = {
+                "peak_index": int(result.peak_index),
+                "tau_over_expected": float(result.tau_star / gt.expected_tau),
+                "i_lo": int(result.persistence_result.tau_star_index),  # type: ignore[arg-type]
+            }
+
+    # Standard grid seed-4: same 3q-closest pattern as seed-0.
+    err_tt = abs(float(by[(False, "two_thirds_interval")]["tau_over_expected"]) - 1.0)
+    err_tq = abs(
+        float(by[(False, "three_quarter_interval")]["tau_over_expected"]) - 1.0
+    )
+    assert err_tq < err_tt
+    assert abs(float(by[(False, "three_quarter_interval")]["tau_over_expected"]) - 0.82) < 0.05
+    assert abs(float(by[(False, "two_thirds_interval")]["tau_over_expected"]) - 1.49) < 0.05
+
+    # Dense seed-4: fractional probes collapse to coarse-end (fragility).
+    i_lo_dense = int(by[(True, "two_thirds_interval")]["i_lo"])
+    for mode in modes:
+        assert int(by[(True, mode)]["peak_index"]) == i_lo_dense
+        assert float(by[(True, mode)]["tau_over_expected"]) > 8.0
+
+    print(
+        "\nA6-T49 seed-4 ranking fragility: "
+        f"std 2/3={by[(False, 'two_thirds_interval')]['tau_over_expected']:.3f} "
+        f"3q={by[(False, 'three_quarter_interval')]['tau_over_expected']:.3f}; "
+        f"dense all→coarse idx={i_lo_dense} "
+        f"tau*/E={by[(True, 'two_thirds_interval')]['tau_over_expected']:.3f}"
+    )
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
 def test_default_selector_is_load_crossover() -> None:
     # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
     assert ScaleSearchConfig().selector == "load_crossover"
