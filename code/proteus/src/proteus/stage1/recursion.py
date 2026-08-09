@@ -486,11 +486,16 @@ def _hollow_edge_partition(
     if len(clusters) < 2:
         return None
 
-    # Q uses original lifted weights/graph so a cut that only removes bridges
-    # still scores as a block-improving partition.
-    graph_lifted = scaffold.links.neighbour_graph(n)
-    W = compute_edge_weights(scaffold)
-    pq = partition_q_score(clusters, n, W, graph_lifted)
+    # Score Q on the *pruned* edge set: hollow bridges are exactly the
+    # cross terms that would drive Q ≤ 0 on the raw lifted weights, even
+    # though the data-side cut is the intended support split (A2-T27/T29).
+    W_full = compute_edge_weights(scaffold)
+    kept_set = {tuple(sorted(e)) for e in kept}
+    W_pruned = {
+        (i, j): w for (i, j), w in W_full.items()
+        if tuple(sorted((i, j))) in kept_set
+    }
+    pq = partition_q_score(clusters, n, W_pruned, graph_pruned)
     if pq <= 0.0:
         return None
 
@@ -503,7 +508,7 @@ def _hollow_edge_partition(
 
     return ClusterResult(
         labels=dense,
-        exemplar_indices=np.array(exemplars, dtype=int),
+        exemplar_indices=np.asarray(exemplars, dtype=int),
         n_clusters=len(clusters),
         partition_q_score=float(pq),
     )

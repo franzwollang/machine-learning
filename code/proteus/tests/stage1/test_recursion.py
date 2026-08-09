@@ -1291,3 +1291,91 @@ def test_finer_research_persist_sd_pca_regression_harness() -> None:
     assert tori_tube >= 1
     # PCA path: interlocking linked_tori still unrecovered (known failure).
     assert tori_pca == 1
+
+
+def test_hollow_edge_persist_no_descent_regression_harness() -> None:
+    """#44 / A2-T29: persist(+dm)+hollow, NO finer descent — leaf-count harness.
+
+    Guards uniforms / zoo under hollow prepass without ``allow_finer_research``.
+    Documents nested/tori = 1 leaf at scale-search ``tau*`` (hollow fires on
+    fixed-tau oracle ~0.27/0.5 but not at load-crossover ``tau*``).  Do **not**
+    flip awaiting.
+    """
+
+    from proteus.stage1.recursion import _hollow_edge_partition
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.manifold_zoo import make_manifold_zoo
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+    from tests.datasets.synthetic.swiss_roll import make_swiss_roll
+
+    def _lean(seed: int = 42) -> ScaleSearchConfig:
+        return ScaleSearchConfig(
+            tau_min=1e-3,
+            tau_max=2.0,
+            max_grid_points=6,
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2,
+                max_epochs=8,
+            ),
+            seed=seed,
+        )
+
+    def _run(points, dim, *, persist: bool, dm: bool, min_samples: int) -> int:
+        cfg = RecursionConfig(
+            scale_search=_lean(),
+            min_samples=min_samples,
+            max_depth=3,
+            require_persistent_split=persist,
+            require_dm_split=dm,
+            allow_finer_research=False,
+            prefer_hollow_edge_prepass=True,
+            seed=42,
+        )
+        tree = run_recursive_discovery(points, dim=dim, config=cfg)
+        return len(tree.leaves)
+
+    circle = make_circle(
+        n_samples=300, radius=1.0, noise=0.02, extrusion_dim=2, seed=0,
+    )
+    swiss = make_swiss_roll(n_samples=400, noise=0.02, seed=0)
+    zoo = make_manifold_zoo(seed=0)
+    z = zoo.points
+    if z.shape[0] > 600:
+        z = z[np.random.default_rng(0).choice(z.shape[0], 600, replace=False)]
+
+    # Uniform / connected guards (persist+hollow, no descent).
+    assert _run(circle.points, circle.points.shape[1], persist=True, dm=False, min_samples=80) == 1
+    assert _run(swiss.points, swiss.points.shape[1], persist=True, dm=False, min_samples=80) == 1
+    assert _run(z, z.shape[1], persist=True, dm=False, min_samples=40) == 1
+    assert _run(circle.points, circle.points.shape[1], persist=True, dm=True, min_samples=80) == 1
+
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+    # E2E at scale-search tau*: unrecovered (measurement).
+    assert _run(nested.points, nested.points.shape[1], persist=True, dm=False, min_samples=40) == 1
+    assert _run(tori.points, tori.points.shape[1], persist=True, dm=False, min_samples=40) == 1
+
+    # Fixed-tau oracle: hollow recovers majors when tau matches the probe.
+    def _oracle(points, tau: float):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
+            ann_backend="naive", rng=np.random.default_rng(0),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=40, min_equilibrium_epochs=3),
+        )
+        return _hollow_edge_partition(
+            sc, points,
+            mid_radius_frac=0.35, h0=0.35, min_end_count=0.5, min_frac=0.2,
+        )
+
+    h_nested = _oracle(nested.points, 0.27)
+    h_tori = _oracle(tori.points, 0.5)
+    assert h_nested is not None and h_nested.n_clusters == 2
+    assert h_tori is not None and h_tori.n_clusters == 2
