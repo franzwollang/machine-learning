@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T14:55-05:00",
+  "updated_at": "2026-08-09T15:00-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -14,19 +14,19 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T34",
+          "id": "A1-T37",
           "status": "ready",
-          "summary": "Watch A2 linked_tori/swiss guards; consider awaiting flip only if green"
+          "summary": "Watch A2-T18..T20 linked_tori/swiss; consider awaiting flip only if green"
         },
         {
-          "id": "A1-T35",
+          "id": "A1-T38",
           "status": "ready",
-          "summary": "Scoop A3 SI A+C when DONE; update #44 remaining"
+          "summary": "Scoop A4 follow-ons after T12+ if fitted-region path emerges"
         },
         {
-          "id": "A1-T36",
+          "id": "A1-T39",
           "status": "ready",
-          "summary": "Scoop A4-T9..T11 lifetime calib when tips land"
+          "summary": "Keep dual_flow watch; do not close #43 until S6 lands"
         }
       ]
     },
@@ -70,22 +70,22 @@
       ],
       "queue": [
         {
-          "id": "A3-T28",
-          "status": "ready",
-          "issue": 44,
-          "summary": "WRITE SI S2.6.2 + S14.3 A+C paragraph for allow_finer_research + radial-band/noncentroid/signal-density flags (A2-T15 recovery evidence)"
-        },
-        {
-          "id": "A3-T29",
+          "id": "A3-T31",
           "status": "ready",
           "issue": 28,
-          "summary": "Optional: SI note for PersistenceConfig.resolve_within_interval only if time; else hold"
+          "summary": "Optional: SI S2.6.2/S14.3 one-paragraph for PersistenceConfig.resolve_within_interval (default none); else hold"
         },
         {
-          "id": "A3-T30",
+          "id": "A3-T32",
           "status": "ready",
           "issue": 41,
-          "summary": "Idle: no further #41 SI unless A1 assigns after fitted-region recovery"
+          "summary": "Idle: no further #41 SI unless A1 assigns after SI-defensible fitted-region recovery"
+        },
+        {
+          "id": "A3-T33",
+          "status": "ready",
+          "issue": 44,
+          "summary": "Idle hold: SI A+C already landed; no further #44 SI until awaiting flip decision"
         }
       ]
     },
@@ -101,22 +101,22 @@
       ],
       "queue": [
         {
-          "id": "A4-T9",
+          "id": "A4-T12",
           "status": "ready",
           "issue": 41,
-          "summary": "lifetime filtration_mult / lifetime_frac calibration study on fitted circle (document which mult recovers b1=1); NOTE only"
+          "summary": "NOTE: propose next SI-defensible reading path given calib (mult>=6 / frac>=4 fails SI defaults); no awaiting flips"
         },
         {
-          "id": "A4-T10",
+          "id": "A4-T13",
           "status": "ready",
           "issue": 41,
-          "summary": "Optional: formalize radial/signal-band helper used in fitted-circle probe if duplicated; keep defaults unchanged"
+          "summary": "Optional: clean-shell lifetime_frac sweep table in NOTE for A3; keep recovery awaiting"
         },
         {
-          "id": "A4-T11",
+          "id": "A4-T14",
           "status": "ready",
           "issue": 41,
-          "summary": "NOTE: summarize clean-shell stepping-stone caveats (lifetime_frac\u22480.75 modest n; avoid lat/lon grids); no awaiting flips"
+          "summary": "Idle: confirm PH subset still green after integration scoop; NOTE only"
         }
       ]
     },
@@ -133,19 +133,19 @@
       ],
       "queue": [
         {
-          "id": "A5-T25",
+          "id": "A5-T28",
           "status": "ready",
           "issue": 43,
           "summary": "Re-check integration each turn for stage2/dual_flow; if present, CLAIM wiring into affected_dual_subgraph_connected"
         },
         {
-          "id": "A5-T26",
+          "id": "A5-T29",
           "status": "ready",
           "issue": 43,
           "summary": "REPORT via NOTE if still blocked on S6; keep queue warm without drive-by Stage-1 edits"
         },
         {
-          "id": "A5-T27",
+          "id": "A5-T30",
           "status": "ready",
           "issue": 43,
           "summary": "Optional: confirm DualAdjacency SI anchors still accurate after any gate.py churn; NOTE only"
@@ -166,19 +166,19 @@
       ],
       "queue": [
         {
-          "id": "A6-T22",
+          "id": "A6-T25",
           "status": "ready",
           "issue": 28,
           "summary": "Idle hold: no resolve_within_interval default flip; NOTE only if new SI-justified within-interval signal appears"
         },
         {
-          "id": "A6-T23",
+          "id": "A6-T26",
           "status": "ready",
           "issue": 28,
-          "summary": "Optional: if A1 assigns A3 SI flag prose, stay hands-off (A3 owns SI.tex); else hold"
+          "summary": "Optional: if A3 writes resolve_within_interval SI prose, stay hands-off SI.tex; else hold"
         },
         {
-          "id": "A6-T24",
+          "id": "A6-T27",
           "status": "ready",
           "issue": 28,
           "summary": "Idle: confirm hybrid lock + paper L=1 still green after any integration scoop; NOTE only"
@@ -186,5 +186,5 @@
       ]
     }
   },
-  "notes": "2026-08-09T14:55: A2-T15 RECOVERY via signal-density (nested ARI=1.0); assigned A3 SI A+C; refilled A2 guards."
+  "notes": "2026-08-09T15:00: Scooped A3 SI A+C, A4-T9..T11 calib+helper, A2 multiply restore, A5/A6 drains; refilled A3/A4/A5/A6; A2 keeps T18..T20."
 }

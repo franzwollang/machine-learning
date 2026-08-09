@@ -146,9 +146,12 @@ re-searched *finer* scales inside a single feature.
   recovers nested shells **2 leaves / ARI=1.0**; circle stays 1 leaf at
   `steps<=8`. Band/noncentroid alone still unrecovered. Hold awaiting flip
   until linked_tori/swiss guards confirmed.
-- **Remaining:** linked_tori / swiss guards; optional keep_frac harden; flip
-  awaiting only after A1 confirms. **SI S2.6.2+S14.3 A+C now assignable to A3.**
-  Distinct from #28.
+- **Landed (A3-T28 SI A+C):** SI S2.6.2 + S14.3 document `allow_finer_research`
+  and radial-band / noncentroid / signal-density flags (proposal-path, default
+  off; cites unit nested ARI=1.0). Score is `rho_knn * rho_radial` (A2 restored
+  multiply after divide regression).
+- **Remaining:** linked_tori / swiss guards (A2-T18..T20); optional keep_frac
+  harden; flip awaiting only after A1 confirms. Distinct from #28.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
@@ -182,10 +185,18 @@ circle `b1 = 1` target of #25.
 - **Landed (A4-T8 stepping stone):** Fibonacci nested-sphere clean-shell PH via
   `topology_from_accepted_regions` + signal filter green (`test_ph_nested_spheres_clean_shells.py`);
   fixed_threshold per shell `(1,0,1)`; lifetime needs `frac≈0.75` at modest n;
-  tissue whole-cloud polluted, `include_labels` restores. Recovery awaiting unchanged.
-- **Remaining before flipping recovery tests:**
-  1. *Fitted-region evidence* that recovers Betti at an SI-defensible reading.
-  2. *lifetime filtration_mult / lifetime_frac calibration* on fitted circle.
+  tissue whole-cloud polluted, `include_labels` restores. Prefer Fibonacci S2
+  (lat/lon grids birth spurious `b1`). Recovery awaiting unchanged.
+- **FINDING (A4-T9 calib):** fitted-circle signal-filter (`seed=21`):
+  `fixed_threshold` recovers `(1,1)` at min `filtration_mult=6` (window ~[6,10],
+  fills by 12); `lifetime` needs `filtration_mult≥6` **and** `lifetime_frac≥4`
+  (default 0.5 leaves `b0≫1`). SI `(1.5, 0.5)` still fails — do not flip defaults
+  or awaiting. Probe: `test_ph_fitted_circle_calibration.py`.
+- **Landed (A4-T10):** `nearest_data_labels` NN helper in
+  `tests/metrics/persistent_homology.py`; fitted-circle probes refactored.
+- **Remaining before flipping recovery tests:** fitted-region evidence at an
+  SI-defensible reading (calib shows SI defaults insufficient; need a justified
+  reading or scaffold cleanup path).
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 

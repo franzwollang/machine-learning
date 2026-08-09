@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T14:55-05:00",
-  "turn": 39,
+  "updated_at": "2026-08-09T15:00-05:00",
+  "turn": 40,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "A3 SI A+C + A2 linked_tori/swiss guards"
+    "goal": "A2 linked_tori/swiss guards before awaiting flip"
   },
   "recent": [
-    "A2-T15 RECOVERY: signal-density nested ARI=1.0",
-    "Assigned A3 SI A+C; refilled A2-T18..T20",
-    "Kept strong unit fixtures through merge"
+    "Scooped A3 SI A+C + A4 calib + A2 multiply restore",
+    "Retuned dens fixture seed=2→1 for multiply contrast",
+    "Refilled A3/A4/A5/A6; A2 keeps T18..T20"
   ],
   "discoveries": [
-    "Signal-density knn\u00d7radial-hist recovers nested unit harness",
-    "Band/noncentroid alone still miss nested e2e"
+    "Signal-density knn×radial recovers nested unit harness",
+    "Fitted-circle needs mult≥6; SI (1.5,0.5) still fails"
   ],
   "open_threads": [
     "Hold awaiting flip pending linked_tori/swiss",
     "dual_flow still absent",
-    "A4-T9 lifetime calibration pending"
+    "Optional #28 resolve_within_interval SI prose"
   ],
-  "next_step": "MERGE_DONE push; watch A3 SI + A2 guards",
+  "next_step": "MERGE_DONE push; watch A2-T18..T20",
   "blockers": []
 }

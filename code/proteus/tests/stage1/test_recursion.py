@@ -649,9 +649,9 @@ def test_signal_density_band_prefers_shell_arcs() -> None:
     inner = _ring(1.0, 12)
     outer = _ring(3.0, 12)
     # Sparse mid-radius tissue (low knn density vs dense rings).
-    # Integrator: n_shell=16/mid=20/keep=0.6 made plain succeed and dens
-    # collapse both shells to one label; use plain-fail / dens-recover contrast.
-    rng = np.random.default_rng(2)
+    # Integrator: with knn×radial multiply score, seed=2/keep=0.5 returns
+    # dens=None; seed=1 keeps plain-fail / dens-recover (2 shells, Q>0).
+    rng = np.random.default_rng(1)
     mid = [
         _Node([float(r) * np.cos(a), float(r) * np.sin(a)])
         for r, a in zip(

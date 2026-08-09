@@ -38,3 +38,4 @@
 {"ts":"2026-08-09T13:40-05:00","focus":"M1 #44 pairing dead-end","summary":"MERGE scoop A2 code + A3/A5 mailboxes; tests 16p recursion+persistence + 3p/1x evidence; refilled A2-T10..T12; #44 SI A+C held","next":"scoop A4/A6 mid-turn tips"}
 {"ts":"2026-08-09T14:03-05:00","focus":"M1 #44 radial-gap scoop","summary":"MERGE A2 radial-gap + A3/A5/A6 mailboxes + A6 paper sync; tests 18p + 3p/1x; #44 SI A+C held; #28 diagnose closed keep coarse-end","next":"scoop A4-T8..T10"}
 {"ts":"2026-08-09T14:40-05:00","focus":"M1 #44 heartbeat","summary":"No scoop; workers behind integration waiting to claim T13+/T9+; tracking #44 remaining refreshed; dual_flow still absent","next":"scoop A2-T13..T15 / A4-T9..T11 when tips appear"}
+{"ts":"2026-08-09T15:00-05:00","focus":"M1 #44/#41 scoop","summary":"MERGE A2 multiply + A3 SI A+C + A4 calib/helper + A5/A6 drains; tests 32p/1x; refilled queues; dens fixture seed=1","next":"watch A2-T18..T20 linked_tori/swiss"}
