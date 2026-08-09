@@ -302,6 +302,7 @@ def test_finer_research_flag_defaults_off() -> None:
     assert cfg.hollow_require_persistent_agree is False
     assert cfg.hollow_use_a4_primary is False
     assert cfg.hollow_mst_critical_only is False
+    assert cfg.hollow_bridge_critical_only is False
 
 
 def test_hollow_edge_partition_splits_bridged_blobs() -> None:
@@ -1892,3 +1893,97 @@ def test_hollow_recovery_requires_sample_ari_not_k() -> None:
 
     assert not _claims_recovery(maj_def, ari_def)
     assert not _claims_recovery(maj_mst, ari_mst)
+
+
+def test_bridge_critical_hollow_vs_mst_on_nested() -> None:
+    """#44: bridge-critical (true cut-set) vs MST-critical on nested@0.27.
+
+    Capacity/flow beyond MST: graph bridges ∩ hollow.  On adapted nested
+    scaffolds both suppress spurious default K=2; neither recovers sample
+    ARI.  Flags default-off.
+    """
+
+    from proteus.stage1.edge_evidence import HollowEdgeConfig, a4_roc_primary_config
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().hollow_bridge_critical_only is False
+
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    sc = Stage1Scaffold(
+        dim=int(nested.points.shape[1]), tau=0.27, k=8, max_nodes=64,
+        ann_backend="naive", rng=np.random.default_rng(0),
+    )
+    sc.init_from(nested.points, n_seeds=8)
+    sc.run_until_stable(
+        nested.points,
+        StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+    )
+
+    maj_def, ari_def = _hollow_majors_and_sample_ari(
+        sc, nested.points, nested.labels, HollowEdgeConfig(),
+    )
+    maj_mst, _ = _hollow_majors_and_sample_ari(
+        sc, nested.points, nested.labels,
+        a4_roc_primary_config(mst_critical_only=True),
+    )
+    maj_br, ari_br = _hollow_majors_and_sample_ari(
+        sc, nested.points, nested.labels,
+        a4_roc_primary_config(bridge_critical_only=True),
+    )
+    assert maj_def == 2
+    assert ari_def is not None and ari_def < 0.2
+    assert maj_mst <= 1
+    assert maj_br <= 1
+    # Bridge-critical ⊆ cut-set ⇒ no multi-major recovery claim.
+    assert ari_br is None or ari_br < 0.5
+
+
+def test_a4_primary_multi_seed_sample_ari_table() -> None:
+    """#44: multi-seed A4 primary majors+ARI table (nested/tori probe taus).
+
+    Seeds 0..2 at nested@0.27 and tori@0.5 under A4 primary (and
+    bridge-critical).  Documents seed fragility; never treat K≥2 as
+    recovery without sample ARI.  No awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import a4_roc_primary_config
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    cfg_a4 = a4_roc_primary_config()
+    cfg_br = a4_roc_primary_config(bridge_critical_only=True)
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+
+    def _adapt(points, tau: float, seed: int):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
+            ann_backend="naive", rng=np.random.default_rng(seed),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    recovered = 0
+    for seed in (0, 1, 2):
+        for ds, labels, tau in (
+            (nested, nested.labels, 0.27),
+            (tori, tori.labels, 0.5),
+        ):
+            sc = _adapt(ds.points, tau, seed)
+            for cfg in (cfg_a4, cfg_br):
+                maj, ari = _hollow_majors_and_sample_ari(
+                    sc, ds.points, labels, cfg,
+                )
+                if maj >= 2:
+                    assert ari is not None and ari < 0.5
+                else:
+                    assert maj <= 1
+                if maj >= 2 and ari is not None and ari >= 0.5:
+                    recovered += 1
+    assert recovered == 0  # no sample-ARI recovery across seeds/cfgs
