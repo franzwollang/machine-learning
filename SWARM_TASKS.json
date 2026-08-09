@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T11:40-05:00",
+  "updated_at": "2026-08-09T11:42-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -21,7 +21,7 @@
         {
           "id": "A1-T2",
           "status": "ready",
-          "summary": "After workers claim, run first MERGE_START\u2192integration merge\u2192tests\u2192MERGE_DONE; refill queues"
+          "summary": "After workers claim, merge current tips into coord/integration (best-effort snapshot), run tests, append MERGE_DONE with integration_sha, refill queues \u2014 no MERGE_START / no worker pause"
         },
         {
           "id": "A1-T3",
@@ -186,5 +186,5 @@
       ]
     }
   },
-  "notes": "Branches coord/A1..A6 are durable identities (never rename for issues). A1 refills queues to 2\u20133 ready tasks per agent after each MERGE_DONE and may reassign owns_issues/owns_files over time. Workers take the first status=ready item for their id, CLAIM it, then DONE/BLOCKED."
+  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only: workers merge origin/coord/integration at turn start if behind; A1 publishes MERGE_DONE after merges (no mid-turn pause). A1 keeps queues 2\u20133 deep and may reassign owns_issues/owns_files over time."
 }
