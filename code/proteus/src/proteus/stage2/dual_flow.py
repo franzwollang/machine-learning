@@ -9,19 +9,27 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
 **What this stub is not.** Full SI S6 dual-flow remains M4 / OPEN_ISSUES #43:
 
 * **S6.1** online face-pressure tallies — fractional residual → facet normals
-  land behind ``enable_face_tallies`` (proposed; default off). Not wired into
-  live sample routing yet.
+  land behind ``enable_face_tallies`` (proposed; default off). Dry-run can
+  demo-wire tallies via ``dry_run_dual_from_edit(..., samples=...)``; live
+  sample routing is still unwired.
 * **S6.2** loopy Gaussian BP conservative reconstruction (real factor-graph
   solve; this module only sketches an identity / damped copy behind
-  ``enable_conservative_bp``)
+  ``enable_conservative_bp``). Remaining real-BP gaps: build ``A_S`` from
+  facet areas × outward normals; whitened ``λ_f`` data term; ``μ_S``
+  conservation weights (eq. si-dual-flow-weight); loopy Gaussian BP with
+  damping / spectrum conditioning; nonzero ``r_cons`` / ``ε_flux``; online
+  tallies → offline solve schedule; true-manifold flux zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
   seams land behind ``enable_boundary_taxonomy`` (proposed; default off).
-  Heuristic single-owner → true-manifold; hint sets override.
-* **S6.4** simplex-local PL density formula — still missing.
+  Heuristic single-owner → true-manifold; hint sets override. Ghost-reservoir
+  / seam pressure stitching still missing.
+* **S6.4** simplex-local PL density — sketch behind ``enable_simplex_density``
+  (proposed; default off). Does **not** flip density ``@awaiting`` tests.
 
-Mass-conservation and density ``@awaiting("stage2.dual_flow")`` tests stay
-xfail until that producer lands. This file unblocks adjacency → gate wiring
-and experimental dry-run / BP / tally / taxonomy sketches only.
+Mass-conservation / density / benchmark ``@awaiting("stage2.dual_flow")``
+(and ``stage2.density``) stay xfail until the full producer lands. This file
+unblocks adjacency → gate wiring and experimental dry-run / BP / tally /
+taxonomy / density sketches only.
 
 Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
 
@@ -33,11 +41,28 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
   :func:`solve_conservative_pressures` returns ``None``; when on, returns an
   identity/damped sketch (``p ≈ hat p``), **not** the SI quadratic BP solve.
 * ``DualFlowConfig.enable_face_tallies`` — when off,
-  :func:`accumulate_face_pressure_tally` returns ``None``.
+  :func:`accumulate_face_pressure_tally` / dry-run tally field return ``None``.
 * ``DualFlowConfig.enable_boundary_taxonomy`` — when off,
   :func:`classify_boundary_facets` returns ``None``.
+* ``DualFlowConfig.enable_simplex_density`` — when off,
+  :func:`simplex_local_density` returns ``None``.
 * Call sites that opt in (tests / experimental dry-runs) pass flags ``True``
   and feed results into the gate or diagnostics.
+
+Acceptance-path plan (replace ``None`` ⇒ ``True``; A5-T42; do **not** flip yet)
+---------------------------------------------------------------------------
+Today ``affected_dual_subgraph_connected(None, ...)`` and flag-off dry-run /
+``resolve_dual_connected`` conservatively treat A2 as open so Stage-1 edits
+are not blocked by a missing Stage-2 producer. Closing #43 requires:
+
+1. Default-on dual adjacency from a settled post-edit complex (or an
+   equivalent always-available producer) so ``None`` is unreachable on the
+   acceptance path — or an explicit fail-closed policy with a declared null.
+2. Real S6.2 BP (not the identity sketch) feeding mass / density so
+   ``@awaiting("stage2.dual_flow")`` / ``stage2.density`` can flip with green
+   evidence — never by weakening tests.
+3. Gate default ``apply_dual_adjacency=True`` only after (1)–(2) and SI S6.6
+   promotion from proposed → acceptance; keep proposal flags off until then.
 """
 from __future__ import annotations
 
@@ -52,6 +77,7 @@ from proteus.evidence.gate import (
     DualAdjacency,
     affected_dual_subgraph_connected,
 )
+from proteus.stage2.flag_complex import simplex_volume
 from proteus.types import (
     BoundaryClassification,
     BoundaryType,
@@ -66,6 +92,7 @@ __all__ = [
     "DualDryRunResult",
     "ConservativeBPResult",
     "FaceTallyResult",
+    "SimplexDensityResult",
     "build_dual_adjacency",
     "build_dual_adjacency_from_complex",
     "dry_run_dual_from_edit",
@@ -73,6 +100,9 @@ __all__ = [
     "simplex_outward_normals",
     "accumulate_face_pressure_tally",
     "classify_boundary_facets",
+    "barycentric_coordinates",
+    "vertex_weights_from_facet_pressures",
+    "simplex_local_density",
     "affected_subgraph_connected",
     "resolve_dual_connected",
 ]
@@ -110,6 +140,10 @@ class DualFlowConfig:
         ``None``. When ``True``, labels single-owner facets via SI S6.3
         taxonomy (heuristic true-manifold + optional computational /
         orientation-seam hint sets).
+    enable_simplex_density:
+        When ``False`` (default), :func:`simplex_local_density` returns
+        ``None``. When ``True``, evaluates the SI S6.4 PL profile sketch
+        (proposal-path; does not flip density ``@awaiting`` tests).
     bp_damping:
         Operational damping in ``[0, 1]`` for the BP sketch
         (``p <- (1-d)*hat_p + d*p_prev``). Default ``0.5``.
@@ -118,15 +152,20 @@ class DualFlowConfig:
         monitoring via ``r_data`` / ``r_cons``; not implemented here.
     tally_scale:
         Operational scale on S6.1 increments (default ``1.0``). Not calibrated.
+    volume_floor:
+        Arithmetic safeguard on ``|S|_d`` for S6.4 (default ``1e-12``).
+        Operational; not a shape diagnostic (SI S6.4).
     """
 
     enable_dual_adjacency: bool = False
     enable_conservative_bp: bool = False
     enable_face_tallies: bool = False
     enable_boundary_taxonomy: bool = False
+    enable_simplex_density: bool = False
     bp_damping: float = 0.5
     bp_max_iters: int = 1
     tally_scale: float = 1.0
+    volume_floor: float = 1e-12
 
 
 @dataclass(frozen=True)
@@ -148,12 +187,19 @@ class DualDryRunResult:
     post_edit_complex:
         Complex after removals/additions (same ``vertex_positions`` /
         ``intrinsic_dim`` as the input).
+    face_tallies:
+        Optional per-affected-simplex S6.1 tally demo (``None`` when
+        ``enable_face_tallies`` is off). When the flag is on, a (possibly
+        empty) mapping from post-edit simplex id → :class:`FaceTallyResult`
+        after accumulating ``samples`` on that simplex's vertices. Not live
+        routing — demonstration wiring only (A5-T40).
     """
 
     dual_adjacency: DualAdjacencyDict | None
     affected_simplices: tuple[Hashable, ...]
     dual_connected: bool
     post_edit_complex: Complex
+    face_tallies: Mapping[Hashable, FaceTallyResult] | None = None
 
 
 @dataclass(frozen=True)
@@ -187,6 +233,26 @@ class FaceTallyResult:
     tallies: np.ndarray
     barycenter: np.ndarray
     normals: np.ndarray
+
+
+@dataclass(frozen=True)
+class SimplexDensityResult:
+    """SI S6.4 simplex-local PL density sketch (proposal-path; #43 / A5-T41).
+
+    ``density`` is ``p(x|S)``. When ``used_uniform_fallback`` is True,
+    ``w_bar`` was zero and the evaluator fell back to ``m_S / |S|_d``.
+    """
+
+    density: float
+    rho_tilde: float
+    w_bar: float
+    barycentric: np.ndarray
+    volume: float
+    used_uniform_fallback: bool
+    note: str = (
+        "sketch only: SI S6.4 PL profile; not wired to live density path; "
+        "do not flip @awaiting(stage2.density / stage2.dual_flow)"
+    )
 
 
 def _as_vertex_frozenset(vertices: Sequence[Hashable]) -> frozenset[Hashable]:
@@ -286,6 +352,7 @@ def dry_run_dual_from_edit(
     add_simplices: Sequence[Sequence[int]] | None = None,
     affected_node_ids: Sequence[int] | None = None,
     proposal: EditProposal | None = None,
+    samples: Sequence[np.ndarray] | None = None,
     config: DualFlowConfig | None = None,
 ) -> DualDryRunResult:
     """Dry-run a complex edit → affected simplices → dual adjacency (SI S10.4).
@@ -304,6 +371,11 @@ def dry_run_dual_from_edit(
 
     When ``enable_dual_adjacency`` is off, ``dual_adjacency`` is ``None`` and
     ``dual_connected`` is ``True`` (acceptance path unchanged).
+
+    When ``enable_face_tallies`` is on, optionally demo-wires S6.1 tallies
+    (A5-T40): each sample in ``samples`` is accumulated onto every affected
+    simplex that has ``vertex_positions`` (naive all-to-affected routing —
+    **not** BMU live routing). Flag off ⇒ ``face_tallies`` is ``None``.
     """
 
     cfg = config or DualFlowConfig()
@@ -358,11 +430,34 @@ def dry_run_dual_from_edit(
 
     adj = build_dual_adjacency_from_complex(post_edit, config=cfg)
     connected = affected_subgraph_connected(adj, affected_t)
+
+    face_tallies: dict[Hashable, FaceTallyResult] | None = None
+    if cfg.enable_face_tallies:
+        face_tallies = {}
+        positions = post_edit.vertex_positions
+        if samples is not None and positions is not None:
+            pos = np.asarray(positions, dtype=float)
+            for sid in affected_t:
+                s = post_simplices[int(sid)]
+                vids = [int(v) for v in s.vertex_ids]
+                P = pos[vids]
+                prior = None
+                last: FaceTallyResult | None = None
+                for raw in samples:
+                    last = accumulate_face_pressure_tally(
+                        raw, P, prior_tallies=prior, config=cfg
+                    )
+                    if last is not None:
+                        prior = last.tallies
+                if last is not None:
+                    face_tallies[sid] = last
+
     return DualDryRunResult(
         dual_adjacency=adj,
         affected_simplices=affected_t,
         dual_connected=connected,
         post_edit_complex=post_edit,
+        face_tallies=face_tallies,
     )
 
 
@@ -592,6 +687,118 @@ def classify_boundary_facets(
             BoundaryClassification(facet_id=len(out), boundary_type=btype)
         )
     return out
+
+
+def barycentric_coordinates(
+    sample: np.ndarray,
+    vertex_positions: np.ndarray,
+    *,
+    eps: float = 1e-12,
+) -> np.ndarray:
+    """Affine barycentric coordinates of ``sample`` in simplex ``P`` (SI S6.4).
+
+    Solves ``[P^T; 1] β = [x; 1]`` in least squares when ambient dim exceeds
+    the simplex dim. Coordinates need not be nonnegative (sample may lie
+    outside ``S``); the density sketch still evaluates the PL profile.
+    """
+
+    x = np.asarray(sample, dtype=float).reshape(-1)
+    P = np.asarray(vertex_positions, dtype=float)
+    if P.ndim != 2:
+        raise ValueError("vertex_positions must be 2-D")
+    n, D = P.shape
+    if x.shape[0] != D:
+        raise ValueError(f"sample dim {x.shape[0]} != vertex ambient dim {D}")
+    if n < 1:
+        raise ValueError("simplex needs at least one vertex")
+    if n == 1:
+        return np.array([1.0])
+
+    # Stack affine constraint: sum β = 1.
+    A = np.vstack([P.T, np.ones(n)])  # (D+1, n)
+    b = np.concatenate([x, [1.0]])
+    beta, *_rest = np.linalg.lstsq(A, b, rcond=None)
+    # Renormalize tiny drift so sum is exactly 1 when solvable.
+    s = float(np.sum(beta))
+    if abs(s) > eps:
+        beta = beta / s
+    return np.asarray(beta, dtype=float)
+
+
+def vertex_weights_from_facet_pressures(facet_pressures: np.ndarray) -> np.ndarray:
+    """Vertex weights = sum of incident facet pressures (SI S6.4).
+
+    Facet ``i`` is opposite vertex ``i``, so vertex ``i`` is incident to every
+    facet except ``i``: ``w_i = Σ_{j≠i} p_j``.
+    """
+
+    p = np.asarray(facet_pressures, dtype=float).reshape(-1)
+    total = float(np.sum(p))
+    return np.asarray([total - float(p[i]) for i in range(p.shape[0])], dtype=float)
+
+
+def simplex_local_density(
+    sample: np.ndarray,
+    vertex_positions: np.ndarray,
+    *,
+    mass: float,
+    facet_pressures: np.ndarray,
+    volume: float | None = None,
+    config: DualFlowConfig | None = None,
+) -> SimplexDensityResult | None:
+    """SI S6.4 simplex-local PL density sketch (proposal-path; #43 / A5-T41).
+
+    When ``enable_simplex_density`` is off, returns ``None``. When on:
+
+        ρ̃_S(x) = Σ_i β_i(x) w_{v_i}^{(S)},
+        w̄_S = (1/(d+1)) Σ_i w_{v_i}^{(S)},
+        p(x|S) = (m_S / |S|_d) · (ρ̃_S / w̄_S)
+
+    with ``w_v`` from :func:`vertex_weights_from_facet_pressures`. If
+    ``w̄_S = 0``, falls back to the uniform profile ``m_S / |S|_d`` (SI S6.4
+    graceful degradation). Volume floor is an arithmetic safeguard only.
+
+    Does **not** flip ``@awaiting("stage2.density")`` / mass-conservation
+    tests — live density path remains unwired.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_simplex_density:
+        return None
+
+    P = np.asarray(vertex_positions, dtype=float)
+    beta = barycentric_coordinates(sample, P)
+    w = vertex_weights_from_facet_pressures(facet_pressures)
+    if w.shape != beta.shape:
+        raise ValueError(
+            f"facet_pressures length {w.shape[0]} != simplex vertex count {beta.shape[0]}"
+        )
+    w_bar = float(np.mean(w))
+    rho_tilde = float(np.dot(beta, w))
+    vol = float(volume) if volume is not None else float(simplex_volume(P))
+    floor = float(cfg.volume_floor)
+    if floor < 0.0:
+        raise ValueError("volume_floor must be >= 0")
+    vol_safe = max(vol, floor)
+    if abs(w_bar) < 1e-15:
+        dens = float(mass) / vol_safe
+        return SimplexDensityResult(
+            density=dens,
+            rho_tilde=rho_tilde,
+            w_bar=w_bar,
+            barycentric=beta,
+            volume=vol,
+            used_uniform_fallback=True,
+        )
+    dens = (float(mass) / vol_safe) * (rho_tilde / w_bar)
+    return SimplexDensityResult(
+        density=dens,
+        rho_tilde=rho_tilde,
+        w_bar=w_bar,
+        barycentric=beta,
+        volume=vol,
+        used_uniform_fallback=False,
+    )
 
 
 def affected_subgraph_connected(

@@ -13,20 +13,23 @@ Green tests lock:
   (``dry_run_dual_from_edit``, flag default off).
 * Conservative BP *sketch* behind ``enable_conservative_bp`` (identity/damped;
   not the SI S6.2 loopy Gaussian solve).
-* S6.1 face-pressure tally helper behind ``enable_face_tallies`` (not wired
-  into live sample routing).
+* S6.1 face-pressure tally helper behind ``enable_face_tallies``; dry-run can
+  demo-wire tallies via ``samples=`` (still not live BMU routing).
 * S6.3 boundary taxonomy behind ``enable_boundary_taxonomy`` (single-owner
   heuristic + hint sets; not full seam stitching).
+* S6.4 simplex-local PL density *sketch* behind ``enable_simplex_density``
+  (default off; does not flip density awaiting tests).
 
 Gaps vs full SI S6 (do **not** flip these elsewhere yet):
 
-* **S6.1** Tally helper exists but is not wired into online sample routing.
+* **S6.1** Tally helper + dry-run demo exist; live sample routing still open.
 * **S6.2** No real loopy Gaussian BP / ``A_S p_S`` conservation solve (sketch
-  only; ``r_cons`` stubbed at 0).
+  only; ``r_cons`` stubbed at 0). See module docstring acceptance-path plan
+  + real-BP gap list (A5-T42).
 * **S6.3** Taxonomy stub lacks ghost-reservoir / seam pressure stitching.
-* **S6.4** No simplex-local PL density formula.
+* **S6.4** Density sketch only; live evaluator / mass normalization open.
 * Mass-conservation / density / benchmark ``@awaiting("stage2.dual_flow")``
-  tests remain xfail until that producer lands.
+  (and ``stage2.density``) remain xfail until that producer lands.
 * Acceptance path still defaults open when adjacency is ``None`` / flags off.
 """
 from __future__ import annotations
@@ -46,13 +49,17 @@ from proteus.evidence.dm_score import NodeTransition
 from proteus.stage2 import (
     DualFlowConfig,
     accumulate_face_pressure_tally,
+    barycentric_coordinates,
     build_dual_adjacency,
     build_dual_adjacency_from_complex,
     classify_boundary_facets,
     dry_run_dual_from_edit,
     resolve_dual_connected,
+    simplex_local_density,
     simplex_outward_normals,
+    simplex_volume,
     solve_conservative_pressures,
+    vertex_weights_from_facet_pressures,
 )
 from proteus.types import (
     BoundaryType,
@@ -587,3 +594,139 @@ def test_boundary_taxonomy_single_owner_and_hints():
     assert BoundaryType.TRUE_MANIFOLD in types
     # Seam hint wins if both lists somehow overlapped — covered by exclusive sets here.
     assert len(hinted) == 4
+
+
+# ---------------------------------------------------------------------------
+# A5-T40: dry-run demo-wires S6.1 tallies (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def _triangle_complex() -> Complex:
+    """Single triangle with nontrivial vertex positions for tally demos."""
+
+    return Complex(
+        simplices=[Simplex(vertex_ids=(0, 1, 2))],
+        vertex_positions=np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]),
+        intrinsic_dim=2,
+    )
+
+
+def test_dry_run_face_tallies_flag_off_none():
+    """enable_face_tallies=False ⇒ DualDryRunResult.face_tallies is None."""
+
+    c = _triangle_complex()
+    samples = [np.array([0.7, 0.7])]
+    result = dry_run_dual_from_edit(
+        c, remove_simplex_indices=[], affected_node_ids=[0], samples=samples
+    )
+    assert result.face_tallies is None
+
+    cfg = DualFlowConfig(enable_dual_adjacency=True)  # tallies still off
+    result2 = dry_run_dual_from_edit(
+        c, affected_node_ids=[0], samples=samples, config=cfg
+    )
+    assert result2.face_tallies is None
+
+
+def test_dry_run_face_tallies_demo_accumulates_on_affected():
+    """Flag on + samples ⇒ per-affected-simplex FaceTallyResult (demo routing)."""
+
+    c = _triangle_complex()
+    cfg = DualFlowConfig(enable_face_tallies=True, tally_scale=1.0)
+    samples = [np.array([0.7, 0.7]), np.array([0.6, 0.6])]
+    result = dry_run_dual_from_edit(
+        c, affected_node_ids=[0], samples=samples, config=cfg
+    )
+    assert result.face_tallies is not None
+    assert set(result.face_tallies.keys()) == {0}
+    tally = result.face_tallies[0]
+    assert np.all(tally.increments >= 0.0)
+    assert tally.tallies.shape == (3,)
+    # Two samples both outside hypotenuse → facet 0 (opp v0) accumulates.
+    assert tally.tallies[0] > 0.0
+
+    # Flag on but no samples → empty mapping (wired, vacuous).
+    empty = dry_run_dual_from_edit(c, affected_node_ids=[0], config=cfg)
+    assert empty.face_tallies == {}
+
+
+# ---------------------------------------------------------------------------
+# A5-T41: S6.4 simplex-local density sketch (default off)
+# ---------------------------------------------------------------------------
+
+
+def test_simplex_density_flag_off_returns_none():
+    """enable_simplex_density=False ⇒ simplex_local_density is None."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    x = np.array([0.25, 0.25])
+    assert simplex_local_density(x, P, mass=1.0, facet_pressures=np.ones(3)) is None
+
+
+def test_simplex_density_pl_profile_and_uniform_fallback():
+    """S6.4: p = (m/|S|) * ρ̃/w̄; w̄=0 ⇒ uniform m/|S|; barycenter β=1/(d+1)."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    vol = simplex_volume(P)
+    assert vol == pytest.approx(0.5)
+    cfg = DualFlowConfig(enable_simplex_density=True)
+    # Equal facet pressures → equal vertex weights → PL = uniform.
+    pressures = np.array([1.0, 1.0, 1.0])
+    w = vertex_weights_from_facet_pressures(pressures)
+    np.testing.assert_allclose(w, [2.0, 2.0, 2.0])
+    bary = P.mean(axis=0)
+    beta = barycentric_coordinates(bary, P)
+    np.testing.assert_allclose(beta, [1.0 / 3.0] * 3, atol=1e-9)
+
+    out = simplex_local_density(
+        bary, P, mass=1.0, facet_pressures=pressures, config=cfg
+    )
+    assert out is not None
+    assert not out.used_uniform_fallback
+    assert out.density == pytest.approx(1.0 / vol)
+
+    # Zero pressures → uniform fallback.
+    zero = simplex_local_density(
+        bary, P, mass=0.5, facet_pressures=np.zeros(3), config=cfg
+    )
+    assert zero is not None
+    assert zero.used_uniform_fallback
+    assert zero.density == pytest.approx(0.5 / vol)
+
+    # Nonuniform pressures: sample near a high-weight vertex raises density.
+    # w0=p1+p2=3, w1=p0+p2=1.1, w2=p0+p1=1.1 → near v0 should exceed mean.
+    uneven = np.array([0.1, 1.5, 1.5])
+    near_v0 = simplex_local_density(
+        np.array([0.05, 0.05]), P, mass=1.0, facet_pressures=uneven, config=cfg
+    )
+    at_bary = simplex_local_density(
+        bary, P, mass=1.0, facet_pressures=uneven, config=cfg
+    )
+    assert near_v0 is not None and at_bary is not None
+    assert near_v0.density > at_bary.density
+
+
+# ---------------------------------------------------------------------------
+# A5-T42: acceptance-path plan + S6.2 gap documentation locked in module
+# ---------------------------------------------------------------------------
+
+
+def test_acceptance_path_plan_documented_in_dual_flow_module():
+    """Module docstring records None⇒True replacement plan + real-BP gaps."""
+
+    import proteus.stage2.dual_flow as dual_flow
+
+    doc = dual_flow.__doc__ or ""
+    assert "Acceptance-path plan" in doc
+    assert "None" in doc and "True" in doc
+    # Real S6.2 gaps called out (not just the identity sketch).
+    assert "A_S" in doc
+    assert "loopy Gaussian BP" in doc
+    assert "r_cons" in doc or "ε_flux" in doc or "epsilon" in doc.lower()
+    # Flags still default off — acceptance unchanged.
+    cfg = DualFlowConfig()
+    assert cfg.enable_dual_adjacency is False
+    assert cfg.enable_conservative_bp is False
+    assert cfg.enable_face_tallies is False
+    assert cfg.enable_boundary_taxonomy is False
+    assert cfg.enable_simplex_density is False
