@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T13:05-05:00",
+  "updated_at": "2026-08-09T13:25-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -14,19 +14,19 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T16",
+          "id": "A1-T19",
           "status": "ready",
-          "summary": "Next cadence: scoop A2/A4 mid-turn tips; keep #44 SI A+C held until recovery evidence"
+          "summary": "Next cadence: scoop A2-T7..T9 / A4-T8..T10 mid-turn tips; keep #44 SI A+C held"
         },
         {
-          "id": "A1-T17",
+          "id": "A1-T20",
           "status": "ready",
-          "summary": "Confirm A6 persistence.py docstring trim + optional resolve_within_interval assign after DONE"
+          "summary": "If A6 posts better within-interval signal or SI draft REQUEST, update #28 / assign A3"
         },
         {
-          "id": "A1-T18",
+          "id": "A1-T21",
           "status": "ready",
-          "summary": "Watch dual_flow landing; if present, re-point A5 from idle watch to wiring CLAIM"
+          "summary": "Watch dual_flow landing; re-point A5 from idle watch to wiring CLAIM when present"
         }
       ]
     },
@@ -70,19 +70,19 @@
       ],
       "queue": [
         {
-          "id": "A3-T13",
+          "id": "A3-T16",
           "status": "ready",
           "issue": 44,
           "summary": "Idle hold: #44 SI A+C paragraph — nested/tori still 1-leaf; wait for A1 assign after recovery evidence"
         },
         {
-          "id": "A3-T14",
+          "id": "A3-T17",
           "status": "ready",
           "issue": 28,
-          "summary": "Optional NOTE: confirm SI has no remaining DEPRECATED/retained-behind-flag load_band rows after T10; REQUEST_TRACKER if any remnant"
+          "summary": "Idle: optional SI note for PersistenceConfig.resolve_within_interval only if A1 assigns; else hold (default remains none; hierarchy still ~9x)"
         },
         {
-          "id": "A3-T15",
+          "id": "A3-T18",
           "status": "ready",
           "issue": 41,
           "summary": "Idle: no further SI #41 edit unless A1 assigns after fitted-region evidence; hold only"
@@ -133,22 +133,22 @@
       ],
       "queue": [
         {
-          "id": "A5-T13",
+          "id": "A5-T16",
           "status": "ready",
           "issue": 43,
           "summary": "Re-check integration each turn for stage2/dual_flow; if present, CLAIM wiring into affected_dual_subgraph_connected"
         },
         {
-          "id": "A5-T14",
+          "id": "A5-T17",
           "status": "ready",
           "issue": 43,
           "summary": "REPORT via NOTE if still blocked on S6; keep queue warm without drive-by Stage-1 edits"
         },
         {
-          "id": "A5-T15",
+          "id": "A5-T18",
           "status": "ready",
           "issue": 43,
-          "summary": "Optional: skim dual_flow-related awaiting markers; NOTE any additional wiring surfaces beyond gate hook"
+          "summary": "Optional: confirm DualAdjacency SI anchors still accurate after any gate.py churn; NOTE only"
         }
       ]
     },
@@ -166,25 +166,25 @@
       ],
       "queue": [
         {
-          "id": "A6-T13",
+          "id": "A6-T16",
           "status": "ready",
           "issue": 28,
-          "summary": "CLAIM persistence.py: rewrite module docstring — load_band deleted; selectors are load_crossover/persistence only"
+          "summary": "NOTE: probe why within-block load_crossover still lands ~9x expected on hierarchy (loads>1 / unstabilized grid[0]); no default flip"
         },
         {
-          "id": "A6-T14",
+          "id": "A6-T17",
           "status": "ready",
           "issue": 28,
-          "summary": "ASSIGNED: prototype PersistenceConfig.resolve_within_interval='load_crossover' behind default-off flag; no default flip; tests for flag-off parity"
+          "summary": "Optional: circle/swiss tau* under resolve_within_interval=load_crossover vs none; NOTE only; keep default none"
         },
         {
-          "id": "A6-T15",
+          "id": "A6-T18",
           "status": "ready",
           "issue": 28,
-          "summary": "NOTE hierarchy tau* under resolve_within_interval=load_crossover vs none; no awaiting flips; REQUEST_TRACKER with numbers"
+          "summary": "If a better within-interval resolve emerges, REQUEST_TRACKER; else NOTE that coarse-end remains acceptance default"
         }
       ]
     }
   },
-  "notes": "2026-08-09T13:05: scooped A3 SI load_band trim + lifetime_frac place, A5 DualAdjacency SI anchors, A6 T10–T12 greps; assigned A6 persistence.py + resolve_within_interval; refilled A3/A5/A6."
+  "notes": "2026-08-09T13:25: scooped A3 T13–T15 (mailbox), A5 T13–T15 (dual_flow still absent), A6 T13–T15 (docstring + resolve_within_interval prototype). A2/A4 still mid-CLAIM. Refilled A3/A5/A6. #44 SI A+C held."
 }

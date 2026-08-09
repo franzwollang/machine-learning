@@ -79,15 +79,15 @@ equilibrium). The knee proposal is therefore demoted to a diagnostic; persistenc
 compensated count, is the structural signal, and `L = 1` fixes each feature's resolution.
 
 Remaining work:
-- **Persistence tau* is coarse-end.** The persistence selector lands tau* at the coarse end
-  of the persistent interval (hierarchical tau*=0.36 vs expected 0.0225); refine toward the
-  within-interval characteristic scale before making persistence the default for structured
-  regions. Design recommendation (A6): hybrid — persistence as accept/reject arbiter, then
-  within-interval `load_crossover` resolve behind a flag
-  (`PersistenceConfig.resolve_within_interval`, default off); do not change defaults yet.
-- **Docstring stale:** `stage1/persistence.py` module docstring still says the legacy
-  load-band selector is the transition default — rewrite for `load_crossover` /
-  `persistence` only (code path already deleted; SI S2.5.1/S14.3 cleaned).
+- **Persistence tau* is coarse-end (hybrid prototyped, default off).** Flag
+  `PersistenceConfig.resolve_within_interval` (`"none"` | `"load_crossover"`, default
+  `"none"`) is wired: persistence remains the accept/reject arbiter; optional
+  within-interval `load_crossover` re-picks `tau*` inside the accepted persistent
+  subgrid. Hierarchy NOTE (A6-T15, seed=0, max_grid=8): default/`none` → `tau*=0.36`;
+  `load_crossover`-within → `tau*=0.199` (still ~9× `expected_tau=0.0225`; block loads
+  already >1 / grid[0] unstabilized). Do **not** flip the default; further refine or
+  accept that persistence stays a structural arbiter with coarse-end resolution until a
+  better within-interval signal exists. SI prose for the flag still optional.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 

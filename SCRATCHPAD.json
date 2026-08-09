@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T13:05-05:00",
-  "turn": 33,
+  "updated_at": "2026-08-09T13:25-05:00",
+  "turn": 34,
   "focus": {
     "milestone": "M2",
     "issue": 28,
-    "goal": "SI cleaned; assign persistence docstring + hybrid flag"
+    "goal": "hybrid prototyped; wait A2/A4 scoops"
   },
   "recent": [
-    "Scooped A3 SI load_band trim + lifetime_frac S14 place",
-    "A5 DualAdjacency SI anchors; A6 load_band grep/paper clean",
-    "Assigned A6-T13..T15 persistence.py + resolve_within_interval"
+    "Scooped A6 resolve_within_interval + docstring (#28)",
+    "A3/A5 queue drained+refilled; dual_flow still absent",
+    "Trimmed #28 remaining; M2 board updated"
   ],
   "discoveries": [
-    "Fitted-circle SI 1.5*sigma* still b1=0; ~8*sigma* existence only",
+    "Hybrid hierarchy tau* 0.36→0.199 still ~9x expected",
     "Recommended #44 pairing keeps nested/tori at 1 leaf"
   ],
   "open_threads": [
-    "A2/A4 mid-turn pairing + clean-shell PH studies",
-    "#44 SI A+C still held; dual_flow still absent",
-    "A6 hybrid resolve_within_interval prototype assigned"
+    "A2-T7..T9 / A4-T8..T10 mid-turn studies",
+    "#44 SI A+C held; dual_flow absent",
+    "Within-interval resolve still too coarse for default"
   ],
-  "next_step": "MERGE_DONE push; next turn scoop A2/A4 DONEs",
+  "next_step": "MERGE_DONE push; next turn scoop A2/A4",
   "blockers": []
 }
