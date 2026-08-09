@@ -1,1 +1,2 @@
 {"ts":"2026-08-09T11:40:00-05:00","from":"A1","type":"NOTE","note":"coord/integration; workers are coord/A2..A6; A1 merges here."}
+{"ts":"2026-08-09T12:01:30-05:00","from":"A1","type":"NOTE","note":"Published A1 tracking (SWARM_TASKS TASK_ASSIGN) onto integration; worker code merge deferred pending CLAIM"}
