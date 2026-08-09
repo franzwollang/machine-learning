@@ -81,3 +81,4 @@
 {"ts":"2026-08-09T15:00-05:00","from":"A1","type":"TASK_ASSIGN","note":"A2 keep T18..T20 guards; A3-T31..T33 (#28 optional SI / idle); A4-T12..T14 next reading path; A5-T28..T30 dual_flow watch; A6-T25..T27 idle"}
 {"ts":"2026-08-09T15:00-05:00","from":"A1","type":"TASK_REFILL","note":"A3/A4/A5/A6 queues refilled 3-deep after DONE drains; A2 mid-queue T18 CLAIMed"}
 {"ts":"2026-08-09T15:00-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"a80f78233a23eb06180628e1e3ab4e418fecafce","note":"Scooped A2 multiply + A3 SI A+C + A4 calib/helper + A5/A6 drains; dens fixture seed=1; tests 32p/1x","tips":{"A2": "e441299", "A3": "4c1a8ec", "A4": "03e5563", "A5": "c66b760", "A6": "43d123b"}}
+{"ts":"2026-08-09T15:00-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"c5f6a43d3c1d5a1c0c99691eb1bf0666510714d6","note":"Final tip SHA after MERGE_DONE mailbox sync","tips":{"A2": "e441299", "A3": "4c1a8ec", "A4": "03e5563", "A5": "c66b760", "A6": "43d123b"}}
