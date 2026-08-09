@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T13:25-05:00",
-  "turn": 34,
+  "updated_at": "2026-08-09T13:40-05:00",
+  "turn": 35,
   "focus": {
-    "milestone": "M2",
-    "issue": 28,
-    "goal": "hybrid prototyped; wait A2/A4 scoops"
+    "milestone": "M1",
+    "issue": 44,
+    "goal": "radius-aware shell split after pairing dead-end"
   },
   "recent": [
-    "Scooped A6 resolve_within_interval + docstring (#28)",
-    "A3/A5 queue drained+refilled; dual_flow still absent",
-    "Trimmed #28 remaining; M2 board updated"
+    "Scooped A2-T7..T9: persist safe, nested unrecovered",
+    "Refilled A2-T10..T12 radius/signal prepass diagnose",
+    "A3/A5 idle drains refilled; A4/A6 mid-CLAIM"
   ],
   "discoveries": [
-    "Hybrid hierarchy tau* 0.36→0.199 still ~9x expected",
-    "Recommended #44 pairing keeps nested/tori at 1 leaf"
+    "Pairing knobs exhausted for #44 shells (ARI≲0.09)",
+    "Hybrid hierarchy tau* 0.36→0.199 still ~9x expected"
   ],
   "open_threads": [
-    "A2-T7..T9 / A4-T8..T10 mid-turn studies",
+    "A4-T8..T10 / A6-T16..T18 mid-turn studies",
     "#44 SI A+C held; dual_flow absent",
-    "Within-interval resolve still too coarse for default"
+    "Need radius-band / signal-only prepass path"
   ],
-  "next_step": "MERGE_DONE push; next turn scoop A2/A4",
+  "next_step": "MERGE_DONE push; next turn scoop A4/A6",
   "blockers": []
 }

@@ -448,6 +448,10 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     nested_spheres and linked_tori both stay at **1 leaf** (n=160 and n=240).
     Deepening (steps=12–18 + prepass, min_samples=40) over-fragments
     (nested leaves 5–20, tori 6–12) with ARI≈0 / <0.23 — not shell recovery.
+
+    A2-T7/T8: circle-safe persist+prepass grid (n_seeds=8, min_frac 0.15–0.4,
+    steps≤12) still leaves nested at 1 leaf; steps≥12 or require_dm_split
+    without persist yields 5–9 leaves with ARI≲0.09 — still not recovery.
     """
 
     from tests.datasets.synthetic.nested_spheres import make_nested_spheres

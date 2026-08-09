@@ -113,9 +113,19 @@ re-searched *finer* scales inside a single feature.
   (persist+allow_finer_research+steps≤4+min_samples), nested_spheres and
   linked_tori still yield **1 leaf** — aspiration not recovered; do not flip
   awaiting tests.
-- **Remaining:** recover nested_spheres / linked_tori ground-truth component
-  counts (deeper pairing / prepass study); SI S2.6.2+S14.3 A+C paragraph still
-  held until recovery evidence is greener. Distinct from #28.
+- **FINDING (A2-T7..T9 pairing studies):** with unit-test harness `n_seeds=8`,
+  `persist=True` keeps circle = 1 leaf across prepass on/off, `finer_prepass_min_frac`
+  ∈ {0.15,0.2,0.3,0.4}, and `max_finer_scale_steps` ∈ {4,8,12}; dropping persist
+  false-hits (~16–21 leaves) even with prepass. On nested_spheres, none of
+  persist±prepass±`require_dm_split` recovered gt cc=2 with ARI>0.5 (steps≤8 → 1
+  leaf; deeper / dm-without-persist → 5–9 leaves, ARI≲0.09). Blockers: lifted-CC
+  prepass misses concentric shells (same radius-connected graph at recurse caps);
+  persist rejects shell-scale splits; dm over-clusters. Need radius-aware /
+  signal-band / tissue-filtered split — not more pairing knobs. SI A+C still held.
+- **Remaining:** diagnose why major lifted CC misses concentric shells (scaffold
+  CCs vs radius bands); prototype radius-aware / signal-only prepass (flag-gated,
+  default off); hold awaiting flips. SI S2.6.2+S14.3 A+C paragraph held until
+  recovery evidence is greener. Distinct from #28.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
