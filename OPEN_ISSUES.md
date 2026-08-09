@@ -164,9 +164,23 @@ re-searched *finer* scales inside a single feature.
   rejected. Linked_tori e2e under persist+pca(+sd) steps 4/8/12 still **1 leaf**.
   Docstring documents recommended pairing (uniforms steps≤4; nested sd+steps≥8;
   tori PCA prototype). Recursion tests 15 passed.
-- **Remaining:** tube / spectral / linking-number tori cues (throughput
-  experiments); flip awaiting only after A1 confirms tori recovery + swiss-safe
-  pairing. Distinct from #28.
+- **DIRECTIVE (human, 2026-08-09): reframe — stop geometry-specific prepasses.**
+  Disconnection is a scale-free topological property; tau descent + per-geometry
+  coordinate cues (radial/PCA/tube/spectral/linking) is the wrong hypothesis
+  family (probe evidence: same 64 nodes at tau=0.27 and tau=0.004 for
+  nested_spheres — descent buys no resolution). Replace with **hollow-edge
+  (empty-region) evidence**: data-side mid-segment occupancy test per lifted
+  edge (Gabriel/lens ratio `H = n_mid/n_end`, Poisson null), cut hollow edges
+  before clustering at the region's own tau*. Coordinate-free; predicted to
+  cover nested/tori/zoo/swiss in one statistic. Full derivation, literature
+  (Gabriel 1969, Toussaint 1980, Chaudhuri–Dasgupta 2010, ToMATo), and ordered
+  experiment protocol:
+  `docs/Proteus/paper_1_foundational/reference/empty_region_evidence_and_scale.md`.
+- **Remaining:** frozen-scaffold hollowness probe (decisive) → calibrated `h_0`
+  (adversarial-null ROC, no fixture tuning) → flag-gated
+  `prefer_hollow_edge_prepass` in clustering → fuller suite with NO descent →
+  then retire radial/PCA family + awaiting-flip review (A1 sign-off). Tube /
+  spectral / linking-number cues are deprioritized. Distinct from #28.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 

@@ -28,6 +28,11 @@
           "id": "A1-T45",
           "status": "ready",
           "summary": "After each scoop, prefer parallel experimental tracks over waiting on blockers (e.g. stub S6 if absent)"
+        },
+        {
+          "id": "A1-T46",
+          "status": "ready",
+          "summary": "HUMAN DIRECTIVE: read reference/empty_region_evidence_and_scale.md; #44 reframed to hollow-edge evidence (A2-T27..T29, A3-T38, A4-T18); deprioritize tau-descent + geometry-cue tasks; steer refills to that protocol; ROC calibration over fixture tuning; keep persistence/DM + L=1 untouched"
         }
       ]
     },
@@ -37,26 +42,28 @@
       "owns_issues": [44],
       "owns_files": [
         "code/proteus/src/proteus/stage1/recursion.py",
-        "code/proteus/tests/stage1/test_recursion.py"
+        "code/proteus/src/proteus/stage1/edge_evidence.py",
+        "code/proteus/tests/stage1/test_recursion.py",
+        "code/proteus/tests/stage1/test_edge_evidence.py"
       ],
       "queue": [
         {
-          "id": "A2-T24",
+          "id": "A2-T27",
           "status": "ready",
           "issue": 44,
-          "summary": "IMPLEMENT flag-gated tube/major-radius or angular-separation tori prepass (default off); unit probe + linked_tori leaf counts; no awaiting flip"
+          "summary": "DIRECTIVE (supersedes T24-T26): READ reference/empty_region_evidence_and_scale.md. Frozen-scaffold hollowness probe: nested_spheres tau~0.27, per lifted edge compute H=n_mid/n_end (mid-ball r=L/4 vs endpoint balls, raw data); expect cross-shell hollow, prune->cc=2 at coarse scale, NO descent. Repeat linked_tori (~0.5) + manifold_zoo (junctions NOT hollow, cc=1). If it fails, say so loudly in COORDINATION"
         },
         {
-          "id": "A2-T25",
+          "id": "A2-T28",
           "status": "ready",
           "issue": 44,
-          "summary": "Experiment: spectral/linking-number cue as alternate RecursionConfig flag; report circle/swiss/nested regressions"
+          "summary": "IMPLEMENT stage1/edge_evidence.py: hollowness_scores(scaffold, data) + Gabriel fallback at low n; flag-gated prefer_hollow_edge_prepass in recursion clustering path (default off); unit tests incl swiss guard (inter-wrap shortcuts cut, sheet cc stays 1)"
         },
         {
-          "id": "A2-T26",
+          "id": "A2-T29",
           "status": "ready",
           "issue": 44,
-          "summary": "Expand regression harness (circle/swiss/nested/tori) under persist+sd+pca pairing; document failures without flipping awaiting"
+          "summary": "Fuller suite (circle/hier/swiss/nested/tori/zoo) under persist(+dm)+hollow prepass, NO finer-scale descent; mechanism attribution per split (hollow vs persistence vs dm); report leaf counts + ARI; no awaiting flip without A1"
         }
       ]
     },
@@ -81,17 +88,17 @@
           "summary": "DRAFT SI S6 dual-flow / DualAdjacency stub section so A5 can implement against prose (proposed)"
         },
         {
-          "id": "A3-T37",
+          "id": "A3-T38",
           "status": "ready",
           "issue": 44,
-          "summary": "WRITE SI A+C for prefer_pca_axis_gap_prepass (proposal-path, default off; unit offset ok; interlocking unrecovered)"
+          "summary": "DRAFT SI section (proposed) for hollow-edge/empty-region evidence from reference/empty_region_evidence_and_scale.md: W_v extension M_transit, Gabriel/lens ratio + Poisson null, cluster-tree framing (Chaudhuri-Dasgupta 2010, ToMATo 2013, Stuetzle 2003 citations); replaces planned PCA-prepass SI (T37 dropped)"
         }
       ]
     },
     "A4": {
       "branch": "coord/A4",
       "role": "worker",
-      "owns_issues": [41],
+      "owns_issues": [41, 44],
       "owns_files": [
         "code/proteus/tests/metrics/persistent_homology.py",
         "code/proteus/tests/scenarios/synthetic/"
@@ -114,6 +121,12 @@
           "status": "ready",
           "issue": 41,
           "summary": "Experiment: denser accepted-region coverage probe toward SI 1.5σ* fixed_threshold (A4-T12 path); report best mult/frac pairs"
+        },
+        {
+          "id": "A4-T18",
+          "status": "ready",
+          "issue": 44,
+          "summary": "BUILD adversarial-null scenario generators for hollow-edge h_0 calibration (see reference/empty_region_evidence_and_scale.md S6.3): connected sheets w/ density gradients + curvature (must NOT cut), two components w/ increasing gap tissue (must cut); ROC harness, no fixture-seed tuning"
         }
       ]
     },
@@ -181,5 +194,5 @@
       ]
     }
   },
-  "notes": "2026-08-09T15:15 scoop: A2-T21..T23 PCA prepass (tori e2e unrecovered); A3-T31 SI hybrid; A4-T12..T14 reading path; A5/A6 drains. Refilled A2-T24..T26; A3-T35..T37. No awaiting flips. Tests 40p/1x."
+  "notes": "2026-08-09T15:35 HUMAN DIRECTIVE: #44 reframed (see reference/empty_region_evidence_and_scale.md) — hollow-edge/empty-region evidence replaces tau-descent + geometry prepasses. A2-T24..T26 and A3-T37 superseded by A2-T27..T29 / A3-T38 / A4-T18. Prior 15:15 scoop notes: PCA prepass tori unrecovered; tests 40p/1x."
 }
