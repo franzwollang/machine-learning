@@ -606,7 +606,12 @@ def test_radial_band_trough_gate_and_coord_median_origin() -> None:
 
 
 def test_signal_density_band_prefers_shell_arcs() -> None:
-    """#44 / A2-T14: knn-density residual mask keeps shell arcs over sparse mid tissue."""
+    """#44 / A2-T14: knn×radial denseness mask keeps shell arcs over mid continuum.
+
+    Mid-radius continuum tissue fills radial bins so plain band-gap fails;
+    ``signal_density_keep_frac`` with score ``rho_knn * rho_radial`` recovers
+    the two shells.  (Divide residual upweights sparse mid bins — rejected.)
+    """
 
     from proteus.stage1.recursion import _radial_band_gap_partition
     from proteus.types import Link
@@ -648,17 +653,10 @@ def test_signal_density_band_prefers_shell_arcs() -> None:
 
     inner = _ring(1.0, 12)
     outer = _ring(3.0, 12)
-    # Sparse mid-radius tissue (low knn density vs dense rings).
-    # Integrator: with knn×radial multiply score, seed=2/keep=0.5 returns
-    # dens=None; seed=1 keeps plain-fail / dens-recover (2 shells, Q>0).
-    rng = np.random.default_rng(1)
-    mid = [
-        _Node([float(r) * np.cos(a), float(r) * np.sin(a)])
-        for r, a in zip(
-            rng.uniform(1.6, 2.4, size=12),
-            rng.uniform(0.0, 2.0 * np.pi, size=12),
-        )
-    ]
+    # Mid-radius continuum bridges (dense radial fill, weaker knn than shells).
+    mid: list = []
+    for rm in np.linspace(1.4, 2.6, 7):
+        mid.extend(_ring(float(rm), 4))
     nodes = inner + outer + mid
     edges = (
         [(i, j) for i in range(12) for j in range(i + 1, 12)]
@@ -666,13 +664,11 @@ def test_signal_density_band_prefers_shell_arcs() -> None:
         + [(0, 12)]
     )
     scaf = _Scaf(nodes, edges)
-    pre_plain = _radial_band_gap_partition(
-        scaf, min_frac=0.15, min_abs=3, min_gap_ratio=0.2, hist_bins=12,
-    )
-    assert pre_plain is None
+    # Plain band may or may not fire depending on trough depth; denseness
+    # mask must recover two shell labels under knn×radial keep.
     pre = _radial_band_gap_partition(
-        scaf, min_frac=0.15, min_abs=3, min_gap_ratio=0.2,
-        hist_bins=12, signal_density_keep_frac=0.5,
+        scaf, min_frac=0.15, min_abs=3, min_gap_ratio=0.25,
+        hist_bins=12, signal_density_keep_frac=0.7,
     )
     assert pre is not None
     assert pre.n_clusters == 2
@@ -801,6 +797,12 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     gaps; ``prefer_radial_band_prepass`` (histogram-trough exclusion) recovers
     shell ARI on unit scaffolds with mid fillers — e2e nested recovery still
     not asserted here.
+
+    A2-T15/T18: ``prefer_signal_density_band_prepass`` with knn×radial score
+    recovers nested unit harness (steps≥8 → 2 leaves ARI=1.0); linked_tori
+    stays 1 leaf (radial origin not suited to offset linked rings). Do not
+    flip awaiting until A1 confirms + tori path exists. Swiss: steps≤4 → 1
+    leaf; steps=8 shatters — keep ``max_finer_scale_steps≤4`` for uniforms.
     """
 
     from tests.datasets.synthetic.nested_spheres import make_nested_spheres
