@@ -1663,21 +1663,34 @@ def solve_patch_mu_weighted_pressures(
     )
     p_w = hat_w.copy()
     glue_w = float(cfg.shared_face_glue) if cfg.enable_shared_face_glue else 0.0
+    # Scale soft glue into whitened-data units so large |hat| faces do not
+    # dominate / diverge the soft step (proposal-path operational).
+    std2_bar = float(np.mean(std * std)) + float(cfg.whiten_floor)
+    lam_bar = float(np.mean(lam_all)) + float(cfg.whiten_floor)
+    glue_eff = glue_w * lam_bar / std2_bar
     for _ in range(iters):
         p_w = (1.0 - damp) * hat_w + damp * p_w
         p_phys = p_w * std
         # AtA_big already folds μ_S into each block; whitened conservation
         # gradient is std ⊙ (AtA_big @ p_phys).
         grad = lam_all * (p_w - hat_w) + std * (AtA_big @ p_phys)
-        if glue_w > 0.0 and glue_idx:
+        if glue_eff > 0.0 and glue_idx:
             # Soft ‖p_a + p_b‖² on physical pressures; chain-rule via std.
             for ia, ib in glue_idx:
                 resid = float(p_phys[ia] + p_phys[ib])
-                grad[ia] += glue_w * resid * float(std[ia])
-                grad[ib] += glue_w * resid * float(std[ib])
+                grad[ia] += glue_eff * resid * float(std[ia])
+                grad[ib] += glue_eff * resid * float(std[ib])
         p_w = p_w - step * grad
 
     p = p_w * std
+    # Hard antisymmetry projection locks shared faces (sketch stand-in for
+    # identifying a single oriented face variable).
+    if cfg.enable_shared_face_glue and glue_idx:
+        for ia, ib in glue_idx:
+            a = float(p[ia])
+            b = float(p[ib])
+            p[ia] = 0.5 * (a - b)
+            p[ib] = 0.5 * (b - a)
     eps = 1e-12
     r_data = float(np.sum((p - hat_raw) ** 2) / (np.sum(hat_raw**2) + eps))
 
@@ -1708,8 +1721,9 @@ def solve_patch_mu_weighted_pressures(
     )
     if cfg.enable_shared_face_glue:
         note = (
-            "sketch only: patch Σ μ_S + soft shared-face antisymmetry glue; "
-            "not global face registry / loopy Gaussian BP (SI S6.2)"
+            "sketch only: patch Σ μ_S + scaled soft shared-face glue + "
+            "hard antisym projection; not global face registry / loopy "
+            "Gaussian BP (SI S6.2)"
         )
 
     return PatchMuSolveResult(
