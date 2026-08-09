@@ -660,12 +660,14 @@ def test_dry_run_face_tallies_flag_off_none():
         c, remove_simplex_indices=[], affected_node_ids=[0], samples=samples
     )
     assert result.face_tallies is None
+    assert result.stage1_route is None
 
     cfg = DualFlowConfig(enable_dual_adjacency=True)  # tallies still off
     result2 = dry_run_dual_from_edit(
         c, affected_node_ids=[0], samples=samples, config=cfg
     )
     assert result2.face_tallies is None
+    assert result2.stage1_route is None
 
 
 def test_dry_run_face_tallies_demo_accumulates_on_affected():
@@ -1538,3 +1540,88 @@ def test_complex_ann_incidence_accepts_ann_duck_type():
     assert out is not None
     assert out.node_bmus == (2,)
     assert out.assignments == (0,)
+
+
+# ---------------------------------------------------------------------------
+# A5-T51: dry_run wires route_stage1_from_complex (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_dry_run_stage1_route_flag_off_none():
+    """enable_complex_ann_incidence=False ⇒ stage1_route is None."""
+
+    V = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [0.5, 1.0],
+            [2.0, 0.0],
+            [1.5, 1.0],
+        ]
+    )
+    c = Complex(
+        simplices=[
+            Simplex(vertex_ids=(0, 1, 2), volume=0.5),
+            Simplex(vertex_ids=(1, 3, 4), volume=0.5),
+        ],
+        vertex_positions=V,
+        intrinsic_dim=2,
+    )
+    samples = [np.array([0.1, 0.1])]
+    result = dry_run_dual_from_edit(
+        c, affected_node_ids=[0], samples=samples, config=DualFlowConfig()
+    )
+    assert result.stage1_route is None
+
+
+def test_dry_run_stage1_route_end_to_end():
+    """Flag on + samples ⇒ stage1_route matches route_stage1_from_complex."""
+
+    V = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [0.5, 1.0],
+            [2.0, 0.0],
+            [1.5, 1.0],
+        ]
+    )
+    c = Complex(
+        simplices=[
+            Simplex(vertex_ids=(0, 1, 2), volume=0.5),
+            Simplex(vertex_ids=(1, 3, 4), volume=0.5),
+        ],
+        vertex_positions=V,
+        intrinsic_dim=2,
+    )
+    samples = [np.array([0.1, 0.1]), np.array([1.8, 0.2])]
+    cfg = DualFlowConfig(
+        enable_dual_adjacency=True,
+        enable_complex_ann_incidence=True,
+        tally_scale=1.0,
+    )
+    result = dry_run_dual_from_edit(
+        c, affected_node_ids=[0, 1, 3], samples=samples, config=cfg
+    )
+    assert result.stage1_route is not None
+    assert result.stage1_route.node_bmus == (0, 3)
+    assert result.stage1_route.assignments == (0, 1)
+    assert 0 in result.stage1_route.tallies_by_simplex
+    assert 1 in result.stage1_route.tallies_by_simplex
+    # Dual path still works alongside the Stage-1 bridge.
+    assert result.dual_adjacency is not None
+    assert result.dual_connected is True
+
+    direct = route_stage1_from_complex(samples, c, config=cfg)
+    assert direct is not None
+    assert result.stage1_route.node_bmus == direct.node_bmus
+    assert result.stage1_route.assignments == direct.assignments
+
+
+def test_dry_run_stage1_route_requires_samples():
+    """Flag on without samples ⇒ stage1_route stays None."""
+
+    c = _triangle_complex()
+    cfg = DualFlowConfig(enable_complex_ann_incidence=True)
+    result = dry_run_dual_from_edit(c, affected_node_ids=[0], config=cfg)
+    assert result.stage1_route is None

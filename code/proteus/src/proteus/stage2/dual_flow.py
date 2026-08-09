@@ -381,6 +381,10 @@ class DualDryRunResult:
         empty) mapping from post-edit simplex id → :class:`FaceTallyResult`
         after accumulating ``samples`` on that simplex's vertices. Not live
         routing — demonstration wiring only (A5-T40).
+    stage1_route:
+        Optional Complex/ANN Stage-1 BMU → tally bridge on the post-edit
+        complex (``None`` when ``enable_complex_ann_incidence`` is off or
+        ``samples`` is omitted). A5-T51 dry-run end-to-end wire.
     """
 
     dual_adjacency: DualAdjacencyDict | None
@@ -388,6 +392,7 @@ class DualDryRunResult:
     dual_connected: bool
     post_edit_complex: Complex
     face_tallies: Mapping[Hashable, FaceTallyResult] | None = None
+    stage1_route: Stage1BmuTallyResult | None = None
 
 
 @dataclass(frozen=True)
@@ -805,6 +810,11 @@ def dry_run_dual_from_edit(
     (A5-T40): each sample in ``samples`` is accumulated onto every affected
     simplex that has ``vertex_positions`` (naive all-to-affected routing —
     **not** BMU live routing). Flag off ⇒ ``face_tallies`` is ``None``.
+
+    When ``enable_complex_ann_incidence`` is on and ``samples`` is provided,
+    also wires :func:`route_stage1_from_complex` on the post-edit complex
+    into ``stage1_route`` (A5-T51 end-to-end dry-run bridge). Flag off or
+    no samples ⇒ ``stage1_route`` is ``None``.
     """
 
     cfg = config or DualFlowConfig()
@@ -881,12 +891,27 @@ def dry_run_dual_from_edit(
                 if last is not None:
                     face_tallies[sid] = last
 
+    stage1_route: Stage1BmuTallyResult | None = None
+    if cfg.enable_complex_ann_incidence and samples is not None:
+        if post_edit.vertex_positions is None:
+            raise ValueError(
+                "enable_complex_ann_incidence dry-run requires "
+                "complex.vertex_positions"
+            )
+        if not post_edit.simplices:
+            stage1_route = None
+        else:
+            stage1_route = route_stage1_from_complex(
+                samples, post_edit, config=cfg
+            )
+
     return DualDryRunResult(
         dual_adjacency=adj,
         affected_simplices=affected_t,
         dual_connected=connected,
         post_edit_complex=post_edit,
         face_tallies=face_tallies,
+        stage1_route=stage1_route,
     )
 
 
