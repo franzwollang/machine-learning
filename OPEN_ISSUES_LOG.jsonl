@@ -37,3 +37,4 @@
 {"ts":"2026-08-09T14:40-05:00","summary":"Heartbeat: no new worker tips (all ahead=0). Annotated #44 A2-T10..T12 band e2e unrecovered; M1 board next=trough/non-centroid/signal. Queues remain 3-deep.","added":[],"edited":[44],"resolved":[]}
 {"ts":"2026-08-09T15:00-05:00","summary":"Scooped A3 SI A+C (#44), A4-T9..T11 calib+nearest_data_labels (#41), A2 knn×radial multiply restore, A5/A6 drains. Retuned dens unit fixture seed=1. Hold awaiting.","added":[],"edited":[41,44],"resolved":[]}
 {"ts":"2026-08-09T15:05-05:00","summary":"Late scoop A2-T18..T20: linked_tori unrecovered under sd; swiss safe only steps<=4; keep_frac=0.55; no awaiting flip. Refilled A2-T21..T23.","added":[],"edited":[44],"resolved":[]}
+{"ts":"2026-08-09T15:15-05:00","summary":"Scoop A2 PCA prepass (tori unrecovered), A3-T31 SI hybrid, A4-T12 reading path; refilled A2-T24..T26 + A3-T35..T37; no awaiting flips; tests 40p/1x","added":[],"edited":[28,41,44],"resolved":[]}

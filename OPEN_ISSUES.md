@@ -88,8 +88,11 @@ Remaining work:
   is a no-op (no persist split; LC fallback already near expected). Fine-end-of-block
   rejected as anti-SI. Paper §scale synced to L=1 + coarse-end; hierarchy hybrid≫expected
   regression locked. Do **not** flip the default; persistence stays structural arbiter
-  with coarse-end resolution until a SI-justified within-interval signal exists. Optional
-  SI prose for the flag.
+  with coarse-end resolution until a SI-justified within-interval signal exists.
+- **Landed (A3-T31 SI A+C):** SI S2.6.2 + S14.3 document
+  `PersistenceConfig.resolve_within_interval` (`none` | `load_crossover`, default
+  `none`; hybrid ≤ fine-leaf). Experimental within-interval strategies remain open
+  (A6 throughput queue); default stays `none`.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -156,9 +159,14 @@ re-searched *finer* scales inside a single feature.
   leaves) — keep recommended pairing `max_finer_scale_steps≤4`.
   `finer_signal_density_keep_frac=0.55` confirmed sweet spot (no default change).
   **Do not flip awaiting** (tori unrecovered).
-- **Remaining:** non-radial linked_tori prepass (or alternate geometry cue);
-  flip awaiting only after A1 confirms tori recovery + swiss-safe pairing.
-  Distinct from #28.
+- **Landed (A2-T21..T23):** `prefer_pca_axis_gap_prepass` (default off) +
+  centroid-separation gate; unit offset rings recover ARI=1.0; concentric
+  rejected. Linked_tori e2e under persist+pca(+sd) steps 4/8/12 still **1 leaf**.
+  Docstring documents recommended pairing (uniforms steps≤4; nested sd+steps≥8;
+  tori PCA prototype). Recursion tests 15 passed.
+- **Remaining:** tube / spectral / linking-number tori cues (throughput
+  experiments); flip awaiting only after A1 confirms tori recovery + swiss-safe
+  pairing. Distinct from #28.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
@@ -201,9 +209,15 @@ circle `b1 = 1` target of #25.
   or awaiting. Probe: `test_ph_fitted_circle_calibration.py`.
 - **Landed (A4-T10):** `nearest_data_labels` NN helper in
   `tests/metrics/persistent_homology.py`; fitted-circle probes refactored.
-- **Remaining before flipping recovery tests:** fitted-region evidence at an
-  SI-defensible reading (calib shows SI defaults insufficient; need a justified
-  reading or scaffold cleanup path).
+- **FINDING (A4-T12 reading path):** keep acceptance = SI S14.2 fixed_threshold
+  at `1.5σ*`; fitted-circle `b1=0` is loop-unborn (coverage/scale), not a license
+  to raise `filtration_mult`. Prefer denser accepted-region coverage so true H1
+  births ≤`1.5σ*`. Optional fallback: declared calibration protocol → S14.3 log —
+  do **not** silently adopt mult=6 / frac≥4. Lifetime stays proposal-path;
+  clean-shell modest-n window frac≥~0.75 (A4-T13 sweep). PH synthetic 15/15 green.
+- **Remaining before flipping recovery tests:** scaffold-coverage probe toward
+  SI-defensible `1.5σ*` fixed_threshold; optional calibrated-mult protocol harness;
+  lifetime_frac sweep harness (A4 throughput queue).
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 

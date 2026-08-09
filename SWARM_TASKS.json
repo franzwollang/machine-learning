@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T15:10-05:00",
+  "updated_at": "2026-08-09T15:15-05:00",
   "integration_branch": "coord/integration",
   "throughput_mode": true,
   "merge_order": [
@@ -41,22 +41,22 @@
       ],
       "queue": [
         {
-          "id": "A2-T21",
+          "id": "A2-T24",
           "status": "ready",
           "issue": 44,
-          "summary": "IMPLEMENT non-radial linked_tori prepass (flag-gated default off) — code + unit probe, not NOTE-only"
+          "summary": "IMPLEMENT flag-gated tube/major-radius or angular-separation tori prepass (default off); unit probe + linked_tori leaf counts; no awaiting flip"
         },
         {
-          "id": "A2-T22",
+          "id": "A2-T25",
           "status": "ready",
           "issue": 44,
-          "summary": "Experiment: alternative tori cues (linking number / major-radius offset / angular separation); keep flag-gated; report leaf counts"
+          "summary": "Experiment: spectral/linking-number cue as alternate RecursionConfig flag; report circle/swiss/nested regressions"
         },
         {
-          "id": "A2-T23",
+          "id": "A2-T26",
           "status": "ready",
           "issue": 44,
-          "summary": "Add regression harness covering circle/swiss/nested/tori under recommended pairing; document failures without flipping awaiting"
+          "summary": "Expand regression harness (circle/swiss/nested/tori) under persist+sd+pca pairing; document failures without flipping awaiting"
         }
       ]
     },
@@ -69,22 +69,22 @@
       ],
       "queue": [
         {
-          "id": "A3-T34",
-          "status": "ready",
-          "issue": 28,
-          "summary": "WRITE SI S2.6.2/S14.3 proposed paragraph for PersistenceConfig.resolve_within_interval (default none; experimental options)"
-        },
-        {
           "id": "A3-T35",
           "status": "ready",
           "issue": 41,
-          "summary": "DRAFT SI S14.2 proposed reading-path section from A4 calib (mult/frac tables) labeled proposed/operational"
+          "summary": "DRAFT SI S14.2 proposed reading-path section from A4-T12 proposal (1.5σ* coverage-first; calibrated mult fallback labeled proposed)"
         },
         {
           "id": "A3-T36",
           "status": "ready",
           "issue": 43,
           "summary": "DRAFT SI S6 dual-flow / DualAdjacency stub section so A5 can implement against prose (proposed)"
+        },
+        {
+          "id": "A3-T37",
+          "status": "ready",
+          "issue": 44,
+          "summary": "WRITE SI A+C for prefer_pca_axis_gap_prepass (proposal-path, default off; unit offset ok; interlocking unrecovered)"
         }
       ]
     },
@@ -113,7 +113,7 @@
           "id": "A4-T17",
           "status": "ready",
           "issue": 41,
-          "summary": "Experiment: signal-label filter + Fibonacci sampling notes encoded as helper flags/tests; report best mult/frac pairs"
+          "summary": "Experiment: denser accepted-region coverage probe toward SI 1.5σ* fixed_threshold (A4-T12 path); report best mult/frac pairs"
         }
       ]
     },
@@ -181,5 +181,5 @@
       ]
     }
   },
-  "notes": "THROUGHPUT MODE ON (human 2026-08-09T15:10): no idle-hold queues. Prefer flag-gated experiments and stubs. Still never weaken tests or flip awaiting without green evidence. Branches remain coord/A1..A6."
+  "notes": "2026-08-09T15:15 scoop: A2-T21..T23 PCA prepass (tori e2e unrecovered); A3-T31 SI hybrid; A4-T12..T14 reading path; A5/A6 drains. Refilled A2-T24..T26; A3-T35..T37. No awaiting flips. Tests 40p/1x."
 }
