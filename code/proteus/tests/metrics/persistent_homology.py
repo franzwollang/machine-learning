@@ -1,13 +1,65 @@
-"""Persistent homology metrics for Proteus evaluation.
+"""Persistent homology metrics for Proteus evaluation (SI S14.2).
 
-Uses gudhi for Vietoris-Rips complex computation.  Falls back to a
-stub that raises ImportError if gudhi is not installed.
+Canonical evaluation tool for Stage-2 topology recovery (#41, #25 residual):
+Vietoris--Rips persistent homology on **node positions** (dense pairwise), not
+the sparse lifted-graph flag complex (band holes are essential there; see #25).
+
+Uses gudhi. Falls back to ImportError if gudhi is not installed — scenario
+assertions that depend on this module stay ``@awaiting`` until a chosen
+filtration/reading produces green evidence (do not flip tests by weakening).
+
+Filtration / reading options (OPEN_ISSUES #41):
+  1. ``fixed_threshold`` — Betti count at a single scale ``r = mult * sigma_star``
+     (SI S14.2 default ``mult = 1.5``). Simple, but the true loop may be unborn
+     or already filled at that cutoff on tissue-polluted scaffolds.
+  2. ``lifetime`` — count ``H_k`` bars whose lifetime exceeds
+     ``lifetime_frac * sigma_star``, plus essential (infinite-death) bars.
+     More robust to short spurious loops from tissue nodes; the fraction is an
+     **operational** proposal-path default until logged in SI S14.2 / S14.3.
+  3. Per-region assembly — run (1) or (2) on each accepted cluster/region's
+     node positions separately (nested spheres / linked tori; tissue pollution
+     also pushes toward per-region rather than whole-scaffold PH).
 """
 from __future__ import annotations
 
-from typing import Optional
+from dataclasses import dataclass
+from typing import Iterable, Literal, Optional, Sequence
 
 import numpy as np
+
+# SI S14.2: filtration up to 1.5 * sigma_star, sigma_star = sqrt(tau_star).
+FILTRATION_MULTIPLIER: float = 1.5
+
+# Proposed operational lifetime floor as a fraction of sigma_star (#41 item 1).
+# Proposal-path only — not an acceptance-path constant; logged for calibration.
+DEFAULT_LIFETIME_FRAC: float = 0.5
+
+ReadingMode = Literal["fixed_threshold", "lifetime"]
+
+
+def sigma_star_from_tau(tau_star: float) -> float:
+    """Active scale ``sigma_star = sqrt(tau_star)`` (SI S14.2)."""
+    return float(np.sqrt(tau_star))
+
+
+def filtration_radius(
+    sigma_star: float,
+    *,
+    multiplier: float = FILTRATION_MULTIPLIER,
+) -> float:
+    """Vietoris--Rips edge-length cutoff ``multiplier * sigma_star``."""
+    return float(multiplier) * float(sigma_star)
+
+
+def _require_gudhi():
+    try:
+        import gudhi
+    except ImportError as e:
+        raise ImportError(
+            "gudhi is required for persistent homology metrics. "
+            "Install with: pip install gudhi"
+        ) from e
+    return gudhi
 
 
 def compute_persistence_diagrams(
@@ -19,15 +71,13 @@ def compute_persistence_diagrams(
 
     Returns a list of (n_features, 2) arrays, one per homology dimension.
     """
-    try:
-        import gudhi
-    except ImportError as e:
-        raise ImportError(
-            "gudhi is required for persistent homology metrics. "
-            "Install with: pip install gudhi"
-        ) from e
+    gudhi = _require_gudhi()
 
-    rips = gudhi.RipsComplex(points=points, max_edge_length=max_edge_length)
+    pts = np.asarray(points, dtype=float)
+    if pts.ndim != 2 or pts.shape[0] == 0:
+        return [np.empty((0, 2)) for _ in range(max_dim + 1)]
+
+    rips = gudhi.RipsComplex(points=pts, max_edge_length=max_edge_length)
     st = rips.create_simplex_tree(max_dimension=max_dim + 1)
     st.compute_persistence()
 
@@ -37,7 +87,7 @@ def compute_persistence_diagrams(
         if len(pairs) == 0:
             diagrams.append(np.empty((0, 2)))
         else:
-            diagrams.append(np.array(pairs))
+            diagrams.append(np.array(pairs, dtype=float))
     return diagrams
 
 
@@ -84,15 +134,166 @@ def betti_numbers(
     threshold: float,
     max_dim: int = 2,
 ) -> tuple[int, ...]:
-    """Compute Betti numbers at a fixed filtration threshold."""
-    diagrams = compute_persistence_diagrams(points, max_dim=max_dim,
-                                            max_edge_length=threshold * 1.5)
+    """Compute Betti numbers at a fixed filtration threshold (reading mode 1)."""
+    diagrams = compute_persistence_diagrams(
+        points, max_dim=max_dim, max_edge_length=threshold * 1.5,
+    )
     result: list[int] = []
     for dim in range(max_dim + 1):
         dgm = diagrams[dim]
         if dgm.size == 0:
             result.append(0)
             continue
-        alive = ((dgm[:, 0] <= threshold) & (dgm[:, 1] > threshold))
+        alive = (dgm[:, 0] <= threshold) & (dgm[:, 1] > threshold)
         result.append(int(alive.sum()))
     return tuple(result)
+
+
+def lifetime_betti_numbers(
+    points: np.ndarray,
+    sigma_star: float,
+    *,
+    max_dim: int = 2,
+    filtration_mult: float = FILTRATION_MULTIPLIER,
+    lifetime_frac: float = DEFAULT_LIFETIME_FRAC,
+) -> tuple[int, ...]:
+    """Betti counts via persistence-lifetime reading (reading mode 2).
+
+    Computes VR persistence with ``max_edge_length = filtration_mult * sigma_star``
+    and counts bars in each dimension whose lifetime ``death - birth`` exceeds
+    ``lifetime_frac * sigma_star``. Essential features (non-finite death) always
+    count. Proposal-path operational default for ``lifetime_frac`` — see #41.
+    """
+    r_max = filtration_radius(sigma_star, multiplier=filtration_mult)
+    min_life = float(lifetime_frac) * float(sigma_star)
+    diagrams = compute_persistence_diagrams(
+        points, max_dim=max_dim, max_edge_length=r_max,
+    )
+    result: list[int] = []
+    for dim in range(max_dim + 1):
+        dgm = diagrams[dim]
+        if dgm.size == 0:
+            result.append(0)
+            continue
+        birth = dgm[:, 0]
+        death = dgm[:, 1]
+        essential = ~np.isfinite(death)
+        life = np.where(essential, np.inf, death - birth)
+        result.append(int(np.sum(essential | (life > min_life))))
+    return tuple(result)
+
+
+@dataclass(frozen=True)
+class RegionTopologyReport:
+    """Per-region PH summary for the topology-recovery harness."""
+
+    region_id: int
+    n_points: int
+    betti: tuple[int, ...]
+    reading: ReadingMode
+    sigma_star: float
+    filtration_radius: float
+
+
+def region_betti_numbers(
+    points: np.ndarray,
+    sigma_star: float,
+    *,
+    reading: ReadingMode = "lifetime",
+    max_dim: int = 2,
+    filtration_mult: float = FILTRATION_MULTIPLIER,
+    lifetime_frac: float = DEFAULT_LIFETIME_FRAC,
+) -> tuple[int, ...]:
+    """Recover Betti numbers for one region's node positions.
+
+    Prefer ``reading="lifetime"`` on tissue-polluted scaffolds; ``fixed_threshold``
+    matches the literal SI S14.2 single-cutoff statement.
+    """
+    r = filtration_radius(sigma_star, multiplier=filtration_mult)
+    if reading == "fixed_threshold":
+        return betti_numbers(points, threshold=r, max_dim=max_dim)
+    if reading == "lifetime":
+        return lifetime_betti_numbers(
+            points,
+            sigma_star,
+            max_dim=max_dim,
+            filtration_mult=filtration_mult,
+            lifetime_frac=lifetime_frac,
+        )
+    raise ValueError(f"unknown reading mode: {reading!r}")
+
+
+def per_region_topology(
+    region_points: Sequence[np.ndarray],
+    sigma_star: float | Sequence[float],
+    *,
+    reading: ReadingMode = "lifetime",
+    max_dim: int = 2,
+    filtration_mult: float = FILTRATION_MULTIPLIER,
+    lifetime_frac: float = DEFAULT_LIFETIME_FRAC,
+) -> list[RegionTopologyReport]:
+    """Scaffold harness: one VR-PH summary per recovered region (#41 item 3).
+
+    ``sigma_star`` may be a scalar (shared active scale) or one value per region.
+    Empty regions yield zero Betti tuples without calling gudhi.
+    """
+    n = len(region_points)
+    if np.isscalar(sigma_star):
+        sigmas = [float(sigma_star)] * n  # type: ignore[arg-type]
+    else:
+        sigmas = [float(s) for s in sigma_star]  # type: ignore[arg-type]
+        if len(sigmas) != n:
+            raise ValueError(
+                f"sigma_star length {len(sigmas)} != n_regions {n}"
+            )
+
+    reports: list[RegionTopologyReport] = []
+    for i, (pts, sig) in enumerate(zip(region_points, sigmas)):
+        arr = np.asarray(pts, dtype=float)
+        r = filtration_radius(sig, multiplier=filtration_mult)
+        if arr.size == 0 or arr.ndim != 2 or arr.shape[0] == 0:
+            betti = tuple(0 for _ in range(max_dim + 1))
+        else:
+            betti = region_betti_numbers(
+                arr,
+                sig,
+                reading=reading,
+                max_dim=max_dim,
+                filtration_mult=filtration_mult,
+                lifetime_frac=lifetime_frac,
+            )
+        reports.append(
+            RegionTopologyReport(
+                region_id=i,
+                n_points=int(arr.shape[0]) if arr.ndim == 2 else 0,
+                betti=betti,
+                reading=reading,
+                sigma_star=sig,
+                filtration_radius=r,
+            )
+        )
+    return reports
+
+
+def extract_region_node_positions(
+    all_positions: np.ndarray,
+    region_labels: np.ndarray,
+    *,
+    include_labels: Optional[Iterable[int]] = None,
+) -> list[np.ndarray]:
+    """Split scaffold node positions into per-region point clouds.
+
+    ``region_labels[i]`` is the accepted cluster/region id of node ``i``.
+    Tissue / noise labels can be omitted via ``include_labels``.
+    """
+    pos = np.asarray(all_positions, dtype=float)
+    labels = np.asarray(region_labels)
+    if pos.shape[0] != labels.shape[0]:
+        raise ValueError("positions and labels must have the same length")
+
+    if include_labels is None:
+        uniq = sorted(int(x) for x in np.unique(labels))
+    else:
+        uniq = [int(x) for x in include_labels]
+
+    return [pos[labels == lab] for lab in uniq]

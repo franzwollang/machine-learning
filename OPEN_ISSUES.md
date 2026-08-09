@@ -28,7 +28,7 @@ Next issue number: 45
 - Options: (a) Vietoris–Rips persistent homology on node positions (`giotto-tda` / `ripser`), (b) flag-complex Betti numbers via `gudhi`, (c) simple graph checks (connected components + cycle rank) on the lifted graph directly.
 - **FINDING (empirical, turn 19): option (c) is insufficient and even the bare flag complex over-reports `b1`.** On the standard circle fixture at `tau*` (64 nodes) the lifted graph is a single connected component with no isolates (so `b0 = 1` is recoverable), but it is a *triangulated band*, not a clean 1-ring: raw undirected cycle rank `E - V + 1 = 50` (E=113, max degree 7). Building the flag/clique complex on that same graph (55 triangles + 12 tetrahedra) collapses most but not all spurious loops, leaving `b1 = 6` — still not 1. So a correct `b1 = 1` requires either a *persistence-filtered* PH (take the single most-persistent H1 feature; needs `gudhi`/`ripser`, neither currently installed) or scaffold-mesh cleanup, not a fixed-threshold graph/clique-complex Betti count. `b0 = 1` (single connected 1-skeleton) is the only topology invariant robustly available at Stage 1.
 - Blocked on / naturally lands with Stage 2 flag-complex construction **plus a persistence filtration**; the naive Stage-1 graph check (c) cannot deliver the loop invariant. If a Stage-1 check lands, scope it to `b0 = 1`.
-- **UPDATE (turn 20): flag-complex construction has landed** (`stage2/flag_complex.py`; SI S4.1/S4.2/S13.4), and it confirms the finding. The *sparse lifted-graph* flag complex of the fitted circle scaffold (built to `d_final`, expanded to a clique complex) retains **6 essential (never-filled) `H1` loops** — the triangulated-band holes are not closed by any lifted clique, so no persistence threshold recovers `b1 = 1` from the lifted graph alone. Vietoris--Rips PH on the node *positions* (SI S14.2, dense pairwise) is the route that can fill the band holes, but on the tissue-polluted circle scaffold it also births spurious loops and does not cleanly separate `b1 = 1` at the fixed `1.5 sigma_star` filtration. The residual topology-recovery work (choosing the filtration/persistence reading that robustly recovers `b1 = 1` on real scaffolds) is tracked in **#41**; this issue keeps the sharpened `b0 = 1`-only Stage-1 scope.
+- **UPDATE (turn 20): flag-complex construction has landed** (`stage2/flag_complex.py`; SI S4.1/S4.2/S13.4), and it confirms the finding. The *sparse lifted-graph* flag complex of the fitted circle scaffold (built to `d_final`, expanded to a clique complex) retains **6 essential (never-filled) `H1` loops** — the triangulated-band holes are not closed by any lifted clique, so no persistence threshold recovers `b1 = 1` from the lifted graph alone. Vietoris--Rips PH on the node *positions* (SI S14.2, dense pairwise) is the route that can fill the band holes, but on the tissue-polluted circle scaffold it also births spurious loops and does not cleanly separate `b1 = 1` at the fixed `1.5 sigma_star` filtration. The residual topology-recovery work (choosing the filtration/persistence reading that robustly recovers `b1 = 1` on real scaffolds) is tracked in **#41** (per-region harness + lifetime reading now scaffolded; do not flip circle `b1 = 1` until fitted-region evidence is green); this issue keeps the sharpened `b0 = 1`-only Stage-1 scope.
 
 ## 26. Manifold-zoo junction test (circle + line + plane + box)
 
@@ -92,74 +92,52 @@ Remaining work:
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
-Surfaced by the M1-Part-B fuller-suite validation (#27, turn 25). **The coarse
-`tau*` is not the bug** — a scene of disconnected components *should* have a
-coarse characteristic scale where they unify into one feature (at
-nested-spheres `tau*=0.81` a `~0.9`-wide kernel legitimately blurs the two
-shells across their radial gap into one annular feature; that is the correct
-**root** of the hierarchy). The bug is that `run_recursive_discovery`
-(`recursion.py:226`) treats a region that clusters as `K=1` at its own
-characteristic scale as **terminal**, and only ever descends into sub-clusters
-it already found. It never re-examines a single-feature region at scales *finer*
-than the parent `tau*`, where genuine sub-structure (disconnected shells/tori,
-junction patches) becomes visible. So `root(one blob) -> {shell_1, shell_2}` is
-never built.
+Surfaced by the M1-Part-B fuller-suite validation (#27). **The coarse `tau*` is
+not the bug** — disconnected components *should* unify at a coarse root scale;
+the defect is that recursion treated `K=1`-at-`tau*` as terminal and never
+re-searched *finer* scales inside a single feature.
 
-- **Evidence (`/tmp/dm_probe.py`, `/tmp/dm_probe2.py`):** the finer split exists,
-  the recursion just never looks for it.
-  - nested_spheres (gt cc=2): `default_K=1` from `tau*=0.81` down to `tau≈0.008`;
-    the two shells separate (`default_K=2`) at `tau≈0.004`.
-  - linked_tori (gt cc=2): `default_K=1` at `tau*=0.50`; the two tori separate at
-    `tau≈0.006`.
-- **This is the other half of #27, not a separate scale-selection defect.** The
-  `K>=2`-at-`tau*` descent rule and the acceptance gate are duals: stopping on
-  `K=1` avoids over-fragmenting uniform manifolds (false positives) but misses
-  disconnected sub-components (false negatives, this issue); always descending
-  finer does the reverse (`dm`-alone -> 66-76 leaves). The principled fix is to
-  make the **acceptance gate own the stop/descent decision** instead of the
-  `K>=2`-at-`tau*` heuristic: descend into a region, probe scales finer than the
-  parent `tau*`, and let the DM verdict / persistence decide whether the finer
-  split is evidence-bearing (disconnected components have zero inter-block flow ->
-  block-diagonal `N` -> large homogeneity BF -> accept) or spurious (uniform arcs
-  -> reject -> terminal). The gate must both *veto* spurious splits and *trigger*
-  descent to real splits hidden below the coarse characteristic scale.
-- **Design questions to settle:** (a) how to choose the finer re-search window per
-  region (strictly `< tau*`? adaptive grid?); (b) the stopping guarantee (descent
-  ends when the gated finer split fails, or on `min_samples`/`max_depth`) so a
-  uniform manifold does not recurse indefinitely; (c) whether a cheap
-  disconnected-lifted-component pre-pass should short-circuit the obvious
-  zero-flow case before the general finer-scale search.
-- **Unblocks:** #27 stand-in deletion (the fuller suite currently cannot test a
-  stand-in replacement because its structure never reaches the clustering stage)
-  and the `@awaiting("stage1.controller")` component-separation scenarios for
-  nested_spheres / linked_tori (#41). Distinct from #28 (load-band cleanup /
-  persistence coarse-end `tau*` refinement), which is about *which* single scale
-  is picked, not about descending past it.
+- **Evidence:** nested_spheres shells separate only near `tau≈0.004` (vs
+  `tau*≈0.81`); linked_tori near `tau≈0.006` (vs `tau*≈0.50`).
+- **Design settled (A2):** (a) geometric multi-step cap strictly below parent
+  `tau*` (`finer_tau_cap_ratio`); (b) one finer walk per region bounded by
+  `max_finer_scale_steps` + gate reject + `min_samples`/`max_depth`; (c)
+  `prefer_disconnected_prepass` flag stub (currently no-op). Acceptance gate
+  owns stop/descent; pair with `require_persistent_split` so uniform manifolds
+  do not shatter (flag alone ~circle 21 leaves; persist+flag+steps≤4+min_samples=80
+  → circle=1 / swiss=1).
+- **Landed (flag-gated, default off):** `RecursionConfig.allow_finer_research` +
+  helper path in `stage1/recursion.py`; unit coverage in `tests/stage1/test_recursion.py`.
+- **Remaining:** recover nested_spheres / linked_tori ground-truth component
+  counts under a recommended pairing; document required persist pairing in SI /
+  docstrings; implement or drop the prepass stub; do **not** flip `@awaiting`
+  component-separation tests until evidence is green. Distinct from #28
+  (which scale is picked, not descending past it).
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
-The flag-complex *construction* has landed (`stage2/flag_complex.py`, SI S4.1/S4.2), but
-the *topology-recovery* scenario assertions that validate the learned object against
-ground-truth Betti numbers remain unimplemented. These are the `@awaiting("stage2.flag_complex", si="S4.1")`
-tests: `test_nested_spheres_topology` (per-shell `b0 = 1`, `b_{sphere_dim} = 1`),
-`test_linked_tori_betti_numbers` (`b1 >= 2` per torus), and the circle `b1 = 1` target of #25.
+Flag-complex *construction* has landed (`stage2/flag_complex.py`, SI S4.1/S4.2). Recovery
+assertions that validate learned objects against ground-truth Betti numbers remain
+`@awaiting`: `test_nested_spheres_topology`, `test_linked_tori_betti_numbers`, and the
+circle `b1 = 1` target of #25.
 
-- **Canonical tool:** Vietoris--Rips persistent homology on node positions up to dimension 2,
-  filtration to `1.5 sigma_star` (SI S14.2; `tests/metrics/persistent_homology.py`). The sparse
-  lifted-graph flag complex is *not* the right input — its band holes are essential (#25).
-- **Open problems to solve before flipping the tests (evidence-path, not acceptance-path):**
-  1. *Filtration / persistence reading.* At the fixed `1.5 sigma_star` cutoff the true loop may
-     not yet be born or the disk may already be filled; a persistence-lifetime reading (count
-     `H_k` bars whose lifetime exceeds a fraction of `sigma_star`, plus essential bars) is more
-     robust but needs a defensible operational threshold, logged in SI S14.2 / S14.3.
-  2. *Tissue pollution.* Faded-density tissue nodes in the scaffold seed spurious short loops;
-     recovery likely needs to run PH per accepted cluster/region (post-clustering) rather than on
-     the whole raw scaffold, or to restrict to signal nodes.
-  3. *Per-region assembly.* Nested spheres / linked tori are multi-component; the recovery
-     harness must build and score one complex per recovered region (their sibling
-     `@awaiting("stage1.controller")` component-separation tests must also be written).
-- **Dependency note:** heterogeneous per-patch simplex *dimension* (the S4.2 manifold-zoo test)
-  additionally blocks on the #40 operational `d_final` refresh; pure topology (b-numbers) does not.
+- **Canonical tool:** Vietoris--Rips PH on node positions (SI S14.2;
+  `tests/metrics/persistent_homology.py`). Sparse lifted-graph flag complexes are *not*
+  the right input — band holes are essential (#25).
+- **Landed (A4 harness):** `per_region_topology` / lifetime helpers with
+  `FILTRATION_MULT=1.5` (SI S14.2) and `DEFAULT_LIFETIME_FRAC=0.5` (proposal-path
+  operational — must be logged in SI S14.2/S14.3 before any test flip);
+  `tests/scenarios/synthetic/test_ph_harness_scaffold.py` clean-geometry smokes green;
+  recovery xfails unchanged.
+- **Remaining before flipping recovery tests:**
+  1. *Fitted-region evidence* — run lifetime vs fixed-threshold diagnostics on fitted
+     circle / tori / spheres regions (not clean synthetic clouds alone).
+  2. *Tissue-pollution strategy* — PH per accepted region / signal nodes, not the whole
+     raw scaffold (harness API supports this; needs green fitted evidence).
+  3. *Threshold logging* — defend `DEFAULT_LIFETIME_FRAC` in SI S14.2/S14.3 before
+     flipping `@awaiting` recovery tests.
+- **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
+  still blocks on #40; pure topology (b-numbers) does not.
 
 ## 43. Evidence gate: wire the affected dual-subgraph connectivity check (SI S10.4)
 

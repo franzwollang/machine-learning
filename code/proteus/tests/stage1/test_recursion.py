@@ -269,3 +269,163 @@ def test_unimodal_harness_uses_per_frame_tau() -> None:
         data_coarse, tree_coarse, hierarchy,
         min_samples=5, levels={2}, required_levels={2},
     )
+
+
+def test_finer_research_flag_defaults_off() -> None:
+    """#44: allow_finer_research is proposed/operational and default-off."""
+
+    cfg = RecursionConfig()
+    assert cfg.allow_finer_research is False
+    assert 0.0 < cfg.finer_tau_cap_ratio < 1.0
+    assert cfg.max_finer_scale_steps >= 1
+    assert cfg.prefer_disconnected_prepass is False
+
+
+def test_research_finer_split_rejects_invalid_cap() -> None:
+    """#44: finer re-search is a no-op when the cap is not strictly inside (tau_min, tau*)."""
+
+    from proteus.stage1.recursion import _research_finer_split
+
+    data = np.zeros((40, 2), dtype=float)
+    cfg = RecursionConfig(
+        scale_search=ScaleSearchConfig(tau_min=1e-3, tau_max=1.0),
+        allow_finer_research=True,
+        finer_tau_cap_ratio=0.5,
+        max_finer_scale_steps=3,
+    )
+    # parent_tau * ratio <= tau_min -> cannot form a valid finer window
+    assert _research_finer_split(data, 2, cfg, parent_tau=1e-3) is None
+    assert _research_finer_split(data, 2, cfg, parent_tau=1.5e-3) is None
+
+
+def test_finer_research_circle_does_not_shatter() -> None:
+    """#44 / A2-T3: allow_finer_research must not shatter a uniform circle.
+
+    Pairing with persistence (the intended composition) keeps a single leaf.
+    Flag-alone without persistence over-fragments and is out of scope for
+    this guard (documented in REQUEST_TRACKER for #44).
+    """
+
+    dataset = make_circle(
+        n_samples=600, radius=1.0, noise=0.02, extrusion_dim=2, seed=21,
+    )
+    data = dataset.points
+    gt = dataset.ground_truth
+    tau_lo, tau_hi = gt.tau_grid_hint
+
+    config = RecursionConfig(
+        scale_search=ScaleSearchConfig(
+            tau_min=tau_lo,
+            tau_max=tau_hi,
+            max_grid_points=6,
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2,
+                max_epochs=6,
+            ),
+            seed=11,
+        ),
+        min_samples=80,
+        max_depth=3,
+        allow_finer_research=True,
+        require_persistent_split=True,
+        max_finer_scale_steps=4,
+        seed=11,
+    )
+    tree = run_recursive_discovery(data, dim=gt.ambient_dim, config=config)
+    assert len(tree.leaves) == 1
+    assert tree.nodes[0].is_leaf
+
+
+def test_finer_research_swiss_does_not_shatter() -> None:
+    """#44 / A2-T3: allow_finer_research+persist keeps swiss roll as one leaf."""
+
+    from tests.datasets.synthetic.swiss_roll import make_swiss_roll
+
+    dataset = make_swiss_roll(n_samples=600, noise=0.02, seed=7)
+    data = dataset.points
+    gt = dataset.ground_truth
+    tau_lo, tau_hi = gt.tau_grid_hint
+
+    config = RecursionConfig(
+        scale_search=ScaleSearchConfig(
+            tau_min=tau_lo,
+            tau_max=tau_hi,
+            max_grid_points=6,
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2,
+                max_epochs=6,
+            ),
+            seed=11,
+        ),
+        min_samples=80,
+        max_depth=3,
+        allow_finer_research=True,
+        require_persistent_split=True,
+        max_finer_scale_steps=4,
+        seed=11,
+    )
+    tree = run_recursive_discovery(data, dim=gt.ambient_dim, config=config)
+    assert len(tree.leaves) == 1
+    assert tree.nodes[0].is_leaf
+
+
+def test_finer_research_nested_spheres_aspiration_sketch() -> None:
+    """#44 sketch: with flag+DM, nested_spheres should aim for cc=2 leaves.
+
+    Default path (flag off) terminates at K=1 at coarse tau*.  This test
+    documents the aspiration and only asserts the default-off contract is
+    unchanged; a full green leaf-count assert is deferred until the finer
+    window + gate pairing is validated on the fuller suite (A2-T3).
+    """
+
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    dataset = make_nested_spheres(n_per_sphere=64, extrusion_dim=1, seed=0)
+    data = dataset.points
+    gt = dataset.ground_truth
+    assert gt.topology is not None
+    assert int(gt.topology.connected_components) == 2
+
+    base = RecursionConfig(
+        scale_search=ScaleSearchConfig(
+            tau_min=1e-4,
+            tau_max=2.0,
+            max_grid_points=6,
+            k=6,
+            n_seeds=6,
+            ann_backend="naive",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2,
+                max_epochs=6,
+            ),
+            seed=3,
+        ),
+        min_samples=20,
+        max_depth=2,
+        seed=3,
+    )
+    tree_off = run_recursive_discovery(data, dim=gt.ambient_dim, config=base)
+    # Flag off: coarse K=1 terminates — at most one leaf (current #44 defect).
+    assert len(tree_off.leaves) == 1
+
+    # Aspiration (not asserted yet): allow_finer_research + require_dm_split
+    # should recover ~2 leaves.  Keep the config construction here as the
+    # living sketch for A2-T3 validation runs.
+    _aspirational = RecursionConfig(
+        scale_search=base.scale_search,
+        min_samples=base.min_samples,
+        max_depth=base.max_depth,
+        allow_finer_research=True,
+        require_dm_split=True,
+        finer_tau_cap_ratio=0.5,
+        max_finer_scale_steps=12,
+        seed=base.seed,
+    )
+    assert _aspirational.allow_finer_research is True
+    assert _aspirational.max_finer_scale_steps == 12
