@@ -100,11 +100,15 @@ Remaining work:
 - **Landed (A6-T31..T33 experimental):** `fine_end_of_block` (default still
   `"none"`); Phi table on hierarchy: `none`~`fine_cluster`, `load_crossover`~16×
   E[τ], `mid_interval`~2.7×, `fine_end` undershoots (~0.25×).
-- **Landed (A6-T34..T36 + A3 SI sync):** `three_quarter_interval` experimental
+- **Landed (A6-T34..T36 + A3-T44 SI):** `three_quarter_interval` experimental
   (default `"none"`); Phi: three_quarter ~0.82× E[τ] closest probe but slight
-  undershoot; mid≤3/4≤fine ordering locked; paper lists three-quarter among
-  probes. Do **not** flip default. Remaining: circle/swiss Phi + A3
-  `three_quarter` SI row.
+  undershoot; mid≤3/4≤fine ordering locked; paper + SI S2.6.2/S14.3 rows.
+- **Landed (A6-T37..T39):** circle/swiss Phi tables — no persist split ⇒ all
+  within-interval modes identical (LC fallback); experimental
+  `three_quarter_load_screened` (reject if load≪1; default `"none"`) — on
+  hierarchy 3/4 load≫1 so screened==raw (undershoot is not a low-load
+  artifact). Paper notes ~0.82× closest. Do **not** flip default. Remaining:
+  A3 SI row for `three_quarter_load_screened`; optional further probes.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -208,17 +212,24 @@ re-searched *finer* scales inside a single feature.
   at seed0 but is **multi-seed fragile**. Cross-tori interlocking H50 med~1;
   oracle cut-label-cross still 1 CC via tissue. Zoo/swiss/circle stay 1 under
   hit cfg. Theory direction supported; **universal `h_0` not calibrated**.
-- **FINDING (A2-T29 e2e, no descent):** persist+hollow: circle/swiss/zoo=1;
-  nested=1 at scale-search τ*; tori 1|2 with ARI~0 (not recovery). Fixed-τ
-  oracle nested@0.27 + tori@0.5 → majors=2. **Blocker:** scale-search τ* ≠
-  hollowness-sensitive τ — need multi-τ hollow scan and/or couple hollow to
-  persistence grid; calibrate `h_0` via A4 ROC + A2 scores.
-- **Landed (A4 related ROC):** mid_frac 0.25/0.35 AUC 0.993/1.0; A2-parity
-  `(0.35,0.35)+Gabriel` TPR=1 FPR~0.014; **sheet null** mean H~1.03 with
-  **q01~0.57 > A2 h0=0.35** — current h0 sits below empirical sheet floor.
-- **Remaining:** multi-τ / persistence-coupled hollow scan → raise/AND-gate
-  `h_0` vs sheet q01 (A2-T31 / A4-T24) → fuller suite green at operational τ*
-  → retire radial/PCA family + awaiting-flip review (A1 sign-off). **Do not
+- **FINDING (A2-T29/T30 LOUD):** persist+hollow e2e unrecovered. Fixed-τ
+  majors=2 at nested@0.27 / tori@0.5 is **not recovery** — sample ARI~chance.
+  `mid_frac=0.35` is empty-ball (H nondiscriminative); at `0.5` H separates
+  but lifted prune is not a cut-set. Default `H|Gabriel` drives spurious K=2
+  via Gabriel at low `n_end`. **Never treat major-CC count as recovery.**
+- **Landed (A2-T30..T32):** multi-τ prune→CC harness; `require_gabriel_and_h`
+  + `hollow_require_persistent_agree` (both default off). Conjunction
+  suppresses probe K=2 seed-stable; conj+agree keeps uniforms/nested/tori at
+  1 leaf under harness. Raising `min_end` alone *increases* Gabriel usage —
+  prefer conjunction or `gabriel_fallback=False` + calibrated h0/mid.
+- **Landed (A4-T24 ROC export):** `recommend_hollow_edge_configs` primary
+  **mid=0.5, h0=0.7, gabriel=False, min_end=0.5** (sheet FPR=0, TPR=0.9,
+  q01≈0.82, AUC≈0.999); A2 `(0.35,0.35)` kept as alt. Sheet-null safety ≠
+  nested ARI recovery.
+- **Landed (A3-T45 SI):** ROC mid_frac table + sheet q01 vs h0 tension prose.
+- **Remaining:** apply A4 primary config in A2 flag-gated path + capacity/
+  MST-critical hollow variant; fuller suite green with **sample-ARI** gate →
+  retire radial/PCA family + awaiting-flip review (A1 sign-off). **Do not
   flip awaiting.** Distinct from #28. Post-track: open #45 open-loop /
   `max_nodes` (`reference/open_loop_growth_and_node_cap.md`) into M4.
 
@@ -281,10 +292,16 @@ circle `b1 = 1` target of #25.
   green; fitted still xfail).
 - **FINDING (A4 nested fitted denser):** max_nodes 64/128/256 raises n_sig
   but SI `(1,0,1)` **not** recovered — betti worsens (spurious b1). Denser
-  alone insufficient; need lifetime/hollow/filter path. Keep `@awaiting`.
-- **Remaining before flipping recovery tests:** nested/tori fitted PH with
-  lifetime + hollow-pruned nodes; optional calibrated-mult harness; keep
-  recovery `@awaiting` until SI-default fitted evidence is green.
+  alone insufficient.
+- **FINDING (A4-T25 recipes):** nested max_nodes=128 signal+lifetime
+  frac∈{0.25..4} + hollow-prune(mid0.5/h0.7) — SI `(1,0,1)` still not
+  recovered; hollow kept all signal nodes; shell1 spurious b1 persists.
+- **FINDING (A4-T26 tori denser):** linked_tori max_nodes 64/128/256
+  (labels 0/1) — SI `(1,2,1)` not recovered (closer on b1 only). Keep
+  `@awaiting`.
+- **Remaining before flipping recovery tests:** tori lifetime+hollow
+  recipes; dual-scale / hollow-pruned PH; optional calibrated-mult harness;
+  keep recovery `@awaiting` until SI-default fitted evidence is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -308,9 +325,13 @@ circle `b1 = 1` target of #25.
   `ConservativeBPResult` / `enable_conservative_bp` sketch (not real loopy BP);
   expanded synthetic dual graphs; SI S6.6 expanded to match producer + gate flag.
   Evidence subset 20 passed.
-- **Landed (A5-EXP-S61):** `accumulate_face_pressure_tally` (S6.1) +
-  `classify_boundary_facets` (S6.3) behind flags (default off); evidence 25
-  passed. Gaps: live routing wire, real S6.2 BP, seam stitching, S6.4 density.
-  Acceptance path still `None` ⇒ True / flags default off — **do not close
-  #43** until acceptance-path default replaces the conservative open default /
-  fuller S6.
+- **Landed (A5-EXP-S61 + A3-T46 SI):** `accumulate_face_pressure_tally` (S6.1)
+  + `classify_boundary_facets` (S6.3) behind flags (default off); SI stubs
+  match.
+- **Landed (A5-T40..T42):** dry-run `face_tallies` demo via `samples=`;
+  `simplex_local_density` S6.4 sketch (`enable_simplex_density`, default
+  off); module docstring acceptance-path plan to replace `None`⇒True +
+  real-BP gap list. Evidence 30 passed. Mass/density/benchmark stay
+  `@awaiting`. Gaps: live BMU tally routing, real S6.2 BP (A_S/μ/loopy),
+  S6.3 seam/ghost, live S6.4 density path. **Do not close #43** until
+  acceptance-path default replaces the conservative open default / fuller S6.
