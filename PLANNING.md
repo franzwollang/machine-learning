@@ -13,10 +13,10 @@ bodies below stay static descriptions.
 | Milestone | Status |
 |---|---|
 | M0 — Spec/implementation sync pass | done |
-| M1 — Canonical clustering objective | blocked on #44 (**HUMAN DIRECTIVE:** hollow-edge evidence. Landed: `edge_evidence.py` + `prefer_hollow_edge_prepass` (off) + SI + ROC harness. Probe: L/4 fails; mid_frac=0.35 seed-fragile. e2e: nested unrecovered at scale-search τ*; fixed-τ oracle ok — **blocker = τ*≠hollow-sensitive τ**. Next: multi-τ hollow scan + ROC `h_0` calib. No awaiting flip.) |
-| M2 — Characteristic-scale selection rebuild | in progress (load-crossover default; persistence + mid/fine_end experimental (default none); Phi: mid~2.7× E[τ], fine_end undershoots; A3 mid_interval SI landed; remaining #28: fine_end SI + more within-interval) |
+| M1 — Canonical clustering objective | blocked on #44 (hollow-edge landed + ROC. Probe/e2e: τ* mismatch; A2 h0=0.35 < sheet q01~0.57. Next: multi-τ scan + raise/AND-gate h0. No awaiting flip.) |
+| M2 — Characteristic-scale selection rebuild | in progress (load-crossover default; mid/fine_end/three_quarter experimental (default none); Phi: three_quarter~0.82× closest; remaining #28: circle/swiss Phi + A3 three_quarter SI) |
 | M3 — Constant audit & calibration tier | done (c_{d,k} + C_Q(d) calibrated on the shared uniform-d-ball ensemble; S14.3 three-tier audit #37 complete; intrinsic-dim estimator #39 validated vs GT + Levina–Bickel cross-check shipped, SI S1.4.1. Operational estimator-wiring divergence surfaced as #40, deferred to the M5 junction-detection consumer.) |
-| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (flag-complex + DM gate landed; #43 dual_flow + dry_run + BP sketch + SI S6.6 expand (flags off; do not close). #41: fitted max_nodes≥128 recovers SI 1.5σ* on circle; per-region PH wired into nested/tori awaiting. Remaining: runtime scaffold loop / post-#44 open-loop gate-as-split (#45 TBD — `open_loop_growth_and_node_cap.md`), fuller S6, topology-recovery) |
+| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 dual_flow + dry_run + BP sketch + S6.1/S6.3 stubs (flags off; do not close). #41: circle denser ok; nested denser worsens betti. Remaining: runtime loop / post-#44 #45 open-loop, S6.2/S6.4, topology-recovery) |
 | M5 — Inference interface & diagnostics | not started |
 | M6 — Evaluation, benchmarks, paper finalization | not started |
 

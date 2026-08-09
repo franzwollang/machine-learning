@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-09T16:05-05:00",
-  "turn": 45,
+  "updated_at": "2026-08-09T16:10-05:00",
+  "turn": 46,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "multi-tau hollow scan; ROC-calibrate h0"
+    "goal": "multi-tau hollow + h0 vs sheet q01"
   },
   "recent": [
-    "Scooped A2 hollow module + A3 SI + A4 ROC + A5 dual + A6 fine_end",
-    "Folded open-loop/max_nodes into M4; #45 deferred post-hollow",
-    "64p subset green; no awaiting flips"
+    "Double-scoop hollow/ROC/SI + S6.1/S6.3 + three_quarter",
+    "Sheet null q01~0.57 > A2 h0=0.35",
+    "Nested denser PH worsens betti"
   ],
   "discoveries": [
-    "L/4 mid-ball false-hollows; mid_frac=0.35 seed-fragile",
-    "Blocker: scale-search tau* ≠ hollowness-sensitive tau",
-    "Fitted circle max_nodes≥128 recovers SI 1.5σ*"
+    "Blocker: scale-search tau* \u2260 hollowness-sensitive tau",
+    "A2-parity ROC strong but h0 below sheet floor",
+    "three_quarter Phi closest (~0.82\u00d7 E[tau])"
   ],
   "open_threads": [
-    "A2-T30 multi-tau hollow scan next",
-    "A4-T21 ROC via edge_evidence scores",
-    "#45 open-loop gate-as-split after #44"
+    "A2-T30 multi-tau hollow scan",
+    "A4-T24 export HollowEdgeConfig table",
+    "#45 open-loop after #44"
   ],
-  "next_step": "MERGE_DONE push; watch A2-T30 / A4-T21",
+  "next_step": "MERGE_DONE push; watch A2-T30/A4-T24",
   "blockers": []
 }

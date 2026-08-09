@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T16:05-05:00",
+  "updated_at": "2026-08-09T16:10-05:00",
   "integration_branch": "coord/integration",
   "throughput_mode": true,
   "merge_order": [
@@ -15,24 +15,19 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T48",
-          "status": "done",
-          "summary": "Annotated #44 after hollow probe/module/ROC/SI landed; no awaiting flip; blocker=tau* vs hollow-sensitive tau"
-        },
-        {
           "id": "A1-T49",
           "status": "ready",
-          "summary": "After hollow e2e recovers at operational tau*: open #45 open-loop growth / max_nodes via gate-as-split-arbiter (reference/open_loop_growth_and_node_cap.md); fold into M4"
+          "summary": "After hollow e2e recovers at operational tau*: open #45 open-loop growth / max_nodes via gate-as-split-arbiter (reference/open_loop_growth_and_node_cap.md)"
         },
         {
           "id": "A1-T50",
           "status": "ready",
-          "summary": "Scoop aggressively; keep queues 3-deep on multi-tau hollow + ROC h0 + dual_flow S6.1 + within-interval; no awaiting flip without green evidence"
+          "summary": "Scoop aggressively; keep queues 3-deep; no awaiting flip without green evidence"
         },
         {
           "id": "A1-T51",
           "status": "ready",
-          "summary": "Watch A2-T30 multi-tau hollow scan; if nested recovers at persistence-grid tau, promote finding to #44 and consider retiring geometry-cue refill pressure"
+          "summary": "Watch A2-T30 multi-tau hollow + A4 sheet-null finding (A2 h0=0.35 < sheet q01~0.57) before locking HollowEdgeConfig"
         }
       ]
     },
@@ -53,19 +48,19 @@
           "id": "A2-T30",
           "status": "ready",
           "issue": 44,
-          "summary": "MULTI-TAU hollow scan: evaluate hollowness_scores + prune→CC on nested/tori/zoo/swiss/circle across persistence-grid and expected_tau (and scale-search tau*); report majors/ARI table; identify hollowness-sensitive tau vs scale-search tau*; NO awaiting flip"
+          "summary": "MULTI-TAU hollow scan: hollowness_scores+prune\u2192CC on nested/tori/zoo/swiss/circle across persistence-grid + expected_tau + scale-search tau*; report majors/ARI; NO awaiting flip"
         },
         {
           "id": "A2-T31",
           "status": "ready",
           "issue": 44,
-          "summary": "EXPERIMENT couple hollow prepass to persistence/Q path at candidate taus from T30 (flag default off); document mechanism attribution; uniforms must stay 1 leaf"
+          "summary": "INCORPORATE A4 ROC: A2-parity (0.35,0.35)+Gabriel TPR=1 FPR~0.014 BUT sheet null q01~0.57 > h0=0.35 \u2014 raise min_end/h0 or require Gabriel\u2227H; keep flag off; seed-stability report"
         },
         {
           "id": "A2-T32",
           "status": "ready",
           "issue": 44,
-          "summary": "CONSUME A4 ROC h0/mid_frac recommendation (or run joint calib): lock operational HollowEdgeConfig defaults behind flag (still off); unit+seed-stability report; no awaiting flip"
+          "summary": "EXPERIMENT couple hollow prepass to persistence/Q at T30 candidate taus (flag off); uniforms stay 1 leaf; no awaiting flip"
         }
       ]
     },
@@ -82,22 +77,22 @@
       ],
       "queue": [
         {
-          "id": "A3-T41",
+          "id": "A3-T44",
           "status": "ready",
           "issue": 28,
-          "summary": "DRAFT SI S2.6.2/S14.3 fine_end_of_block experimental row + Phi-table caveat (undershoot ~0.25× E[tau]; cite A6-T31..T33); default none unchanged"
+          "summary": "DRAFT SI S2.6.2/S14.3 three_quarter_interval experimental row (cite A6-T34..T36 Phi ~0.82\u00d7 E[tau]; default none)"
         },
         {
-          "id": "A3-T42",
+          "id": "A3-T45",
           "status": "ready",
           "issue": 44,
-          "summary": "UPDATE SI hollow-edge prose with A2 probe findings: L/4 false-hollow; operational mid_frac/h0 caveats; tau*-mismatch blocker; keep proposed/default-off"
+          "summary": "SI note A4 sheet-null q01 vs A2 h0 tension + ROC mid_frac table (proposed; no default flip)"
         },
         {
-          "id": "A3-T43",
+          "id": "A3-T46",
           "status": "ready",
           "issue": 43,
-          "summary": "DRAFT SI S6.1 tally / dry_run_dual_from_edit + enable_conservative_bp sketch notes (proposed; cite A5-T34..T36); awaiting unchanged"
+          "summary": "SI S6.1 accumulate_face_pressure_tally + S6.3 classify_boundary_facets stubs (cite A5-EXP-S61; proposed/default-off)"
         }
       ]
     },
@@ -114,22 +109,22 @@
       ],
       "queue": [
         {
-          "id": "A4-T21",
+          "id": "A4-T24",
           "status": "ready",
           "issue": 44,
-          "summary": "DRIVE hollow ROC using A2 edge_evidence.hollowness_scores (not synthetic-only H); produce recommended h0/mid_frac/min_end table for A2-T32; no fixture-seed tuning; no awaiting flip"
+          "summary": "EXPORT recommended HollowEdgeConfig table from ROC (mid_frac/h0/min_end/Gabriel) that keeps sheet FPR low given q01~0.57; hand to A2-T31; no awaiting flip"
         },
         {
-          "id": "A4-T22",
+          "id": "A4-T25",
           "status": "ready",
           "issue": 41,
-          "summary": "EXPERIMENT denser fitted max_nodes on nested_spheres PH toward SI 1.5σ* per-shell; report node/σ pairs; keep @awaiting"
+          "summary": "NESTED fitted PH: try lifetime_frac + signal filter + hollow-pruned scaffold nodes; denser max_nodes alone worsened betti; keep @awaiting"
         },
         {
-          "id": "A4-T23",
+          "id": "A4-T26",
           "status": "ready",
           "issue": 41,
-          "summary": "Expand format_per_region_ph_diagnostics + linked_tori denser-fitted probe; stay @awaiting; REQUEST_TRACKER with numbers"
+          "summary": "linked_tori denser-fitted PH probe parallel to nested; stay @awaiting; REQUEST_TRACKER with tables"
         }
       ]
     },
@@ -148,22 +143,22 @@
       ],
       "queue": [
         {
-          "id": "A5-T37",
+          "id": "A5-T40",
           "status": "ready",
           "issue": 43,
-          "summary": "STUB S6.1 online face-pressure tallies behind DualFlowConfig (proposed/default off); unit tests; no acceptance flip"
+          "summary": "Wire accumulate_face_pressure_tally into dry_run path demo (flag off); unit tests"
         },
         {
-          "id": "A5-T38",
+          "id": "A5-T41",
           "status": "ready",
           "issue": 43,
-          "summary": "Wire dry_run_dual_from_edit into a documented gate evaluate demo path (flag off); expand evidence tests"
+          "summary": "STUB S6.4 simplex-local density sketch behind DualFlowConfig (proposed/default off); keep mass/density @awaiting"
         },
         {
-          "id": "A5-T39",
+          "id": "A5-T42",
           "status": "ready",
           "issue": 43,
-          "summary": "Document acceptance-path plan to replace None=>True dual default; list remaining S6.2/S6.3/S6.4 gaps; keep mass/density @awaiting"
+          "summary": "Document acceptance-path plan to replace None=>True; list remaining S6.2 real-BP gaps"
         }
       ]
     },
@@ -181,25 +176,25 @@
       ],
       "queue": [
         {
-          "id": "A6-T34",
+          "id": "A6-T37",
           "status": "ready",
           "issue": 28,
-          "summary": "EXPERIMENT Phi probe on circle/swiss within-interval landings (none/mid/fine_end/load_crossover); table vs expected_tau; default none unchanged"
+          "summary": "Phi probe on circle/swiss for none/mid/three_quarter/fine_end/load_crossover; table vs expected_tau; default none"
         },
         {
-          "id": "A6-T35",
+          "id": "A6-T38",
           "status": "ready",
           "issue": 28,
-          "summary": "IMPLEMENT experimental resolve_within_interval=persistence_mid_load (or similar) combining mid with load screen; flag default none; contrast vs mid/fine"
+          "summary": "EXPERIMENT load-screened three_quarter (reject if load<<1); flag default none; contrast vs raw three_quarter"
         },
         {
-          "id": "A6-T36",
+          "id": "A6-T39",
           "status": "ready",
           "issue": 28,
-          "summary": "Paper.tex note fine_end undershoot risk from Phi table; keep L=1/coarse-end; REQUEST_TRACKER for A3 fine_end SI if missing"
+          "summary": "Paper.tex one-liner Phi closest-probe note (three_quarter~0.82\u00d7); keep L=1/coarse-end; REQUEST_TRACKER for A3 SI row"
         }
       ]
     }
   },
-  "notes": "2026-08-09T16:05: Scooped A2-T27..T29 hollow module (64p subset), A3-T38..T40 SI, A4-T18..T20 ROC+coverage, A5-T34..T36 dual, A6-T31..T33 fine_end. #44 blocker=tau* mismatch. No awaiting flips. Post-#44: open #45 open-loop/max_nodes."
+  "notes": "2026-08-09T16:10: Double scoop. Hollow module+ROC+SI; second scoop A3 SI sync, A4 A2-parity ROC + nested denser fails, A5 S6.1/S6.3, A6 three_quarter. #44 blocker tau* mismatch; h0 vs sheet q01 tension. No awaiting flips. tests 64p+53p."
 }
