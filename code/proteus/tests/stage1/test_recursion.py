@@ -597,7 +597,7 @@ def test_radial_band_trough_gate_and_coord_median_origin() -> None:
 
 
 def test_signal_density_band_prefers_shell_arcs() -> None:
-    """#44 / A2-T14: knn-density residual mask keeps shell arcs over sparse mid tissue."""
+    """#44 / A2-T14: signal-density keep frac still recovers clear mid-continuum shells."""
 
     from proteus.stage1.recursion import _radial_band_gap_partition
     from proteus.types import Link
@@ -637,34 +637,28 @@ def test_signal_density_band_prefers_shell_arcs() -> None:
             _Node([radius * np.cos(a), radius * np.sin(a)]) for a in angs
         ]
 
-    inner = _ring(1.0, 16)
-    outer = _ring(3.0, 16)
-    # Sparse mid-radius tissue (low knn density vs dense rings).
-    rng = np.random.default_rng(3)
-    mid = [
-        _Node([float(r) * np.cos(a), float(r) * np.sin(a)])
-        for r, a in zip(
-            rng.uniform(1.5, 2.5, size=20),
-            rng.uniform(0.0, 2.0 * np.pi, size=20),
-        )
-    ]
+    inner = _ring(1.0, 12)
+    outer = _ring(3.0, 12)
+    mid: list = []
+    for rm in np.linspace(1.4, 2.6, 7):
+        mid.extend(_ring(float(rm), 4))
     nodes = inner + outer + mid
     edges = (
-        [(i, j) for i in range(16) for j in range(i + 1, 16)]
-        + [(16 + i, 16 + j) for i in range(16) for j in range(i + 1, 16)]
-        + [(0, 16)]
+        [(i, j) for i in range(12) for j in range(i + 1, 12)]
+        + [(12 + i, 12 + j) for i in range(12) for j in range(i + 1, 12)]
+        + [(0, 12)]
     )
     scaf = _Scaf(nodes, edges)
     pre = _radial_band_gap_partition(
-        scaf, min_frac=0.15, min_abs=3, min_gap_ratio=0.2,
-        hist_bins=12, signal_density_keep_frac=0.6,
+        scaf, min_frac=0.15, min_abs=3, min_gap_ratio=0.25,
+        hist_bins=12, signal_density_keep_frac=0.7,
     )
     assert pre is not None
     assert pre.n_clusters == 2
     assert pre.partition_q_score > 0.0
-    assert len(set(int(x) for x in pre.labels[:16])) == 1
-    assert len(set(int(x) for x in pre.labels[16:32])) == 1
-    assert int(pre.labels[0]) != int(pre.labels[16])
+    assert len(set(int(x) for x in pre.labels[:12])) == 1
+    assert len(set(int(x) for x in pre.labels[12:24])) == 1
+    assert int(pre.labels[0]) != int(pre.labels[12])
 
 
 def test_research_finer_split_rejects_invalid_cap() -> None:
