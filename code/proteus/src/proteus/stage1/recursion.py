@@ -428,12 +428,24 @@ def _radial_band_gap_partition(
     centroid = positions.mean(axis=0)
     radii = np.linalg.norm(positions - centroid, axis=1)
     hist, edges = np.histogram(radii, bins=bins)
-    peaks = [
-        i for i in range(1, len(hist) - 1)
-        if hist[i] >= hist[i - 1] and hist[i] >= hist[i + 1] and hist[i] > 0
-    ]
+    # Local maxima including edge bins (shell modes often land at ends).
+    peaks: list[int] = []
+    for i in range(len(hist)):
+        left = int(hist[i - 1]) if i > 0 else -1
+        right = int(hist[i + 1]) if i < len(hist) - 1 else -1
+        if int(hist[i]) > 0 and int(hist[i]) >= left and int(hist[i]) >= right:
+            peaks.append(i)
     if len(peaks) < 2:
-        return None
+        # Fallback: two densest bins at least 2 bins apart.
+        order = list(np.argsort(-hist))
+        primary = int(order[0])
+        secondary = next(
+            (int(j) for j in order[1:] if abs(int(j) - primary) >= 2 and int(hist[j]) > 0),
+            None,
+        )
+        if secondary is None:
+            return None
+        peaks = [primary, secondary]
     peaks = sorted(peaks, key=lambda i: int(hist[i]), reverse=True)[:2]
     lo, hi = sorted(peaks)
     if hi - lo < 2:
@@ -446,11 +458,13 @@ def _radial_band_gap_partition(
         if lo < b < hi and int(hist[b]) <= peak_floor:
             exclude_bins.add(b)
     mask = np.ones(n, dtype=bool)
-    for b in exclude_bins:
-        mask &= ~((radii >= edges[b]) & (radii < edges[b + 1]))
-    # Include right edge of last bin.
-    if (bins - 1) in exclude_bins:
-        mask &= radii < edges[-1]
+    for b in sorted(exclude_bins):
+        lo_e = float(edges[b])
+        hi_e = float(edges[b + 1])
+        if b == len(hist) - 1:
+            mask &= ~((radii >= lo_e) & (radii <= hi_e))
+        else:
+            mask &= ~((radii >= lo_e) & (radii < hi_e))
 
     idx = np.where(mask)[0]
     if len(idx) < 2 * threshold:
