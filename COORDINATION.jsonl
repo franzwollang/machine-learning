@@ -113,3 +113,4 @@
 {"ts": "2026-08-09T16:12-05:00", "from": "A1", "type": "TASK_ASSIGN", "note": "Post-second-scoop refill: A2-T30..T32; A3-T44..T46; A4-T24..T26; A5-T40..T42; A6-T37..T39"}
 {"ts": "2026-08-09T16:12-05:00", "from": "A1", "type": "TASK_REFILL", "note": "Queues 3-deep after double scoop; A1-T49=#45 deferred"}
 {"ts": "2026-08-09T16:12-05:00", "from": "A1", "type": "MERGE_DONE", "integration_sha": "5f080ca448e50de69ffd4aa527a767a5a32f95cb", "note": "Double scoop A2-A6 hollow/ROC/SI/dual/three_quarter; tests 64p+53p; no awaiting flip", "tips": {"A2": "d8cfbf5", "A3": "418f8e2", "A4": "b76d8a1", "A5": "89f8b49", "A6": "54bcdf6"}}
+{"ts": "2026-08-09T16:12-05:00", "from": "A1", "type": "MERGE_DONE", "integration_sha": "52ac9f1c3f9cca2d51fdb97b32a1e3e41f5196a2", "note": "Final tip SHA after MERGE_DONE mailbox sync", "tips": {"A2": "d8cfbf5", "A3": "418f8e2", "A4": "b76d8a1", "A5": "89f8b49", "A6": "54bcdf6"}}
