@@ -179,3 +179,72 @@ def test_sheet_poisson_null_h0_below_lower_tail() -> None:
     # Measured: A2 h0 sits *below* the empirical 1% sheet H — FPR≈0 via H
     # alone on this null (gabriel gate unused for decidable n_end).
     assert A2_H0 <= null_a2.quantiles["q0.01"]
+
+
+@pytest.mark.scenario
+@pytest.mark.synthetic
+def test_recommend_hollow_edge_config_keeps_sheet_fpr_low() -> None:
+    """A4-T24: exported HollowEdgeConfig table passes sheet-FPR / bridge-TPR gates.
+
+    Hands A2-T31 a primary + alternates; does not mutate production defaults
+    or flip awaiting recovery tests.
+    """
+    from proteus.stage1.edge_evidence import HollowEdgeConfig
+    from tests.scenarios.synthetic.hollow_edge_nulls import (
+        format_hollow_edge_config_table,
+        recommend_hollow_edge_configs,
+        recommended_config_as_edge_evidence_kwargs,
+    )
+
+    rec = recommend_hollow_edge_configs(max_sheet_fpr=0.05, min_bridge_tpr=0.85)
+    assert rec.table
+    assert rec.primary.fpr <= 0.05
+    assert rec.primary.tpr >= 0.85
+    assert rec.primary.h0_at_or_below_sheet_q01
+    # Prefer no-Gabriel when a passing row exists (A2: Gabriel → spurious K).
+    no_gab = [r for r in rec.table if not r.gabriel_fallback]
+    assert no_gab
+    assert rec.primary.gabriel_fallback is False or not any(
+        r.h0_at_or_below_sheet_q01 and not r.gabriel_fallback for r in rec.table
+    )
+    # mid≥0.5 candidate present for A2 discriminative follow-up (may be alt).
+    mids = {r.mid_radius_frac for r in (rec.primary,) + rec.alternates}
+    assert mids & {0.25, 0.35, 0.5}
+    # Kwargs construct production HollowEdgeConfig (A2 module on integration).
+    kwargs = recommended_config_as_edge_evidence_kwargs(rec.primary)
+    cfg = HollowEdgeConfig(**kwargs)
+    assert cfg.mid_radius_frac == rec.primary.mid_radius_frac
+    assert cfg.h0 == rec.primary.h0
+    assert cfg.gabriel_fallback == rec.primary.gabriel_fallback
+    table_txt = format_hollow_edge_config_table(
+        (rec.primary,) + rec.alternates
+    )
+    assert "primary" in table_txt
+    assert "mid" in table_txt.splitlines()[0]
+
+
+@pytest.mark.scenario
+@pytest.mark.synthetic
+def test_config_sweep_includes_a2_operational_and_mid05() -> None:
+    """Sweep retains A2 (0.35,0.35) and mid=0.5 no-Gabriel sheet-safe rows."""
+    from tests.scenarios.synthetic.hollow_edge_nulls import (
+        A2_H0,
+        A2_MID_RADIUS_FRAC,
+        sweep_hollow_edge_config_table,
+    )
+
+    rows = sweep_hollow_edge_config_table(max_sheet_fpr=0.05, min_bridge_tpr=0.85)
+    assert rows
+    a2_like = [
+        r
+        for r in rows
+        if r.mid_radius_frac == A2_MID_RADIUS_FRAC and r.h0 == A2_H0
+    ]
+    assert a2_like
+    mid05 = [
+        r
+        for r in rows
+        if r.mid_radius_frac == 0.5 and not r.gabriel_fallback
+    ]
+    assert mid05
+    assert all(r.fpr <= 0.05 and r.tpr >= 0.85 for r in mid05)

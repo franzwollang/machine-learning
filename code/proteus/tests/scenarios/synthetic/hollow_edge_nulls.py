@@ -25,11 +25,12 @@ import numpy as np
 DEFAULT_MID_RADIUS_FRAC: float = 0.25
 DEFAULT_EPS: float = 1e-9
 
-# A2 operational HollowEdgeConfig defaults (origin/coord/A2 edge_evidence.py;
-# not yet on integration — mirrored here for calibration parity tables only).
+# A2 operational HollowEdgeConfig defaults (proteus.stage1.edge_evidence;
+# mirrored here so the ROC harness stays import-light for table sweeps).
 A2_MID_RADIUS_FRAC: float = 0.35
 A2_H0: float = 0.35
 A2_MIN_END_COUNT: float = 0.5
+A2_GABRIEL_FALLBACK: bool = True
 
 
 @dataclass(frozen=True)
@@ -179,8 +180,8 @@ def decide_cut_a2_parity(
     *other* samples (harness helper; see ``gabriel_is_hollow``).
     Else: do not cut.
 
-    Calibration-only — does not import ``proteus.stage1.edge_evidence`` (A2
-    module may be absent until A1 scoops).
+    Calibration-only — mirrors ``proteus.stage1.edge_evidence.hollow_edge_mask``
+    without requiring a Stage-1 scaffold; production config lives in A2.
     """
     n_end = endpoint_end_mass(
         case.points,
@@ -701,4 +702,224 @@ def mid_frac_roc_table(
             mid_radius_frac=float(f),
         )
         for f in mid_fracs
+    }
+
+
+# ---------------------------------------------------------------------------
+# Recommended HollowEdgeConfig export (A4-T24 → A2-T31)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class HollowEdgeConfigRow:
+    """One candidate ``(mid_frac, h0, min_end, gabriel)`` with ROC / null stats."""
+
+    mid_radius_frac: float
+    h0: float
+    min_end_count: float
+    gabriel_fallback: bool
+    tpr: float
+    fpr: float
+    sheet_q01: float
+    sheet_mean_h: float
+    auc: float
+    h0_at_or_below_sheet_q01: bool
+    role: str
+
+
+@dataclass(frozen=True)
+class HollowEdgeConfigRecommendation:
+    """Exported recommendation bundle for A2 ``HollowEdgeConfig`` (#44 / A4-T24).
+
+    Sheet-null discipline: keep ``h0 ≤`` empirical sheet ``q01`` so H-only FPR
+    on the density-gradient curved sheet stays near zero.  A2's nested probe
+    found ``mid_frac=0.35`` often empty-ball (non-discriminative) while
+    ``mid_frac≈0.5`` separates H but is not yet a lifted cut-set — both rows
+    are exported; production choice stays with A2 / A1.
+    """
+
+    primary: HollowEdgeConfigRow
+    alternates: tuple[HollowEdgeConfigRow, ...]
+    table: tuple[HollowEdgeConfigRow, ...]
+    note: str
+
+
+def _pooled_sheet_bridge_cases(
+    *,
+    sheet_seed: int = 5,
+    gap_seed: int = 11,
+) -> list[HollowEdgeCase]:
+    sheet = generate_connected_sheet_null(
+        seed=sheet_seed, density_power=1.8, curvature=0.4,
+    )
+    gap = generate_gap_tissue_cases(tissue_rate=0.0, seed=gap_seed)
+    bridges = [c for c in gap if c.kind == "gap_bridge"]
+    withins = [c for c in gap if c.kind == "blob_within"]
+    return list(sheet) + bridges + withins
+
+
+def sweep_hollow_edge_config_table(
+    *,
+    mid_fracs: Sequence[float] = (0.25, 0.35, 0.5),
+    h0_values: Sequence[float] = (0.25, 0.35, 0.5, 0.7),
+    gabriel_options: Sequence[bool] = (False, True),
+    min_end_count: float = A2_MIN_END_COUNT,
+    sheet_seed: int = 5,
+    gap_seed: int = 11,
+    null_seed: int = 3,
+    max_sheet_fpr: float = 0.05,
+    min_bridge_tpr: float = 0.85,
+) -> tuple[HollowEdgeConfigRow, ...]:
+    """Grid sweep → rows that keep sheet FPR low and bridge TPR high.
+
+    ``h0`` candidates that sit above the sheet ``q01`` are retained in the
+    full table only when they still meet FPR/TPR gates (Gabriel or luck);
+    the recommendation exporter prefers ``h0 ≤ q01``.
+    """
+    pooled = _pooled_sheet_bridge_cases(sheet_seed=sheet_seed, gap_seed=gap_seed)
+    roc_by_mid = mid_frac_roc_table(
+        mid_fracs=mid_fracs, sheet_seed=1, gap_seed=11,
+    )
+    rows: list[HollowEdgeConfigRow] = []
+    for mid in mid_fracs:
+        null = sheet_null_h_quantiles(mid_radius_frac=float(mid), seed=null_seed)
+        q01 = float(null.quantiles["q0.01"])
+        auc = float(roc_by_mid[float(mid)].auc) if float(mid) in roc_by_mid else float(
+            pooled_adversarial_roc(
+                sheet_seed=1, gap_seed=11, mid_radius_frac=float(mid),
+            ).auc
+        )
+        for h0 in h0_values:
+            for gab in gabriel_options:
+                conf = confusion_at_h0(
+                    pooled,
+                    h0=float(h0),
+                    mid_radius_frac=float(mid),
+                    use_a2_parity_decision=True,
+                    min_end_count=float(min_end_count),
+                    gabriel_fallback=bool(gab),
+                )
+                if conf.fpr > max_sheet_fpr or conf.tpr < min_bridge_tpr:
+                    continue
+                rows.append(
+                    HollowEdgeConfigRow(
+                        mid_radius_frac=float(mid),
+                        h0=float(h0),
+                        min_end_count=float(min_end_count),
+                        gabriel_fallback=bool(gab),
+                        tpr=float(conf.tpr),
+                        fpr=float(conf.fpr),
+                        sheet_q01=q01,
+                        sheet_mean_h=float(null.mean_h),
+                        auc=auc,
+                        h0_at_or_below_sheet_q01=bool(float(h0) <= q01),
+                        role="candidate",
+                    )
+                )
+    # Prefer low FPR, then high TPR, then h0 under q01, then no-Gabriel.
+    rows.sort(
+        key=lambda r: (
+            r.fpr,
+            -r.tpr,
+            0 if r.h0_at_or_below_sheet_q01 else 1,
+            0 if not r.gabriel_fallback else 1,
+            r.mid_radius_frac,
+            r.h0,
+        )
+    )
+    return tuple(rows)
+
+
+def recommend_hollow_edge_configs(
+    *,
+    max_sheet_fpr: float = 0.05,
+    min_bridge_tpr: float = 0.85,
+) -> HollowEdgeConfigRecommendation:
+    """Pick primary + alternates for A2 ``HollowEdgeConfig`` (hand to A2-T31).
+
+    Primary preference order among FPR/TPR-passing rows:
+    1. ``h0 ≤`` sheet ``q01`` (Poisson-null discipline),
+    2. ``gabriel_fallback=False`` (A2: Gabriel amplifies spurious K=2),
+    3. ``mid_radius_frac ≥ 0.5`` when available (A2: 0.35 empty-ball on nested),
+    4. else current A2 operational ``(0.35, 0.35)`` if it still passes gates.
+    """
+    table = sweep_hollow_edge_config_table(
+        max_sheet_fpr=max_sheet_fpr, min_bridge_tpr=min_bridge_tpr,
+    )
+    if not table:
+        raise RuntimeError("no HollowEdgeConfig candidate passed FPR/TPR gates")
+
+    def _score(r: HollowEdgeConfigRow) -> tuple:
+        return (
+            0 if r.h0_at_or_below_sheet_q01 else 1,
+            0 if not r.gabriel_fallback else 1,
+            0 if r.mid_radius_frac >= 0.5 else 1,
+            r.fpr,
+            -r.tpr,
+            abs(r.mid_radius_frac - 0.5),
+            r.h0,
+        )
+
+    ranked = sorted(table, key=_score)
+    primary = ranked[0]
+    # Alternates: distinct mid_frac or gabriel setting from primary.
+    alts: list[HollowEdgeConfigRow] = []
+    seen = {(primary.mid_radius_frac, primary.h0, primary.gabriel_fallback)}
+    for r in ranked[1:]:
+        key = (r.mid_radius_frac, r.h0, r.gabriel_fallback)
+        if key in seen:
+            continue
+        seen.add(key)
+        alts.append(r)
+        if len(alts) >= 3:
+            break
+
+    primary = HollowEdgeConfigRow(**{**primary.__dict__, "role": "primary"})
+    alts_t = tuple(
+        HollowEdgeConfigRow(**{**r.__dict__, "role": f"alternate_{i+1}"})
+        for i, r in enumerate(alts)
+    )
+    note = (
+        f"primary mid={primary.mid_radius_frac:g} h0={primary.h0:g} "
+        f"gabriel={primary.gabriel_fallback} min_end={primary.min_end_count:g}; "
+        f"sheet FPR={primary.fpr:.3f} bridge TPR={primary.tpr:.3f} "
+        f"q01={primary.sheet_q01:.3f} AUC={primary.auc:.3f}. "
+        "Sheet-null safe ≠ nested cut-set recovery (A2 ARI~0); "
+        "do not flip awaiting."
+    )
+    return HollowEdgeConfigRecommendation(
+        primary=primary,
+        alternates=alts_t,
+        table=table,
+        note=note,
+    )
+
+
+def format_hollow_edge_config_table(
+    rows: Sequence[HollowEdgeConfigRow],
+) -> str:
+    """Compact TSV for COORDINATION / A2 handoff."""
+    header = (
+        "role\tmid\th0\tmin_end\tgabriel\tTPR\tFPR\tq01\tmeanH\tAUC\th0<=q01"
+    )
+    lines = [header]
+    for r in rows:
+        lines.append(
+            f"{r.role}\t{r.mid_radius_frac:g}\t{r.h0:g}\t{r.min_end_count:g}\t"
+            f"{r.gabriel_fallback}\t{r.tpr:.3f}\t{r.fpr:.3f}\t"
+            f"{r.sheet_q01:.3f}\t{r.sheet_mean_h:.3f}\t{r.auc:.3f}\t"
+            f"{r.h0_at_or_below_sheet_q01}"
+        )
+    return "\n".join(lines)
+
+
+def recommended_config_as_edge_evidence_kwargs(
+    row: HollowEdgeConfigRow,
+) -> dict[str, float | bool]:
+    """Map a recommendation row to ``HollowEdgeConfig`` field kwargs (A2)."""
+    return {
+        "mid_radius_frac": float(row.mid_radius_frac),
+        "h0": float(row.h0),
+        "min_end_count": float(row.min_end_count),
+        "gabriel_fallback": bool(row.gabriel_fallback),
     }
