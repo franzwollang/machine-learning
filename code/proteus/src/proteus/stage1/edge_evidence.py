@@ -96,6 +96,11 @@ class HollowEdgeConfig:
     A2-T42: multi-seed ``soft_capacity_frac`` sweep (seeds 0..2) — see
     :data:`SOFT_CAPACITY_FRAC_MULTISEED_*`.  Nested collapses across
     seeds; tori chance-ARI K=2 is seed-fragile.  Defaults off.
+
+    A2-T43: proposed Youden / Poisson-LR ``h0`` calibration from the
+    sheet-null export + mid=0.5 adversarial ROC — see
+    :data:`PROPOSED_H0_CALIBRATION_*` / :func:`proposed_h0_calibrated_config`.
+    Proposed only; never the HollowEdgeConfig / RecursionConfig default.
     """
 
     mid_radius_frac: float = 0.35
@@ -195,6 +200,101 @@ def format_poisson_null_h0_table(
         f"gabriel={A4_PRIMARY_GABRIEL_FALLBACK}"
     )
     lines.append(f"# {POISSON_NULL_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Proposed Youden / Poisson-LR h0 calibration (A2-T43 → A3 SI)
+# ---------------------------------------------------------------------------
+# Derived from the frozen sheet-null export (mid=0.5) and the mid=0.5
+# adversarial ROC (sheet negatives vs empty-gap bridges).  Proposed
+# acceptance-path candidates only — never wired as HollowEdgeConfig /
+# RecursionConfig defaults.  Sheet/bridge ROC safe ≠ nested/tori
+# sample-ARI recovery.
+
+PROPOSED_H0_CALIBRATION_MID: float = A4_PRIMARY_MID_RADIUS_FRAC  # 0.5
+PROPOSED_H0_OPERATIONAL: float = 0.35  # current HollowEdgeConfig default
+# Max Youden J = TPR−FPR on mid=0.5 pooled adversarial ROC (~h0≈0.734).
+PROPOSED_H0_YOUDEN: float = 0.73
+PROPOSED_H0_YOUDEN_TPR: float = 1.0
+PROPOSED_H0_YOUDEN_FPR: float = 0.029
+# A4 primary (conservative Youden-family): sheet FPR≈0, bridge TPR≈0.9.
+PROPOSED_H0_YOUDEN_A4: float = A4_PRIMARY_H0  # 0.7
+# Poisson-LR / null lower-tail: sheet export q01 at mid=0.5 (snap).
+PROPOSED_H0_POISSON_LR: float = 0.76
+PROPOSED_H0_POISSON_LR_SHEET_Q01: float = POISSON_NULL_SHEET_H_QUANTILES[0.5]["q0.01"]
+
+# method → (h0, sheet_role_note)
+PROPOSED_H0_CALIBRATION_TABLE: dict[str, tuple[float, str]] = {
+    "operational": (PROPOSED_H0_OPERATIONAL, "HollowEdgeConfig default; weak Youden"),
+    "youden": (PROPOSED_H0_YOUDEN, "max TPR-FPR mid=0.5 adversarial ROC"),
+    "youden_a4": (PROPOSED_H0_YOUDEN_A4, "A4 primary FPR≈0 TPR≈0.9"),
+    "poisson_lr": (PROPOSED_H0_POISSON_LR, "sheet-null q01 lower-tail snap"),
+}
+
+PROPOSED_H0_CALIBRATION_SI_NOTE: str = (
+    "A2-T43 proposed h0 calibration (mid=0.5, gabriel=False): Youden max "
+    "J≈0.97 at h0≈0.73 (TPR=1 FPR≈0.03); A4 primary h0=0.7 (FPR≈0 TPR≈0.9); "
+    f"Poisson-LR sheet q01≈{PROPOSED_H0_POISSON_LR_SHEET_Q01:.2f}→h0=0.76; "
+    "operational h0=0.35 weak on Youden. Proposed only — defaults off; "
+    "sheet/bridge ROC ≠ nested/tori sample-ARI recovery; no awaiting flip."
+)
+
+
+def proposed_h0_calibrated_config(
+    method: str = "youden_a4",
+    **overrides: object,
+) -> HollowEdgeConfig:
+    """Proposed calibrated HollowEdgeConfig (A2-T43); never the default.
+
+    ``method`` is one of ``operational`` / ``youden`` / ``youden_a4`` /
+    ``poisson_lr``.  Base knobs match A4 primary (mid=0.5, gabriel off)
+    except ``operational``, which keeps mid=0.35 + gabriel fallback.
+    """
+
+    if method not in PROPOSED_H0_CALIBRATION_TABLE:
+        raise ValueError(
+            f"unknown h0 calibration method {method!r}; "
+            f"expected one of {sorted(PROPOSED_H0_CALIBRATION_TABLE)}"
+        )
+    h0, _ = PROPOSED_H0_CALIBRATION_TABLE[method]
+    if method == "operational":
+        base = dict(
+            mid_radius_frac=0.35,
+            h0=float(h0),
+            min_end_count=0.5,
+            gabriel_fallback=True,
+            require_gabriel_and_h=False,
+            soft_capacity_only=False,
+        )
+    else:
+        base = dict(
+            mid_radius_frac=PROPOSED_H0_CALIBRATION_MID,
+            h0=float(h0),
+            min_end_count=A4_PRIMARY_MIN_END_COUNT,
+            gabriel_fallback=A4_PRIMARY_GABRIEL_FALLBACK,
+            require_gabriel_and_h=False,
+            soft_capacity_only=False,
+        )
+    base.update(overrides)
+    return HollowEdgeConfig(**base)  # type: ignore[arg-type]
+
+
+def format_proposed_h0_calibration_table() -> str:
+    """TSV export of proposed Youden / Poisson-LR h0 candidates (A2-T43)."""
+
+    lines = [
+        "# proposed Youden / Poisson-LR h0 calibration (mid=0.5 adversarial)",
+        "method\th0\tnote",
+    ]
+    for method, (h0, note) in PROPOSED_H0_CALIBRATION_TABLE.items():
+        lines.append(f"{method}\t{h0:g}\t{note}")
+    lines.append(
+        f"# youden_raw TPR={PROPOSED_H0_YOUDEN_TPR:g} "
+        f"FPR={PROPOSED_H0_YOUDEN_FPR:g}; "
+        f"poisson_lr_sheet_q01={PROPOSED_H0_POISSON_LR_SHEET_Q01:.4f}"
+    )
+    lines.append(f"# {PROPOSED_H0_CALIBRATION_SI_NOTE}")
     return "\n".join(lines)
 
 

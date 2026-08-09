@@ -2651,3 +2651,52 @@ def test_soft_capacity_frac_multiseed_nested_tori_ari() -> None:
                 if maj >= 2 and ari is not None and ari >= 0.5:
                     recovered += 1
     assert recovered == 0
+
+
+def test_proposed_h0_calibration_nested_tori_unrecovered() -> None:
+    """#44 / A2-T43: proposed Youden/Poisson-LR h0 still unrecovered.
+
+    Sheet/bridge-calibrated h0∈{0.7,0.73,0.76} at mid=0.5 (gabriel off)
+    does not sample-ARI-recover nested@0.27 / tori@0.5.  Proposed only;
+    RecursionConfig defaults unchanged; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import proposed_h0_calibrated_config
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().hollow_h0 == 0.35
+
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+
+    def _adapt(points, tau: float):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
+            ann_backend="naive", rng=np.random.default_rng(0),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    sc_n = _adapt(nested.points, 0.27)
+    sc_t = _adapt(tori.points, 0.5)
+    recovered = 0
+    for method in ("youden_a4", "youden", "poisson_lr"):
+        cfg = proposed_h0_calibrated_config(method)
+        for sc, points, labels in (
+            (sc_n, nested.points, nested.labels),
+            (sc_t, tori.points, tori.labels),
+        ):
+            maj, ari = _hollow_majors_and_sample_ari(sc, points, labels, cfg)
+            if maj >= 2:
+                assert ari is not None and ari < 0.5
+            else:
+                assert maj <= 1
+            if maj >= 2 and ari is not None and ari >= 0.5:
+                recovered += 1
+    assert recovered == 0

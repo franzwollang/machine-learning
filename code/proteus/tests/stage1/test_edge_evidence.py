@@ -590,6 +590,49 @@ def test_poisson_null_h0_calibration_export_table() -> None:
     assert "defaults off" in POISSON_NULL_SI_NOTE
 
 
+def test_proposed_h0_calibration_export() -> None:
+    """#44 / A2-T43: Youden / Poisson-LR h0 calibration export (proposed).
+
+    Frozen candidates from sheet-null q01 + mid=0.5 Youden ROC.  Never
+    becomes HollowEdgeConfig / RecursionConfig default; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        A4_PRIMARY_H0,
+        PROPOSED_H0_CALIBRATION_SI_NOTE,
+        PROPOSED_H0_CALIBRATION_TABLE,
+        PROPOSED_H0_POISSON_LR,
+        PROPOSED_H0_POISSON_LR_SHEET_Q01,
+        PROPOSED_H0_YOUDEN,
+        PROPOSED_H0_YOUDEN_A4,
+        format_proposed_h0_calibration_table,
+        proposed_h0_calibrated_config,
+    )
+
+    assert HollowEdgeConfig().h0 == 0.35  # operational default unchanged
+    assert PROPOSED_H0_YOUDEN_A4 == A4_PRIMARY_H0 == 0.7
+    assert PROPOSED_H0_YOUDEN == 0.73
+    assert PROPOSED_H0_POISSON_LR == 0.76
+    assert abs(PROPOSED_H0_POISSON_LR_SHEET_Q01 - 0.7571) < 1e-3
+    assert set(PROPOSED_H0_CALIBRATION_TABLE) >= {
+        "operational", "youden", "youden_a4", "poisson_lr",
+    }
+
+    cfg_y = proposed_h0_calibrated_config("youden")
+    cfg_p = proposed_h0_calibrated_config("poisson_lr")
+    cfg_a4 = proposed_h0_calibrated_config("youden_a4")
+    assert cfg_y.h0 == 0.73 and cfg_y.gabriel_fallback is False
+    assert cfg_p.h0 == 0.76 and cfg_p.mid_radius_frac == 0.5
+    assert cfg_a4.h0 == 0.7
+    assert proposed_h0_calibrated_config("operational").h0 == 0.35
+
+    tsv = format_proposed_h0_calibration_table()
+    assert "method\th0\tnote" in tsv
+    assert "poisson_lr" in tsv and "youden" in tsv
+    assert "Proposed only" in PROPOSED_H0_CALIBRATION_SI_NOTE
+    assert "awaiting" in PROPOSED_H0_CALIBRATION_SI_NOTE
+
+
 def test_soft_capacity_frac_sweep_export() -> None:
     """#44 / A2-T40: soft_capacity_frac sweep export for A3/A4 SI sync.
 
