@@ -1048,6 +1048,13 @@ grid block:
   \item \texttt{"mid\_interval"} --- midpoint of the accepted block (A6-T28 /
   A6-T32); hierarchy Phi probe $\approx 2.7\times$ fine-leaf
   \texttt{expected\_tau}.
+  \item \texttt{"mid\_interval\_load\_screened"} --- same mid landing, but
+  \emph{reject} to the coarse-end $i_{\mathrm{lo}}$ when the variance load at
+  the candidate is $\ll 1$ (shared unit floor
+  $\texttt{\_WITHIN\_INTERVAL\_LOAD\_SCREEN\_MIN}{=}0.5$; A6-T40). On hierarchy
+  the mid load is $\gg 1$, so the screen does \emph{not} fire and
+  screened${=}$raw mid --- the $2.7\times$ overshoot is \emph{not} a low-load
+  artifact. Default remains \texttt{"none"}.
   \item \texttt{"three\_quarter\_interval"} --- three-quarters of the way from
   coarse to fine within the accepted block
   ($i_{\mathrm{lo}}+3(i_{\mathrm{hi}}-i_{\mathrm{lo}})\!/\!4$; A6-T34..T36);
@@ -1055,9 +1062,10 @@ grid block:
   of the experimental landings to $E[\tau]$ but a slight undershoot. Do not
   promote to default on this alone.
   \item \texttt{"three\_quarter\_load\_screened"} --- same three-quarter
-  landing, but \emph{reject} to the coarse-end $i_{\mathrm{lo}}$ when the
-  variance load at the candidate is $\ll 1$ (unit floor $0.5$; A6-T38). On
-  hierarchy the three-quarter load is $\gg 1$ ($\sim 19$), so the screen does
+  landing under the \emph{same} shared $\ll 1$ floor
+  ($\texttt{\_WITHIN\_INTERVAL\_LOAD\_SCREEN\_MIN}{=}0.5$; alias
+  $\texttt{\_THREE\_QUARTER\_LOAD\_SCREEN\_MIN}$; A6-T38/T40). On hierarchy
+  the three-quarter load is $\gg 1$ ($\sim 19$), so the screen does
   \emph{not} fire and screened${=}$raw --- the $0.82\times$ undershoot is
   therefore \emph{not} a low-load artifact. Default remains \texttt{"none"}.
   \item \texttt{"fine\_end\_of\_block"} --- finest grid point of the accepted
@@ -1065,12 +1073,14 @@ grid block:
   \texttt{expected\_tau} ($\approx 0.25\times$), so treat as an overshoot-risk
   diagnostic rather than a candidate default.
 \end{itemize}
-Ordering on the hierarchy Phi table (seed~$0$): mid $\ge$ three-quarter
-(raw${=}$load-screened) $\ge$ fine-end; load-crossover / \texttt{"none"} remain
-$\sim 16\times$. Circle and swiss-roll hybrids / experimental modes are no-ops
-(no persistent split; ordinary $L{=}1$ fallback already near geometric truth).
-None of these modes is SI-justified as an acceptance rule; the flag remains
-operational / default-\texttt{"none"} (S14.3). Do not flip the default.
+Ordering on the hierarchy Phi table (seed~$0$; A6-T41): mid
+(raw${=}$load-screened) $\ge$ three-quarter (raw${=}$load-screened) $\ge$
+fine-end; load-crossover / \texttt{"none"} remain $\sim 16\times$. Circle and
+swiss-roll hybrids / experimental modes (including both load-screened mid /
+three-quarter) are identical no-ops --- no persistent split, so ordinary
+$L{=}1$ fallback already near geometric truth (A6-T42 / paper). None of these
+modes is SI-justified as an acceptance rule; the flag remains operational /
+default-\texttt{"none"} (S14.3). Do not flip the default.
 
 \paragraph{Coarse-anchoring of the persistence interval.} The bare two-point
 rule is made robust to warm-start path dependence by requiring the accepted
@@ -1313,6 +1323,17 @@ status (do \emph{not} flip awaiting):
   off; conjunction suppresses probe $K{=}2$ seed-stably. Prefer these or
   calibrated no-Gabriel over raising $n_{\mathrm{end}}^{\min}$ alone (which
   increases Gabriel usage).
+  \item A4-primary apply + MST-critical + sample-ARI harness (A2-T33..T35;
+  flags default off): \texttt{a4\_roc\_primary\_config} /
+  \texttt{hollow\_use\_a4\_primary} applies the A4 primary
+  $(f_{\mathrm{mid}},h_0,n_{\mathrm{end}}^{\min},\mathrm{Gabriel})
+  {=}(0.5,0.7,0.5,\mathrm{False})$; uniforms / zoo stay safe, nested / tori
+  unrecovered on sample ARI. \texttt{mst\_critical\_only} /
+  \texttt{hollow\_mst\_critical\_only} intersects hollow cuts with the
+  Euclidean MST edge set (conservative bridge proxy): nested@$0.27$ majors
+  $\le 1$ vs default $K{=}2$ with ARI$\sim$chance. Recovery harness locks
+  empty-ball mid$0.35$ and MST non-cut-set failure modes; $K{=}2$ alone is
+  \emph{not} recovery --- assert sample ARI.
 \end{itemize}
 
 \paragraph{A4 primary \texttt{HollowEdgeConfig} handoff (proposed; A4-T24).}
@@ -1356,6 +1377,15 @@ still proposal-path. Raising $h_0$ toward the sheet $q_{01}$ (or a proper
 Poisson LR threshold) must be re-checked against TPR on gap bridges and
 against nested/tori sample-ARI (not $K$ alone). Do not flip S14.3 $h_0$ or
 awaiting on this table.
+
+\paragraph{Multi-$\tau$ ROC confirmation of the A4 primary (proposed; A4-T27).}
+Multi-$\tau$ sheet$+$gap ROC (A4-T27) keeps the primary
+$(f_{\mathrm{mid}},h_0,\mathrm{Gabriel}){=}(0.5,0.7,\mathrm{False})$ as the
+preferred operating point at density~$1$: FPR${=}0$, TPR$\approx 0.9$,
+AUC$\approx 0.999$. Raising mid above $0.5$ (e.g.\ $0.6/0.7$) collapses TPR;
+thinning the sheet (density $0.5$) raises FPR (A4 primary $0\to\approx 0.058$
+--$0.087$; A2-parity $(0.35,0.35)$ $0.014\to\approx 0.174$). Still
+proposal-path --- do not flip S14.3 or awaiting.
 
 Do not retire the radial/PCA family or flip awaiting until calibrated $h_0$ $+$
 $\tau$-coupling evidence lands with sample-ARI recovery. Supporting draft:
@@ -1991,9 +2021,23 @@ facets behind \texttt{DualFlowConfig.enable\_boundary\_taxonomy} (default off;
 S14.3). Default label for a single-owner facet is true-manifold; optional
 hint sets map facets to computational or orientation-seam. Interior facets
 (two or more owners) are omitted. Returned \texttt{facet\_id} values are
-enumeration indices into the result list, not a global face registry. Seam
-stitching and ghost-reservoir attachment remain future work. Do not flip
-awaiting on this taxonomy stub.
+enumeration indices into the result list, not a global face registry.
+
+\paragraph{Seam stitch / ghost reservoir sketches (OPEN\_ISSUES~\#43; A5-T45).}
+Behind \texttt{DualFlowConfig.enable\_seam\_ghost} (default off; S14.3):
+\begin{itemize}[leftmargin=1.5em]
+  \item \texttt{stitch\_orientation\_seam\_pressures} --- scalar antisymmetry
+  sketch after normal alignment: $p_a'=(p_a-p_b)/2$, $p_b'=-p_a'$ so
+  $p_a'=-p_b'$. No face registry / patch graph.
+  \item \texttt{apply\_ghost\_reservoir} --- leaks fraction
+  $\gamma{=}\texttt{ghost\_coupling}$ (default $0.1$) of each
+  computational-facet pressure into a scalar ghost load
+  ($p_f'=(1-\gamma)p_f$ on the mask). Weak coupling only --- not a full
+  exterior solve.
+\end{itemize}
+Both return \texttt{None} when the flag is off. Gaps remain: Stage-1 live BMU
+wiring, real S6.2 loopy BP, face-registry seam/ghost, live S6.4 density. Do
+not flip mass/density/benchmark awaiting on these sketches.
 
 \subsection*{S6.4 Simplex-Local Density Formula}
 \label{sec:si-simplex-density}
@@ -2064,8 +2108,9 @@ contract (not full S6 dual-flow):
 \end{itemize}
 Remaining S6 gaps (mass/density/benchmark
 \texttt{@awaiting("stage2.dual\_flow")} stay xfail): wire S6.1 tallies into
-live BMU routing; real S6.2 loopy Gaussian BP (sketch only today); S6.3 seam
-stitching / ghost reservoir beyond the taxonomy stub; live S6.4 density path
+live BMU routing; real S6.2 loopy Gaussian BP (sketch only today); S6.3
+face-registry seam/ghost beyond the
+\texttt{enable\_seam\_ghost} scalar sketches (S6.3); live S6.4 density path
 beyond the \texttt{enable\_simplex\_density} sketch (S6.4).
 
 \paragraph{Evidence-gate wiring.}
@@ -2809,7 +2854,8 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
 \texttt{coarse\_anchored} & \text{true}\ (\text{coarsest split must persist}) & \text{S2.6.2} & \text{operational}\\
 \texttt{cold\_start\_recheck} & \text{false}\ (\text{refuted gate; see S2.6.2}) & \text{S2.6.2} & \text{diagnostic}\\
-\texttt{resolve\_within\_interval} & \texttt{"none"}\ (\texttt{"load\_crossover"} hybrid; \texttt{"mid\_interval"} / \texttt{"three\_quarter\_interval"} / \texttt{"three\_quarter\_load\_screened"} / \texttt{"fine\_end\_of\_block"} experimental; \#28) & \text{S2.6.2} & \text{operational}\\
+\texttt{resolve\_within\_interval} & \texttt{"none"}\ (\texttt{"load\_crossover"} hybrid; \texttt{"mid\_interval"} / \texttt{"mid\_interval\_load\_screened"} / \texttt{"three\_quarter\_interval"} / \texttt{"three\_quarter\_load\_screened"} / \texttt{"fine\_end\_of\_block"} experimental; \#28) & \text{S2.6.2} & \text{operational}\\
+\texttt{\_WITHIN\_INTERVAL\_LOAD\_SCREEN\_MIN} & 0.5\ (\text{shared }\ll 1\text{ floor for mid/3q load-screened; alias }\texttt{\_THREE\_QUARTER\_LOAD\_SCREEN\_MIN}; \#28) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{allow\_finer\_research} & \text{false}\ (\text{finer-than-}\tau^\star\text{ re-search; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
@@ -2824,14 +2870,18 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{prefer\_pca\_axis\_gap\_prepass} & \text{false}\ (\text{offset rings; tori unrecovered; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{prefer\_hollow\_edge\_prepass} & \text{false}\ (\text{wired; stage1.edge\_evidence; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{hollow\_require\_gabriel\_and\_h} & \text{false}\ (\text{cut iff }H{<}h_0\land\text{Gabriel-empty; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-h_0\ (\text{hollowness cut}) & 0.35\ \text{provisional}\ (\text{A4 primary handoff }0.7\text{ with mid }0.5\text{/noGab; sheet }q_{01}\text{ tension; Poisson LR open; \#44}) & \text{S2.6.2} & \text{proposed (calibrated; \#44)}\\
-f_{\mathrm{mid}}\ (\text{mid-ball fraction}) & 0.35\ (L/4\text{ false-hollows; A4 primary handoff }0.5\text{; ROC AUC}\approx1.0\text{ at }0.35) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{hollow\_use\_a4\_primary} & \text{false}\ (\text{A4 mid}{=}0.5/h_0{=}0.7/\text{noGab; A2-T33; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{hollow\_mst\_critical\_only} & \text{false}\ (\text{MST}\cap\text{hollow; A2-T34; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+h_0\ (\text{hollowness cut}) & 0.35\ \text{provisional}\ (\text{A4 primary handoff }0.7\text{ with mid }0.5\text{/noGab; multi-}\tau\text{ ROC confirms dens1; sheet }q_{01}\text{ tension; Poisson LR open; \#44}) & \text{S2.6.2} & \text{proposed (calibrated; \#44)}\\
+f_{\mathrm{mid}}\ (\text{mid-ball fraction}) & 0.35\ (L/4\text{ false-hollows; A4 primary handoff }0.5\text{; mid}{>}0.5\text{ TPR collapses; ROC AUC}\approx1.0\text{ at }0.35) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 n_{\mathrm{end}}^{\min} & 0.5\ (\text{else Gabriel empty-diameter}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 M_{\mathrm{transit}} & 1\ (\text{identity until online EWMA lands}) & \text{S2.6.1} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_dual\_adjacency} & \text{false} & \text{S6.6} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_conservative\_bp} & \text{false}\ (\text{identity/damped sketch only}) & \text{S6.6} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_face\_tallies} & \text{false}\ (\text{S6.1 stub; not live-routed; \#43}) & \text{S6.1} & \text{operational (proposal-path)}\\
-\texttt{DualFlowConfig.enable\_boundary\_taxonomy} & \text{false}\ (\text{S6.3 stub; no seam stitch; \#43}) & \text{S6.3} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.enable\_boundary\_taxonomy} & \text{false}\ (\text{S6.3 stub; \#43}) & \text{S6.3} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.enable\_seam\_ghost} & \text{false}\ (\text{S6.3 stitch/ghost sketches; A5-T45; \#43}) & \text{S6.3} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.ghost\_coupling} & 0.1\ (\text{computational-facet leak; \#43}) & \text{S6.3} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_simplex\_density} & \text{false}\ (\text{S6.4 sketch; live path unwired; \#43}) & \text{S6.4} & \text{operational (proposal-path)}\\
 \texttt{GateConfig.apply\_dual\_adjacency} & \text{false} & \text{S6.6,S10.4} & \text{operational (proposal-path)}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
