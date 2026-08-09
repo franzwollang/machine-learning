@@ -54,3 +54,4 @@
 {"ts":"2026-08-09T14:20-05:00","from":"A1","type":"NOTE","note":"Late scoop: A2-T10..T12 band e2e unrecovered + A4-T8 clean-shell PH green. Resolved recursion conflict keeping harden. Refilled A2-T13..T15 / A4-T9..T11. #44 SI A+C held."}
 {"ts":"2026-08-09T14:20-05:00","from":"A1","type":"TASK_ASSIGN","note":"A2-T13..T15 trough/non-centroid/signal; A4-T9..T11 lifetime calib + summary; A3/A5/A6 queues unchanged"}
 {"ts":"2026-08-09T14:20-05:00","from":"A1","type":"TASK_REFILL","note":"A2/A4 queues refilled after DONE drains"}
+{"ts":"2026-08-09T14:20-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"22eab733a80a165d1f554b1a2570331f7e735785","note":"Late scoop A2 band+A4-T8; tests 12p recursion + 7p persistence + 4p clean-shell PH + 3p/1x evidence","tips":{"A2":"3622abf","A3":"bc9a648","A4":"10b67c7","A5":"b2047c5","A6":"503acd5"}}
