@@ -1,1 +1,3 @@
 {"ts":"2026-08-09T11:40:00-05:00","from":"A6","type":"HELLO","note":"worker on durable branch coord/A6; assignments live in SWARM_TASKS.json"}
+{"ts":"2026-08-09T12:01:30-05:00","from":"A6","type":"NOTE","note":"integrated_sha=3cfa2f80590c5c77397ac6faf0df6caf44e2d4d0 after merge origin/coord/integration"}
+{"ts":"2026-08-09T12:01:31-05:00","from":"A6","type":"CLAIM","issue":28,"task_id":"A6-T1","files":["code/proteus/src/proteus/stage1/controller.py"],"note":"inventory legacy load-band / dormant selectors"}
