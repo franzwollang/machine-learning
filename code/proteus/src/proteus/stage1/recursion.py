@@ -139,6 +139,12 @@ class RecursionConfig:
     (``finer_radial_min_trough_rel``, default ``0.35`` on that path).  The
     plain ``prefer_radial_band_prepass`` path stays unchanged unless
     ``finer_radial_min_trough_rel`` is set ``> 0`` explicitly.
+
+    **A2-T14 (flag-gated, default off):**
+    ``prefer_signal_density_band_prepass`` keeps the top
+    ``finer_signal_density_keep_frac`` of nodes by knn-density residual
+    against a smooth radial histogram expectation, then runs the band
+    gap on the kept subset (apply cut to full scaffold).
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
@@ -160,6 +166,8 @@ class RecursionConfig:
     finer_radial_hist_bins: int = 16
     prefer_noncentroid_radial_band_prepass: bool = False
     finer_radial_min_trough_rel: float = 0.0
+    prefer_signal_density_band_prepass: bool = False
+    finer_signal_density_keep_frac: float = 0.55
     seed: int = 42
 
 
@@ -435,6 +443,55 @@ def _coordinate_median(points: np.ndarray) -> np.ndarray:
     return np.median(pts, axis=0)
 
 
+def _signal_density_residual_keep_mask(
+    positions: np.ndarray,
+    radii: np.ndarray,
+    *,
+    keep_frac: float = 0.55,
+    hist_bins: int = 16,
+    knn: int = 8,
+) -> np.ndarray:
+    """Keep nodes with high knn-density residual vs radial histogram (#44 T14).
+
+    Tissue that fills the mid-radius continuum is typically locally sparser
+    (or more radially diffuse) than shell arcs.  Operational residual:
+    ``rho_knn(i) / (rho_radial(r_i) + eps)``; keep the top ``keep_frac``.
+    """
+
+    pts = np.asarray(positions, dtype=float)
+    r = np.asarray(radii, dtype=float)
+    n = pts.shape[0]
+    if n == 0:
+        return np.zeros(0, dtype=bool)
+    frac = float(keep_frac)
+    if not (0.0 < frac <= 1.0):
+        frac = 0.55
+    k = max(1, min(int(knn), n - 1)) if n > 1 else 1
+    if n == 1:
+        return np.ones(1, dtype=bool)
+
+    # Pairwise distances for small scaffolds (prepass operates on node graphs).
+    dmat = np.linalg.norm(pts[:, None, :] - pts[None, :, :], axis=2)
+    np.fill_diagonal(dmat, np.inf)
+    knn_d = np.partition(dmat, kth=k - 1, axis=1)[:, :k]
+    rho_knn = 1.0 / (knn_d.mean(axis=1) + 1e-12)
+
+    bins = max(8, int(hist_bins))
+    hist, edges = np.histogram(r, bins=bins)
+    # Convert counts → per-bin density proxy (count / width), then lookup.
+    widths = np.maximum(np.diff(edges), 1e-12)
+    rho_bin = hist.astype(float) / widths
+    # Assign each radius to a bin.
+    bin_idx = np.clip(np.digitize(r, edges[1:-1], right=False), 0, bins - 1)
+    rho_radial = rho_bin[bin_idx]
+    residual = rho_knn / (rho_radial + 1e-12)
+    n_keep = max(2, int(np.ceil(n * frac)))
+    order = np.argsort(-residual)
+    mask = np.zeros(n, dtype=bool)
+    mask[order[:n_keep]] = True
+    return mask
+
+
 def _radial_band_gap_partition(
     scaffold: "Stage1Scaffold",  # noqa: F821
     *,
@@ -444,6 +501,7 @@ def _radial_band_gap_partition(
     hist_bins: int = 16,
     origin: str = "centroid",
     min_trough_rel: float = 0.0,
+    signal_density_keep_frac: float | None = None,
 ) -> ClusterResult | None:
     """Radial-gap split after excluding the radius-histogram trough (#44).
 
@@ -488,7 +546,22 @@ def _radial_band_gap_partition(
     else:
         center = positions.mean(axis=0)
     radii = np.linalg.norm(positions - center, axis=1)
-    hist, edges = np.histogram(radii, bins=bins)
+    signal_keep = np.ones(n, dtype=bool)
+    if signal_density_keep_frac is not None:
+        signal_keep = _signal_density_residual_keep_mask(
+            positions,
+            radii,
+            keep_frac=float(signal_density_keep_frac),
+            hist_bins=bins,
+        )
+        if int(signal_keep.sum()) < 2 * threshold:
+            return None
+    r_lo = float(np.min(radii))
+    r_hi = float(np.max(radii))
+    if not np.isfinite(r_lo) or not np.isfinite(r_hi) or r_hi <= r_lo:
+        return None
+    edges = np.linspace(r_lo, r_hi, bins + 1)
+    hist, _ = np.histogram(radii[signal_keep], bins=edges)
     # Local maxima including edge bins (shell modes often land at ends).
     peaks: list[int] = []
     for i in range(len(hist)):
@@ -548,7 +621,7 @@ def _radial_band_gap_partition(
         return False
 
     peak_mask = np.array([_in_bins(float(radii[i]), peak_bins) for i in range(n)])
-    mask = peak_mask  # kept = peak-mode support; mid-band excluded
+    mask = peak_mask & signal_keep  # peak-mode support ∩ signal-density keep
     idx = np.where(mask)[0]
     if len(idx) < 2 * threshold:
         return None
@@ -639,6 +712,8 @@ def _research_finer_split(
     gap is tried (mid-band / tissue continuum exclusion).  When
     ``prefer_noncentroid_radial_band_prepass`` is on, the same band rule runs
     with a coordinate-median origin and a trough-depth bimodality gate.
+    When ``prefer_signal_density_band_prepass`` is on, knn-density residual
+    masking precedes the band gap.
     """
 
     ratio = float(config.finer_tau_cap_ratio)
@@ -735,6 +810,26 @@ def _research_finer_split(
                 and band_nc.partition_q_score > 0.0
             ):
                 return result, scaffold, band_nc
+
+        # #44 / A2-T14: signal-density residual mask + band prepass.
+        if config.prefer_signal_density_band_prepass:
+            band_sd = _radial_band_gap_partition(
+                scaffold,
+                min_frac=float(config.finer_prepass_min_frac),
+                min_gap_ratio=float(config.finer_radial_min_gap_ratio),
+                hist_bins=int(config.finer_radial_hist_bins),
+                origin="centroid",
+                min_trough_rel=float(config.finer_radial_min_trough_rel),
+                signal_density_keep_frac=float(
+                    config.finer_signal_density_keep_frac
+                ),
+            )
+            if (
+                band_sd is not None
+                and band_sd.n_clusters > 1
+                and band_sd.partition_q_score > 0.0
+            ):
+                return result, scaffold, band_sd
 
         cluster_result = _cluster_scaffold(scaffold, config)
         if (
@@ -841,6 +936,10 @@ def _descend_into_clusters(
                 config.prefer_noncentroid_radial_band_prepass
             ),
             finer_radial_min_trough_rel=config.finer_radial_min_trough_rel,
+            prefer_signal_density_band_prepass=(
+                config.prefer_signal_density_band_prepass
+            ),
+            finer_signal_density_keep_frac=config.finer_signal_density_keep_frac,
             seed=config.seed + region_id + label,
         )
 
