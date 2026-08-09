@@ -446,3 +446,57 @@ def test_bridge_critical_default_off() -> None:
     """Bridge-critical flag stays default-off (proposal-path)."""
 
     assert HollowEdgeConfig().bridge_critical_only is False
+
+
+def test_soft_capacity_only_intersects_hollow_mask() -> None:
+    """#44 / A2-T37: soft-capacity keeps only high-betweenness ∩ hollow.
+
+    Path graph 0-1-2-3: the middle edge has higher Brandes betweenness than
+    the ends.  With ``soft_capacity_frac`` near 1.0 only the peak-betweenness
+    edge may be cut; a hollow end-edge is suppressed.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        edge_betweenness_scores,
+        soft_capacity_edge_mask,
+    )
+
+    # Path of 4 nodes: edges (0,1), (1,2), (2,3). Mid edge has highest bet.
+    pos = np.array(
+        [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [3.0, 0.0]], dtype=float,
+    )
+    edges = [(0, 1), (1, 2), (2, 3)]
+    # Data only near endpoints so mid and end edges look hollow under H.
+    rng = np.random.default_rng(0)
+    data = np.vstack([
+        rng.normal([0.0, 0.0], 0.05, size=(40, 2)),
+        rng.normal([3.0, 0.0], 0.05, size=(40, 2)),
+    ])
+    scores = edge_betweenness_scores(edges, n_nodes=4)
+    assert scores[1] > scores[0]
+    assert scores[1] > scores[2]
+    soft = soft_capacity_edge_mask(edges, n_nodes=4, frac=0.9)
+    assert bool(soft[1]) is True
+    assert bool(soft[0]) is False or bool(soft[2]) is False
+
+    cfg_all = HollowEdgeConfig(
+        mid_radius_frac=0.5, h0=0.9, gabriel_fallback=False,
+        soft_capacity_only=False,
+    )
+    cfg_soft = HollowEdgeConfig(
+        mid_radius_frac=0.5, h0=0.9, gabriel_fallback=False,
+        soft_capacity_only=True, soft_capacity_frac=0.9,
+    )
+    cut_all = hollow_edge_mask(pos, edges, data, cfg_all)
+    cut_soft = hollow_edge_mask(pos, edges, data, cfg_soft)
+    # Soft capacity never cuts more than unrestricted hollow.
+    assert not np.any(cut_soft & ~cut_all)
+    assert not np.any(cut_soft & ~soft)
+    assert HollowEdgeConfig().soft_capacity_only is False
+
+
+def test_soft_capacity_default_off() -> None:
+    """Soft-capacity flag stays default-off (proposal-path; A2-T37)."""
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().soft_capacity_frac == 0.25

@@ -67,6 +67,13 @@ class HollowEdgeConfig:
     spanning tree, so this is a stricter true cut-set than MST-critical;
     default off.  Mutually independent of ``mst_critical_only`` (both may
     apply as successive intersections).
+
+    A2-T37 soft-capacity: ``soft_capacity_only=True`` intersects hollow
+    cuts with edges whose Brandes betweenness is at least
+    ``soft_capacity_frac * max(betweenness)`` (operational default
+    ``0.25``).  Continuous capacity/flow proxy between hard bridges and
+    unrestricted hollow; default off. Independent of MST/bridge flags
+    (successive intersections when combined).
     """
 
     mid_radius_frac: float = 0.35
@@ -76,6 +83,8 @@ class HollowEdgeConfig:
     require_gabriel_and_h: bool = False
     mst_critical_only: bool = False
     bridge_critical_only: bool = False
+    soft_capacity_only: bool = False
+    soft_capacity_frac: float = 0.25
     eps: float = _EPS
 
 
@@ -102,6 +111,8 @@ def a4_roc_primary_config(**overrides: object) -> HollowEdgeConfig:
         require_gabriel_and_h=False,
         mst_critical_only=False,
         bridge_critical_only=False,
+        soft_capacity_only=False,
+        soft_capacity_frac=0.25,
     )
     base.update(overrides)
     return HollowEdgeConfig(**base)  # type: ignore[arg-type]
@@ -313,6 +324,94 @@ def bridge_edge_mask(
     return is_bridge
 
 
+def edge_betweenness_scores(
+    edges: list[tuple[int, int]],
+    *,
+    n_nodes: int | None = None,
+) -> np.ndarray:
+    """Brandes edge betweenness on the undirected multigraph of ``edges``.
+
+    Soft capacity / flow proxy (A2-T37): high-betweenness edges carry more
+    shortest paths and approximate min-cut mass without requiring a hard
+    bridge.  Returns one score per input edge (0 for self-loops / OOB).
+    """
+
+    from collections import deque
+
+    if not edges:
+        return np.zeros(0, dtype=float)
+    if n_nodes is None:
+        n_nodes = 0
+        for i, j in edges:
+            n_nodes = max(n_nodes, int(i) + 1, int(j) + 1)
+    n = int(n_nodes)
+    adj: list[list[tuple[int, int]]] = [[] for _ in range(n)]
+    for k, (i, j) in enumerate(edges):
+        ii, jj = int(i), int(j)
+        if ii == jj or ii < 0 or jj < 0 or ii >= n or jj >= n:
+            continue
+        adj[ii].append((jj, k))
+        adj[jj].append((ii, k))
+
+    cb = np.zeros(len(edges), dtype=float)
+    for s in range(n):
+        if not adj[s]:
+            continue
+        stack: list[int] = []
+        pred: list[list[tuple[int, int]]] = [[] for _ in range(n)]
+        sigma = np.zeros(n, dtype=float)
+        sigma[s] = 1.0
+        dist = [-1] * n
+        dist[s] = 0
+        q: deque[int] = deque([s])
+        while q:
+            v = q.popleft()
+            stack.append(v)
+            for w, ek in adj[v]:
+                if dist[w] < 0:
+                    dist[w] = dist[v] + 1
+                    q.append(w)
+                if dist[w] == dist[v] + 1:
+                    sigma[w] += sigma[v]
+                    pred[w].append((v, ek))
+        delta = np.zeros(n, dtype=float)
+        while stack:
+            w = stack.pop()
+            for v, ek in pred[w]:
+                if sigma[w] > 0.0:
+                    c = (sigma[v] / sigma[w]) * (1.0 + delta[w])
+                else:
+                    c = 0.0
+                cb[ek] += c
+                delta[v] += c
+    # Undirected convention: each undirected edge counted twice.
+    return cb * 0.5
+
+
+def soft_capacity_edge_mask(
+    edges: list[tuple[int, int]],
+    *,
+    n_nodes: int | None = None,
+    frac: float = 0.25,
+) -> np.ndarray:
+    """Boolean mask ``True`` iff edge betweenness ≥ ``frac * max``.
+
+    Operational soft-capacity gate (A2-T37).  ``frac`` in ``(0, 1]``;
+    values ≤0 keep all edges, values >1 keep none with positive max.
+    """
+
+    if not edges:
+        return np.zeros(0, dtype=bool)
+    scores = edge_betweenness_scores(edges, n_nodes=n_nodes)
+    f = float(frac)
+    if f <= 0.0:
+        return np.ones(len(edges), dtype=bool)
+    peak = float(np.max(scores)) if scores.size else 0.0
+    if peak <= 0.0:
+        return np.zeros(len(edges), dtype=bool)
+    return scores >= (f * peak)
+
+
 def hollow_edge_mask(
     positions: np.ndarray,
     edges: list[tuple[int, int]],
@@ -333,7 +432,8 @@ def hollow_edge_mask(
     When ``mst_critical_only`` is set, intersect the hollow mask with the
     Euclidean MST edge mask (A2-T34).  When ``bridge_critical_only`` is set,
     further (or instead) intersect with graph-theoretic bridges (capacity /
-    flow cut-set beyond the MST proxy).
+    flow cut-set beyond the MST proxy).  When ``soft_capacity_only`` is set,
+    intersect with high-betweenness edges (A2-T37 soft capacity / flow).
     """
 
     cfg = config if config is not None else HollowEdgeConfig()
@@ -373,6 +473,15 @@ def hollow_edge_mask(
     if cfg.bridge_critical_only and len(edges) > 0:
         cut = np.logical_and(
             cut, bridge_edge_mask(edges, n_nodes=int(pos.shape[0])),
+        )
+    if cfg.soft_capacity_only and len(edges) > 0:
+        cut = np.logical_and(
+            cut,
+            soft_capacity_edge_mask(
+                edges,
+                n_nodes=int(pos.shape[0]),
+                frac=float(cfg.soft_capacity_frac),
+            ),
         )
     return cut
 

@@ -303,6 +303,8 @@ def test_finer_research_flag_defaults_off() -> None:
     assert cfg.hollow_use_a4_primary is False
     assert cfg.hollow_mst_critical_only is False
     assert cfg.hollow_bridge_critical_only is False
+    assert cfg.hollow_soft_capacity_only is False
+    assert 0.0 < cfg.hollow_soft_capacity_frac <= 1.0
 
 
 def test_hollow_edge_partition_splits_bridged_blobs() -> None:
@@ -2084,3 +2086,89 @@ def test_denser_scaffold_hollow_ari_a4_primary_bridge() -> None:
         assert ari_br is None or ari_br < 0.5
 
     assert recovered == 0  # denser scaffolds do not sample-ARI recover
+
+
+def test_soft_capacity_hollow_contrast_vs_mst_bridge() -> None:
+    """#44 / A2-T37: soft-capacity (betweenness) vs MST/bridge majors+ARI.
+
+    On nested@0.27, default/A4 primary can emit spurious K=2 with sample
+    ARI≈chance.  Soft-capacity (``soft_capacity_frac=0.25``) intersects
+    hollow with high-betweenness edges and collapses majors to ≤1 like
+    MST-critical and bridge-critical — still **not** sample-ARI recovery.
+    Flags default-off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import HollowEdgeConfig, a4_roc_primary_config
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_soft_capacity_frac == 0.25
+
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+
+    def _adapt(points, tau: float):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
+            ann_backend="naive", rng=np.random.default_rng(0),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    cfg_def = HollowEdgeConfig()
+    cfg_a4 = a4_roc_primary_config()
+    cfg_mst = a4_roc_primary_config(mst_critical_only=True)
+    cfg_br = a4_roc_primary_config(bridge_critical_only=True)
+    cfg_soft = a4_roc_primary_config(soft_capacity_only=True, soft_capacity_frac=0.25)
+    cfg_soft_def = HollowEdgeConfig(soft_capacity_only=True, soft_capacity_frac=0.25)
+
+    sc_n = _adapt(nested.points, 0.27)
+    maj_def, ari_def = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_def,
+    )
+    maj_a4, ari_a4 = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_a4,
+    )
+    maj_mst, _ = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_mst,
+    )
+    maj_br, _ = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_br,
+    )
+    maj_soft, ari_soft = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_soft,
+    )
+    maj_soft_def, _ = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_soft_def,
+    )
+
+    assert maj_def == 2
+    assert ari_def is not None and ari_def < 0.2
+    if maj_a4 >= 2:
+        assert ari_a4 is not None and ari_a4 < 0.5
+    assert maj_mst <= 1
+    assert maj_br <= 1
+    # Soft capacity collapses spurious A4/default K=2 like hard cut-set filters.
+    assert maj_soft <= 1
+    assert maj_soft_def <= 1
+    assert ari_soft is None or ari_soft < 0.5
+
+    sc_t = _adapt(tori.points, 0.5)
+    recovered = 0
+    for cfg in (cfg_a4, cfg_mst, cfg_br, cfg_soft):
+        maj, ari = _hollow_majors_and_sample_ari(
+            sc_t, tori.points, tori.labels, cfg,
+        )
+        if maj >= 2:
+            assert ari is not None and ari < 0.5
+        else:
+            assert maj <= 1
+        if maj >= 2 and ari is not None and ari >= 0.5:
+            recovered += 1
+    assert recovered == 0

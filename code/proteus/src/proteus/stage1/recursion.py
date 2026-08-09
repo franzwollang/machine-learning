@@ -212,7 +212,10 @@ class RecursionConfig:
     cuts with the Euclidean MST edge set (conservative bridge proxy).
     Capacity/flow follow-on: ``hollow_bridge_critical_only`` (default False)
     intersects with graph-theoretic bridges (true cut-set; stricter than
-    MST).  Sheet-null / bridge-safe ≠ sample-ARI recovery.
+    MST).  A2-T37: ``hollow_soft_capacity_only`` (default False) intersects
+    with high Brandes-betweenness edges (``hollow_soft_capacity_frac`` of
+    max; continuous soft capacity / flow proxy).  Sheet-null / bridge-safe
+    ≠ sample-ARI recovery.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
@@ -265,6 +268,8 @@ class RecursionConfig:
     hollow_use_a4_primary: bool = False
     hollow_mst_critical_only: bool = False
     hollow_bridge_critical_only: bool = False
+    hollow_soft_capacity_only: bool = False
+    hollow_soft_capacity_frac: float = 0.25
     seed: int = 42
 
 
@@ -441,14 +446,18 @@ def _resolve_hollow_edge_config(
     require_gabriel_and_h: bool = False,
     mst_critical_only: bool = False,
     bridge_critical_only: bool = False,
+    soft_capacity_only: bool = False,
+    soft_capacity_frac: float = 0.25,
     use_a4_primary: bool = False,
 ) -> HollowEdgeConfig:
-    """Build ``HollowEdgeConfig`` from recursion knobs (A2-T33/T34 + bridges)."""
+    """Build ``HollowEdgeConfig`` from recursion knobs (A2-T33/T34/T37)."""
 
     if config is not None:
         use_a4_primary = bool(config.hollow_use_a4_primary)
         mst_critical_only = bool(config.hollow_mst_critical_only)
         bridge_critical_only = bool(config.hollow_bridge_critical_only)
+        soft_capacity_only = bool(config.hollow_soft_capacity_only)
+        soft_capacity_frac = float(config.hollow_soft_capacity_frac)
         mid_radius_frac = float(config.hollow_mid_radius_frac)
         h0 = float(config.hollow_h0)
         min_end_count = float(config.hollow_min_end_count)
@@ -459,6 +468,8 @@ def _resolve_hollow_edge_config(
             require_gabriel_and_h=bool(require_gabriel_and_h),
             mst_critical_only=bool(mst_critical_only),
             bridge_critical_only=bool(bridge_critical_only),
+            soft_capacity_only=bool(soft_capacity_only),
+            soft_capacity_frac=float(soft_capacity_frac),
         )
     return HollowEdgeConfig(
         mid_radius_frac=float(mid_radius_frac),
@@ -468,6 +479,8 @@ def _resolve_hollow_edge_config(
         require_gabriel_and_h=bool(require_gabriel_and_h),
         mst_critical_only=bool(mst_critical_only),
         bridge_critical_only=bool(bridge_critical_only),
+        soft_capacity_only=bool(soft_capacity_only),
+        soft_capacity_frac=float(soft_capacity_frac),
     )
 
 
@@ -484,6 +497,8 @@ def _hollow_edge_partition(
     require_gabriel_and_h: bool = False,
     mst_critical_only: bool = False,
     bridge_critical_only: bool = False,
+    soft_capacity_only: bool = False,
+    soft_capacity_frac: float = 0.25,
     use_a4_primary: bool = False,
     hollow_config: HollowEdgeConfig | None = None,
 ) -> ClusterResult | None:
@@ -522,6 +537,8 @@ def _hollow_edge_partition(
         require_gabriel_and_h=require_gabriel_and_h,
         mst_critical_only=mst_critical_only,
         bridge_critical_only=bridge_critical_only,
+        soft_capacity_only=soft_capacity_only,
+        soft_capacity_frac=soft_capacity_frac,
         use_a4_primary=use_a4_primary,
     )
     kept = prune_hollow_edges(positions, edges, data_arr, config=cfg)
@@ -1675,6 +1692,8 @@ def _descend_into_clusters(
             hollow_use_a4_primary=config.hollow_use_a4_primary,
             hollow_mst_critical_only=config.hollow_mst_critical_only,
             hollow_bridge_critical_only=config.hollow_bridge_critical_only,
+            hollow_soft_capacity_only=config.hollow_soft_capacity_only,
+            hollow_soft_capacity_frac=config.hollow_soft_capacity_frac,
             seed=config.seed + region_id + label,
         )
 
