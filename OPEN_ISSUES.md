@@ -107,8 +107,15 @@ Remaining work:
   within-interval modes identical (LC fallback); experimental
   `three_quarter_load_screened` (reject if load≪1; default `"none"`) — on
   hierarchy 3/4 load≫1 so screened==raw (undershoot is not a low-load
-  artifact). Paper notes ~0.82× closest. Do **not** flip default. Remaining:
-  A3 SI row for `three_quarter_load_screened`; optional further probes.
+  artifact). Paper notes ~0.82× closest. Do **not** flip default.
+- **Landed (A6-T40..T42 + A3-T47 SI):** `mid_interval_load_screened` + shared
+  `_WITHIN_INTERVAL_LOAD_SCREEN_MIN=0.5`; hierarchy mid/3q screened==raw
+  (load≫1). SI S2.6.2/S14.3 rows present.
+- **Landed (A6-T43..T45):** `two_thirds_interval` + `two_thirds_load_screened`
+  (default `"none"`); hierarchy Phi seed0: mid~2.69× / two_thirds~1.49× /
+  3q~0.82× (still closest) / fine~0.25×; screened==raw. Paper lists ratios.
+  Remaining: A3 SI rows for two_thirds modes; optional denser-grid /
+  load-weighted within-block pick. Do **not** flip default.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -226,11 +233,20 @@ re-searched *finer* scales inside a single feature.
   **mid=0.5, h0=0.7, gabriel=False, min_end=0.5** (sheet FPR=0, TPR=0.9,
   q01≈0.82, AUC≈0.999); A2 `(0.35,0.35)` kept as alt. Sheet-null safety ≠
   nested ARI recovery.
-- **Landed (A3-T45 SI):** ROC mid_frac table + sheet q01 vs h0 tension prose.
-- **Remaining:** apply A4 primary config in A2 flag-gated path + capacity/
-  MST-critical hollow variant; fuller suite green with **sample-ARI** gate →
-  retire radial/PCA family + awaiting-flip review (A1 sign-off). **Do not
-  flip awaiting.** Distinct from #28. Post-track: open #45 open-loop /
+- **Landed (A3-T45/T48 SI):** ROC mid_frac table + A4 primary +
+  `require_gabriel_and_h` prose (proposed; no default flip).
+- **Landed (A2-T33..T35 + A4-T27 multi-τ ROC):** `a4_roc_primary_config` /
+  `hollow_use_a4_primary` (def off); `mst_critical_only` (def off); sample-ARI
+  harness (K=2≠recovery). Uniforms/zoo ok; **nested/tori unrecovered**.
+  Multi-τ ROC: primary dens1 sheet-safe; mid>0.5 TPR collapses; thinning
+  raises FPR.
+- **Landed (A2 bridge follow-on):** `bridge_critical_only` /
+  `hollow_bridge_critical_only` (def off) — true cut-set beyond MST;
+  nested@0.27 majors≤1; multi-seed A4+bridge ARI still unrecovered.
+- **Remaining:** soft-capacity / denser-scaffold hollow ARI; Poisson-null
+  h0 calibration export; fuller suite green with **sample-ARI** → retire
+  radial/PCA family + awaiting-flip review (A1 sign-off). **Do not flip
+  awaiting.** Distinct from #28. Post-track: open #45 open-loop /
   `max_nodes` (`reference/open_loop_growth_and_node_cap.md`) into M4.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
@@ -299,9 +315,14 @@ circle `b1 = 1` target of #25.
 - **FINDING (A4-T26 tori denser):** linked_tori max_nodes 64/128/256
   (labels 0/1) — SI `(1,2,1)` not recovered (closer on b1 only). Keep
   `@awaiting`.
-- **Remaining before flipping recovery tests:** tori lifetime+hollow
-  recipes; dual-scale / hollow-pruned PH; optional calibrated-mult harness;
-  keep recovery `@awaiting` until SI-default fitted evidence is green.
+- **FINDING (A4-T28..T32):** tori lifetime+hollow recipes fail SI; nested
+  dual-scale coarse=3 recovers shell1 only; tori dual-scale fails both
+  scales; per-shell local σ no outer gain; circle cal mult=6 recovers
+  nested shell2 only (inverse of coarse=3). No single global mult hits
+  both shells. Keep `@awaiting`.
+- **Remaining before flipping recovery tests:** per-shell mult schedule;
+  tori local-σ; hollow+cal-mult combo; keep recovery `@awaiting` until
+  SI-default fitted evidence is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -328,10 +349,15 @@ circle `b1 = 1` target of #25.
 - **Landed (A5-EXP-S61 + A3-T46 SI):** `accumulate_face_pressure_tally` (S6.1)
   + `classify_boundary_facets` (S6.3) behind flags (default off); SI stubs
   match.
-- **Landed (A5-T40..T42):** dry-run `face_tallies` demo via `samples=`;
-  `simplex_local_density` S6.4 sketch (`enable_simplex_density`, default
-  off); module docstring acceptance-path plan to replace `None`⇒True +
-  real-BP gap list. Evidence 30 passed. Mass/density/benchmark stay
-  `@awaiting`. Gaps: live BMU tally routing, real S6.2 BP (A_S/μ/loopy),
-  S6.3 seam/ghost, live S6.4 density path. **Do not close #43** until
+- **Landed (A5-T40..T42 + A3-T49 SI):** dry-run `face_tallies` demo via
+  `samples=`; `simplex_local_density` S6.4 sketch (`enable_simplex_density`,
+  default off); acceptance-path plan docstring. SI S6.4 stub present.
+- **Landed (A5-T43..T45 + A3 seam SI):** live BMU face-tally harness;
+  `build_divergence_stencil` / `solve_as_message_pass` (A_S residual sketch);
+  `stitch_orientation_seam_pressures` + `apply_ghost_reservoir`
+  (`enable_seam_ghost`, default off). Evidence 36→42 with μ/ε follow-ons.
+- **Landed (A5-EXP-mu/flux):** whitened λ_f / μ_S soft solve + `epsilon_flux`
+  / spectrum step-shrink (flags off). Gaps remain: Stage-1 BMU wiring;
+  real loopy BP; face-registry seam/ghost; live S6.4 density.
+  Mass/density/benchmark stay `@awaiting`. **Do not close #43** until
   acceptance-path default replaces the conservative open default / fuller S6.

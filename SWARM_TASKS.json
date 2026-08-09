@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T16:40-05:00",
+  "updated_at": "2026-08-09T17:15-05:00",
   "integration_branch": "coord/integration",
   "throughput_mode": true,
   "merge_order": [
@@ -25,9 +25,9 @@
           "summary": "Scoop aggressively; keep queues 3-deep; no awaiting flip without green evidence + sample-ARI"
         },
         {
-          "id": "A1-T52",
+          "id": "A1-T53",
           "status": "ready",
-          "summary": "Watch A2 apply A4 primary HollowEdgeConfig (0.5/0.7/noGab) + capacity/MST hollow experiments"
+          "summary": "Watch denser-scaffold / soft-capacity hollow ARI; hold #45 until sample-ARI recovery path exists"
         }
       ]
     },
@@ -45,22 +45,22 @@
       ],
       "queue": [
         {
-          "id": "A2-T33",
+          "id": "A2-T36",
           "status": "ready",
           "issue": 44,
-          "summary": "APPLY A4 primary HollowEdgeConfig mid=0.5 h0=0.7 gabriel=False min_end=0.5 behind flag (default off); sample-ARI on nested/tori/zoo/swiss/circle; NO awaiting flip"
+          "summary": "EXPERIMENT denser-scaffold hollow ARI (raise n/max_nodes on nested/tori under A4 primary+bridge); report majors+sample-ARI; flags off; NO awaiting flip"
         },
         {
-          "id": "A2-T34",
+          "id": "A2-T37",
           "status": "ready",
           "issue": 44,
-          "summary": "EXPERIMENT capacity/flow or MST-critical hollow cut variant (flag-gated, default off); contrast vs H-only and Gabriel∧H; report majors+ARI"
+          "summary": "EXPERIMENT soft-capacity hollow (betweenness or min-cut mass threshold, flag off); contrast vs MST/bridge-critical; sample-ARI table"
         },
         {
-          "id": "A2-T35",
+          "id": "A2-T38",
           "status": "ready",
           "issue": 44,
-          "summary": "Harness: any recovery claim must assert sample ARI (not K); document empty-ball/non-cut-set failure modes; keep flags off"
+          "summary": "EXPORT Poisson-null h0 calibration harness table for A3/A4 SI sync; keep defaults off; REQUEST_TRACKER"
         }
       ]
     },
@@ -77,22 +77,22 @@
       ],
       "queue": [
         {
-          "id": "A3-T47",
+          "id": "A3-T50",
           "status": "ready",
           "issue": 28,
-          "summary": "DRAFT SI S2.6.2/S14.3 three_quarter_load_screened experimental row (cite A6-T38; hierarchy load≫1 so screened==raw; default none)"
+          "summary": "DRAFT SI S2.6.2/S14.3 two_thirds_interval + two_thirds_load_screened (cite A6-T43..T45; Phi mid~2.69/2/3~1.49/3q~0.82; default none)"
         },
         {
-          "id": "A3-T48",
+          "id": "A3-T51",
           "status": "ready",
           "issue": 44,
-          "summary": "SI note A4 primary HollowEdgeConfig mid=0.5/h0=0.7/gabriel=False + require_gabriel_and_h conjunction (proposed; no default flip)"
+          "summary": "SI note bridge_critical_only / hollow_bridge_critical_only + denser/soft-capacity probes (proposed; no awaiting flip)"
         },
         {
-          "id": "A3-T49",
+          "id": "A3-T52",
           "status": "ready",
           "issue": 43,
-          "summary": "SI S6.4 simplex_local_density stub cite A5-T41 (proposed/default-off); keep mass/density awaiting"
+          "summary": "SI S6.2 stub: mu_S-weighted / whitened lambda_f + epsilon_flux spectrum damp (cite A5-EXP-mu/flux; flags off; keep mass/density awaiting)"
         }
       ]
     },
@@ -109,22 +109,22 @@
       ],
       "queue": [
         {
-          "id": "A4-T27",
-          "status": "ready",
-          "issue": 44,
-          "summary": "MULTI-TAU hollow ROC at mid_frac>=0.5 no-Gabriel vs A2 primary; handoff table refresh; no awaiting flip"
-        },
-        {
-          "id": "A4-T28",
+          "id": "A4-T33",
           "status": "ready",
           "issue": 41,
-          "summary": "linked_tori lifetime_frac + hollow-prune recipes parallel to nested T25; stay @awaiting; REQUEST_TRACKER tables"
+          "summary": "EXPERIMENT per-shell filtration_mult schedule (coarse inner / cal-6 outer) on nested fitted; stay @awaiting; REQUEST_TRACKER"
         },
         {
-          "id": "A4-T29",
+          "id": "A4-T34",
           "status": "ready",
           "issue": 41,
-          "summary": "EXPERIMENT dual-scale / per-shell PH on nested fitted (coarse+fine filtration); stay @awaiting"
+          "summary": "EXPERIMENT linked_tori local-sigma dual-scale (parallel nested T31); stay @awaiting"
+        },
+        {
+          "id": "A4-T35",
+          "status": "ready",
+          "issue": 41,
+          "summary": "EXPERIMENT hollow-prune + cal-mult combo on nested/tori fitted PH; stay @awaiting; no awaiting flip"
         }
       ]
     },
@@ -143,22 +143,22 @@
       ],
       "queue": [
         {
-          "id": "A5-T43",
+          "id": "A5-T46",
           "status": "ready",
           "issue": 43,
-          "summary": "EXPERIMENT live BMU face-tally routing harness (flag off); unit tests; do not flip mass/density awaiting"
+          "summary": "EXPERIMENT count-aware lambda_f=1+n_f/(1+nbar) soft-solve variant (flag off); unit tests; keep mass/density awaiting"
         },
         {
-          "id": "A5-T44",
+          "id": "A5-T47",
           "status": "ready",
           "issue": 43,
-          "summary": "STUB S6.2 A_S residual / conservative message-pass sketch behind DualFlowConfig (proposed/default off)"
+          "summary": "STUB multi-simplex patch mu_S sum / face-graph soft solve behind DualFlowConfig (proposed/default off)"
         },
         {
-          "id": "A5-T45",
+          "id": "A5-T48",
           "status": "ready",
           "issue": 43,
-          "summary": "STUB S6.3 seam stitching / ghost reservoir sketch behind flag; keep classify_boundary_facets; REQUEST_TRACKER"
+          "summary": "EXPERIMENT Stage-1 BMU wiring sketch into live tally path (flag off); do not flip awaiting; REQUEST_TRACKER"
         }
       ]
     },
@@ -176,25 +176,25 @@
       ],
       "queue": [
         {
-          "id": "A6-T40",
+          "id": "A6-T46",
           "status": "ready",
           "issue": 28,
-          "summary": "EXPERIMENT load-screened mid_interval (reject if load<<1); flag default none; contrast vs raw mid + three_quarter_load_screened"
+          "summary": "EXPERIMENT denser within-block tau grid (halve steps) under two_thirds/3q; Phi deltas; default none"
         },
         {
-          "id": "A6-T41",
+          "id": "A6-T47",
           "status": "ready",
           "issue": 28,
-          "summary": "Phi table: add screened modes on hierarchy; pin screened==raw when load>>1; default none"
+          "summary": "EXPERIMENT load-weighted pick within persist block (reject load<<1); contrast vs two_thirds/3q; flag default none"
         },
         {
-          "id": "A6-T42",
+          "id": "A6-T48",
           "status": "ready",
           "issue": 28,
-          "summary": "Paper.tex one-liner: circle/swiss within-interval modes identical (no persist); REQUEST_TRACKER for A3 SI load_screened"
+          "summary": "Paper.tex: pin 3q still closest vs two_thirds~1.49x; REQUEST_TRACKER A3 SI two_thirds rows"
         }
       ]
     }
   },
-  "notes": "2026-08-09T16:40: Scoop A2-T30..T32 multi-tau+conj+agree; A3-T44..T46 SI; A4-T24..T26 HollowEdgeConfig+recipes; A5-T40..T42 tallies/S6.4/plan; A6-T37..T39 Phi+load_screened. Primary hollow mid=0.5/h0=0.7/noGab. K=2≠ARI. No awaiting flips. tests 32+30+15+15."
+  "notes": "2026-08-09T17:15: Double scoop A2-T33..T35+bridge; A3-T47..T49+sibling-sync; A4-T27..T32; A5-T43..T45+mu/flux; A6-T40..T45. Primary hollow still sheet-safe≠ARI. Nested scale-split: coarse=3 inner / cal6 outer. two_thirds~1.49x; 3q closest. No awaiting flips. tests 41+42+6+18."
 }

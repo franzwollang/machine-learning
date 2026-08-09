@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-09T16:40-05:00",
-  "turn": 47,
+  "updated_at": "2026-08-09T17:15-05:00",
+  "turn": 48,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "apply A4 primary hollow 0.5/0.7/noGab + ARI gate"
+    "goal": "denser/soft-capacity hollow toward sample-ARI"
   },
   "recent": [
-    "Scooped A2-A6 multi-tau/conj/SI/ROC/S6.4/load_screen",
-    "Loud: K=2 majors ≠ ARI recovery",
-    "A4 primary mid=0.5 h0=0.7 gabriel=False"
+    "Double scoop A2-A6 primary+bridge+PH+μ/ε+two_thirds",
+    "Loud: sheet-safe≠ARI; bridge majors≤1 still unrecovered",
+    "Nested: coarse=3 inner / cal6 outer inverse"
   ],
   "discoveries": [
-    "Default H|Gab spurious K=2 via Gabriel at low n_end",
-    "conj require_gabriel_and_h suppresses probe K=2",
-    "Sheet-null safe ≠ nested cut-set / ARI"
+    "Bridge-critical cut-set beyond MST still no ARI",
+    "two_thirds~1.49x brackets mid/3q; 3q closest",
+    "No single global filtration_mult hits both shells"
   ],
   "open_threads": [
-    "A2-T33 apply primary HollowEdgeConfig",
-    "A2-T34 capacity/MST hollow",
-    "#45 open-loop after #44"
+    "A2-T36 denser-scaffold hollow ARI",
+    "A4-T33 per-shell mult schedule",
+    "#45 open-loop after #44 ARI"
   ],
-  "next_step": "MERGE_DONE push; watch A2-T33/A4-T27",
+  "next_step": "MERGE_DONE push; watch denser/soft-capacity ARI",
   "blockers": []
 }

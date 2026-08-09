@@ -13,10 +13,10 @@ bodies below stay static descriptions.
 | Milestone | Status |
 |---|---|
 | M0 — Spec/implementation sync pass | done |
-| M1 — Canonical clustering objective | blocked on #44 (hollow multi-τ+conj landed; K=2≠ARI recovery; A4 primary mid=0.5/h0=0.7/noGab. Next: apply primary + capacity/MST hollow. No awaiting flip.) |
-| M2 — Characteristic-scale selection rebuild | in progress (load-crossover default; mid/fine_end/three_quarter/load_screened experimental; Phi 3/4~0.82× closest; circle/swiss modes identical. Remaining #28: SI load_screened row) |
+| M1 — Canonical clustering objective | blocked on #44 (A4 primary+MST+bridge landed; sheet-safe≠sample-ARI; nested/tori unrecovered. Next: denser/soft-capacity hollow. No awaiting flip.) |
+| M2 — Characteristic-scale selection rebuild | in progress (mid/3q/two_thirds/load_screened experimental; Phi 3/4~0.82× closest, two_thirds~1.49×; screened==raw. Remaining #28: A3 SI two_thirds rows) |
 | M3 — Constant audit & calibration tier | done (c_{d,k} + C_Q(d) calibrated on the shared uniform-d-ball ensemble; S14.3 three-tier audit #37 complete; intrinsic-dim estimator #39 validated vs GT + Levina–Bickel cross-check shipped, SI S1.4.1. Operational estimator-wiring divergence surfaced as #40, deferred to the M5 junction-detection consumer.) |
-| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 dry-run tallies + S6.4 density sketch + acceptance plan (flags off; do not close). #41: nested/tori recipes still fail SI. Remaining: live BMU routing / S6.2 BP / #45 open-loop) |
+| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 live BMU+A_S+seam/ghost+μ/ε sketches flags off; do not close. #41: dual-scale/local-σ/cal-mult split shells; no full recovery. Remaining: Stage-1 BMU wire / loopy BP / #45) |
 | M5 — Inference interface & diagnostics | not started |
 | M6 — Evaluation, benchmarks, paper finalization | not started |
 
