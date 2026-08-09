@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from sklearn.neighbors import NearestNeighbors
 
 from proteus.stage1.clustering import run_clustering
 from proteus.stage1.controller import ScaleSearchConfig, run_scale_search
@@ -28,6 +27,7 @@ from tests.metrics.persistent_homology import (
     betti_numbers,
     compare_readings,
     filtration_radius,
+    nearest_data_labels,
     sigma_star_from_tau,
     topology_from_accepted_regions,
 )
@@ -93,9 +93,7 @@ def test_fitted_circle_signal_filter_needs_larger_than_si_radius() -> None:
     pos = result.scaffold_at_star.node_positions()
     sigma = sigma_star_from_tau(result.tau_star)
 
-    nn = NearestNeighbors(n_neighbors=1).fit(dataset.points)
-    _, idx = nn.kneighbors(pos)
-    node_labels = np.asarray(dataset.labels)[idx[:, 0]]
+    node_labels = nearest_data_labels(pos, dataset.points, dataset.labels)
     assert (node_labels == 0).sum() >= 8  # some signal-associated nodes
 
     si_reports = topology_from_accepted_regions(
