@@ -37,9 +37,9 @@ class ScaleSearchConfig:
     ``record_partitions``.  When a persistent split exists and
     ``persistence.resolve_within_interval`` is ``"load_crossover"`` or an
     experimental probe (``"mid_interval"``, ``"three_quarter_interval"``,
-    ``"fine_end_of_block"``), persistence still decides accept/reject but
-    ``tau*`` is re-picked inside that persistent subgrid (default ``"none"``
-    preserves coarse-end ``tau*``).
+    ``"three_quarter_load_screened"``, ``"fine_end_of_block"``), persistence
+    still decides accept/reject but ``tau*`` is re-picked inside that
+    persistent subgrid (default ``"none"`` preserves coarse-end ``tau*``).
 
     The legacy ``load_band`` selector (OPEN_ISSUES #28) is **deprecated**:
     passing it emits :class:`DeprecationWarning` and redirects to
@@ -387,6 +387,18 @@ def _normalize_selector(selector: str) -> str:
     return replacement
 
 
+# Operational default (S14.3 / OPEN_ISSUES #28): variance-load floor below
+# which an experimental three-quarter landing is treated as ≪ 1 and rejected
+# (fall back to coarse-end).  Not an acceptance-path constant.
+_THREE_QUARTER_LOAD_SCREEN_MIN: float = 0.5
+
+
+def _three_quarter_index(i_lo: int, i_hi: int) -> int:
+    """Three-quarters of the way from coarse ``i_lo`` toward fine ``i_hi``."""
+
+    return i_lo + (3 * (i_hi - i_lo)) // 4
+
+
 def _resolve_persistence_tau_index(
     persistence_result: PersistenceResult,
     load_trace: np.ndarray,
@@ -403,7 +415,9 @@ def _resolve_persistence_tau_index(
     experimental ``"mid_interval"``, land at the integer midpoint of the
     accepted block; with experimental ``"three_quarter_interval"``, land
     three-quarters of the way from ``i_lo`` toward ``i_hi``; with
-    experimental ``"fine_end_of_block"``, land at ``i_hi`` (probe only;
+    experimental ``"three_quarter_load_screened"``, take that three-quarter
+    landing only when ``load[idx]`` is not ≪ 1 (else fall back to ``i_lo``);
+    with experimental ``"fine_end_of_block"``, land at ``i_hi`` (probe only;
     default stays ``"none"``).
     """
 
@@ -423,7 +437,15 @@ def _resolve_persistence_tau_index(
 
     if mode == "three_quarter_interval":
         # Three-quarters from coarse toward fine; between mid and fine-end.
-        return i_lo + (3 * (i_hi - i_lo)) // 4
+        return _three_quarter_index(i_lo, i_hi)
+
+    if mode == "three_quarter_load_screened":
+        # Same landing as three_quarter_interval, but reject when load ≪ 1.
+        candidate = _three_quarter_index(i_lo, i_hi)
+        load_at = float(load_trace[candidate])
+        if not np.isfinite(load_at) or load_at < _THREE_QUARTER_LOAD_SCREEN_MIN:
+            return i_lo
+        return candidate
 
     if mode == "fine_end_of_block":
         # Finest index of the accepted persistent block; experimental probe.
@@ -433,7 +455,8 @@ def _resolve_persistence_tau_index(
         raise ValueError(
             f"Unknown PersistenceConfig.resolve_within_interval={mode!r}; "
             "expected 'none', 'load_crossover', 'mid_interval', "
-            "'three_quarter_interval', or 'fine_end_of_block'."
+            "'three_quarter_interval', 'three_quarter_load_screened', "
+            "or 'fine_end_of_block'."
         )
 
     sub_load = np.asarray(load_trace[i_lo : i_hi + 1], dtype=float)
