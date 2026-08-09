@@ -387,11 +387,86 @@ def test_resolve_within_interval_fine_end_vs_mid_coarse() -> None:
     assert PersistenceConfig().resolve_within_interval == "none"
 
 
+def test_resolve_within_interval_three_quarter_vs_mid_fine() -> None:
+    # Experimental three_quarter_interval probe (A6-T34): lands 3/4 of the way
+    # from i_lo toward i_hi; sits between mid_interval and fine_end_of_block.
+    # Default remains "none".
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=0,
+    )
+    gt = dataset.ground_truth
+    tau_lo, tau_hi = gt.tau_grid_hint
+    base = ScaleSearchConfig(
+        tau_min=tau_lo,
+        tau_max=tau_hi,
+        max_grid_points=8,
+        k=8,
+        n_seeds=12,
+        min_nodes=8,
+        max_nodes=128,
+        ann_backend="naive",
+        selector="persistence",
+        stabilization=StabilizationConfig(min_equilibrium_epochs=2, max_epochs=12),
+        seed=42,
+    )
+
+    coarse = run_scale_search(dataset.points, dim=gt.ambient_dim, config=base)
+    mid = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(resolve_within_interval="mid_interval"),
+        ),
+    )
+    three_q = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(
+                resolve_within_interval="three_quarter_interval"
+            ),
+        ),
+    )
+    fine = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(resolve_within_interval="fine_end_of_block"),
+        ),
+    )
+    assert coarse.persistence_result is not None
+    assert three_q.persistence_result is not None
+    i_lo = coarse.persistence_result.tau_star_index
+    assert i_lo is not None
+    assert three_q.persistence_result.tau_star_index == i_lo
+    run_len = int(three_q.persistence_result.run_lengths[i_lo])
+    i_hi = i_lo + run_len - 1
+    expected_tq = i_lo + (3 * (i_hi - i_lo)) // 4
+    assert three_q.peak_index == expected_tq
+    assert i_lo <= three_q.peak_index <= i_hi
+    assert mid.peak_index == (i_lo + i_hi) // 2
+    assert fine.peak_index == i_hi
+    if run_len >= 2:
+        assert (
+            fine.peak_index
+            >= three_q.peak_index
+            >= mid.peak_index
+            >= coarse.peak_index
+        )
+    if run_len >= 4:
+        assert fine.peak_index > three_q.peak_index >= mid.peak_index
+    assert PersistenceConfig().resolve_within_interval == "none"
+
+
 def test_phi_within_interval_landing_vs_hierarchy_expected_tau() -> None:
-    # Diagnostic probe (A6-T32): correlate within-interval landing modes with
+    # Diagnostic probe (A6-T32/T35): correlate within-interval landing modes with
     # Phi_C(tau*) and hierarchy fine-leaf expected_tau. Reports a small table;
-    # pins that load_crossover hybrid stays ≫ expected_tau while mid/fine_end
-    # refine (fine_end can undershoot). Does not flip acceptance defaults.
+    # pins that load_crossover hybrid stays ≫ expected_tau while mid/3q/fine
+    # refine (fine_end and often three_quarter can undershoot). Does not flip
+    # acceptance defaults.
     dataset = make_hierarchical_gaussian(
         children_per_coarse=2, n_samples=600, ambient_dim=4, seed=0,
     )
@@ -412,7 +487,13 @@ def test_phi_within_interval_landing_vs_hierarchy_expected_tau() -> None:
         stabilization=StabilizationConfig(min_equilibrium_epochs=2, max_epochs=12),
         seed=0,
     )
-    modes = ("none", "mid_interval", "fine_end_of_block", "load_crossover")
+    modes = (
+        "none",
+        "mid_interval",
+        "three_quarter_interval",
+        "fine_end_of_block",
+        "load_crossover",
+    )
     rows: list[dict[str, float | int | str]] = []
     for mode in modes:
         result = run_scale_search(
@@ -441,7 +522,7 @@ def test_phi_within_interval_landing_vs_hierarchy_expected_tau() -> None:
         f"{'mode':22s} {'idx':>3s} {'tau*':>10s} {'Phi*':>10s} "
         f"{'tau*/E[tau]':>12s} {'tau*/fine':>10s}"
     )
-    print("\nA6-T32 Phi within-interval landing vs hierarchy expected_tau")
+    print("\nA6-T35 Phi within-interval landing vs hierarchy expected_tau")
     print(header)
     print("-" * len(header))
     for row in rows:
@@ -459,14 +540,24 @@ def test_phi_within_interval_landing_vs_hierarchy_expected_tau() -> None:
     # mid_interval refines toward expected_tau but stays above it on this fixture.
     assert float(by_mode["mid_interval"]["tau_star"]) < float(by_mode["none"]["tau_star"])
     assert float(by_mode["mid_interval"]["tau_over_expected"]) > 1.0
+    # three_quarter sits between mid and fine_end on the grid (and in tau*).
+    assert float(by_mode["three_quarter_interval"]["tau_star"]) <= float(
+        by_mode["mid_interval"]["tau_star"]
+    )
+    assert float(by_mode["three_quarter_interval"]["tau_star"]) >= float(
+        by_mode["fine_end_of_block"]["tau_star"]
+    )
     # fine_end_of_block is the finest landing and can undershoot expected_tau
     # (overshoot risk — not an acceptance candidate without SI justification).
     assert float(by_mode["fine_end_of_block"]["tau_star"]) <= float(
-        by_mode["mid_interval"]["tau_star"]
+        by_mode["three_quarter_interval"]["tau_star"]
     )
     assert float(by_mode["fine_end_of_block"]["tau_over_expected"]) < 1.0
-    # Grid-index ordering: none ≤ mid ≤ fine_end (coarse→fine along descending tau).
+    # Grid-index ordering: none ≤ mid ≤ three_quarter ≤ fine_end.
     assert int(by_mode["fine_end_of_block"]["peak_index"]) >= int(
+        by_mode["three_quarter_interval"]["peak_index"]
+    )
+    assert int(by_mode["three_quarter_interval"]["peak_index"]) >= int(
         by_mode["mid_interval"]["peak_index"]
     )
     assert int(by_mode["mid_interval"]["peak_index"]) >= int(by_mode["none"]["peak_index"])

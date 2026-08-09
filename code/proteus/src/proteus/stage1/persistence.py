@@ -31,11 +31,11 @@ this module's interval as the accept/reject arbiter and, by default, lands
 ``tau*`` at the coarse end of that interval.  Optional hybrid / experimental refinement
 (:attr:`PersistenceConfig.resolve_within_interval`, default ``"none"``) can
 re-pick ``tau*`` via ``load_crossover`` or experimental ``mid_interval`` /
-``fine_end_of_block`` *within* the accepted persistent subgrid without
-changing the accept/reject arbiter (OPEN_ISSUES #28).  The legacy
-``load_band`` scale selector is gone from the acceptance path; the
-controller keeps a deprecated alias that warns and redirects to
-``load_crossover``.
+``three_quarter_interval`` / ``fine_end_of_block`` *within* the accepted
+persistent subgrid without changing the accept/reject arbiter
+(OPEN_ISSUES #28).  The legacy ``load_band`` scale selector is gone from the
+acceptance path; the controller keeps a deprecated alias that warns and
+redirects to ``load_crossover``.
 
 .. note::
    The acceptance rule is **coarse-anchored** by default
@@ -133,9 +133,12 @@ class PersistenceConfig:
         ``"load_crossover"`` keeps persistence as the accept/reject arbiter but
         re-picks ``tau*`` by running the SI S2.5.1 load-crossover rule on the
         accepted persistent *subgrid* only (indices ``[i_lo, i_hi]`` of the
-        coarse-anchored block).  ``"mid_interval"`` is an **experimental**
+        coarse-anchored block).          ``"mid_interval"`` is an **experimental**
         probe that lands ``tau*`` at the integer midpoint of that same block
         (for coarse-vs-mid comparisons; not SI-justified).
+        ``"three_quarter_interval"`` is an **experimental** probe that lands
+        three-quarters of the way from ``i_lo`` toward ``i_hi`` (between mid
+        and fine-end; contrast for expected_tau undershoot).
         ``"fine_end_of_block"`` is an **experimental** probe that lands at
         the finest index ``i_hi`` of the accepted block (contrast vs mid /
         coarse; still not SI-justified).  Applied in the controller, not in
@@ -151,7 +154,11 @@ class PersistenceConfig:
     coarse_anchored: bool = True
     cold_start_recheck: bool = False
     resolve_within_interval: Literal[
-        "none", "load_crossover", "mid_interval", "fine_end_of_block"
+        "none",
+        "load_crossover",
+        "mid_interval",
+        "three_quarter_interval",
+        "fine_end_of_block",
     ] = "none"
 
 
