@@ -24,8 +24,15 @@ The signal has two consumers, both acceptance-path (S2.6.2):
 * recursion timing --- a proposed split is accepted only if it persists,
   intended to replace the single-scale cleanup stand-ins of S2.6.1 (issue #27).
 
-Both are wired incrementally behind a flag while the legacy load-band selector
-remains the transition default.
+Characteristic-scale *resolution* defaults to the SI S2.5.1
+``load_crossover`` selector (``ScaleSearchConfig.selector="load_crossover"``).
+``selector="persistence"`` is the structural / recursion-timing path: it uses
+this module's interval as the accept/reject arbiter and, by default, lands
+``tau*`` at the coarse end of that interval.  Optional hybrid refinement
+(:attr:`PersistenceConfig.resolve_within_interval`, default ``"none"``) can
+re-pick ``tau*`` via ``load_crossover`` *within* the accepted persistent
+subgrid without changing the accept/reject arbiter (OPEN_ISSUES #28).  The
+legacy ``load_band`` selector has been removed.
 
 .. note::
    The acceptance rule is **coarse-anchored** by default
@@ -45,7 +52,7 @@ remains the transition default.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
@@ -115,6 +122,19 @@ class PersistenceConfig:
         (:func:`proteus.stage1.controller.run_scale_search`), not in
         :func:`compute_persistence`; it is ignored when ``coarse_anchored`` is
         ``False``.  Operational (S14.3).
+    resolve_within_interval:
+        Optional **hybrid resolution** when
+        ``ScaleSearchConfig.selector="persistence"`` (OPEN_ISSUES #28).
+        ``"none"`` (default) keeps today's behavior: ``tau*`` is the coarsest
+        persistent multi-cluster grid index from :func:`compute_persistence`.
+        ``"load_crossover"`` keeps persistence as the accept/reject arbiter but
+        re-picks ``tau*`` by running the SI S2.5.1 load-crossover rule on the
+        accepted persistent *subgrid* only (indices ``[i_lo, i_hi]`` of the
+        coarse-anchored block).  Applied in the controller, not in
+        :func:`compute_persistence` (the ``PersistenceResult.tau_star*`` fields
+        still report the coarse-end arbiter index).  Default off; do not flip
+        until hierarchy ``tau*`` is validated against the expected resolution
+        scale.  Operational (S14.3).
     """
 
     min_persistence: int = 2
@@ -122,6 +142,7 @@ class PersistenceConfig:
     min_clusters: int = 2
     coarse_anchored: bool = True
     cold_start_recheck: bool = False
+    resolve_within_interval: Literal["none", "load_crossover"] = "none"
 
 
 @dataclass

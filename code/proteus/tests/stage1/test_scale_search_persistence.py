@@ -145,3 +145,90 @@ def test_default_selector_ignores_persistence() -> None:
     assert result.partition_snapshots is None
     assert result.persistence_result is None
     assert result.tau_star > 0.0
+
+
+def test_resolve_within_interval_none_preserves_coarse_end_tau() -> None:
+    # Flag-off parity (A6-T14): default resolve_within_interval="none" must keep
+    # today's coarse-end persistence tau* (OPEN_ISSUES #28). Explicit "none"
+    # must match an omitted / default PersistenceConfig.
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=0,
+    )
+    gt = dataset.ground_truth
+    tau_lo, tau_hi = gt.tau_grid_hint
+    base = ScaleSearchConfig(
+        tau_min=tau_lo,
+        tau_max=tau_hi,
+        max_grid_points=8,
+        k=8,
+        n_seeds=12,
+        min_nodes=8,
+        max_nodes=128,
+        ann_backend="naive",
+        selector="persistence",
+        stabilization=StabilizationConfig(min_equilibrium_epochs=2, max_epochs=12),
+        seed=42,
+    )
+
+    default = run_scale_search(dataset.points, dim=gt.ambient_dim, config=base)
+    explicit_none = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(resolve_within_interval="none"),
+        ),
+    )
+    assert default.persistence_result is not None
+    assert default.persistence_result.tau_star_index is not None
+    assert default.peak_index == default.persistence_result.tau_star_index
+    assert default.tau_star == default.tau_grid[default.peak_index]
+    assert explicit_none.peak_index == default.peak_index
+    assert explicit_none.tau_star == default.tau_star
+    assert PersistenceConfig().resolve_within_interval == "none"
+
+
+def test_resolve_within_interval_load_crossover_stays_in_persistent_block() -> None:
+    # Prototype path (default off): when enabled, tau* is load_crossover on the
+    # accepted persistent subgrid only — still inside [i_lo, i_hi], may differ
+    # from the coarse-end arbiter index. Does not flip any awaiting markers.
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=0,
+    )
+    gt = dataset.ground_truth
+    tau_lo, tau_hi = gt.tau_grid_hint
+    base = ScaleSearchConfig(
+        tau_min=tau_lo,
+        tau_max=tau_hi,
+        max_grid_points=8,
+        k=8,
+        n_seeds=12,
+        min_nodes=8,
+        max_nodes=128,
+        ann_backend="naive",
+        selector="persistence",
+        stabilization=StabilizationConfig(min_equilibrium_epochs=2, max_epochs=12),
+        seed=42,
+    )
+
+    off = run_scale_search(dataset.points, dim=gt.ambient_dim, config=base)
+    on = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=replace(
+            base,
+            persistence=PersistenceConfig(resolve_within_interval="load_crossover"),
+        ),
+    )
+    assert off.persistence_result is not None
+    assert on.persistence_result is not None
+    i_lo = off.persistence_result.tau_star_index
+    assert i_lo is not None
+    # Arbiter index unchanged; only ScaleSearchResult peak may move.
+    assert on.persistence_result.tau_star_index == i_lo
+    run_len = int(on.persistence_result.run_lengths[i_lo])
+    i_hi = i_lo + run_len - 1
+    assert i_lo <= on.peak_index <= i_hi
+    assert on.tau_star == on.tau_grid[on.peak_index]
+    # Default path still lands at the coarse end.
+    assert off.peak_index == i_lo
