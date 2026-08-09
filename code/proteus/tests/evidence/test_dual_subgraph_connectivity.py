@@ -1608,9 +1608,11 @@ def test_dry_run_stage1_route_end_to_end():
     assert result.stage1_route.assignments == (0, 1)
     assert 0 in result.stage1_route.tallies_by_simplex
     assert 1 in result.stage1_route.tallies_by_simplex
-    # Dual path still works alongside the Stage-1 bridge.
+    # Dual adjacency still built; these simplices share a vertex only, so
+    # the induced dual on {0,1} is disconnected (correct A2 signal).
     assert result.dual_adjacency is not None
-    assert result.dual_connected is True
+    assert set(result.dual_adjacency.keys()) == {0, 1}
+    assert result.dual_connected is False
 
     direct = route_stage1_from_complex(samples, c, config=cfg)
     assert direct is not None
