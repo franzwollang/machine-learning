@@ -654,3 +654,131 @@ def format_per_region_ph_diagnostics(result: PerRegionPHRunResult) -> str:
             f"{rep.sigma_star:g}\t{rep.filtration_radius:g}"
         )
     return "\n".join(lines)
+
+
+@dataclass(frozen=True)
+class DualScaleRegionRow:
+    """One region under a (coarse, fine) filtration_mult pair (#41 / A4-T29)."""
+
+    region_id: int
+    n_points: int
+    sigma_star: float
+    coarse_mult: float
+    fine_mult: float
+    coarse_betti: tuple[int, ...]
+    fine_betti: tuple[int, ...]
+    coarse_match: bool | None
+    fine_match: bool | None
+
+
+@dataclass(frozen=True)
+class DualScalePHResult:
+    """Per-region coarse+fine fixed_threshold PH comparison."""
+
+    rows: tuple[DualScaleRegionRow, ...]
+    coarse_mult: float
+    fine_mult: float
+    expected_betti: tuple[int, ...] | None
+    any_fine_match: bool
+    any_coarse_match: bool
+    scenario: str
+
+
+def run_dual_scale_per_region_ph(
+    all_positions: np.ndarray,
+    region_labels: np.ndarray,
+    sigma_star: float | Sequence[float],
+    *,
+    coarse_mult: float = 3.0,
+    fine_mult: float = FILTRATION_MULTIPLIER,
+    scenario: str = "dual_scale",
+    include_labels: Optional[Iterable[int]] = None,
+    max_dim: int = 2,
+    expected_betti: tuple[int, ...] | None = None,
+) -> DualScalePHResult:
+    """Run fixed_threshold PH at coarse and fine filtration multipliers.
+
+    Dual-scale / per-shell probe for nested fitted scaffolds (#41): a coarser
+    mult may fill short tissue loops while a fine (SI) mult preserves voids.
+    Evidence-gathering only — does not change SI defaults.
+    """
+    coarse = run_per_region_ph(
+        all_positions,
+        region_labels,
+        sigma_star,
+        scenario=f"{scenario}_coarse",
+        include_labels=include_labels,
+        reading="fixed_threshold",
+        max_dim=max_dim,
+        filtration_mult=float(coarse_mult),
+        expected_betti=expected_betti,
+    )
+    fine = run_per_region_ph(
+        all_positions,
+        region_labels,
+        sigma_star,
+        scenario=f"{scenario}_fine",
+        include_labels=include_labels,
+        reading="fixed_threshold",
+        max_dim=max_dim,
+        filtration_mult=float(fine_mult),
+        expected_betti=expected_betti,
+    )
+    by_fine = {int(r.region_id): r for r in fine.reports}
+    rows: list[DualScaleRegionRow] = []
+    for crep in coarse.reports:
+        rid = int(crep.region_id)
+        frep = by_fine.get(rid)
+        if frep is None:
+            continue
+        c_betti = tuple(int(x) for x in crep.betti)
+        f_betti = tuple(int(x) for x in frep.betti)
+        c_match: bool | None = None
+        f_match: bool | None = None
+        if expected_betti is not None:
+            target = tuple(expected_betti)
+            c_match = c_betti == target
+            f_match = f_betti == target
+        rows.append(
+            DualScaleRegionRow(
+                region_id=rid,
+                n_points=int(crep.n_points),
+                sigma_star=float(crep.sigma_star),
+                coarse_mult=float(coarse_mult),
+                fine_mult=float(fine_mult),
+                coarse_betti=c_betti,
+                fine_betti=f_betti,
+                coarse_match=c_match,
+                fine_match=f_match,
+            )
+        )
+    return DualScalePHResult(
+        rows=tuple(rows),
+        coarse_mult=float(coarse_mult),
+        fine_mult=float(fine_mult),
+        expected_betti=(
+            tuple(expected_betti) if expected_betti is not None else None
+        ),
+        any_fine_match=any(r.fine_match for r in rows if r.fine_match is not None),
+        any_coarse_match=any(
+            r.coarse_match for r in rows if r.coarse_match is not None
+        ),
+        scenario=str(scenario),
+    )
+
+
+def format_dual_scale_ph_table(result: DualScalePHResult) -> str:
+    """Compact TSV for dual-scale nested / tori probes."""
+    header = (
+        "region_id\tn\tsigma\tcoarse_mult\tfine_mult\t"
+        "coarse_betti\tfine_betti\tcoarse_match\tfine_match"
+    )
+    lines = [header]
+    for r in result.rows:
+        lines.append(
+            f"{r.region_id}\t{r.n_points}\t{r.sigma_star:g}\t"
+            f"{r.coarse_mult:g}\t{r.fine_mult:g}\t"
+            f"{r.coarse_betti}\t{r.fine_betti}\t"
+            f"{r.coarse_match}\t{r.fine_match}"
+        )
+    return "\n".join(lines)
