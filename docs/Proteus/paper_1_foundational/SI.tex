@@ -1105,6 +1105,46 @@ is the only currently validated resolution, so until it lands
 $P_{\mathrm{persist}}$ is an operational default and the S2.6.1 stand-ins remain
 the operating acceptance path.
 
+\paragraph{Finer-than-$\tau^\star$ research (proposed / operational;
+OPEN\_ISSUES~\#44).}
+When a region is $K{=}1$ (or non-persistent) at its characteristic $\tau^\star$,
+the acceptance gate --- not a $K{\ge}2$ heuristic --- owns further descent. An
+optional finer-than-$\tau^\star$ re-search
+(\texttt{RecursionConfig.allow\_finer\_research}, default off) may probe
+$\tau\in(\tau_{\min},\,\tau^\star\cdot\texttt{finer\_tau\_cap\_ratio}]$ for a
+multi-cluster proposal; accepted children still require the active persistence
+and/or DM gates. Enabling this path without
+\texttt{require\_persistent\_split}, a modest
+\texttt{max\_finer\_scale\_steps} budget (preferably $\le4$), and
+$\texttt{min\_samples}\ge80$ is unsupported for uniform manifolds: the flag
+alone shatters the circle ($\sim\!21$ leaves), while that persist pairing keeps
+circle and swiss-roll at one leaf. Disconnected multi-component scenes can still
+require many grid steps below the coarse $\tau^\star$ ($\sim\!80\times$ finer on
+nested shells / linked tori); the finer path is therefore a proposal-path
+prototype, not a licence to change the default acceptance path.
+
+Lifted connected-component prepass
+(\texttt{prefer\_disconnected\_prepass}, default off) misses concentric shells
+that remain radius-bridged on the Hebbian graph. Proposal-path radial prepasses
+(all default off; S14.3) address that geometry:
+\texttt{prefer\_radial\_gap\_prepass} (centroid radial gap),
+\texttt{prefer\_radial\_band\_prepass} (histogram-trough / contiguous peak-support
+mask before the gap),
+\texttt{prefer\_noncentroid\_radial\_band\_prepass} (coordinate-median origin
+plus relative trough-depth gate
+\texttt{finer\_radial\_min\_trough\_rel}), and
+\texttt{prefer\_signal\_density\_band\_prepass} (keep the top
+\texttt{finer\_signal\_density\_keep\_frac} of nodes by knn-density residual
+against a smooth radial-histogram expectation, then run the band gap on the
+kept subset). Under the unit harness
+($n_{\mathrm{per}}=64$, $n_{\mathrm{seeds}}=8$, persist on,
+$\texttt{max\_finer\_scale\_steps}\le12$), signal-density recovers nested shells
+at $2$ leaves / $\mathrm{ARI}{=}1.0$ while the circle stays one leaf at
+steps$\le8$; band and noncentroid alone remain unrecovered on that harness.
+These flags stay proposal-path / default-off pending linked-tori and swiss-roll
+guards and awaiting-flip confirmation --- they are \emph{not} acceptance-path,
+and do not yet retire the S2.6.1 stand-ins.
+
 \subsection*{S2.6.3 Dirichlet--Multinomial Cluster-Acceptance Reduction (proposed)}
 \label{sec:si-dm-cluster-reduction}
 S2.6.1 identifies the Stage-2 Dirichlet--multinomial evidence gate (S3.4) as the
@@ -2438,6 +2478,17 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
 \texttt{coarse\_anchored} & \text{true}\ (\text{coarsest split must persist}) & \text{S2.6.2} & \text{operational}\\
 \texttt{cold\_start\_recheck} & \text{false}\ (\text{refuted gate; see S2.6.2}) & \text{S2.6.2} & \text{diagnostic}\\
+\texttt{allow\_finer\_research} & \text{false}\ (\text{finer-than-}\tau^\star\text{ re-search; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{prefer\_disconnected\_prepass} & \text{false} & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{finer\_prepass\_min\_frac} & 0.2 & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{prefer\_radial\_gap\_prepass} & \text{false} & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{prefer\_radial\_band\_prepass} & \text{false} & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{prefer\_noncentroid\_radial\_band\_prepass} & \text{false} & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{finer\_radial\_min\_trough\_rel} & 0\ (\text{0.35 on noncentroid path}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{prefer\_signal\_density\_band\_prepass} & \text{false}\ (\text{unit nested recovery; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{finer\_signal\_density\_keep\_frac} & 0.55 & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
 \text{node maturity}\ (\texttt{prune\_after}) & 25\text{ updates} & \text{S3.2} & \text{operational}\\
 \text{neonatal link guard}\ (\texttt{protected\_until}) & 25\text{ iters} & \text{S3.1} & \text{operational}\\
