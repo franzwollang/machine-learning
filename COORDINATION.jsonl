@@ -1,1 +1,1 @@
-{"ts":"2026-08-09T11:32:00-05:00","from":"A0","type":"NOTE","note":"Mailbox stub on main/integration seed; agents replace HELLO on their own branches. Schema in COORDINATION.md; rules in .cursor/rules/swarm-coordination.mdc."}
+{"ts":"2026-08-09T11:36:00-05:00","from":"A6","type":"HELLO","note":"worker #28 docs/controller online on coord/A6-issue28-docs; awaiting TASK_ASSIGN / queue from SWARM_TASKS.json"}
