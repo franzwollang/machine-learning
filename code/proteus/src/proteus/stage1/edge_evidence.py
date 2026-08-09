@@ -51,6 +51,15 @@ class HollowEdgeConfig:
     ``prefer_hollow_edge_prepass`` default-off.  Raising ``min_end_count``
     alone *increases* Gabriel usage; prefer conjunction or
     ``gabriel_fallback=False`` with a calibrated ``h0`` / mid_frac.
+
+    A2-T33 / A4-T24 primary ROC export (sheet FPR≈0, bridge TPR≈0.9):
+    ``mid_radius_frac=0.5``, ``h0=0.7``, ``gabriel_fallback=False``,
+    ``min_end_count=0.5`` — see :func:`a4_roc_primary_config`.  Sheet-null
+    safe ≠ nested cut-set / sample-ARI recovery; keep default-off.
+
+    A2-T34: ``mst_critical_only=True`` restricts cuts to hollow edges that
+    also lie on a Euclidean MST of the lifted graph (conservative
+    capacity/bridge proxy).  Contrast vs H-only and Gabriel∧H; default off.
     """
 
     mid_radius_frac: float = 0.35
@@ -58,7 +67,35 @@ class HollowEdgeConfig:
     min_end_count: float = 0.5
     gabriel_fallback: bool = True
     require_gabriel_and_h: bool = False
+    mst_critical_only: bool = False
     eps: float = _EPS
+
+
+# A4-T24 → A2-T33 primary HollowEdgeConfig (flag-gated; do not flip defaults).
+A4_PRIMARY_MID_RADIUS_FRAC: float = 0.5
+A4_PRIMARY_H0: float = 0.7
+A4_PRIMARY_MIN_END_COUNT: float = 0.5
+A4_PRIMARY_GABRIEL_FALLBACK: bool = False
+
+
+def a4_roc_primary_config(**overrides: object) -> HollowEdgeConfig:
+    """A4 sheet/bridge ROC primary preset (OPEN_ISSUES #44 / A2-T33).
+
+    Primary preference from ``recommend_hollow_edge_configs``: mid=0.5,
+    h0=0.7, gabriel off, min_end=0.5.  Operational / proposal-path until
+    sample-ARI recovery is demonstrated; never the RecursionConfig default.
+    """
+
+    base = dict(
+        mid_radius_frac=A4_PRIMARY_MID_RADIUS_FRAC,
+        h0=A4_PRIMARY_H0,
+        min_end_count=A4_PRIMARY_MIN_END_COUNT,
+        gabriel_fallback=A4_PRIMARY_GABRIEL_FALLBACK,
+        require_gabriel_and_h=False,
+        mst_critical_only=False,
+    )
+    base.update(overrides)
+    return HollowEdgeConfig(**base)  # type: ignore[arg-type]
 
 
 def edge_ball_occupancy(
@@ -165,6 +202,53 @@ def gabriel_diameter_empty(
     return out
 
 
+def mst_edge_mask(
+    positions: np.ndarray,
+    edges: list[tuple[int, int]],
+) -> np.ndarray:
+    """Boolean mask ``True`` iff edge is in a Euclidean MST (Kruskal).
+
+    Used by ``mst_critical_only`` hollow pruning (A2-T34): only MST edges
+    are capacity-critical bridges in a tree sense; cutting non-MST hollow
+    edges often leaves redundant Hebbian paths (non-cut-set failure mode).
+    """
+
+    pos = np.asarray(positions, dtype=float)
+    n = int(pos.shape[0])
+    parent = list(range(n))
+
+    def find(a: int) -> int:
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    def union(a: int, b: int) -> bool:
+        ra, rb = find(a), find(b)
+        if ra == rb:
+            return False
+        parent[rb] = ra
+        return True
+
+    ranked: list[tuple[float, int, int, int]] = []
+    for k, (i, j) in enumerate(edges):
+        ii, jj = int(i), int(j)
+        if ii == jj:
+            continue
+        length = float(np.linalg.norm(pos[ii] - pos[jj]))
+        ranked.append((length, k, ii, jj))
+    ranked.sort(key=lambda t: t[0])
+    in_mst = np.zeros(len(edges), dtype=bool)
+    used = 0
+    for _, k, ii, jj in ranked:
+        if union(ii, jj):
+            in_mst[k] = True
+            used += 1
+            if used >= max(0, n - 1):
+                break
+    return in_mst
+
+
 def hollow_edge_mask(
     positions: np.ndarray,
     edges: list[tuple[int, int]],
@@ -181,6 +265,9 @@ def hollow_edge_mask(
     Conjunction rule (``require_gabriel_and_h=True``, A2-T31 / A4 ROC):
     cut iff ``H < h0`` **and** Gabriel diameter ball is empty.  Suppresses
     empty-ball Gabriel-only spurious cuts; keep proposal-path / default-off.
+
+    When ``mst_critical_only`` is set, intersect the hollow mask with the
+    Euclidean MST edge mask (A2-T34).
     """
 
     cfg = config if config is not None else HollowEdgeConfig()
@@ -207,14 +294,16 @@ def hollow_edge_mask(
     if cfg.require_gabriel_and_h:
         for k in range(len(edges)):
             cut[k] = bool(H[k] < h0) and bool(gab[k])
-        return cut
-    for k in range(len(edges)):
-        if end_mass[k] >= min_end:
-            cut[k] = bool(H[k] < h0)
-        elif cfg.gabriel_fallback:
-            cut[k] = bool(gab[k])
-        else:
-            cut[k] = False
+    else:
+        for k in range(len(edges)):
+            if end_mass[k] >= min_end:
+                cut[k] = bool(H[k] < h0)
+            elif cfg.gabriel_fallback:
+                cut[k] = bool(gab[k])
+            else:
+                cut[k] = False
+    if cfg.mst_critical_only and len(edges) > 0:
+        cut = np.logical_and(cut, mst_edge_mask(pos, edges))
     return cut
 
 

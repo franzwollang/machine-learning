@@ -300,6 +300,8 @@ def test_finer_research_flag_defaults_off() -> None:
     assert cfg.hollow_gabriel_fallback is True
     assert cfg.hollow_require_gabriel_and_h is False
     assert cfg.hollow_require_persistent_agree is False
+    assert cfg.hollow_use_a4_primary is False
+    assert cfg.hollow_mst_critical_only is False
 
 
 def test_hollow_edge_partition_splits_bridged_blobs() -> None:
@@ -1613,3 +1615,277 @@ def test_hollow_persist_agree_couples_at_candidate_taus() -> None:
     # Coupled hollow does not recover nested/tori at operational tau*.
     assert _run(nested.points, nested.points.shape[1], conj=True, persist_agree=True, min_samples=40) == 1
     assert _run(tori.points, tori.points.shape[1], conj=True, persist_agree=True, min_samples=40) == 1
+
+
+def _hollow_majors_and_sample_ari(sc, points, labels, cfg: "HollowEdgeConfig"):
+    """Shared majors + nearest-node sample ARI helper (A2-T33..T35)."""
+
+    from proteus.stage1.clustering import _lifted_components_covering_all_nodes
+    from proteus.stage1.edge_evidence import prune_hollow_edges
+    from sklearn.metrics import adjusted_rand_score
+
+    n = len(sc.nodes)
+    pos = np.asarray([sc.nodes[i].position for i in range(n)])
+    edges = [(int(l.i), int(l.j)) for l in sc.links.lifted_links()]
+    kept = prune_hollow_edges(pos, edges, points, config=cfg)
+    graph = {i: [] for i in range(n)}
+    for i, j in kept:
+        graph[i].append(j)
+        graph[j].append(i)
+    comps = _lifted_components_covering_all_nodes(n, graph)
+    majors = [c for c in comps if len(c) >= max(3, int(np.ceil(n * 0.2)))]
+    ari = None
+    if labels is not None and len(majors) >= 2:
+        lab = np.full(n, -1, dtype=int)
+        for cid, c in enumerate(majors):
+            for m in c:
+                lab[m] = cid
+        nn = np.argmin(
+            ((points[:, None, :] - pos[None, :, :]) ** 2).sum(-1), axis=1,
+        )
+        pred = lab[nn]
+        mask = np.asarray(labels) >= 0
+        ari = float(adjusted_rand_score(labels[mask], pred[mask]))
+    return len(majors), ari
+
+
+def test_a4_primary_hollow_sample_ari_suite() -> None:
+    """#44 / A2-T33: A4 primary (mid=0.5,h0=0.7,noGab) sample-ARI suite.
+
+    Documents majors+ARI on nested/tori/zoo/swiss/circle under the A4 ROC
+    primary preset.  Uniforms stay ≤1 major; nested/tori are **not**
+    sample-ARI recovered — do **not** flip awaiting.  Flag
+    ``hollow_use_a4_primary`` remains default-off.
+    """
+
+    from proteus.stage1.controller import ScaleSearchConfig, run_scale_search
+    from proteus.stage1.edge_evidence import a4_roc_primary_config
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.manifold_zoo import make_manifold_zoo
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+    from tests.datasets.synthetic.swiss_roll import make_swiss_roll
+
+    assert RecursionConfig().hollow_use_a4_primary is False
+    cfg = a4_roc_primary_config()
+    assert cfg.mid_radius_frac == 0.5 and cfg.h0 == 0.7
+    assert cfg.gabriel_fallback is False
+
+    def _lean() -> ScaleSearchConfig:
+        return ScaleSearchConfig(
+            tau_min=1e-3,
+            tau_max=2.0,
+            max_grid_points=6,
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=8,
+            ),
+            seed=42,
+        )
+
+    def _adapt(points, tau: float):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
+            ann_backend="naive", rng=np.random.default_rng(0),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    circle = make_circle(
+        n_samples=300, radius=1.0, noise=0.02, extrusion_dim=2, seed=0,
+    )
+    swiss = make_swiss_roll(n_samples=400, noise=0.02, seed=0)
+    zoo = make_manifold_zoo(seed=0)
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+
+    # Uniforms / zoo at tau*: A4 primary stays connected (≤1 major).
+    for ds, labels in (
+        (circle, None),
+        (swiss, None),
+        (zoo, None),
+    ):
+        pts = ds.points
+        if pts.shape[0] > 600:
+            pts = pts[np.random.default_rng(0).choice(pts.shape[0], 600, replace=False)]
+        r = run_scale_search(pts, dim=pts.shape[1], config=_lean())
+        sc = _adapt(pts, float(r.tau_star))
+        maj, _ = _hollow_majors_and_sample_ari(sc, pts, labels, cfg)
+        assert maj <= 1
+
+    # Nested / tori: report majors+ARI; K≥2 alone is not recovery.
+    for ds, labels in (
+        (nested, nested.labels),
+        (tori, tori.labels),
+    ):
+        r = run_scale_search(ds.points, dim=ds.points.shape[1], config=_lean())
+        et = float(ds.ground_truth.expected_tau)
+        for tau in (float(r.tau_star), et, 0.27 if ds is nested else 0.5):
+            sc = _adapt(ds.points, tau)
+            maj, ari = _hollow_majors_and_sample_ari(sc, ds.points, labels, cfg)
+            if maj >= 2:
+                assert ari is not None and ari < 0.5  # not sample-ARI recovery
+            else:
+                assert maj <= 1
+
+    # E2E recursion flag path: hollow_use_a4_primary still unrecovered.
+    def _e2e(points, dim, min_samples: int) -> int:
+        tree = run_recursive_discovery(
+            points,
+            dim=dim,
+            config=RecursionConfig(
+                scale_search=_lean(),
+                min_samples=min_samples,
+                max_depth=3,
+                require_persistent_split=True,
+                prefer_hollow_edge_prepass=True,
+                hollow_use_a4_primary=True,
+                seed=42,
+            ),
+        )
+        return len(tree.leaves)
+
+    assert _e2e(circle.points, circle.points.shape[1], 80) == 1
+    assert _e2e(swiss.points, swiss.points.shape[1], 80) == 1
+    assert _e2e(nested.points, nested.points.shape[1], 40) == 1
+    assert _e2e(tori.points, tori.points.shape[1], 40) == 1
+
+
+def test_mst_critical_hollow_contrast_vs_h_and_conj() -> None:
+    """#44 / A2-T34: MST-critical hollow vs H-only and Gabriel∧H (majors+ARI).
+
+    On nested@0.27 default H|Gab yields majors=2 ARI~chance; conjunction and
+    MST-critical (A4 primary) stay ≤1 major.  Flag default-off.
+    """
+
+    from proteus.stage1.edge_evidence import HollowEdgeConfig, a4_roc_primary_config
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().hollow_mst_critical_only is False
+
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(n_per_torus=120, seed=0)
+
+    def _adapt(points, tau: float):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
+            ann_backend="naive", rng=np.random.default_rng(0),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    cfg_def = HollowEdgeConfig()
+    cfg_conj = HollowEdgeConfig(require_gabriel_and_h=True)
+    cfg_mst = a4_roc_primary_config(mst_critical_only=True)
+    cfg_a4 = a4_roc_primary_config()
+
+    sc_n = _adapt(nested.points, 0.27)
+    maj_def, ari_def = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_def,
+    )
+    maj_conj, _ = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_conj,
+    )
+    maj_mst, ari_mst = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_mst,
+    )
+    maj_a4, ari_a4 = _hollow_majors_and_sample_ari(
+        sc_n, nested.points, nested.labels, cfg_a4,
+    )
+    assert maj_def == 2
+    assert ari_def is not None and ari_def < 0.2
+    assert maj_conj <= 1
+    assert maj_mst <= 1
+    # A4 primary alone: if it emits K≥2, ARI must stay below recovery.
+    if maj_a4 >= 2:
+        assert ari_a4 is not None and ari_a4 < 0.5
+    else:
+        assert maj_a4 <= 1
+
+    sc_t = _adapt(tori.points, 0.5)
+    maj_t_def, ari_t = _hollow_majors_and_sample_ari(
+        sc_t, tori.points, tori.labels, cfg_def,
+    )
+    maj_t_mst, _ = _hollow_majors_and_sample_ari(
+        sc_t, tori.points, tori.labels, cfg_mst,
+    )
+    assert maj_t_def == 2
+    assert ari_t is not None and ari_t < 0.2
+    assert maj_t_mst <= maj_t_def
+
+
+def test_hollow_recovery_requires_sample_ari_not_k() -> None:
+    """#44 / A2-T35: recovery harness — sample ARI gate, not K majors.
+
+    Documents two failure modes that produce misleading ``K=2``:
+    1. **Empty-ball / Gabriel**: mid-ball empty ⇒ H≈0 or Gabriel-only cut
+       with sample ARI≈chance (nested@0.27 default).
+    2. **Non-cut-set**: hollow edges that are not bridges leave redundant
+       paths; MST-critical intersection suppresses spurious majors.
+
+    Any future recovery claim must assert sample ARI (typically ≫ chance),
+    not major-CC count alone.  Flags stay default-off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        HollowEdgeConfig,
+        a4_roc_primary_config,
+        edge_ball_occupancy,
+    )
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=0)
+    sc = Stage1Scaffold(
+        dim=int(nested.points.shape[1]), tau=0.27, k=8, max_nodes=64,
+        ann_backend="naive", rng=np.random.default_rng(0),
+    )
+    sc.init_from(nested.points, n_seeds=8)
+    sc.run_until_stable(
+        nested.points,
+        StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+    )
+    n = len(sc.nodes)
+    pos = np.asarray([sc.nodes[i].position for i in range(n)])
+    edges = [(int(l.i), int(l.j)) for l in sc.links.lifted_links()]
+
+    # Failure mode 1: empty-ball regime at mid_frac=0.35 (non-discriminative H).
+    n_mid, n_end, _ = edge_ball_occupancy(
+        pos, edges, nested.points, mid_radius_frac=0.35,
+    )
+    empty_ball_frac = float(np.mean(n_mid <= 0.0))
+    assert empty_ball_frac > 0.5  # majority empty mid-balls on adapted scaffold
+
+    maj_def, ari_def = _hollow_majors_and_sample_ari(
+        sc, nested.points, nested.labels, HollowEdgeConfig(),
+    )
+    # Spurious K=2 with ARI near chance — K alone must not claim recovery.
+    assert maj_def == 2
+    assert ari_def is not None and ari_def < 0.2
+
+    # Failure mode 2: non-cut-set — MST-critical hollow keeps majors ≤1 here.
+    maj_mst, ari_mst = _hollow_majors_and_sample_ari(
+        sc, nested.points, nested.labels,
+        a4_roc_primary_config(mst_critical_only=True),
+    )
+    assert maj_mst <= 1
+    assert ari_mst is None  # no multi-major ⇒ no ARI recovery claim
+
+    # Contract: a recovery predicate requires ARI threshold, not K.
+    def _claims_recovery(majors: int, ari: float | None, *, ari_min: float = 0.5) -> bool:
+        return majors >= 2 and ari is not None and ari >= ari_min
+
+    assert not _claims_recovery(maj_def, ari_def)
+    assert not _claims_recovery(maj_mst, ari_mst)

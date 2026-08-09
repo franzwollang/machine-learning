@@ -20,7 +20,11 @@ from proteus.stage1.dm_cluster import (
     dm_partition_verdict,
     run_clustering_dm,
 )
-from proteus.stage1.edge_evidence import HollowEdgeConfig, prune_hollow_edges
+from proteus.stage1.edge_evidence import (
+    HollowEdgeConfig,
+    a4_roc_primary_config,
+    prune_hollow_edges,
+)
 from proteus.stage1.pruning import demote_lifted_by_cluster
 from proteus.stage1.transfer import apply_t2_transfer
 
@@ -201,6 +205,11 @@ class RecursionConfig:
     A2-T32: ``hollow_require_persistent_agree`` (default False) additionally
     requires a persistent multi-cluster at the region's scale-search result
     before accepting a hollow prepass split.
+    A2-T33: ``hollow_use_a4_primary`` (default False) applies A4 ROC primary
+    ``(mid=0.5, h0=0.7, gabriel=False, min_end=0.5)`` instead of the
+    operational hollow knobs — sheet-null safe ≠ sample-ARI recovery.
+    A2-T34: ``hollow_mst_critical_only`` (default False) intersects hollow
+    cuts with the Euclidean MST edge set (conservative bridge proxy).
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
@@ -250,6 +259,8 @@ class RecursionConfig:
     hollow_gabriel_fallback: bool = True
     hollow_require_gabriel_and_h: bool = False
     hollow_require_persistent_agree: bool = False
+    hollow_use_a4_primary: bool = False
+    hollow_mst_critical_only: bool = False
     seed: int = 42
 
 
@@ -416,6 +427,42 @@ def _major_lifted_component_partition(
     )
 
 
+def _resolve_hollow_edge_config(
+    config: RecursionConfig | None = None,
+    *,
+    mid_radius_frac: float = 0.35,
+    h0: float = 0.35,
+    min_end_count: float = 0.5,
+    gabriel_fallback: bool = True,
+    require_gabriel_and_h: bool = False,
+    mst_critical_only: bool = False,
+    use_a4_primary: bool = False,
+) -> HollowEdgeConfig:
+    """Build ``HollowEdgeConfig`` from recursion knobs (A2-T33/T34)."""
+
+    if config is not None:
+        use_a4_primary = bool(config.hollow_use_a4_primary)
+        mst_critical_only = bool(config.hollow_mst_critical_only)
+        mid_radius_frac = float(config.hollow_mid_radius_frac)
+        h0 = float(config.hollow_h0)
+        min_end_count = float(config.hollow_min_end_count)
+        gabriel_fallback = bool(config.hollow_gabriel_fallback)
+        require_gabriel_and_h = bool(config.hollow_require_gabriel_and_h)
+    if use_a4_primary:
+        return a4_roc_primary_config(
+            require_gabriel_and_h=bool(require_gabriel_and_h),
+            mst_critical_only=bool(mst_critical_only),
+        )
+    return HollowEdgeConfig(
+        mid_radius_frac=float(mid_radius_frac),
+        h0=float(h0),
+        min_end_count=float(min_end_count),
+        gabriel_fallback=bool(gabriel_fallback),
+        require_gabriel_and_h=bool(require_gabriel_and_h),
+        mst_critical_only=bool(mst_critical_only),
+    )
+
+
 def _hollow_edge_partition(
     scaffold: "Stage1Scaffold",  # noqa: F821
     data: np.ndarray,
@@ -427,6 +474,9 @@ def _hollow_edge_partition(
     min_end_count: float = 0.5,
     gabriel_fallback: bool = True,
     require_gabriel_and_h: bool = False,
+    mst_critical_only: bool = False,
+    use_a4_primary: bool = False,
+    hollow_config: HollowEdgeConfig | None = None,
 ) -> ClusterResult | None:
     """Partition via hollow-edge pruning + major CCs (OPEN_ISSUES #44).
 
@@ -436,6 +486,10 @@ def _hollow_edge_partition(
     major-component absorption / ``Q > 0`` gate as
     :func:`_major_lifted_component_partition`.  Returns ``None`` unless ≥2
     majors survive.
+
+    Recovery claims must assert **sample ARI**, not major-CC count alone
+    (A2-T30/T35): empty-ball Gabriel and non-cut-set redundant paths can
+    yield ``K=2`` with ARI≈chance.
     """
 
     n = len(scaffold.nodes)
@@ -451,12 +505,14 @@ def _hollow_edge_partition(
     edges = [
         (int(link.i), int(link.j)) for link in scaffold.links.lifted_links()
     ]
-    cfg = HollowEdgeConfig(
-        mid_radius_frac=float(mid_radius_frac),
-        h0=float(h0),
-        min_end_count=float(min_end_count),
-        gabriel_fallback=bool(gabriel_fallback),
-        require_gabriel_and_h=bool(require_gabriel_and_h),
+    cfg = hollow_config if hollow_config is not None else _resolve_hollow_edge_config(
+        mid_radius_frac=mid_radius_frac,
+        h0=h0,
+        min_end_count=min_end_count,
+        gabriel_fallback=gabriel_fallback,
+        require_gabriel_and_h=require_gabriel_and_h,
+        mst_critical_only=mst_critical_only,
+        use_a4_primary=use_a4_primary,
     )
     kept = prune_hollow_edges(positions, edges, data_arr, config=cfg)
 
@@ -1365,11 +1421,7 @@ def _research_finer_split(
                 scaffold,
                 data,
                 min_frac=float(config.finer_prepass_min_frac),
-                mid_radius_frac=float(config.hollow_mid_radius_frac),
-                h0=float(config.hollow_h0),
-                min_end_count=float(config.hollow_min_end_count),
-                gabriel_fallback=bool(config.hollow_gabriel_fallback),
-                require_gabriel_and_h=bool(config.hollow_require_gabriel_and_h),
+                hollow_config=_resolve_hollow_edge_config(config),
             )
             if _hollow_prepass_accepted(config, result, hollow):
                 return result, scaffold, hollow
@@ -1610,6 +1662,8 @@ def _descend_into_clusters(
             hollow_gabriel_fallback=config.hollow_gabriel_fallback,
             hollow_require_gabriel_and_h=config.hollow_require_gabriel_and_h,
             hollow_require_persistent_agree=config.hollow_require_persistent_agree,
+            hollow_use_a4_primary=config.hollow_use_a4_primary,
+            hollow_mst_critical_only=config.hollow_mst_critical_only,
             seed=config.seed + region_id + label,
         )
 
@@ -1715,11 +1769,7 @@ def run_recursive_discovery(
             scaffold,
             data_arr,
             min_frac=float(config.finer_prepass_min_frac),
-            mid_radius_frac=float(config.hollow_mid_radius_frac),
-            h0=float(config.hollow_h0),
-            min_end_count=float(config.hollow_min_end_count),
-            gabriel_fallback=bool(config.hollow_gabriel_fallback),
-            require_gabriel_and_h=bool(config.hollow_require_gabriel_and_h),
+            hollow_config=_resolve_hollow_edge_config(config),
         )
         if _hollow_prepass_accepted(config, result, hollow):
             cluster_result = hollow

@@ -311,3 +311,67 @@ def test_require_gabriel_and_h_default_off() -> None:
     """Conjunction flag stays default-off (proposal-path; A2-T31)."""
 
     assert HollowEdgeConfig().require_gabriel_and_h is False
+
+
+def test_a4_roc_primary_config_preset() -> None:
+    """#44 / A2-T33: A4 primary preset mid=0.5 h0=0.7 gabriel=False."""
+
+    from proteus.stage1.edge_evidence import (
+        A4_PRIMARY_GABRIEL_FALLBACK,
+        A4_PRIMARY_H0,
+        A4_PRIMARY_MID_RADIUS_FRAC,
+        A4_PRIMARY_MIN_END_COUNT,
+        a4_roc_primary_config,
+    )
+
+    cfg = a4_roc_primary_config()
+    assert cfg.mid_radius_frac == A4_PRIMARY_MID_RADIUS_FRAC == 0.5
+    assert cfg.h0 == A4_PRIMARY_H0 == 0.7
+    assert cfg.min_end_count == A4_PRIMARY_MIN_END_COUNT == 0.5
+    assert cfg.gabriel_fallback is A4_PRIMARY_GABRIEL_FALLBACK is False
+    assert cfg.mst_critical_only is False
+    assert HollowEdgeConfig().mst_critical_only is False
+
+
+def test_mst_critical_only_intersects_hollow_mask() -> None:
+    """#44 / A2-T34: MST-critical hollow cuts only MST∩hollow edges.
+
+    Path 0-1-2-3 plus long chord 0-3: MST keeps short edges; a hollow long
+    chord is not MST-critical so ``mst_critical_only`` keeps it.
+    """
+
+    from proteus.stage1.edge_evidence import mst_edge_mask
+
+    positions = np.array(
+        [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [3.0, 0.0]], dtype=float,
+    )
+    # Dense support near each node; gap between 0 and 3 midpoints empty.
+    rng = np.random.default_rng(1)
+    data = np.vstack(
+        [
+            rng.normal([-0.05, 0.0], 0.05, size=(40, 2)),
+            rng.normal([1.0, 0.0], 0.05, size=(40, 2)),
+            rng.normal([2.0, 0.0], 0.05, size=(40, 2)),
+            rng.normal([3.05, 0.0], 0.05, size=(40, 2)),
+        ]
+    )
+    edges = [(0, 1), (1, 2), (2, 3), (0, 3)]
+    mst = mst_edge_mask(positions, edges)
+    assert mst.tolist() == [True, True, True, False]
+
+    cfg_all = HollowEdgeConfig(
+        mid_radius_frac=0.5, h0=0.7, min_end_count=0.5, gabriel_fallback=False,
+        mst_critical_only=False,
+    )
+    cfg_mst = HollowEdgeConfig(
+        mid_radius_frac=0.5, h0=0.7, min_end_count=0.5, gabriel_fallback=False,
+        mst_critical_only=True,
+    )
+    cut_all = hollow_edge_mask(positions, edges, data, config=cfg_all)
+    cut_mst = hollow_edge_mask(positions, edges, data, config=cfg_mst)
+    # Long chord is hollow under H-only at mid=0.5/h0=0.7.
+    assert bool(cut_all[3]) is True
+    # But not MST-critical → MST-only mode does not cut it.
+    assert bool(cut_mst[3]) is False
+    assert not np.any(cut_mst & ~mst)
+    assert not np.any(cut_mst & ~cut_all)
