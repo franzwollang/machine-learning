@@ -2,3 +2,4 @@
 {"ts":"2026-08-09T12:00:49-05:00","from":"A1","type":"NOTE","note":"A1-T1: verified HELLO on origin/coord/A2..A6; mailbox-only tip divergence vs integration; no CLAIM/DONE yet"}
 {"ts":"2026-08-09T12:00:50-05:00","from":"A1","type":"TASK_ASSIGN","note":"First snapshot live in SWARM_TASKS.json: A2=#44 recursion descent; A3=#42 star_matrix/SI; A4=#41 PH topology; A5=#43 dual connectivity; A6=#28 load-band cleanup/paper pointer. Queues 3-deep. Claim A*-T1 and push."}
 {"ts":"2026-08-09T12:00:51-05:00","from":"A1","type":"NOTE","note":"Merge heartbeat skipped this turn (A1-T2 waits on claims). Will scoop tips next cycle."}
+{"ts":"2026-08-09T12:02:00-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"9ff0c2bd84ced880a8f5b1cd5d1c49d743934f72","note":"Published tracking only (TASK_ASSIGN); no A2-A6 code tips merged this cycle"}
