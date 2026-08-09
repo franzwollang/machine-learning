@@ -24,8 +24,8 @@ from tests.scenarios.synthetic.test_ph_reading_diagnostics import (
 
 
 def _two_clean_tori(
-    n_theta: int = 20,
-    n_phi: int = 10,
+    n_theta: int = 24,
+    n_phi: int = 12,
 ) -> tuple[np.ndarray, np.ndarray, float]:
     """Two separated torus grids with labels 1/2 (linked topology not required)."""
     t0 = _clean_torus_grid(n_theta=n_theta, n_phi=n_phi, major=2.0, minor=0.5)
@@ -34,7 +34,7 @@ def _two_clean_tori(
     t1 = t1 + np.array([8.0, 0.0, 0.0])
     points = np.vstack([t0, t1])
     labels = np.array([1] * len(t0) + [2] * len(t1), dtype=int)
-    # Tube-scale sigma: large enough to birth torus loops on the grid.
+    # Tube-scale sigma where fixed_threshold recovers (b0,b1,b2)=(1,2,1).
     sigma = 0.55
     return points, labels, sigma
 
@@ -111,18 +111,16 @@ def test_run_per_region_ph_linked_tori_clean_grids() -> None:
         sigma,
         scenario="linked_tori_clean_grids",
         include_labels=[1, 2],
-        reading="lifetime",
+        reading="fixed_threshold",
         max_dim=2,
-        lifetime_frac=0.25,
-        expected_betti=None,  # b2 may vary on coarse grids; check b1 below
+        expected_betti=(1, 2, 1),
     )
     assert result.scenario == "linked_tori_clean_grids"
-    assert result.all_match is None
+    assert result.all_match is True
     assert len(result.reports) == 2
     for rep in result.reports:
         assert rep.n_points == points.shape[0] // 2
-        assert rep.betti[0] == 1
-        assert rep.betti[1] >= 2
+        assert rep.betti == (1, 2, 1)
 
 
 @pytest.mark.scenario
