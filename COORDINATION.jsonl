@@ -3,3 +3,5 @@
 {"ts":"2026-08-09T12:00:50-05:00","from":"A1","type":"TASK_ASSIGN","note":"First snapshot live in SWARM_TASKS.json: A2=#44 recursion descent; A3=#42 star_matrix/SI; A4=#41 PH topology; A5=#43 dual connectivity; A6=#28 load-band cleanup/paper pointer. Queues 3-deep. Claim A*-T1 and push."}
 {"ts":"2026-08-09T12:00:51-05:00","from":"A1","type":"NOTE","note":"Merge heartbeat skipped this turn (A1-T2 waits on claims). Will scoop tips next cycle."}
 {"ts":"2026-08-09T12:02:00-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"9ff0c2bd84ced880a8f5b1cd5d1c49d743934f72","note":"Published tracking only (TASK_ASSIGN); no A2-A6 code tips merged this cycle"}
+{"ts":"2026-08-09T12:15:00-05:00","from":"A1","type":"NOTE","note":"Applied REQUEST_TRACKER: resolved #42; trimmed #28/#43; refilled A3/A5/A6 queues (2-3 deep). A2 still needs CLAIM on A2-T1."}
+{"ts":"2026-08-09T12:15:01-05:00","from":"A1","type":"TASK_REFILL","note":"A3-T4..T6 (SI follow-ons); A5-T4..T6 (#43 S6 watch); A6-T4..T6 (#28 deletion readiness); A1-T4..T6 next cadence"}

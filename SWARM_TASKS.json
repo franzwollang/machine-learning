@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T12:00-05:00",
+  "updated_at": "2026-08-09T12:15-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -14,19 +14,19 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T2",
-          "status": "ready",
-          "summary": "After workers claim, merge current tips into coord/integration (best-effort snapshot), run tests, append MERGE_DONE with integration_sha, refill queues — no MERGE_START / no worker pause"
-        },
-        {
-          "id": "A1-T3",
-          "status": "ready",
-          "summary": "Apply REQUEST_TRACKER edits to OPEN_ISSUES/PLANNING/logs; keep queues 2–3 deep"
-        },
-        {
           "id": "A1-T4",
           "status": "ready",
-          "summary": "Next cadence: re-read worker mailboxes; if CLAIM/DONE present, run merge heartbeat A2→A6; else NOTE idle and keep queues topped"
+          "summary": "Next cadence: re-read worker mailboxes; merge A2→A6 if new tips; refill queues 2–3 deep"
+        },
+        {
+          "id": "A1-T5",
+          "status": "ready",
+          "summary": "When A6 deletion checklist is ready, schedule load_band removal behind tests on integration"
+        },
+        {
+          "id": "A1-T6",
+          "status": "ready",
+          "summary": "Watch A2 #44 design spike; after NOTE, open follow-on tasks / SI assignment as needed"
         }
       ]
     },
@@ -63,31 +63,27 @@
     "A3": {
       "branch": "coord/A3",
       "role": "worker",
-      "owns_issues": [
-        42
-      ],
+      "owns_issues": [],
       "owns_files": [
-        "code/proteus/src/proteus/evidence/star_matrix.py",
         "docs/Proteus/paper_1_foundational/SI.tex"
       ],
       "queue": [
         {
-          "id": "A3-T1",
+          "id": "A3-T4",
           "status": "ready",
-          "issue": 42,
-          "summary": "Audit S10.4 vs star_matrix.py; list gap (Jacobian vs incidence proxy) in COORDINATION NOTE"
+          "issue": 28,
+          "summary": "SI S14.3: mirror DEPRECATED/flag-only label for load_band if still listed as operational (support #28; do not delete code)"
         },
         {
-          "id": "A3-T2",
+          "id": "A3-T5",
           "status": "ready",
-          "issue": 42,
-          "summary": "Draft SI S10.4 prose blessing incidence+rank guard OR specifying router Jacobian; keep proposed/operational labeling clear"
+          "summary": "Consistency pass: paper.tex / gate.py / star_matrix cross-refs vs blessed S10.4 incidence proxy (NOTE only unless SI tweak needed)"
         },
         {
-          "id": "A3-T3",
+          "id": "A3-T6",
           "status": "ready",
-          "issue": 42,
-          "summary": "Align module docstring with chosen SI wording; add/adjust a focused unit test if needed; REQUEST_TRACKER to trim #42"
+          "issue": 44,
+          "summary": "After A2 design NOTE: sketch SI wording options for finer-descent stop/acceptance ownership (NOTE; no SI edit until A1 assigns)"
         }
       ]
     },
@@ -135,22 +131,22 @@
       ],
       "queue": [
         {
-          "id": "A5-T1",
+          "id": "A5-T4",
           "status": "ready",
           "issue": 43,
-          "summary": "Map score_edit dual_connected hook + call sites; NOTE what S6 dual graph must provide"
+          "summary": "Document S6 adjacency contract for affected_dual_subgraph_connected in COORDINATION NOTE (no Stage-1 edits)"
         },
         {
-          "id": "A5-T2",
+          "id": "A5-T5",
           "status": "ready",
           "issue": 43,
-          "summary": "Add pure-function stub for affected dual-subgraph connectivity (flag or clearly stubbed); property test that disconnect => reject when hook is false"
+          "summary": "Add awaiting/xfail marker note or stub test module comment for real dual-graph wiring; do not flip without S6"
         },
         {
-          "id": "A5-T3",
+          "id": "A5-T6",
           "status": "ready",
           "issue": 43,
-          "summary": "Keep Stage-1 untouched; REQUEST_TRACKER with remaining S6 dependency wording for #43"
+          "summary": "Idle watch: if dual-flow files appear on integration, CLAIM wiring task via NOTE; else REPORT status next turn"
         }
       ]
     },
@@ -166,25 +162,25 @@
       ],
       "queue": [
         {
-          "id": "A6-T1",
+          "id": "A6-T4",
           "status": "ready",
           "issue": 28,
-          "summary": "Locate legacy load-band / _detect_peak / _legacy_slope_selector; NOTE deletion checklist (do not delete yet without A1 merge plan)"
+          "summary": "Inventory scenario/recursion tests still touching load_band; NOTE deletion-readiness matrix (no deletes yet)"
         },
         {
-          "id": "A6-T2",
+          "id": "A6-T5",
           "status": "ready",
           "issue": 28,
-          "summary": "paper.tex one-line pointer to S2.6.2 persistence as cluster-count arbiter if still missing; do not edit SI.tex (A3 owns it) or recursion.py"
+          "summary": "Draft load_band/_legacy_slope_selector/_detect_peak deletion checklist in COORDINATION for A1 merge plan"
         },
         {
-          "id": "A6-T3",
+          "id": "A6-T6",
           "status": "ready",
           "issue": 28,
-          "summary": "If safe behind flag only: mark load_band path deprecated in controller docstring; REQUEST_TRACKER for #28 bullets + any SI wording A1 should assign later"
+          "summary": "Design-only NOTE on persistence coarse-end refinement options (do not change default selector)"
         }
       ]
     }
   },
-  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only: workers merge origin/coord/integration at turn start if behind; A1 publishes MERGE_DONE after merges (no mid-turn pause). A1 keeps queues 2–3 deep and may reassign owns_issues/owns_files over time. 2026-08-09T12:00: all worker HELLO verified; first TASK_ASSIGN announced; no CLAIM/DONE yet — merge heartbeat deferred."
+  "notes": "2026-08-09T12:15: merged A2–A6 tips; resolved #42; trimmed #28/#43; refilled A3/A5/A6 queues. A2 still needs first CLAIM on #44. Integration turn-boundary only."
 }

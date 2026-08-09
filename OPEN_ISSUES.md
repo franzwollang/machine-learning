@@ -63,10 +63,12 @@ The default selector is now the variance-load `L = 1` up-crossing
 (`controller._select_load_crossover`), which carries no `band_lo` / one-step-coarser
 constant and lands tau* within one grid step of geometric truth (circle 8.0x -> 1.6x,
 swiss 3.9x -> 0.9x). Scale-search test tolerance tightened `10x -> 3x` (plus a swiss-roll
-analog); SI S2.5.1 and the S14.3 table rewritten to match; the legacy load-band selector
-is retained behind `ScaleSearchConfig.selector="load_band"` only for regression bisection.
-Q-partition persistence (`selector="persistence"`, `stage1/persistence.py`) remains the
-structural arbiter for recursion timing (`P_persist=2`, `theta_ovl=0.5`, SI S2.6.2).
+analog); SI S2.5.1 and the S14.3 table rewritten to match. The legacy load-band path is
+**docstring-deprecated** behind `ScaleSearchConfig.selector="load_band"` (flag retained for
+regression bisection; not deleted yet). Paper §3 now points to SI S2.6.2 persistence as the
+cluster-count arbiter. Q-partition persistence (`selector="persistence"`,
+`stage1/persistence.py`) remains the structural arbiter for recursion timing
+(`P_persist=2`, `theta_ovl=0.5`, SI S2.6.2).
 
 **Finding (cross-family audited, cold-start validated):** the proposed *primary* signal —
 knees/plateaus in the compensated node count `N(tau) * tau^{d/2}` (equivalently `V_C(tau)`)
@@ -82,9 +84,11 @@ Remaining work:
   of the persistent interval (hierarchical tau*=0.36 vs expected 0.0225); refine toward the
   within-interval characteristic scale before making persistence the default for structured
   regions.
-- **Delete the legacy load-band selector** (and now-dormant `_legacy_slope_selector`,
-  `_detect_peak` in `controller.py`) once `load_crossover` is validated to dominate across
-  every scenario/recursion regression — kept behind the flag until then (M2 mitigation).
+- **Delete the legacy load-band selector** (and dormant `_legacy_slope_selector`,
+  `_detect_peak` in `controller.py`) once `load_crossover` dominates every
+  scenario/recursion regression — docstring-deprecated behind the flag until an explicit
+  deletion merge lands (M2 mitigation). Optional SI S14.3 mirror of the DEPRECATED label
+  (A3 owns `SI.tex`).
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -157,30 +161,17 @@ tests: `test_nested_spheres_topology` (per-shell `b0 = 1`, `b_{sphere_dim} = 1`)
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (the S4.2 manifold-zoo test)
   additionally blocks on the #40 operational `d_final` refresh; pure topology (b-numbers) does not.
 
-## 42. Star-matrix runtime form under-specified (SI S10.4)
-
-- The DM evidence gate's S10.4 conditioning guard is implemented in
-  `evidence/star_matrix.py`, but S10.4 defines `K_i` only "up to normalization" as the
-  Jacobian of the normalized router `q(.|i; m)` with respect to the star masses at the
-  canonical `kappa`; it never writes the runtime matrix explicitly. The implementation uses
-  the **edge--simplex incidence matrix** as an operational proxy, plus a
-  `n_outcomes >= n_simplices` full-rank-modulo-scaling guard and the literal
-  `sigma_min/sigma_max >= rho_min` ratio (`rho_min = 1e-4`, S10.4).
-- Remaining: either pin the exact runtime `K_i` (normalized-router Jacobian at `kappa`,
-  with the 1-D scaling direction removed) into S10.4, or bless the incidence-matrix + rank
-  guard as the canonical first-implementation form and say so in S10.4. This is a
-  calibration/diagnostic-tier (audit-adjacent) choice, not core acceptance-path math.
-
 ## 43. Evidence gate: wire the affected dual-subgraph connectivity check (SI S10.4)
 
 - S10.4's dynamic-preservation rule requires an edit to be *evidence-bearing* only if
   (a) every affected post-edit star is well-conditioned **and** (b) the affected dual
   subgraph stays connected. `evidence/gate.py::score_edit` enforces (a) all-or-nothing and
-  exposes a `dual_connected` hook for (b), but nothing computes that connectivity yet: the
-  dual/face graph is a Stage-2 dual-flow structure (S6) not built until the M4 dual-flow
-  step.
-- Remaining: when the S6 dual graph lands, compute the affected dual-subgraph connectivity
-  in the edit dry run and pass it into `score_edit(..., dual_connected=...)` /
-  `EvidenceGate.evaluate`; add a reduction/property test that a disconnecting edit is
-  rejected on the evidence path. Until then the gate conservatively defaults
-  `dual_connected=True` (callers with no dual graph assert connectivity).
+  exposes a `dual_connected` hook for (b).
+- **Landed (stub):** `affected_dual_subgraph_connected` in `gate.py` is the pure BFS
+  induced-subgraph hook; `tests/evidence/test_dual_subgraph_connectivity.py` locks
+  disconnect ⇒ evidence-path reject. When adjacency is `None`, the helper conservatively
+  returns `True` (same default as `score_edit(..., dual_connected=True)`).
+- Remaining: when the S6 dual/face graph lands (M4 dual-flow), supply real adjacency into
+  that hook (or call sites) so connectivity is computed in the edit dry run rather than
+  defaulting open. Do not close this issue until S6 wiring replaces the conservative
+  default.

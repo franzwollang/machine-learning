@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T12:00-05:00",
-  "turn": 28,
+  "updated_at": "2026-08-09T12:15-05:00",
+  "turn": 29,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "swarm burn: A1 tracking live; workers on #44/#42/#41/#43/#28"
+    "goal": "swarm: #42 closed; #43 stub in; await A2 #44 design"
   },
   "recent": [
-    "Verified A2–A6 HELLO on durable coord/A*; tips ahead of integration by mailbox-only commits",
-    "Announced first TASK_ASSIGN; A1-T1 done; queues still 3-deep per worker",
-    "No CLAIM/DONE yet — skipped A2→A6 merge this cadence"
+    "Merged A2→A6 into coord/integration; tests: dual_connectivity 3/3, star_matrix 5/5, scale_search 2/2",
+    "Resolved #42 (S10.4 incidence+rank-guard blessed); trimmed #28/#43 from REQUEST_TRACKER",
+    "Refilled A3/A5/A6 queues; A2 still HELLO-only"
   ],
   "discoveries": [
-    "Fuller-suite failure is UPSTREAM of the acceptance gate: at tau* the disconnected scene is K=1; separation needs ~80x finer tau — but descent never looks there.",
-    "Worker tips vs integration differ only in COORDINATION.jsonl (agent-owned mailboxes)."
+    "Worker tips vs integration previously differed mainly by mailboxes; code tips arrived mid-cadence from A3/A5/A6.",
+    "Fuller-suite failure remains UPSTREAM of gate: K=1-at-tau* never re-searches finer (#44)."
   ],
   "open_threads": [
-    "#44 design Qs: finer re-search window; stop guarantee; cheap disconnected-component pre-pass.",
-    "#27 stand-in deletion BLOCKED on #44; persist+dm validated on canonical suite.",
-    "Await worker CLAIMs before first substantive MERGE_DONE"
+    "A2 #44 design spike not started",
+    "A4 CLAIMed A4-T1 inventory; no DONE yet",
+    "#28 deletion still needs readiness matrix + A1 merge plan"
   ],
-  "next_step": "On next turn: if CLAIM/DONE, merge A2→A6 into coord/integration; else idle NOTE",
+  "next_step": "Push MERGE_DONE; next turn scoop A2/A4 progress",
   "blockers": []
 }
