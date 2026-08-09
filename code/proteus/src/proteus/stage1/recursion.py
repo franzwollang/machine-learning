@@ -7,7 +7,13 @@ from typing import Any, Optional
 
 import numpy as np
 
-from proteus.stage1.clustering import run_clustering
+from proteus.stage1.clustering import (
+    ClusterResult,
+    _lifted_components_covering_all_nodes,
+    compute_edge_weights,
+    partition_q_score,
+    run_clustering,
+)
 from proteus.stage1.controller import ScaleSearchConfig, run_scale_search
 from proteus.stage1.dm_cluster import (
     DMClusterConfig,
@@ -75,6 +81,18 @@ class RecursionConfig:
     require many grid steps below the coarse ``tau*`` (OPEN_ISSUES #44
     evidence: ~80x).  Default ``8`` is an operational budget; the flag remains
     off so the default acceptance path is unchanged.
+
+    ``prefer_disconnected_prepass`` (OPEN_ISSUES #44c, **proposed /
+    operational, default off**) short-circuits the finer re-search walk when
+    the lifted Hebbian graph at a capped scale has **≥2 major connected
+    components** (each at least ``finer_prepass_min_frac`` of the scaffold
+    nodes, and at least 3 nodes).  Tiny components are absorbed into the
+    nearest major by Euclidean position.  Zero inter-component lifted edges
+    imply block-diagonal flow, so this is the cheap obvious-disconnect path
+    before the general AP/DM finer search.  Pair with a modest
+    ``max_finer_scale_steps`` (and preferably ``require_persistent_split``)
+    so uniform manifolds that only fracture at extreme fine scales do not
+    trigger a false prepass hit.
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
@@ -89,6 +107,7 @@ class RecursionConfig:
     finer_tau_cap_ratio: float = 1.0 / np.sqrt(2.0)
     max_finer_scale_steps: int = 8
     prefer_disconnected_prepass: bool = False
+    finer_prepass_min_frac: float = 0.2
     seed: int = 42
 
 
@@ -174,6 +193,87 @@ def _cluster_scaffold(
     return run_clustering(scaffold)
 
 
+def _major_lifted_component_partition(
+    scaffold: "Stage1Scaffold",  # noqa: F821
+    *,
+    min_frac: float = 0.2,
+    min_abs: int = 3,
+) -> ClusterResult | None:
+    """Return a partition from ≥2 major lifted components, else ``None``.
+
+    OPEN_ISSUES #44c cheap prepass: when the lifted graph already separates
+    into multiple large components, skip AP and treat those components as the
+    candidate split.  Components smaller than
+    ``max(min_abs, ceil(n * min_frac))`` are absorbed into the nearest major
+    component by Euclidean node position.  Requires ``Q > 0`` on the resulting
+    partition.
+    """
+
+    n = len(scaffold.nodes)
+    if n < 2:
+        return None
+    frac = float(min_frac)
+    if not (0.0 < frac <= 0.5):
+        frac = 0.2
+    threshold = max(int(min_abs), int(np.ceil(n * frac)))
+
+    graph_lifted = scaffold.links.neighbour_graph(n)
+    comps = _lifted_components_covering_all_nodes(n, graph_lifted)
+    majors = [c for c in comps if len(c) >= threshold]
+    if len(majors) < 2:
+        return None
+
+    positions = np.asarray(
+        [scaffold.nodes[i].position for i in range(n)], dtype=float,
+    )
+    major_centroids = [
+        positions[sorted(c)].mean(axis=0) for c in majors
+    ]
+
+    labels = np.full(n, -1, dtype=int)
+    for cid, members in enumerate(majors):
+        for m in members:
+            labels[int(m)] = cid
+
+    # Absorb non-major nodes into nearest major by centroid distance.
+    leftovers = [c for c in comps if len(c) < threshold]
+    for tiny in leftovers:
+        for m in tiny:
+            dists = [
+                float(np.sum((positions[int(m)] - cen) ** 2))
+                for cen in major_centroids
+            ]
+            labels[int(m)] = int(np.argmin(dists))
+
+    clusters: list[set[int]] = [
+        set(np.where(labels == cid)[0].tolist()) for cid in range(len(majors))
+    ]
+    # Drop empties (should not happen after absorb).
+    clusters = [c for c in clusters if c]
+    if len(clusters) < 2:
+        return None
+
+    W = compute_edge_weights(scaffold)
+    pq = partition_q_score(clusters, n, W, graph_lifted)
+    if pq <= 0.0:
+        return None
+
+    hits = np.array([node.hit_count for node in scaffold.nodes], dtype=float)
+    exemplars = [int(max(c, key=lambda g: hits[g])) for c in clusters]
+    # Relabel densely 0..K-1
+    dense = np.full(n, -1, dtype=int)
+    for cid, members in enumerate(clusters):
+        for m in members:
+            dense[int(m)] = cid
+
+    return ClusterResult(
+        labels=dense,
+        exemplar_indices=np.array(exemplars, dtype=int),
+        n_clusters=len(clusters),
+        partition_q_score=float(pq),
+    )
+
+
 def _research_finer_split(
     data: np.ndarray,
     dim: int,
@@ -188,6 +288,9 @@ def _research_finer_split(
     the caller applies accept gates and child descent.  **Stop guarantee:**
     step budget + ``tau_min`` bound the walk; a failed / gated-out proposal
     leaves the region terminal.
+
+    When ``prefer_disconnected_prepass`` is on, each step first tries the
+    major-lifted-component short-circuit (#44c) before the general AP/DM path.
     """
 
     ratio = float(config.finer_tau_cap_ratio)
@@ -196,10 +299,6 @@ def _research_finer_split(
     tau_min = float(config.scale_search.tau_min)
     tau_cap = float(parent_tau) * ratio
     max_steps = max(1, int(config.max_finer_scale_steps))
-
-    # Optional cheap short-circuit hook (OPEN_ISSUES #44c): currently a no-op
-    # placeholder so the flag is wired without changing the general path.
-    _ = config.prefer_disconnected_prepass
 
     for _step in range(max_steps):
         if not (tau_min < tau_cap < float(parent_tau)):
@@ -224,6 +323,19 @@ def _research_finer_split(
             if persistence is None or persistence.tau_star_index is None:
                 tau_cap *= ratio
                 continue
+
+        # #44c: cheap disconnected-lifted prepass before general clustering.
+        if config.prefer_disconnected_prepass:
+            pre = _major_lifted_component_partition(
+                scaffold,
+                min_frac=float(config.finer_prepass_min_frac),
+            )
+            if (
+                pre is not None
+                and pre.n_clusters > 1
+                and pre.partition_q_score > 0.0
+            ):
+                return result, scaffold, pre
 
         cluster_result = _cluster_scaffold(scaffold, config)
         if (
@@ -321,6 +433,7 @@ def _descend_into_clusters(
             finer_tau_cap_ratio=config.finer_tau_cap_ratio,
             max_finer_scale_steps=config.max_finer_scale_steps,
             prefer_disconnected_prepass=config.prefer_disconnected_prepass,
+            finer_prepass_min_frac=config.finer_prepass_min_frac,
             seed=config.seed + region_id + label,
         )
 

@@ -279,6 +279,67 @@ def test_finer_research_flag_defaults_off() -> None:
     assert 0.0 < cfg.finer_tau_cap_ratio < 1.0
     assert cfg.max_finer_scale_steps >= 1
     assert cfg.prefer_disconnected_prepass is False
+    assert 0.0 < cfg.finer_prepass_min_frac <= 0.5
+
+
+def test_major_lifted_component_partition_requires_two_majors() -> None:
+    """#44c: prepass returns None unless ≥2 major lifted components exist."""
+
+    from proteus.stage1.recursion import _major_lifted_component_partition
+    from proteus.types import Link
+
+    class _Links:
+        def __init__(self, edges: list[tuple[int, int]]):
+            self._edges = edges
+
+        def neighbour_graph(self, n: int) -> dict[int, list[int]]:
+            g = {i: [] for i in range(n)}
+            for i, j in self._edges:
+                g[i].append(j)
+                g[j].append(i)
+            return g
+
+        def lifted_links(self):
+            return [
+                Link(i=i, j=j, count_ij=1.0, count_ji=1.0, lifted=True)
+                for i, j in self._edges
+            ]
+
+    class _Node:
+        def __init__(self, pos, hits=1.0):
+            self.position = np.asarray(pos, dtype=float)
+            self.hit_count = hits
+            self.d_final = 1
+
+    class _Scaf:
+        def __init__(self, nodes, edges):
+            self.nodes = nodes
+            self.links = _Links(edges)
+            self.tau = 0.1
+
+    # One connected component of 6 nodes — no prepass hit.
+    nodes = [_Node([float(i), 0.0]) for i in range(6)]
+    edges = [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]
+    assert _major_lifted_component_partition(
+        _Scaf(nodes, edges), min_frac=0.2, min_abs=2,
+    ) is None
+
+    # Two majors of 3 + isolated tiny absorbed into nearest.
+    nodes = [
+        _Node([0.0, 0.0]), _Node([0.1, 0.0]), _Node([0.2, 0.0]),
+        _Node([5.0, 0.0]), _Node([5.1, 0.0]), _Node([5.2, 0.0]),
+        _Node([0.15, 0.05]),  # tiny near first major
+    ]
+    edges = [(0, 1), (1, 2), (3, 4), (4, 5)]
+    pre = _major_lifted_component_partition(
+        _Scaf(nodes, edges), min_frac=0.2, min_abs=2,
+    )
+    assert pre is not None
+    assert pre.n_clusters == 2
+    assert pre.partition_q_score > 0.0
+    # Tiny node 6 absorbed into cluster of nodes 0-2.
+    assert int(pre.labels[6]) == int(pre.labels[0])
+    assert int(pre.labels[0]) != int(pre.labels[3])
 
 
 def test_research_finer_split_rejects_invalid_cap() -> None:
@@ -381,7 +442,9 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     Default path (flag off) terminates at K=1 at coarse tau*.  This test
     documents the aspiration and only asserts the default-off contract is
     unchanged; a full green leaf-count assert is deferred until the finer
-    window + gate pairing is validated on the fuller suite (A2-T3).
+    window + gate pairing is validated on the fuller suite (A2-T3/T4).
+    A2-T4: AP finer walks do not yet recover shell ARI; prefer_disconnected
+    prepass is wired for the obvious lifted-disconnect short-circuit.
     """
 
     from tests.datasets.synthetic.nested_spheres import make_nested_spheres
@@ -414,18 +477,20 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     # Flag off: coarse K=1 terminates — at most one leaf (current #44 defect).
     assert len(tree_off.leaves) == 1
 
-    # Aspiration (not asserted yet): allow_finer_research + require_dm_split
+    # Aspiration (not asserted yet): allow_finer_research + prepass / DM
     # should recover ~2 leaves.  Keep the config construction here as the
-    # living sketch for A2-T3 validation runs.
+    # living sketch for follow-on validation runs.
     _aspirational = RecursionConfig(
         scale_search=base.scale_search,
         min_samples=base.min_samples,
         max_depth=base.max_depth,
         allow_finer_research=True,
+        prefer_disconnected_prepass=True,
         require_dm_split=True,
         finer_tau_cap_ratio=0.5,
         max_finer_scale_steps=12,
         seed=base.seed,
     )
     assert _aspirational.allow_finer_research is True
+    assert _aspirational.prefer_disconnected_prepass is True
     assert _aspirational.max_finer_scale_steps == 12
