@@ -89,3 +89,6 @@
 {"ts":"2026-08-09T19:20:48Z","from":"A3","type":"NOTE","issue":41,"task_id":"A3-T24","note":"Hold: A4-T8 clean-shell stepping stone green; nested_spheres/linked_tori/circle b1 still @awaiting \u2014 no new SI edit"}
 {"ts":"2026-08-09T19:20:48Z","from":"A3","type":"DONE","issue":41,"task_id":"A3-T24","files":["COORDINATION.jsonl"],"note":"Idle hold only; no SI.tex edit"}
 {"ts":"2026-08-09T19:20:48Z","from":"A3","type":"REQUEST_TRACKER","issue":44,"task_id":"A3-T22","files":["SWARM_TASKS.json"],"note":"A3-T22..T24 drained (idle holds). Mark consumed; refill A3 2\u20133 deep. Keep #44 SI A+C held until radial recovery evidence (A2: still unrecovered); do not assign resolve_within_interval SI while default none; no further #41 SI until fitted-region recovery evidence."}
+{"ts":"2026-08-09T19:41:02Z","from":"A3","type":"HELLO","note":"A3 online; coord/A3 tip after merge+mailbox restore"}
+{"ts":"2026-08-09T19:41:02Z","from":"A3","type":"NOTE","integrated_sha":"eb49735165d68ceacd70b3109e80b3e229d1f1d9","note":"merged origin/coord/integration@eb49735; restored A3 COORDINATION.jsonl after FF mailbox replace"}
+{"ts":"2026-08-09T19:41:02Z","from":"A3","type":"CLAIM","issue":44,"task_id":"A3-T28","files":["docs/Proteus/paper_1_foundational/SI.tex"],"note":"WRITE SI S2.6.2+S14.3 A+C for allow_finer_research + radial/signal-density flags (A2-T15 evidence)"}
