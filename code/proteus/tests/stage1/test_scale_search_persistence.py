@@ -1540,6 +1540,266 @@ def test_dense_ranking_flip_is_seed_fragile() -> None:
     assert ScaleSearchConfig().halve_grid_steps is False
 
 
+def test_export_multi_seed_phi_hierarchy_table() -> None:
+    # EXPORT probe (A6-T50): multi-seed Phi / tau* hierarchy table for A3 SI
+    # sync. Seeds 0..4 × standard vs halve_grid_steps densify; modes cover the
+    # fractional + load_weighted probes. One scale-search per (seed, dense)
+    # then offline _resolve_persistence_tau_index (matches full re-runs when
+    # persist accepts; when reject, all modes share the LC fallback peak).
+    # Default resolve stays "none"; do not flip acceptance.
+    modes = (
+        "none",
+        "mid_interval",
+        "two_thirds_interval",
+        "three_quarter_interval",
+        "fine_end_of_block",
+        "load_weighted_interval",
+    )
+    seeds = (0, 1, 2, 3, 4)
+    rows: list[dict[str, float | int | str | bool | None]] = []
+    for seed in seeds:
+        dataset = make_hierarchical_gaussian(
+            children_per_coarse=2, n_samples=600, ambient_dim=4, seed=seed,
+        )
+        gt = dataset.ground_truth
+        assert gt.expected_tau is not None
+        tau_lo, tau_hi = gt.tau_grid_hint
+        for dense in (False, True):
+            base = ScaleSearchConfig(
+                tau_min=tau_lo,
+                tau_max=tau_hi,
+                max_grid_points=8,
+                k=8,
+                n_seeds=12,
+                min_nodes=8,
+                max_nodes=128,
+                ann_backend="naive",
+                selector="persistence",
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2, max_epochs=12
+                ),
+                seed=seed,
+                halve_grid_steps=dense,
+            )
+            none = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=replace(
+                    base,
+                    persistence=PersistenceConfig(resolve_within_interval="none"),
+                ),
+            )
+            assert none.persistence_result is not None
+            assert none.peak_index is not None
+            pr = none.persistence_result
+            persist_ok = pr.tau_star_index is not None
+            for mode in modes:
+                if persist_ok:
+                    idx = _resolve_persistence_tau_index(
+                        pr,
+                        none.load_trace,
+                        list(none.stabilized_flags),
+                        PersistenceConfig(resolve_within_interval=mode),  # type: ignore[arg-type]
+                    )
+                else:
+                    # Persistence reject → controller LC fallback; modes agree.
+                    idx = int(none.peak_index)
+                tau_star = float(none.tau_grid[idx])
+                phi_star = float(none.phi_trace[idx])
+                load_star = float(none.load_trace[idx])
+                rows.append(
+                    {
+                        "seed": seed,
+                        "dense": dense,
+                        "mode": mode,
+                        "persist": persist_ok,
+                        "n_grid": int(len(none.tau_grid)),
+                        "peak_index": int(idx),
+                        "tau_star": tau_star,
+                        "phi_star": phi_star,
+                        "load_star": load_star,
+                        "tau_over_expected": float(tau_star / gt.expected_tau),
+                    }
+                )
+
+    header = (
+        f"{'seed':4s} {'dense':5s} {'persist':7s} {'mode':24s} "
+        f"{'n':>3s} {'idx':>3s} {'tau*/E':>8s} {'Phi*':>10s} {'load*':>8s}"
+    )
+    print("\nA6-T50 multi-seed Phi hierarchy export (for A3 SI)")
+    print(header)
+    print("-" * len(header))
+    for row in rows:
+        print(
+            f"{int(row['seed']):4d} {str(row['dense']):5s} "
+            f"{str(row['persist']):7s} {row['mode']:24s} "
+            f"{int(row['n_grid']):3d} {int(row['peak_index']):3d} "
+            f"{float(row['tau_over_expected']):8.3f} "
+            f"{float(row['phi_star']):10.4g} {float(row['load_star']):8.3f}"
+        )
+
+    by = {
+        (int(r["seed"]), bool(r["dense"]), str(r["mode"])): r for r in rows
+    }
+    # Seed-0 std: pin published hierarchy ratios (paper / prior A6 notes).
+    assert abs(float(by[(0, False, "none")]["tau_over_expected"]) - 16.0) < 0.05
+    assert abs(float(by[(0, False, "mid_interval")]["tau_over_expected"]) - 2.69) < 0.05
+    assert (
+        abs(float(by[(0, False, "two_thirds_interval")]["tau_over_expected"]) - 1.49)
+        < 0.05
+    )
+    assert (
+        abs(float(by[(0, False, "three_quarter_interval")]["tau_over_expected"]) - 0.82)
+        < 0.05
+    )
+    assert (
+        abs(float(by[(0, False, "fine_end_of_block")]["tau_over_expected"]) - 0.25)
+        < 0.05
+    )
+    assert by[(0, False, "load_weighted_interval")]["peak_index"] == by[
+        (0, False, "none")
+    ]["peak_index"]
+    # Seed-0 dense: densify flip (2/3≈1.00× beats 3q).
+    assert 0.9 < float(by[(0, True, "two_thirds_interval")]["tau_over_expected"]) < 1.1
+    assert float(by[(0, True, "three_quarter_interval")]["tau_over_expected"]) < 0.9
+    # Persist accept/reject map (locks T49 systematics for SI export).
+    for seed in (0, 3):
+        assert by[(seed, False, "none")]["persist"] is True
+        assert by[(seed, True, "none")]["persist"] is True
+    for seed in (1, 2):
+        assert by[(seed, False, "none")]["persist"] is False
+        assert by[(seed, True, "none")]["persist"] is False
+    assert by[(4, False, "none")]["persist"] is True
+    assert by[(4, True, "none")]["persist"] is False
+    # When persist rejects, all modes share the LC peak.
+    for seed, dense in ((1, False), (1, True), (2, False), (2, True), (4, True)):
+        peak = int(by[(seed, dense, "none")]["peak_index"])
+        for mode in modes:
+            assert int(by[(seed, dense, mode)]["peak_index"]) == peak
+            assert by[(seed, dense, mode)]["persist"] is False
+    # load_weighted ≡ none whenever persist accepts (hierarchy coarse-end).
+    for seed in seeds:
+        for dense in (False, True):
+            if by[(seed, dense, "none")]["persist"]:
+                assert by[(seed, dense, "load_weighted_interval")][
+                    "peak_index"
+                ] == by[(seed, dense, "none")]["peak_index"]
+    # Phi finite wherever we land.
+    for row in rows:
+        assert np.isfinite(float(row["phi_star"]))
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
+def test_load_weighted_x_halve_grid_combo_phi() -> None:
+    # EXPERIMENT (A6-T51): load_weighted_interval × halve_grid_steps combo on
+    # hierarchy. Contrast vs coarse-end (none) under std and dense grids.
+    # Expect weighted ≡ none on both grids when persist accepts; when dense
+    # reject (seed-4), both are LC no-ops. Flag defaults stay off.
+    seeds = (0, 3, 4)
+    rows: list[dict[str, float | int | bool | None]] = []
+    for seed in seeds:
+        dataset = make_hierarchical_gaussian(
+            children_per_coarse=2, n_samples=600, ambient_dim=4, seed=seed,
+        )
+        gt = dataset.ground_truth
+        assert gt.expected_tau is not None
+        tau_lo, tau_hi = gt.tau_grid_hint
+        for dense in (False, True):
+            base = ScaleSearchConfig(
+                tau_min=tau_lo,
+                tau_max=tau_hi,
+                max_grid_points=8,
+                k=8,
+                n_seeds=12,
+                min_nodes=8,
+                max_nodes=128,
+                ann_backend="naive",
+                selector="persistence",
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2, max_epochs=12
+                ),
+                seed=seed,
+                halve_grid_steps=dense,
+            )
+            none = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=replace(
+                    base,
+                    persistence=PersistenceConfig(resolve_within_interval="none"),
+                ),
+            )
+            weighted = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=replace(
+                    base,
+                    persistence=PersistenceConfig(
+                        resolve_within_interval="load_weighted_interval"
+                    ),
+                ),
+            )
+            assert none.persistence_result is not None
+            assert weighted.persistence_result is not None
+            assert none.peak_index is not None and weighted.peak_index is not None
+            persist_ok = none.persistence_result.tau_star_index is not None
+            rows.append(
+                {
+                    "seed": seed,
+                    "dense": dense,
+                    "persist": persist_ok,
+                    "n_grid": int(len(none.tau_grid)),
+                    "none_idx": int(none.peak_index),
+                    "weighted_idx": int(weighted.peak_index),
+                    "none_tau_over_E": float(none.tau_star / gt.expected_tau),
+                    "weighted_tau_over_E": float(
+                        weighted.tau_star / gt.expected_tau
+                    ),
+                    "weighted_load": float(weighted.load_trace[weighted.peak_index]),
+                }
+            )
+            assert weighted.peak_index == none.peak_index
+            assert weighted.tau_star == none.tau_star
+            if persist_ok:
+                i_lo = int(none.persistence_result.tau_star_index)  # type: ignore[arg-type]
+                assert weighted.peak_index == i_lo
+                assert (
+                    float(weighted.load_trace[weighted.peak_index])
+                    >= _WITHIN_INTERVAL_LOAD_SCREEN_MIN
+                )
+
+    header = (
+        f"{'seed':4s} {'dense':5s} {'persist':7s} {'n':>3s} "
+        f"{'none':>4s} {'w':>4s} {'none/E':>8s} {'w/E':>8s} {'load_w':>8s}"
+    )
+    print("\nA6-T51 load_weighted × halve_grid_steps combo vs coarse")
+    print(header)
+    print("-" * len(header))
+    for row in rows:
+        print(
+            f"{int(row['seed']):4d} {str(row['dense']):5s} "
+            f"{str(row['persist']):7s} {int(row['n_grid']):3d} "
+            f"{int(row['none_idx']):4d} {int(row['weighted_idx']):4d} "
+            f"{float(row['none_tau_over_E']):8.3f} "
+            f"{float(row['weighted_tau_over_E']):8.3f} "
+            f"{float(row['weighted_load']):8.3f}"
+        )
+
+    by = {(int(r["seed"]), bool(r["dense"])): r for r in rows}
+    # Dense grid actually densifies when persist path still runs.
+    assert int(by[(0, True)]["n_grid"]) > int(by[(0, False)]["n_grid"])
+    assert by[(0, False)]["persist"] is True
+    assert by[(0, True)]["persist"] is True
+    assert by[(4, False)]["persist"] is True
+    assert by[(4, True)]["persist"] is False
+    # Combo never refines past coarse/LC on this fixture.
+    for row in rows:
+        assert int(row["weighted_idx"]) == int(row["none_idx"])
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
 def test_default_selector_is_load_crossover() -> None:
     # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
     assert ScaleSearchConfig().selector == "load_crossover"
