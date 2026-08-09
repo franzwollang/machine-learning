@@ -1,1 +1,1 @@
-{"ts":"2026-08-09T11:36:00-05:00","from":"A1","type":"HELLO","note":"tracker/planner/integrator online on coord/A1-tracker; awaiting TASK_ASSIGN / queue from SWARM_TASKS.json"}
+{"ts":"2026-08-09T11:40:00-05:00","from":"A1","type":"HELLO","note":"tracker/planner/integrator on durable branch coord/A1; assignments live in SWARM_TASKS.json"}
