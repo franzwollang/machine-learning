@@ -31,7 +31,9 @@ Green tests lock:
 * S6.3 boundary taxonomy behind ``enable_boundary_taxonomy``; seam stitch /
   ghost reservoir sketches behind ``enable_seam_ghost`` (A5-T45).
 * S6.4 simplex-local PL density *sketch* behind ``enable_simplex_density``
-  (default off; does not flip density awaiting tests).
+  (default off); live Complex/ANN density harness behind
+  ``enable_live_density`` (A5-T50; default off; does not flip density
+  awaiting tests).
 
 Gaps vs full SI S6 (do **not** flip these elsewhere yet):
 
@@ -42,7 +44,8 @@ Gaps vs full SI S6 (do **not** flip these elsewhere yet):
   global face-id sketches only — no loopy Gaussian BP. See
   module docstring acceptance-path plan (A5-T42).
 * **S6.3** Seam/ghost sketches are scalar; no face registry / patch graph.
-* **S6.4** Density sketch only; live evaluator / mass normalization open.
+* **S6.4** Density sketch + live Complex/ANN harness only; mass
+  normalization / acceptance-path density open.
 * Mass-conservation / density / benchmark ``@awaiting("stage2.dual_flow")``
   (and ``stage2.density``) remain xfail until that producer lands.
 * Acceptance path still defaults open when adjacency is ``None`` / flags off.
@@ -83,6 +86,7 @@ from proteus.stage2 import (
     query_stage1_ann_bmus,
     resolve_dual_connected,
     route_live_bmu_face_tallies,
+    route_live_density_from_complex,
     route_stage1_bmu_face_tallies,
     route_stage1_from_complex,
     simplex_local_density,
@@ -743,6 +747,91 @@ def test_simplex_density_pl_profile_and_uniform_fallback():
 
 
 # ---------------------------------------------------------------------------
+# A5-T50: live Complex/ANN → S6.4 density harness (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_live_density_flag_off_returns_none():
+    """enable_live_density=False ⇒ route_live_density_from_complex None."""
+
+    V = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    complex_ = Complex(
+        simplices=[Simplex(vertex_ids=(0, 1, 2), volume=0.5)],
+        vertex_positions=V,
+        intrinsic_dim=2,
+    )
+    assert (
+        route_live_density_from_complex(
+            [np.array([0.2, 0.2])], complex_
+        )
+        is None
+    )
+
+
+def test_live_density_routes_via_complex_ann_and_evaluates():
+    """Flag on ⇒ ANN BMU + S6.4 density on winning simplex."""
+
+    V = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [0.5, 1.0],
+            [2.0, 0.0],
+            [1.5, 1.0],
+        ]
+    )
+    complex_ = Complex(
+        simplices=[
+            Simplex(vertex_ids=(0, 1, 2), volume=0.5),
+            Simplex(vertex_ids=(1, 3, 4), volume=0.5),
+        ],
+        vertex_positions=V,
+        intrinsic_dim=2,
+    )
+    cfg = DualFlowConfig(enable_live_density=True, tally_scale=1.0)
+    samples = [np.array([0.1, 0.1]), np.array([1.8, 0.2])]
+    # Uniform pressures → density = mass / volume = 0.5 / 0.5 = 1.0.
+    out = route_live_density_from_complex(
+        samples,
+        complex_,
+        pressures_by_simplex={0: np.ones(3), 1: np.ones(3)},
+        masses_by_simplex={0: 0.5, 1: 0.5},
+        config=cfg,
+    )
+    assert out is not None
+    assert out.assignments == (0, 1)
+    assert out.node_bmus == (0, 3)
+    assert len(out.densities) == 2
+    assert out.densities[0] == pytest.approx(1.0)
+    assert out.densities[1] == pytest.approx(1.0)
+    assert "density" in out.note.lower()
+    assert "awaiting" in out.note.lower() or "do not flip" in out.note.lower()
+
+
+def test_live_density_uses_tallies_when_pressures_omitted():
+    """Without pressures_by_simplex, harness uses routed face tallies."""
+
+    V = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    complex_ = Complex(
+        simplices=[Simplex(vertex_ids=(0, 1, 2), volume=0.5)],
+        vertex_positions=V,
+        intrinsic_dim=2,
+    )
+    cfg = DualFlowConfig(enable_live_density=True, tally_scale=1.0)
+    out = route_live_density_from_complex(
+        [np.array([0.25, 0.25])],
+        complex_,
+        config=cfg,
+    )
+    assert out is not None
+    assert out.assignments == (0,)
+    assert 0 in out.pressures_by_simplex
+    assert np.all(out.pressures_by_simplex[0] >= 0.0)
+    assert out.densities[0] > 0.0
+    assert out.per_sample[0].density == out.densities[0]
+
+
+# ---------------------------------------------------------------------------
 # A5-T42: acceptance-path plan + S6.2 gap documentation locked in module
 # ---------------------------------------------------------------------------
 
@@ -776,6 +865,7 @@ def test_acceptance_path_plan_documented_in_dual_flow_module():
     assert cfg.enable_boundary_taxonomy is False
     assert cfg.enable_seam_ghost is False
     assert cfg.enable_simplex_density is False
+    assert cfg.enable_live_density is False
 
 
 # ---------------------------------------------------------------------------

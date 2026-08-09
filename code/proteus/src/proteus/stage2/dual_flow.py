@@ -39,7 +39,9 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   ghost-reservoir sketches land behind ``enable_seam_ghost`` (A5-T45;
   default off) — not full Stage-2 face registry.
 * **S6.4** simplex-local PL density — sketch behind ``enable_simplex_density``
-  (proposed; default off). Does **not** flip density ``@awaiting`` tests.
+  (proposed; default off). Live Complex/ANN density harness lands behind
+  ``enable_live_density`` (A5-T50; default off). Does **not** flip density
+  ``@awaiting`` tests.
 
 Mass-conservation / density / benchmark ``@awaiting("stage2.dual_flow")``
 (and ``stage2.density``) stay xfail until the full producer lands. This file
@@ -91,6 +93,9 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
   reservoir helpers return ``None`` (A5-T45).
 * ``DualFlowConfig.enable_simplex_density`` — when off,
   :func:`simplex_local_density` returns ``None``.
+* ``DualFlowConfig.enable_live_density`` — when off,
+  :func:`route_live_density_from_complex` returns ``None`` (A5-T50
+  harness: Complex/ANN BMU → S6.4 density per sample).
 * Call sites that opt in (tests / experimental dry-runs) pass flags ``True``
   and feed results into the gate or diagnostics.
 
@@ -140,6 +145,7 @@ __all__ = [
     "SimplexDensityResult",
     "LiveBmuTallyResult",
     "Stage1BmuTallyResult",
+    "LiveDensityResult",
     "SeamStitchResult",
     "GhostReservoirResult",
     "MuWeightedSolveResult",
@@ -163,6 +169,7 @@ __all__ = [
     "build_simplex_positions_from_complex",
     "query_stage1_ann_bmus",
     "route_stage1_from_complex",
+    "route_live_density_from_complex",
     "build_divergence_stencil",
     "conservation_residual_r_cons",
     "epsilon_flux",
@@ -277,6 +284,11 @@ class DualFlowConfig:
         When ``False`` (default), :func:`simplex_local_density` returns
         ``None``. When ``True``, evaluates the SI S6.4 PL profile sketch
         (proposal-path; does not flip density ``@awaiting`` tests).
+    enable_live_density:
+        When ``False`` (default), :func:`route_live_density_from_complex`
+        returns ``None``. When ``True``, routes samples via Complex/ANN
+        incidence then evaluates S6.4 density on the winning simplex
+        (A5-T50 harness). Still proposal-path; does not flip ``@awaiting``.
     bp_damping:
         Operational damping in ``[0, 1]`` for the BP sketch
         (``p <- (1-d)*hat_p + d*p_prev``). Default ``0.5``.
@@ -330,6 +342,7 @@ class DualFlowConfig:
     enable_boundary_taxonomy: bool = False
     enable_seam_ghost: bool = False
     enable_simplex_density: bool = False
+    enable_live_density: bool = False
     bp_damping: float = 0.5
     bp_max_iters: int = 1
     tally_scale: float = 1.0
@@ -463,6 +476,27 @@ class Stage1BmuTallyResult:
     note: str = (
         "sketch only: Stage-1 node BMU → incident-simplex tally; not "
         "acceptance-path wiring; do not flip @awaiting(stage2.dual_flow)"
+    )
+
+
+@dataclass(frozen=True)
+class LiveDensityResult:
+    """Live Complex/ANN → S6.4 density harness (SI S6.4; A5-T50).
+
+    ``densities[i]`` is ``p(x_i|S*)`` on the winning simplex for sample
+    ``i``. ``assignments`` / ``node_bmus`` mirror the Stage-1 incidence
+    bridge. Still proposal-path — does not flip density ``@awaiting``.
+    """
+
+    densities: tuple[float, ...]
+    assignments: tuple[Hashable, ...]
+    node_bmus: tuple[Hashable, ...]
+    per_sample: tuple[SimplexDensityResult, ...]
+    pressures_by_simplex: Mapping[Hashable, np.ndarray]
+    masses_by_simplex: Mapping[Hashable, float]
+    note: str = (
+        "sketch only: live Complex/ANN density harness; not acceptance-path "
+        "density; do not flip @awaiting(stage2.density / stage2.dual_flow)"
     )
 
 
@@ -1370,6 +1404,123 @@ def route_stage1_from_complex(
         pos_map,
         prior_tallies=prior_tallies,
         config=tally_cfg,
+    )
+
+
+def route_live_density_from_complex(
+    samples: Sequence[np.ndarray],
+    complex: Complex,
+    *,
+    pressures_by_simplex: Mapping[Hashable, np.ndarray] | None = None,
+    masses_by_simplex: Mapping[Hashable, float] | None = None,
+    ann: object | None = None,
+    node_positions: np.ndarray | None = None,
+    prior_tallies: Mapping[Hashable, np.ndarray] | None = None,
+    config: DualFlowConfig | None = None,
+) -> LiveDensityResult | None:
+    """Live Complex/ANN BMU → S6.4 density harness (SI S6.4; A5-T50).
+
+    When ``enable_live_density`` is off, returns ``None``. When on:
+
+    1. Route samples via :func:`route_stage1_from_complex` (Complex star +
+       ANN/naive BMU → winning simplex + face tallies).
+    2. For each sample, evaluate :func:`simplex_local_density` on the
+       winning simplex using ``pressures_by_simplex[S]`` when supplied,
+       else the cumulative face tallies for ``S``, with mass
+       ``masses_by_simplex.get(S, 1/n_simplices)``.
+
+    Proposal-path only — does **not** flip ``@awaiting("stage2.density")``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_live_density:
+        return None
+
+    if not complex.simplices:
+        raise ValueError("complex must contain at least one simplex")
+
+    bridge_cfg = DualFlowConfig(
+        enable_complex_ann_incidence=True,
+        tally_scale=cfg.tally_scale,
+        volume_floor=cfg.volume_floor,
+    )
+    routed = route_stage1_from_complex(
+        samples,
+        complex,
+        ann=ann,
+        node_positions=node_positions,
+        prior_tallies=prior_tallies,
+        config=bridge_cfg,
+    )
+    if routed is None:
+        raise RuntimeError("complex ANN incidence unexpectedly disabled")
+
+    n_S = len(complex.simplices)
+    default_mass = 1.0 / float(n_S)
+    dens_cfg = DualFlowConfig(
+        enable_simplex_density=True,
+        volume_floor=cfg.volume_floor,
+    )
+
+    # Resolve pressures: explicit map wins; else tallies; else ones.
+    press_map: dict[Hashable, np.ndarray] = {}
+    mass_map: dict[Hashable, float] = {}
+    for sid, simp in enumerate(complex.simplices):
+        n_faces = len(simp.vertex_ids)
+        if pressures_by_simplex is not None and sid in pressures_by_simplex:
+            press_map[sid] = np.asarray(
+                pressures_by_simplex[sid], dtype=float
+            ).reshape(-1)
+        elif sid in routed.tallies_by_simplex:
+            press_map[sid] = np.asarray(
+                routed.tallies_by_simplex[sid].tallies, dtype=float
+            ).reshape(-1)
+        else:
+            press_map[sid] = np.ones(n_faces, dtype=float)
+        if masses_by_simplex is not None and sid in masses_by_simplex:
+            mass_map[sid] = float(masses_by_simplex[sid])
+        else:
+            mass_map[sid] = default_mass
+
+    pos_map = build_simplex_positions_from_complex(complex, config=bridge_cfg)
+    if pos_map is None:
+        raise RuntimeError("complex positions unexpectedly disabled")
+
+    per_sample: list[SimplexDensityResult] = []
+    densities: list[float] = []
+    for sample, sid in zip(samples, routed.assignments, strict=True):
+        if sid not in pos_map:
+            raise ValueError(f"winning simplex {sid!r} missing positions")
+        P = pos_map[sid]
+        press = press_map[sid]
+        if press.shape[0] != P.shape[0]:
+            raise ValueError(
+                f"pressures for simplex {sid!r} length {press.shape[0]} "
+                f"!= vertex count {P.shape[0]}"
+            )
+        vol = None
+        if 0 <= int(sid) < len(complex.simplices):
+            vol = float(complex.simplices[int(sid)].volume)
+        out = simplex_local_density(
+            sample,
+            P,
+            mass=mass_map[sid],
+            facet_pressures=press,
+            volume=vol,
+            config=dens_cfg,
+        )
+        if out is None:
+            raise RuntimeError("simplex density unexpectedly disabled")
+        per_sample.append(out)
+        densities.append(out.density)
+
+    return LiveDensityResult(
+        densities=tuple(densities),
+        assignments=routed.assignments,
+        node_bmus=routed.node_bmus,
+        per_sample=tuple(per_sample),
+        pressures_by_simplex=press_map,
+        masses_by_simplex=mass_map,
     )
 
 
