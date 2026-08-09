@@ -61,24 +61,41 @@ push to `main`, or amending commits you did not create this session.
 | `NOTE` | any | Status / design note (non-binding) |
 | `REQUEST_TRACKER` | worker | Ask A1 to edit OPEN_ISSUES / PLANNING / logs |
 | `TASK_ASSIGN` | A1 | New/updated tasks in `SWARM_TASKS.json` (summarize in line) |
-| `MERGE_START` | A1 | Integration merge beginning; workers: finish edit, push, then **stop committing** |
-| `MERGE_DONE` | A1 | Integration advanced; workers must pull merge before new commits |
+| `MERGE_DONE` | A1 | Integration advanced; include `integration_sha`. Workers pick this up **next turn** |
 | `TASK_REFILL` | A1 | Queues topped up for next turns |
 
-## Merge heartbeat (bounded conflicts)
+Do **not** use a mid-turn pause signal. Agents run on a long turn interval (~20 min);
+they cannot react to A1 merging *during* their turn. Coordination is turn-boundary only.
 
-1. **A1** appends `MERGE_START` on `coord/A1`, pushes, then merges worker tips
-   into `coord/integration` in fixed order: **A2 → A3 → A4 → A5 → A6**, then A1
-   tracking-doc commits as needed.
-2. On `MERGE_START`, each **worker**: finish the current file edit if mid-edit; commit;
-   push; **do not start new commits** until they see `MERGE_DONE` on A1’s mailbox
-   (and preferably on `coord/integration`).
-3. **A1** resolves textual conflicts, runs tests (`cd code/proteus && pipenv run pytest`
-   or the subset touched), updates `SWARM_TASKS.json` / OPEN_ISSUES / PLANNING as needed,
-   appends `MERGE_DONE` + short conflict/`note`, pushes `coord/integration` and
-   `coord/A1`.
-4. **Workers’ next turn:** `git fetch` + `git merge origin/coord/integration` into their
-   branch (resolve if needed), then resume assigned tasks only.
+## Merge heartbeat (async / turn-boundary)
+
+Agents do not expect to know that A1 is merging right now. They only adapt to merges
+that already completed **since their last turn**.
+
+### A1 (integrator)
+
+1. When enough worker progress exists (or on a regular cadence): `git fetch`, then merge
+   current worker tips into `coord/integration` in order **A2 → A3 → A4 → A5 → A6**
+   (best-effort snapshot — tips that push mid-merge are picked up next cycle).
+2. Resolve textual conflicts; run tests; update `SWARM_TASKS.json` / OPEN_ISSUES /
+   PLANNING from `DONE` / `REQUEST_TRACKER`.
+3. Append **`MERGE_DONE`** with `integration_sha` (and optional per-agent tip SHAs),
+   push `coord/integration` and `coord/A1`.
+4. Never ask workers to stop committing mid-turn.
+
+### Workers (every turn start — before new work)
+
+1. `git fetch origin`.
+2. If `origin/coord/integration` is not already contained in your branch tip (or A1’s
+   latest **`MERGE_DONE`** `integration_sha` is newer than what you last merged):
+   `git merge origin/coord/integration` into your branch; resolve if needed; commit the
+   merge.
+3. Optionally append a short `NOTE` with `integrated_sha=<sha>`.
+4. Then read mailboxes / `SWARM_TASKS.json`, `CLAIM`, work, push as usual — **no pause**,
+   even if A1 happens to be merging concurrently. Missed tips land in A1’s next cycle.
+
+One turn of divergence is expected and acceptable; file ownership in `SWARM_TASKS.json`
+keeps conflicts bounded.
 
 ## Tracker vs workers
 

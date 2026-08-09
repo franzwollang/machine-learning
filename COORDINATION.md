@@ -35,7 +35,7 @@ One JSON object per line. Unknown fields are allowed; keep lines compact.
 - `ts` — ISO 8601 timestamp
 - `from` — `A1` … `A6`
 - `type` — see rule file (`HELLO`, `CLAIM`, `DONE`, `BLOCKED`, `NOTE`,
-  `REQUEST_TRACKER`, `TASK_ASSIGN`, `MERGE_START`, `MERGE_DONE`, `TASK_REFILL`)
+  `REQUEST_TRACKER`, `TASK_ASSIGN`, `MERGE_DONE`, `TASK_REFILL`)
 
 ### Recommended fields
 
@@ -43,7 +43,8 @@ One JSON object per line. Unknown fields are allowed; keep lines compact.
 - `task_id` — id from `SWARM_TASKS.json`
 - `files` — paths you claim or touched
 - `note` — one line
-- `merge_order` — on `MERGE_START`/`MERGE_DONE`, optional tip SHAs
+- `integration_sha` — on `MERGE_DONE`: SHA of `coord/integration` after the merge
+- `integrated_sha` — optional worker `NOTE` after merging integration into their branch
 
 ## Reading siblings
 
@@ -56,8 +57,20 @@ done
 git show origin/coord/integration:SWARM_TASKS.json > /tmp/SWARM_TASKS.json
 ```
 
-## MERGE_START / MERGE_DONE (worker duty)
+## Integration (turn-boundary only — ~20 min agent cadence)
 
-On seeing **`MERGE_START`** from A1: finish current edit → commit → push your branch →
-**stop new commits** until **`MERGE_DONE`**. Next turn: merge `origin/coord/integration`
-into your branch before further work.
+Agents **cannot** react mid-turn to A1 merging. There is no `MERGE_START` pause.
+
+**A1:** when ready, merge current worker tips into `coord/integration` (best-effort
+snapshot), test, append **`MERGE_DONE`** with `integration_sha`, push. Tips that land
+during the merge are scooped up next cycle.
+
+**Workers (start of every turn, before new work):**
+
+1. `git fetch origin`
+2. If `origin/coord/integration` is ahead of / not in your branch:  
+   `git merge origin/coord/integration` (resolve if needed), commit
+3. Then work and push normally — do **not** wait or pause for A1
+
+You only need to know that A1 **already merged** since your last turn (new
+`MERGE_DONE` / newer integration tip), not that a merge is happening now.
