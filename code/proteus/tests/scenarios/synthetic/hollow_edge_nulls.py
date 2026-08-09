@@ -25,6 +25,12 @@ import numpy as np
 DEFAULT_MID_RADIUS_FRAC: float = 0.25
 DEFAULT_EPS: float = 1e-9
 
+# A2 operational HollowEdgeConfig defaults (origin/coord/A2 edge_evidence.py;
+# not yet on integration — mirrored here for calibration parity tables only).
+A2_MID_RADIUS_FRAC: float = 0.35
+A2_H0: float = 0.35
+A2_MIN_END_COUNT: float = 0.5
+
 
 @dataclass(frozen=True)
 class HollowEdgeCase:
@@ -137,6 +143,56 @@ def score_edge(case: HollowEdgeCase, *, mid_radius_frac: float = DEFAULT_MID_RAD
         case.endpoint_j,
         mid_radius_frac=mid_radius_frac,
     )
+
+
+def endpoint_end_mass(
+    points: np.ndarray,
+    endpoint_i: np.ndarray,
+    endpoint_j: np.ndarray,
+    *,
+    mid_radius_frac: float = DEFAULT_MID_RADIUS_FRAC,
+) -> float:
+    """Mean endpoint-ball occupancy ``n_end = 0.5*(n_i+n_j)`` at ``r = frac*L``."""
+    xi = np.asarray(endpoint_i, dtype=float)
+    xj = np.asarray(endpoint_j, dtype=float)
+    L = float(np.linalg.norm(xj - xi))
+    if L <= 0.0:
+        return 0.0
+    r = float(mid_radius_frac) * L
+    n_i = count_in_ball(points, xi, r)
+    n_j = count_in_ball(points, xj, r)
+    return 0.5 * (n_i + n_j)
+
+
+def decide_cut_a2_parity(
+    case: HollowEdgeCase,
+    *,
+    mid_radius_frac: float = A2_MID_RADIUS_FRAC,
+    h0: float = A2_H0,
+    min_end_count: float = A2_MIN_END_COUNT,
+    gabriel_fallback: bool = True,
+) -> bool:
+    """Mirror A2 ``hollow_edge_mask`` cut rule for one labeled case.
+
+    When ``n_end >= min_end_count``: cut iff ``H < h0``.
+    Else if ``gabriel_fallback``: cut iff Gabriel diameter ball is empty of
+    *other* samples (harness helper; see ``gabriel_is_hollow``).
+    Else: do not cut.
+
+    Calibration-only — does not import ``proteus.stage1.edge_evidence`` (A2
+    module may be absent until A1 scoops).
+    """
+    n_end = endpoint_end_mass(
+        case.points,
+        case.endpoint_i,
+        case.endpoint_j,
+        mid_radius_frac=mid_radius_frac,
+    )
+    if n_end >= float(min_end_count):
+        return score_edge(case, mid_radius_frac=mid_radius_frac) < float(h0)
+    if gabriel_fallback:
+        return gabriel_is_hollow(case.points, case.endpoint_i, case.endpoint_j)
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -499,6 +555,7 @@ def pooled_adversarial_roc(
     sheet_seed: int = 0,
     gap_seed: int = 10,
     tissue_rate_for_positives: float = 0.0,
+    mid_radius_frac: float = DEFAULT_MID_RADIUS_FRAC,
 ) -> ROCResult:
     """Pool sheet negatives + low-tissue bridge positives for a calibration ROC."""
     negatives = generate_connected_sheet_null(seed=sheet_seed)
@@ -507,4 +564,141 @@ def pooled_adversarial_roc(
         seed=gap_seed,
     )
     # Keep within-blob as extra negatives; bridges as positives.
-    return roc_from_cases(list(negatives) + list(gap_cases))
+    return roc_from_cases(
+        list(negatives) + list(gap_cases),
+        mid_radius_frac=mid_radius_frac,
+    )
+
+
+@dataclass(frozen=True)
+class FixedThresholdConfusion:
+    """Confusion counts for a single ``(mid_frac, h0)`` decision rule."""
+
+    mid_radius_frac: float
+    h0: float
+    tp: int
+    fp: int
+    tn: int
+    fn: int
+    tpr: float
+    fpr: float
+
+
+@dataclass(frozen=True)
+class SheetNullQuantiles:
+    """Empirical H distribution on sheet (must-not-cut) edges — Poisson-ish null."""
+
+    mid_radius_frac: float
+    n_edges: int
+    quantiles: dict[str, float]
+    mean_h: float
+    mean_end_mass: float
+
+
+def confusion_at_h0(
+    cases: Iterable[HollowEdgeCase],
+    *,
+    h0: float,
+    mid_radius_frac: float = DEFAULT_MID_RADIUS_FRAC,
+    use_a2_parity_decision: bool = False,
+    min_end_count: float = A2_MIN_END_COUNT,
+    gabriel_fallback: bool = True,
+) -> FixedThresholdConfusion:
+    """Evaluate cut rule at a fixed ``h0`` (optionally A2-parity gabriel gate)."""
+    case_list = list(cases)
+    if not case_list:
+        raise ValueError("confusion_at_h0 requires at least one edge case")
+    y = np.asarray([1 if c.should_cut else 0 for c in case_list], dtype=int)
+    if use_a2_parity_decision:
+        pred = np.asarray(
+            [
+                1
+                if decide_cut_a2_parity(
+                    c,
+                    mid_radius_frac=mid_radius_frac,
+                    h0=h0,
+                    min_end_count=min_end_count,
+                    gabriel_fallback=gabriel_fallback,
+                )
+                else 0
+                for c in case_list
+            ],
+            dtype=int,
+        )
+    else:
+        scores = np.asarray(
+            [score_edge(c, mid_radius_frac=mid_radius_frac) for c in case_list],
+            dtype=float,
+        )
+        pred = (scores < float(h0)).astype(int)
+    tp = int(np.sum((pred == 1) & (y == 1)))
+    fp = int(np.sum((pred == 1) & (y == 0)))
+    tn = int(np.sum((pred == 0) & (y == 0)))
+    fn = int(np.sum((pred == 0) & (y == 1)))
+    return FixedThresholdConfusion(
+        mid_radius_frac=float(mid_radius_frac),
+        h0=float(h0),
+        tp=tp,
+        fp=fp,
+        tn=tn,
+        fn=fn,
+        tpr=tp / max(tp + fn, 1),
+        fpr=fp / max(fp + tn, 1),
+    )
+
+
+def sheet_null_h_quantiles(
+    *,
+    mid_radius_frac: float = DEFAULT_MID_RADIUS_FRAC,
+    seed: int = 0,
+    qs: Sequence[float] = (0.01, 0.05, 0.1, 0.25, 0.5),
+) -> SheetNullQuantiles:
+    """Empirical H quantiles on density-gradient sheet edges (null for cuts).
+
+    Under a locally homogeneous Poisson field, ``E[H]≈1`` for equal-radius
+    balls; the lower tail of this sheet distribution is the practical
+    Poisson-null reference for choosing ``h0`` without fixture-seed tuning.
+    """
+    cases = generate_connected_sheet_null(seed=seed)
+    scores = np.asarray(
+        [score_edge(c, mid_radius_frac=mid_radius_frac) for c in cases],
+        dtype=float,
+    )
+    ends = np.asarray(
+        [
+            endpoint_end_mass(
+                c.points,
+                c.endpoint_i,
+                c.endpoint_j,
+                mid_radius_frac=mid_radius_frac,
+            )
+            for c in cases
+        ],
+        dtype=float,
+    )
+    qmap = {f"q{q:g}": float(np.quantile(scores, q)) for q in qs}
+    return SheetNullQuantiles(
+        mid_radius_frac=float(mid_radius_frac),
+        n_edges=int(len(cases)),
+        quantiles=qmap,
+        mean_h=float(np.mean(scores)),
+        mean_end_mass=float(np.mean(ends)),
+    )
+
+
+def mid_frac_roc_table(
+    *,
+    mid_fracs: Sequence[float] = (DEFAULT_MID_RADIUS_FRAC, A2_MID_RADIUS_FRAC),
+    sheet_seed: int = 1,
+    gap_seed: int = 11,
+) -> dict[float, ROCResult]:
+    """ROC AUC table across mid-ball fractions on the same adversarial pool."""
+    return {
+        float(f): pooled_adversarial_roc(
+            sheet_seed=sheet_seed,
+            gap_seed=gap_seed,
+            tissue_rate_for_positives=0.0,
+            mid_radius_frac=float(f),
+        )
+        for f in mid_fracs
+    }

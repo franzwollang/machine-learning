@@ -110,3 +110,70 @@ def test_gabriel_fallback_agrees_on_empty_bridge() -> None:
     ]
     assert bridge_hollow and all(bridge_hollow)
     assert within_h and float(np.median(within_h)) > 0.4
+
+@pytest.mark.scenario
+@pytest.mark.synthetic
+def test_mid_frac_035_roc_still_separates() -> None:
+    """A2 operational mid_frac=0.35 keeps AUC ≫ chance on adversarial pool."""
+    from tests.scenarios.synthetic.hollow_edge_nulls import (
+        A2_MID_RADIUS_FRAC,
+        mid_frac_roc_table,
+    )
+
+    table = mid_frac_roc_table(mid_fracs=(0.25, A2_MID_RADIUS_FRAC))
+    assert table[0.25].auc >= 0.85
+    assert table[A2_MID_RADIUS_FRAC].auc >= 0.85
+
+
+@pytest.mark.scenario
+@pytest.mark.synthetic
+def test_a2_parity_decision_controls_fpr_on_sheet() -> None:
+    """A2 (mid=0.35,h0=0.35)+Gabriel: high TPR on empty bridges, low sheet FPR."""
+    from tests.scenarios.synthetic.hollow_edge_nulls import (
+        A2_H0,
+        A2_MID_RADIUS_FRAC,
+        confusion_at_h0,
+        generate_connected_sheet_null,
+        generate_gap_tissue_cases,
+    )
+
+    sheet = generate_connected_sheet_null(seed=5, density_power=1.8, curvature=0.4)
+    gap = generate_gap_tissue_cases(tissue_rate=0.0, seed=11)
+    bridges = [c for c in gap if c.kind == "gap_bridge"]
+    withins = [c for c in gap if c.kind == "blob_within"]
+    pooled = list(sheet) + bridges + withins
+    conf = confusion_at_h0(
+        pooled,
+        h0=A2_H0,
+        mid_radius_frac=A2_MID_RADIUS_FRAC,
+        use_a2_parity_decision=True,
+    )
+    assert conf.tpr >= 0.85
+    assert conf.fpr <= 0.25
+
+
+@pytest.mark.scenario
+@pytest.mark.synthetic
+def test_sheet_poisson_null_h0_below_lower_tail() -> None:
+    """Sheet H lower-tail quantiles: A2 h0 sits below median null mass.
+
+    Does not seed-tune a single fixture h0 — asserts structural ordering of
+    the Poisson-ish sheet null vs the operational cut threshold.
+    """
+    from tests.scenarios.synthetic.hollow_edge_nulls import (
+        A2_H0,
+        A2_MID_RADIUS_FRAC,
+        sheet_null_h_quantiles,
+    )
+
+    null_l4 = sheet_null_h_quantiles(mid_radius_frac=0.25, seed=3)
+    null_a2 = sheet_null_h_quantiles(mid_radius_frac=A2_MID_RADIUS_FRAC, seed=3)
+    # Homogeneous-ish support: mean H is O(1), not near 0.
+    assert null_l4.mean_h > 0.4
+    assert null_a2.mean_h > 0.4
+    assert null_a2.mean_end_mass > 0.5
+    # Operational h0 should sit in/under the lower tail relative to median.
+    assert A2_H0 < null_a2.quantiles["q0.5"]
+    assert null_a2.quantiles["q0.05"] < null_a2.quantiles["q0.5"]
+    # Extreme lower quantile stays below operational h0 (room for FPR control).
+    assert null_a2.quantiles["q0.01"] <= A2_H0
