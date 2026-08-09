@@ -13,13 +13,17 @@ Green tests lock:
   (``dry_run_dual_from_edit``, flag default off).
 * Conservative BP *sketch* behind ``enable_conservative_bp`` (identity/damped;
   not the SI S6.2 loopy Gaussian solve).
+* S6.1 face-pressure tally helper behind ``enable_face_tallies`` (not wired
+  into live sample routing).
+* S6.3 boundary taxonomy behind ``enable_boundary_taxonomy`` (single-owner
+  heuristic + hint sets; not full seam stitching).
 
 Gaps vs full SI S6 (do **not** flip these elsewhere yet):
 
-* **S6.1** No online face-pressure tallies (fractional residual → facet normals).
+* **S6.1** Tally helper exists but is not wired into online sample routing.
 * **S6.2** No real loopy Gaussian BP / ``A_S p_S`` conservation solve (sketch
   only; ``r_cons`` stubbed at 0).
-* **S6.3** No boundary-face taxonomy (manifold / computational / orientation).
+* **S6.3** Taxonomy stub lacks ghost-reservoir / seam pressure stitching.
 * **S6.4** No simplex-local PL density formula.
 * Mass-conservation / density / benchmark ``@awaiting("stage2.dual_flow")``
   tests remain xfail until that producer lands.
@@ -41,13 +45,22 @@ from proteus.evidence import (
 from proteus.evidence.dm_score import NodeTransition
 from proteus.stage2 import (
     DualFlowConfig,
+    accumulate_face_pressure_tally,
     build_dual_adjacency,
     build_dual_adjacency_from_complex,
+    classify_boundary_facets,
     dry_run_dual_from_edit,
     resolve_dual_connected,
+    simplex_outward_normals,
     solve_conservative_pressures,
 )
-from proteus.types import Complex, EditProposal, EditType, Simplex
+from proteus.types import (
+    BoundaryType,
+    Complex,
+    EditProposal,
+    EditType,
+    Simplex,
+)
 
 
 def _good_split_fixture():
@@ -469,3 +482,101 @@ def test_dual_flow_tetrahedron_face_pair():
     assert adj is not None
     assert set(adj["Tet0"]) == {"Tet1"}
     assert set(adj["Tet1"]) == {"Tet0"}
+
+
+# ---------------------------------------------------------------------------
+# A5-EXP-S61: S6.1 face-pressure tallies + S6.3 boundary taxonomy
+# ---------------------------------------------------------------------------
+
+
+def test_face_tally_flag_off_returns_none():
+    """enable_face_tallies=False ⇒ accumulate_face_pressure_tally is None."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    x = np.array([0.2, 0.2])
+    assert accumulate_face_pressure_tally(x, P) is None
+    assert accumulate_face_pressure_tally(x, P, config=DualFlowConfig()) is None
+
+
+def test_face_tally_nonneg_residual_projection():
+    """S6.1: Δp̂_f = scale * max{0,(x-w̄)^T n_f}; barycenter sample → zeros."""
+
+    # Right triangle; barycenter at (1/3, 1/3).
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    cfg = DualFlowConfig(enable_face_tallies=True, tally_scale=1.0)
+    at_bary = accumulate_face_pressure_tally(
+        np.array([1.0 / 3.0, 1.0 / 3.0]), P, config=cfg
+    )
+    assert at_bary is not None
+    np.testing.assert_allclose(at_bary.increments, 0.0, atol=1e-12)
+    np.testing.assert_allclose(at_bary.tallies, 0.0, atol=1e-12)
+
+    # Sample near vertex 0 → pressure on the opposite facet (edge 1–2).
+    near_v0 = accumulate_face_pressure_tally(
+        np.array([0.05, 0.05]), P, config=cfg
+    )
+    assert near_v0 is not None
+    assert near_v0.increments[0] > 0.0
+    assert near_v0.increments.sum() > 0.0
+    assert np.all(near_v0.increments >= 0.0)
+
+    # Prior accumulates.
+    again = accumulate_face_pressure_tally(
+        np.array([0.05, 0.05]),
+        P,
+        prior_tallies=near_v0.tallies,
+        config=cfg,
+    )
+    assert again is not None
+    np.testing.assert_allclose(again.tallies, near_v0.tallies + again.increments)
+
+
+def test_simplex_outward_normals_unit_and_oriented():
+    """Outward normals are unit length and point away from opposite vertices."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    nrm = simplex_outward_normals(P)
+    bary = P.mean(axis=0)
+    for i in range(3):
+        assert np.linalg.norm(nrm[i]) == pytest.approx(1.0)
+        # From opposite vertex toward facet / exterior: n · (facet_c - v_i) > 0
+        facet_c = np.delete(P, i, axis=0).mean(axis=0)
+        assert float(np.dot(nrm[i], facet_c - P[i])) > 0.0
+        # Barycenter lies on the inward side of each facet plane.
+        assert float(np.dot(nrm[i], bary - facet_c)) < 0.0
+
+
+def test_boundary_taxonomy_flag_off_returns_none():
+    """enable_boundary_taxonomy=False ⇒ classify_boundary_facets is None."""
+
+    assert classify_boundary_facets([(0, 1, 2)]) is None
+
+
+def test_boundary_taxonomy_single_owner_and_hints():
+    """Single-owner facets → TRUE_MANIFOLD; hints override to COMPUTATIONAL/SEAM."""
+
+    # Two triangles sharing edge {1,2}: that facet is interior; outer edges boundary.
+    simplices = [
+        (0, 1, 2),
+        (1, 2, 3),
+    ]
+    cfg = DualFlowConfig(enable_boundary_taxonomy=True)
+    base = classify_boundary_facets(simplices, config=cfg)
+    assert base is not None
+    # Shared {1,2} omitted; four outer edges remain as true-manifold.
+    assert len(base) == 4
+    assert all(b.boundary_type == BoundaryType.TRUE_MANIFOLD for b in base)
+
+    hinted = classify_boundary_facets(
+        simplices,
+        computational_facets=[(0, 1)],
+        orientation_seams=[(2, 3)],
+        config=cfg,
+    )
+    assert hinted is not None
+    types = {b.boundary_type for b in hinted}
+    assert BoundaryType.COMPUTATIONAL in types
+    assert BoundaryType.ORIENTATION_SEAM in types
+    assert BoundaryType.TRUE_MANIFOLD in types
+    # Seam hint wins if both lists somehow overlapped — covered by exclusive sets here.
+    assert len(hinted) == 4
