@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-09T15:35-05:00",
-  "turn": 43,
+  "updated_at": "2026-08-09T15:40-05:00",
+  "turn": 44,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "tori still unrecovered after tube/spectral; no awaiting flip"
+    "goal": "hollow-edge evidence protocol; retire geometry cues"
   },
   "recent": [
-    "Scooped A2-T24..T26 tube+spectral; unit ok; e2e tori=1",
-    "Scooped A5-T31..T33 dual_flow stub+gate wire",
-    "Scooped A3 SI drafts + A4 PH harnesses + A6 mid_interval"
+    "Scooped A2 tube+spectral + A5 dual_flow + A6 mid_interval",
+    "Merged HUMAN #44 hollow-edge directive + theory note",
+    "Retargeted A2-T27..T29 / A3-T38 / A4-T18"
   ],
   "discoveries": [
-    "Tube Hopf unit recovers interlock; e2e tissue tori still 1 leaf",
-    "Spectral nested steps=8 shatters; uniforms safe steps<=4",
+    "Tube/spectral unit ok but e2e tori unrecovered",
+    "Directive: disconnection is scale-free; descent wrong family",
     "Coverage probe recovers SI 1.5σ* on clean circles"
   ],
   "open_threads": [
-    "No awaiting flip — tori unrecovered",
-    "#43 dual_flow landed but acceptance still None=>True",
-    "Throughput mode ON — refill linking-number next"
+    "No awaiting flip pending hollow-edge green",
+    "#43 dual_flow landed; acceptance still None=>True",
+    "A2 frozen-scaffold hollowness probe next"
   ],
-  "next_step": "MERGE_DONE push; watch A2-T27 linking-number",
+  "next_step": "MERGE_DONE push; watch A2-T27 hollow probe",
   "blockers": []
 }

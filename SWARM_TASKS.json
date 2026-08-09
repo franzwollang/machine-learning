@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T15:35-05:00",
+  "updated_at": "2026-08-09T15:40-05:00",
   "integration_branch": "coord/integration",
   "throughput_mode": true,
   "merge_order": [
@@ -17,17 +17,17 @@
         {
           "id": "A1-T46",
           "status": "ready",
-          "summary": "THROUGHPUT: keep queues 3-deep with concrete experiments; ban idle holds"
+          "summary": "HUMAN DIRECTIVE: read reference/empty_region_evidence_and_scale.md; #44 reframed to hollow-edge evidence (A2-T27..T29, A3-T38, A4-T18); deprioritize tau-descent + geometry-cue tasks; steer refills to that protocol; ROC calibration over fixture tuning; keep persistence/DM + L=1 untouched"
         },
         {
           "id": "A1-T47",
           "status": "ready",
-          "summary": "Scoop A2\u2013A6 tips aggressively; annotate OPEN_ISSUES; no awaiting flip without green e2e"
+          "summary": "Scoop aggressively; keep queues 3-deep with hollow-edge / dual_flow / mid_interval experiments; no awaiting flip without green evidence"
         },
         {
           "id": "A1-T48",
           "status": "ready",
-          "summary": "After dual_flow stub: expand A5 owns_files / parallel S6 experimental tracks"
+          "summary": "After hollow-edge probe lands: annotate #44; retire geometry-cue refill pressure; expand A2 owns_files for edge_evidence"
         }
       ]
     },
@@ -39,26 +39,28 @@
       ],
       "owns_files": [
         "code/proteus/src/proteus/stage1/recursion.py",
-        "code/proteus/tests/stage1/test_recursion.py"
+        "code/proteus/src/proteus/stage1/edge_evidence.py",
+        "code/proteus/tests/stage1/test_recursion.py",
+        "code/proteus/tests/stage1/test_edge_evidence.py"
       ],
       "queue": [
         {
           "id": "A2-T27",
           "status": "ready",
           "issue": 44,
-          "summary": "IMPLEMENT flag-gated linking-number / Gauss-linking PH cue for interlocking tori (default off); unit + e2e leaf counts; no awaiting flip"
+          "summary": "DIRECTIVE (supersedes T24-T26): READ reference/empty_region_evidence_and_scale.md. Frozen-scaffold hollowness probe: nested_spheres tau~0.27, per lifted edge compute H=n_mid/n_end (mid-ball r=L/4 vs endpoint balls, raw data); expect cross-shell hollow, prune->cc=2 at coarse scale, NO descent. Repeat linked_tori (~0.5) + manifold_zoo (junctions NOT hollow, cc=1). If it fails, say so loudly in COORDINATION"
         },
         {
           "id": "A2-T28",
           "status": "ready",
           "issue": 44,
-          "summary": "Experiment: scaffold-level tube residual after T2 PCA transfer; compare vs pre-T2 Hopf; report nested/circle/swiss regressions"
+          "summary": "IMPLEMENT stage1/edge_evidence.py: hollowness_scores(scaffold, data) + Gabriel fallback at low n; flag-gated prefer_hollow_edge_prepass in recursion clustering path (default off); unit tests incl swiss guard (inter-wrap shortcuts cut, sheet cc stays 1)"
         },
         {
           "id": "A2-T29",
           "status": "ready",
           "issue": 44,
-          "summary": "Tissue-filtered tube/spectral combo probe on linked_tori; document still-unrecovered e2e; expand harness"
+          "summary": "Fuller suite (circle/hier/swiss/nested/tori/zoo) under persist(+dm)+hollow prepass, NO finer-scale descent; mechanism attribution per split (hollow vs persistence vs dm); report leaf counts + ARI; no awaiting flip without A1"
         }
       ]
     },
@@ -77,14 +79,14 @@
         {
           "id": "A3-T38",
           "status": "ready",
-          "issue": 28,
-          "summary": "DRAFT SI S2.6.2/S14.3 mid_interval experimental row (default none unchanged; cite A6-T28)"
+          "issue": 44,
+          "summary": "DRAFT SI section (proposed) for hollow-edge/empty-region evidence from reference/empty_region_evidence_and_scale.md: W_v extension M_transit, Gabriel/lens ratio + Poisson null, cluster-tree framing (Chaudhuri-Dasgupta 2010, ToMATo 2013, Stuetzle 2003 citations); replaces planned PCA-prepass SI follow-ons"
         },
         {
           "id": "A3-T39",
           "status": "ready",
-          "issue": 44,
-          "summary": "WRITE SI A+C for prefer_tube_major_radius_prepass + prefer_spectral_gap_prepass (proposal-path, default off; tori e2e unrecovered)"
+          "issue": 28,
+          "summary": "DRAFT SI S2.6.2/S14.3 mid_interval experimental row (default none unchanged; cite A6-T28)"
         },
         {
           "id": "A3-T40",
@@ -98,7 +100,8 @@
       "branch": "coord/A4",
       "role": "worker",
       "owns_issues": [
-        41
+        41,
+        44
       ],
       "owns_files": [
         "code/proteus/tests/metrics/persistent_homology.py",
@@ -108,14 +111,14 @@
         {
           "id": "A4-T18",
           "status": "ready",
-          "issue": 41,
-          "summary": "EXPERIMENT denser fitted-scaffold coverage toward SI 1.5\u03c3* on scaffold_at_star circle; report node/\u03c3 pairs; no awaiting flip"
+          "issue": 44,
+          "summary": "BUILD adversarial-null scenario generators for hollow-edge h_0 calibration (see reference/empty_region_evidence_and_scale.md S6.3): connected sheets w/ density gradients + curvature (must NOT cut), two components w/ increasing gap tissue (must cut); ROC harness, no fixture-seed tuning"
         },
         {
           "id": "A4-T19",
           "status": "ready",
           "issue": 41,
-          "summary": "IMPLEMENT optional calibrated filtration_mult protocol harness (declare ensemble + log); do not change SI defaults"
+          "summary": "EXPERIMENT denser fitted-scaffold coverage toward SI 1.5\u03c3* on scaffold_at_star circle; report node/\u03c3 pairs; no awaiting flip"
         },
         {
           "id": "A4-T20",
@@ -193,5 +196,5 @@
       ]
     }
   },
-  "notes": "2026-08-09T15:35 scoop: A2-T24..T26 tube+spectral (tori e2e still 1 leaf); A3-T35..T37 SI reading-path/DualAdj/PCA; A4-T15..T17 PH harnesses; A5-T31..T33 dual_flow stub+wire; A6-T28..T30 mid_interval. No awaiting flips. Tests 70p."
+  "notes": "2026-08-09T15:40: Scooped A2-T24..T26 tube+spectral (landed, e2e unrecovered), A3-T35..T37 SI, A4-T15..T17 PH, A5 dual_flow, A6 mid_interval (70p). HUMAN DIRECTIVE overlays #44\u2192hollow-edge; queues A2-T27..T29 / A3-T38 / A4-T18. No awaiting flips."
 }
