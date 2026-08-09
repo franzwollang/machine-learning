@@ -248,3 +248,56 @@ def test_config_sweep_includes_a2_operational_and_mid05() -> None:
     ]
     assert mid05
     assert all(r.fpr <= 0.05 and r.tpr >= 0.85 for r in mid05)
+
+
+@pytest.mark.scenario
+@pytest.mark.synthetic
+def test_multi_tau_hollow_roc_handoff_mid05_vs_a2() -> None:
+    """A4-T27: mid≥0.5 no-Gabriel ROC vs A2 primary across density scales.
+
+    Density thinning is a tau-adjacent proxy (coarser sampling vs fixed L).
+    Refreshes the A2 handoff table; does not flip awaiting or defaults.
+    """
+    from proteus.stage1.edge_evidence import HollowEdgeConfig
+    from tests.scenarios.synthetic.hollow_edge_nulls import (
+        A2_H0,
+        A2_MID_RADIUS_FRAC,
+        A4_PRIMARY_H0,
+        A4_PRIMARY_MID_RADIUS_FRAC,
+        format_multi_tau_hollow_roc_table,
+        multi_tau_hollow_roc_handoff,
+        recommended_config_as_edge_evidence_kwargs,
+        recommend_hollow_edge_configs,
+    )
+
+    handoff = multi_tau_hollow_roc_handoff(
+        mid_fracs=(0.5, 0.6, 0.7),
+        density_scales=(1.0, 0.5),
+    )
+    assert handoff.rows
+    assert handoff.a4_primary.mid_radius_frac == A4_PRIMARY_MID_RADIUS_FRAC
+    assert handoff.a4_primary.h0 == A4_PRIMARY_H0
+    assert handoff.a4_primary.gabriel_fallback is False
+    assert handoff.a2_primary.mid_radius_frac == A2_MID_RADIUS_FRAC
+    assert handoff.a2_primary.h0 == A2_H0
+    # Full-density A4 primary stays sheet-safe with strong bridge TPR.
+    assert handoff.a4_primary.fpr <= 0.05
+    assert handoff.a4_primary.tpr >= 0.85
+    assert handoff.a4_primary.auc >= 0.85
+    # mid≥0.5 no-Gab continuum present.
+    mid_ge = [
+        r
+        for r in handoff.rows
+        if r.mid_radius_frac >= 0.5 and not r.gabriel_fallback
+    ]
+    assert mid_ge
+    assert all(r.mid_radius_frac >= 0.5 for r in mid_ge)
+    table = format_multi_tau_hollow_roc_table(handoff.rows)
+    assert "label" in table.splitlines()[0]
+    assert "a4_mid0.5" in table
+    assert "a2_primary" in table
+    # Recommendation primary still constructs HollowEdgeConfig for A2-T33.
+    rec = recommend_hollow_edge_configs()
+    cfg = HollowEdgeConfig(**recommended_config_as_edge_evidence_kwargs(rec.primary))
+    assert cfg.gabriel_fallback is False or rec.primary.mid_radius_frac >= 0.5
+    assert "Sheet-null" in handoff.note or "awaiting" in handoff.note.lower()

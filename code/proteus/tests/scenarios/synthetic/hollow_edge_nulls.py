@@ -923,3 +923,235 @@ def recommended_config_as_edge_evidence_kwargs(
         "min_end_count": float(row.min_end_count),
         "gabriel_fallback": bool(row.gabriel_fallback),
     }
+
+
+# ---------------------------------------------------------------------------
+# Multi-tau / mid≥0.5 no-Gabriel ROC handoff refresh (A4-T27 → A2-T33)
+# ---------------------------------------------------------------------------
+
+# A4 primary export (A4-T24): sheet-safe mid≥0.5, no Gabriel.
+A4_PRIMARY_MID_RADIUS_FRAC: float = 0.5
+A4_PRIMARY_H0: float = 0.7
+A4_PRIMARY_MIN_END_COUNT: float = 0.5
+A4_PRIMARY_GABRIEL_FALLBACK: bool = False
+
+
+@dataclass(frozen=True)
+class MultiTauHollowRocRow:
+    """One (mid_frac, h0, gabriel, density_scale) confusion + AUC row."""
+
+    label: str
+    mid_radius_frac: float
+    h0: float
+    gabriel_fallback: bool
+    density_scale: float
+    tpr: float
+    fpr: float
+    auc: float
+    sheet_q01: float
+    h0_at_or_below_sheet_q01: bool
+
+
+@dataclass(frozen=True)
+class MultiTauHollowRocHandoff:
+    """Refreshed handoff: mid≥0.5 no-Gab vs A2 primary across density scales."""
+
+    a4_primary: MultiTauHollowRocRow
+    a2_primary: MultiTauHollowRocRow
+    rows: tuple[MultiTauHollowRocRow, ...]
+    note: str
+
+
+def _thin_case_points(
+    case: HollowEdgeCase,
+    *,
+    density_scale: float,
+    rng: np.random.Generator,
+) -> HollowEdgeCase:
+    """Subsample cloud to approximate a coarser local sampling (tau-like).
+
+    ``density_scale=1`` keeps all points; ``0.5`` keeps ~half. Endpoints are
+    always retained via nearest-neighbor snap so the edge geometry is fixed.
+    """
+    scale = float(density_scale)
+    if scale >= 0.999:
+        return case
+    pts = np.asarray(case.points, dtype=float)
+    n = int(pts.shape[0])
+    if n <= 8:
+        return case
+    keep_n = max(8, int(round(n * max(scale, 0.05))))
+    keep_n = min(keep_n, n)
+    idx = rng.choice(n, size=keep_n, replace=False)
+    thin = pts[idx]
+    # Ensure endpoints remain representable in the thinned cloud.
+    ei = _snap_to_nearest(thin, np.asarray(case.endpoint_i, dtype=float).reshape(1, -1))[0]
+    ej = _snap_to_nearest(thin, np.asarray(case.endpoint_j, dtype=float).reshape(1, -1))[0]
+    return HollowEdgeCase(
+        points=thin,
+        endpoint_i=ei,
+        endpoint_j=ej,
+        should_cut=bool(case.should_cut),
+        kind=str(case.kind),
+        meta={**case.meta, "density_scale": float(scale)},
+    )
+
+
+def multi_tau_hollow_roc_handoff(
+    *,
+    mid_fracs: Sequence[float] = (0.5, 0.6, 0.7),
+    density_scales: Sequence[float] = (1.0, 0.5, 0.25),
+    h0_for_mid: dict[float, float] | None = None,
+    min_end_count: float = A4_PRIMARY_MIN_END_COUNT,
+    sheet_seed: int = 5,
+    gap_seed: int = 11,
+    null_seed: int = 3,
+    thin_seed: int = 19,
+) -> MultiTauHollowRocHandoff:
+    """Compare mid≥0.5 no-Gabriel configs vs A2 primary across density scales.
+
+    Density thinning is a tau-adjacent proxy: coarser sampling changes local
+    occupancy relative to fixed edge length (isotropic scale leaves H invariant).
+    Does not mutate production defaults or flip awaiting tests.
+    """
+    h0_map = {
+        0.5: A4_PRIMARY_H0,
+        0.6: 0.7,
+        0.7: 0.75,
+        A2_MID_RADIUS_FRAC: A2_H0,
+    }
+    if h0_for_mid:
+        h0_map.update({float(k): float(v) for k, v in h0_for_mid.items()})
+
+    pooled = _pooled_sheet_bridge_cases(sheet_seed=sheet_seed, gap_seed=gap_seed)
+    rng = np.random.default_rng(thin_seed)
+    rows: list[MultiTauHollowRocRow] = []
+
+    def _eval(
+        label: str,
+        mid: float,
+        h0: float,
+        gab: bool,
+        dens: float,
+    ) -> MultiTauHollowRocRow:
+        cases = [
+            _thin_case_points(c, density_scale=dens, rng=rng) for c in pooled
+        ]
+        conf = confusion_at_h0(
+            cases,
+            h0=float(h0),
+            mid_radius_frac=float(mid),
+            use_a2_parity_decision=True,
+            min_end_count=float(min_end_count),
+            gabriel_fallback=bool(gab),
+        )
+        auc = float(
+            roc_from_cases(cases, mid_radius_frac=float(mid)).auc
+        )
+        # Sheet q01 at full density for the mid_frac (Poisson-null reference).
+        null = sheet_null_h_quantiles(mid_radius_frac=float(mid), seed=null_seed)
+        q01 = float(null.quantiles["q0.01"])
+        return MultiTauHollowRocRow(
+            label=label,
+            mid_radius_frac=float(mid),
+            h0=float(h0),
+            gabriel_fallback=bool(gab),
+            density_scale=float(dens),
+            tpr=float(conf.tpr),
+            fpr=float(conf.fpr),
+            auc=auc,
+            sheet_q01=q01,
+            h0_at_or_below_sheet_q01=bool(float(h0) <= q01),
+        )
+
+    # A4 primary continuum: mid≥0.5, gabriel=False.
+    for mid in mid_fracs:
+        mid_f = float(mid)
+        if mid_f < 0.5 - 1e-12:
+            continue
+        h0 = float(h0_map.get(mid_f, A4_PRIMARY_H0))
+        for dens in density_scales:
+            rows.append(
+                _eval(
+                    f"a4_mid{mid_f:g}_d{float(dens):g}",
+                    mid_f,
+                    h0,
+                    False,
+                    float(dens),
+                )
+            )
+
+    # A2 operational primary (with Gabriel) + no-Gab twin at each density.
+    for dens in density_scales:
+        rows.append(
+            _eval(
+                f"a2_primary_d{float(dens):g}",
+                A2_MID_RADIUS_FRAC,
+                A2_H0,
+                True,
+                float(dens),
+            )
+        )
+        rows.append(
+            _eval(
+                f"a2_noGab_d{float(dens):g}",
+                A2_MID_RADIUS_FRAC,
+                A2_H0,
+                False,
+                float(dens),
+            )
+        )
+
+    a4_full = next(
+        r
+        for r in rows
+        if (
+            r.mid_radius_frac == A4_PRIMARY_MID_RADIUS_FRAC
+            and not r.gabriel_fallback
+            and abs(r.density_scale - 1.0) < 1e-12
+            and abs(r.h0 - A4_PRIMARY_H0) < 1e-12
+        )
+    )
+    a2_full = next(
+        r
+        for r in rows
+        if (
+            r.mid_radius_frac == A2_MID_RADIUS_FRAC
+            and r.gabriel_fallback
+            and abs(r.density_scale - 1.0) < 1e-12
+        )
+    )
+
+    note = (
+        f"A4 primary mid={a4_full.mid_radius_frac:g} h0={a4_full.h0:g} "
+        f"gabriel={a4_full.gabriel_fallback} @dens=1: "
+        f"FPR={a4_full.fpr:.3f} TPR={a4_full.tpr:.3f} AUC={a4_full.auc:.3f}; "
+        f"A2 primary mid={a2_full.mid_radius_frac:g} h0={a2_full.h0:g} "
+        f"gabriel={a2_full.gabriel_fallback} @dens=1: "
+        f"FPR={a2_full.fpr:.3f} TPR={a2_full.tpr:.3f} AUC={a2_full.auc:.3f}. "
+        "Sheet-null safe ≠ nested ARI; no awaiting flip."
+    )
+    return MultiTauHollowRocHandoff(
+        a4_primary=a4_full,
+        a2_primary=a2_full,
+        rows=tuple(rows),
+        note=note,
+    )
+
+
+def format_multi_tau_hollow_roc_table(
+    rows: Sequence[MultiTauHollowRocRow],
+) -> str:
+    """Compact TSV for COORDINATION / A2 multi-tau handoff."""
+    header = (
+        "label\tmid\th0\tgabriel\tdens\tTPR\tFPR\tAUC\tq01\th0<=q01"
+    )
+    lines = [header]
+    for r in rows:
+        lines.append(
+            f"{r.label}\t{r.mid_radius_frac:g}\t{r.h0:g}\t"
+            f"{r.gabriel_fallback}\t{r.density_scale:g}\t"
+            f"{r.tpr:.3f}\t{r.fpr:.3f}\t{r.auc:.3f}\t"
+            f"{r.sheet_q01:.3f}\t{r.h0_at_or_below_sheet_q01}"
+        )
+    return "\n".join(lines)
