@@ -1015,6 +1015,23 @@ whereas a genuinely multi-modal region persists from its coarse-end death over a
 long, high-overlap run, which is precisely the discrimination the single-scale
 $Q$ of S2.6.1 cannot make.
 
+\paragraph{Optional within-interval resolution (hybrid; OPEN\_ISSUES~\#28).}
+When \texttt{ScaleSearchConfig.selector}=\texttt{"persistence"}, the structural
+accept/reject decision is the coarse-anchored persistence interval above, and by
+default $\tau^\star$ lands at that interval's coarse end
+(\texttt{PersistenceConfig.resolve\_within\_interval}=\texttt{"none"}).
+The optional hybrid mode \texttt{"load\_crossover"} keeps persistence as the
+arbiter but re-picks $\tau^\star$ by running the S2.5.1 variance-load $L{=}1$
+up-crossing on the accepted persistent \emph{subgrid} only. Empirically
+(hierarchy), within-block loads sit above~$1$, so the hybrid still returns the
+coarsest stabilized point of the block ($\tau^\star\approx0.2$, roughly $9\times$
+the fine-leaf packing scale that unit tests call \texttt{expected\_tau}) --- a
+category mismatch, not a failed load-crossover. Circle and swiss-roll hybrids are
+no-ops (no persistent split; ordinary $L{=}1$ fallback already near geometric
+truth). Fine-end-of-block resolution is rejected as anti-SI. The flag remains
+operational / default-\texttt{"none"} until a SI-justified within-interval
+signal exists; do not flip the default (S14.3).
+
 \paragraph{Coarse-anchoring of the persistence interval.} The bare two-point
 rule is made robust to warm-start path dependence by requiring the accepted
 interval to be \emph{coarse-anchored}: the region's \emph{coarsest} multi-cluster
@@ -2478,6 +2495,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
 \texttt{coarse\_anchored} & \text{true}\ (\text{coarsest split must persist}) & \text{S2.6.2} & \text{operational}\\
 \texttt{cold\_start\_recheck} & \text{false}\ (\text{refuted gate; see S2.6.2}) & \text{S2.6.2} & \text{diagnostic}\\
+\texttt{resolve\_within\_interval} & \texttt{"none"}\ (\texttt{"load\_crossover"} hybrid; \#28) & \text{S2.6.2} & \text{operational}\\
 \texttt{allow\_finer\_research} & \text{false}\ (\text{finer-than-}\tau^\star\text{ re-search; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
