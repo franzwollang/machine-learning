@@ -16,7 +16,7 @@ bodies below stay static descriptions.
 | M1 — Canonical clustering objective | blocked on #44 (**HUMAN DIRECTIVE 2026-08-09:** reframe from tau-descent + geometry prepasses to **hollow-edge/empty-region evidence** — see `reference/empty_region_evidence_and_scale.md`. Prior: nested unit recovery via signal-density; PCA/tube/spectral unit ok but **linked_tori e2e still 1 leaf**. Next: A2-T27 frozen-scaffold hollowness probe → `edge_evidence.py` + `prefer_hollow_edge_prepass` → fuller suite NO descent. Stand-in deletion / awaiting flip still gated on #44 + A1 sign-off) |
 | M2 — Characteristic-scale selection rebuild | in progress (load-crossover default; persistence signal + tau/heat bridge landed; c_{d,k} calibrated + shipped, SI S2.5.5; #31 hierarchy-recovery harness now uses per-frame tau + gates tightened vs canonical tau*I (S2.5.4), RESOLVED; paper S2.6.2 cluster-count pointer; **load_band deleted** + deprecate alias; SI DEPRECATED cleaned; `resolve_within_interval` hybrid + **mid_interval experimental** (default none); A6 diagnose: ~9× category mismatch — keep coarse-end default; paper L=1/coarse-end synced; **A3-T31 SI flag prose landed**; remaining #28: more within-interval experiments / A3 mid_interval SI row) |
 | M3 — Constant audit & calibration tier | done (c_{d,k} + C_Q(d) calibrated on the shared uniform-d-ball ensemble; S14.3 three-tier audit #37 complete; intrinsic-dim estimator #39 validated vs GT + Levina–Bickel cross-check shipped, SI S1.4.1. Operational estimator-wiring divergence surfaced as #40, deferred to the M5 junction-detection consumer.) |
-| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (step 1a flag-complex construction landed — `stage2/flag_complex.py`, S4.1/S4.2/S4.5/S13.4. step 2 DM EVIDENCE GATE landed — `evidence/dm_score.py`+`star_matrix.py`+`gate.py`, S3.4/S3.5/S3.6/S10.4; #42 resolved; **#43 experimental `stage2/dual_flow.py` + gate wire landed** (flags default off; do not close). #41: A4 coverage probe affirms 1.5σ* path; PH harnesses landed; recovery flips still need fitted-scaffold coverage. Remaining: runtime scaffold loop, T3 count transfer, fuller S6, topology-recovery #41) |
+| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (step 1a flag-complex construction landed — `stage2/flag_complex.py`, S4.1/S4.2/S4.5/S13.4. step 2 DM EVIDENCE GATE landed — `evidence/dm_score.py`+`star_matrix.py`+`gate.py`, S3.4/S3.5/S3.6/S10.4; #42 resolved; **#43 experimental `stage2/dual_flow.py` + gate wire landed** (flags default off; do not close). #41: A4 coverage probe affirms 1.5σ* path; PH harnesses landed; recovery flips still need fitted-scaffold coverage. Remaining: runtime scaffold loop (**post-#44:** open issue to wire gate as split arbiter / retire `max_nodes` — `reference/open_loop_growth_and_node_cap.md`), T3 count transfer, fuller S6, topology-recovery #41) |
 | M5 — Inference interface & diagnostics | not started |
 | M6 — Evaluation, benchmarks, paper finalization | not started |
 
@@ -140,6 +140,10 @@ Suggested internal order (each step flips its strict-xfail "awaiting" tests):
 2. **DM evidence gate** (S3.4–S3.6): closed-form score, affected-region localization,
    rerouting, Bayes-factor margin, cadence/hysteresis/edit budgets; star-matrix
    conditioning check (S10.4). Reduction tests: DM consistency (S3.5).
+   **Also (post-#44 hollow-edge):** wire this gate into the Stage-1 split loop as the
+   split arbiter so `max_nodes` can become a safety assert — diagnosis and remedy order
+   in `reference/open_loop_growth_and_node_cap.md` (A1 opens a numbered issue when #44
+   frees capacity; same wiring effort as the runtime scaffold loop).
 3. **Dual flow + density** (S6.1–S6.4): online face-pressure tallies, conservative solve
    (loopy Gaussian BP), simplex-local density, mass-conservation and flux health checks.
    Reduction tests: simplex–node correspondence (S9.3), mass conservation properties.
