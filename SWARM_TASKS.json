@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T14:48-05:00",
+  "updated_at": "2026-08-09T14:55-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -14,19 +14,19 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T31",
+          "id": "A1-T34",
           "status": "ready",
-          "summary": "Watch A2-T14..T15 e2e / signal mask; scoop when tips land"
+          "summary": "Watch A2 linked_tori/swiss guards; consider awaiting flip only if green"
         },
         {
-          "id": "A1-T32",
+          "id": "A1-T35",
           "status": "ready",
-          "summary": "Scoop A4-T9..T11 when lifetime-calib tips land"
+          "summary": "Scoop A3 SI A+C when DONE; update #44 remaining"
         },
         {
-          "id": "A1-T33",
+          "id": "A1-T36",
           "status": "ready",
-          "summary": "Optional: assign A3 SI resolve_within_interval prose (#28) when ready; else keep holds"
+          "summary": "Scoop A4-T9..T11 lifetime calib when tips land"
         }
       ]
     },
@@ -42,22 +42,22 @@
       ],
       "queue": [
         {
-          "id": "A2-T15",
+          "id": "A2-T18",
           "status": "ready",
           "issue": 44,
-          "summary": "E2e: nested cc\u22482 ARI>0.5 without circle shatter under noncentroid\u00b1signal-density; else blockers + hold awaiting"
+          "summary": "linked_tori unit harness under persist+signal_density; NOTE ARI/leaves; no awaiting flips"
         },
         {
-          "id": "A2-T16",
+          "id": "A2-T19",
           "status": "ready",
           "issue": 44,
-          "summary": "DONE/REQUEST_TRACKER for T13\u2013T15 landings if not yet filed; annotate recovery or blockers"
+          "summary": "swiss-roll guard: persist+signal_density must stay ~1 leaf (no shatter); NOTE"
         },
         {
-          "id": "A2-T17",
+          "id": "A2-T20",
           "status": "ready",
           "issue": 44,
-          "summary": "Optional: pairing NOTE (persist+noncentroid+signal_density+steps) \u2014 no awaiting flips"
+          "summary": "Optional: harden finer_signal_density_keep_frac / REQUEST_TRACKER to flip awaiting after A1 OK"
         }
       ]
     },
@@ -70,22 +70,22 @@
       ],
       "queue": [
         {
-          "id": "A3-T25",
+          "id": "A3-T28",
           "status": "ready",
           "issue": 44,
-          "summary": "Idle hold: #44 SI A+C \u2014 wait for A1 assign after A2 radial recovery evidence"
+          "summary": "WRITE SI S2.6.2 + S14.3 A+C paragraph for allow_finer_research + radial-band/noncentroid/signal-density flags (A2-T15 recovery evidence)"
         },
         {
-          "id": "A3-T26",
+          "id": "A3-T29",
           "status": "ready",
           "issue": 28,
-          "summary": "Idle: optional SI note for resolve_within_interval only if A1 assigns; else hold"
+          "summary": "Optional: SI note for PersistenceConfig.resolve_within_interval only if time; else hold"
         },
         {
-          "id": "A3-T27",
+          "id": "A3-T30",
           "status": "ready",
           "issue": 41,
-          "summary": "Idle: no further #41 SI unless A1 assigns after fitted-region recovery; hold only"
+          "summary": "Idle: no further #41 SI unless A1 assigns after fitted-region recovery"
         }
       ]
     },
@@ -186,5 +186,5 @@
       ]
     }
   },
-  "notes": "2026-08-09T14:48: scooped A2 T13 noncentroid + T14 signal-density; A3/A5/A6 drains; skew fixture kept strong."
+  "notes": "2026-08-09T14:55: A2-T15 RECOVERY via signal-density (nested ARI=1.0); assigned A3 SI A+C; refilled A2 guards."
 }

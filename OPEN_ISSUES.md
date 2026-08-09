@@ -136,12 +136,19 @@ re-searched *finer* scales inside a single feature.
   green.
 - **FINDING (A2-T10..T12):** band e2e still unrecovered — persist+band
   `steps<=8` → 1 leaf; deeper over-fragments (not shells). Hold awaiting + SI A+C.
-- **Landed (A2-T13/T14 scoop):** `prefer_noncentroid_radial_band_prepass`
-  (default off) + `finer_radial_min_trough_rel` (noncentroid path default 0.35);
-  `prefer_signal_density_band_prepass` (default off) knn-density residual mask
-  (`finer_signal_density_keep_frac=0.55`). Units: mean-fail/median-recover + shell-arc mask.
-- **Remaining:** e2e nested recovery check (T15); hold awaiting flips. SI
-  S2.6.2+S14.3 A+C held until recovery evidence is greener. Distinct from #28.
+- **Landed (A2-T13/T14/T15):** `prefer_noncentroid_radial_band_prepass`
+  (default off) + `finer_radial_min_trough_rel` (noncentroid default 0.35);
+  `prefer_signal_density_band_prepass` (default off) with knn×radial-hist keep
+  (`finer_signal_density_keep_frac=0.55`). Units green (integrator-hardened
+  plain-fail/dens-recover + mean-fail/median-recover contrasts).
+- **FINDING (A2-T15 RECOVERY):** under unit harness (`n_per_sphere=64`,
+  `n_seeds=8`, persist, `steps<=12`), `prefer_signal_density_band_prepass`
+  recovers nested shells **2 leaves / ARI=1.0**; circle stays 1 leaf at
+  `steps<=8`. Band/noncentroid alone still unrecovered. Hold awaiting flip
+  until linked_tori/swiss guards confirmed.
+- **Remaining:** linked_tori / swiss guards; optional keep_frac harden; flip
+  awaiting only after A1 confirms. **SI S2.6.2+S14.3 A+C now assignable to A3.**
+  Distinct from #28.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 

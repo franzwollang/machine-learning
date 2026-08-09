@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T14:50-05:00",
-  "turn": 38,
+  "updated_at": "2026-08-09T14:55-05:00",
+  "turn": 39,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "watch A2-T15 e2e after noncentroid+signal scoop"
+    "goal": "A3 SI A+C + A2 linked_tori/swiss guards"
   },
   "recent": [
-    "Scooped A2 noncentroid + signal-density prepasses",
-    "Integrator tightened unit fixtures (stronger contrasts)",
-    "Refilled A3/A5/A6; A2 queue T15\u2013T17"
+    "A2-T15 RECOVERY: signal-density nested ARI=1.0",
+    "Assigned A3 SI A+C; refilled A2-T18..T20",
+    "Kept strong unit fixtures through merge"
   ],
   "discoveries": [
-    "Signal-density keep=0.6 can collapse shells on weak fixtures",
-    "Noncentroid path default trough_rel=0.35"
+    "Signal-density knn\u00d7radial-hist recovers nested unit harness",
+    "Band/noncentroid alone still miss nested e2e"
   ],
   "open_threads": [
-    "#44 SI A+C held; dual_flow absent",
-    "A2-T15 e2e nested recovery check",
+    "Hold awaiting flip pending linked_tori/swiss",
+    "dual_flow still absent",
     "A4-T9 lifetime calibration pending"
   ],
-  "next_step": "MERGE_DONE push; watch A2-T15 / A4-T9",
+  "next_step": "MERGE_DONE push; watch A3 SI + A2 guards",
   "blockers": []
 }
