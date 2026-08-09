@@ -65,17 +65,17 @@ def _fit_linked_tori_coverage(max_nodes: int) -> LinkedToriFittedCoverageRow:
     pos = result.scaffold_at_star.node_positions()
     sigma = sigma_star_from_tau(result.tau_star)
     node_labels = nearest_data_labels(pos, dataset.points, dataset.labels)
-    # Signal tori are labels 1 and 2; tissue < 0.
-    signal_mask = np.isin(node_labels, [1, 2])
+    # Signal tori are labels 0 and 1 in make_linked_tori; tissue = -1.
+    signal_mask = np.isin(node_labels, [0, 1])
     signal_pos = pos[signal_mask]
     signal_labs = node_labels[signal_mask]
-    n_per = {int(lab): int(np.sum(signal_labs == lab)) for lab in (1, 2)}
+    n_per = {int(lab): int(np.sum(signal_labs == lab)) for lab in (0, 1)}
     report = run_per_region_ph(
         signal_pos,
         signal_labs,
         [sigma, sigma],
         scenario=f"linked_tori_fitted_coverage_max_nodes_{max_nodes}",
-        include_labels=[1, 2],
+        include_labels=[0, 1],
         reading="fixed_threshold",
         max_dim=2,
         filtration_mult=FILTRATION_MULTIPLIER,
@@ -110,8 +110,8 @@ def test_linked_tori_fitted_coverage_reports_node_betti_pairs(
     for _m, row in rows.items():
         assert row.n_nodes > 0
         assert row.n_signal > 0
-        assert set(row.betti_per_torus) == {1, 2}
-        for lab in (1, 2):
+        assert set(row.betti_per_torus) == {0, 1}
+        for lab in (0, 1):
             assert len(row.betti_per_torus[lab]) == 3
             assert row.n_per_torus[lab] >= 0
         assert FILTRATION_MULTIPLIER == 1.5
@@ -132,7 +132,7 @@ def test_linked_tori_fitted_coverage_documents_si_gap(
     recovered = [m for m, r in rows.items() if r.all_match_si]
     if recovered:
         assert max(recovered) >= min(recovered)
-        assert any(rows[m].betti_per_torus[1] == (1, 2, 1) for m in recovered)
+        assert any(rows[m].betti_per_torus[0] == (1, 2, 1) for m in recovered)
     else:
         for _m, row in rows.items():
             assert row.all_match_si is False
