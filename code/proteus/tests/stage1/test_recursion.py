@@ -1987,3 +1987,100 @@ def test_a4_primary_multi_seed_sample_ari_table() -> None:
                 if maj >= 2 and ari is not None and ari >= 0.5:
                     recovered += 1
     assert recovered == 0  # no sample-ARI recovery across seeds/cfgs
+
+
+def test_denser_scaffold_hollow_ari_a4_primary_bridge() -> None:
+    """#44 / A2-T36: denser n/max_nodes hollow majors+ARI under A4+bridge.
+
+    Baseline harnesses use ``max_nodes=64`` / modest ``n``.  Raising sample
+    density and scaffold capacity can change empty-ball / cut-set geometry.
+    This documents majors+sample-ARI on denser nested/tori scaffolds under
+    A4 primary and bridge-critical (flags stay default-off).  Denser nests
+    often collapse spurious K=2 to 1 major; when K≥2 appears (e.g. denser
+    tori under A4), sample ARI stays near chance — **not** recovery.  Do
+    **not** flip awaiting.
+    """
+
+    from proteus.stage1.edge_evidence import HollowEdgeConfig, a4_roc_primary_config
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().prefer_hollow_edge_prepass is False
+    assert RecursionConfig().hollow_use_a4_primary is False
+    assert RecursionConfig().hollow_bridge_critical_only is False
+
+    cfg_a4 = a4_roc_primary_config()
+    cfg_br = a4_roc_primary_config(bridge_critical_only=True)
+    cfg_def = HollowEdgeConfig()
+
+    def _adapt(points, tau: float, *, max_nodes: int, seed: int = 0):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]),
+            tau=float(tau),
+            k=8,
+            max_nodes=int(max_nodes),
+            ann_backend="naive",
+            rng=np.random.default_rng(seed),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    # (dataset_builder_kwargs, tau, max_nodes) denser than baseline 80/64 & 120/64.
+    nested_cases = (
+        ({"n_per_sphere": 160, "extrusion_dim": 1, "seed": 0}, 0.27, 96),
+        ({"n_per_sphere": 240, "extrusion_dim": 1, "seed": 0}, 0.27, 128),
+    )
+    tori_cases = (
+        ({"n_per_torus": 200, "seed": 0}, 0.5, 96),
+        ({"n_per_torus": 240, "seed": 0}, 0.5, 128),
+    )
+
+    recovered = 0
+    denser_nested_collapsed = 0
+    for kwargs, tau, max_nodes in nested_cases:
+        ds = make_nested_spheres(**kwargs)
+        sc = _adapt(ds.points, tau, max_nodes=max_nodes)
+        assert len(sc.nodes) > 64 or max_nodes > 64
+        for cfg in (cfg_def, cfg_a4, cfg_br):
+            maj, ari = _hollow_majors_and_sample_ari(
+                sc, ds.points, ds.labels, cfg,
+            )
+            if maj >= 2:
+                assert ari is not None and ari < 0.5
+            else:
+                assert maj <= 1
+            if maj <= 1:
+                denser_nested_collapsed += 1
+            if maj >= 2 and ari is not None and ari >= 0.5:
+                recovered += 1
+
+    # At least one denser nested setting collapses A4/bridge to ≤1 major
+    # (density suppresses the baseline empty-ball K=2 artifact).
+    assert denser_nested_collapsed >= 1
+
+    for kwargs, tau, max_nodes in tori_cases:
+        ds = make_linked_tori(**kwargs)
+        sc = _adapt(ds.points, tau, max_nodes=max_nodes)
+        for cfg in (cfg_a4, cfg_br):
+            maj, ari = _hollow_majors_and_sample_ari(
+                sc, ds.points, ds.labels, cfg,
+            )
+            if maj >= 2:
+                assert ari is not None and ari < 0.5
+            else:
+                assert maj <= 1
+            if maj >= 2 and ari is not None and ari >= 0.5:
+                recovered += 1
+        # Bridge-critical remains a strict cut-set filter on denser tori.
+        maj_br, ari_br = _hollow_majors_and_sample_ari(
+            sc, ds.points, ds.labels, cfg_br,
+        )
+        assert maj_br <= 1
+        assert ari_br is None or ari_br < 0.5
+
+    assert recovered == 0  # denser scaffolds do not sample-ARI recover
