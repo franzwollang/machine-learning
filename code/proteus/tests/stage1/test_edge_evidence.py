@@ -648,3 +648,35 @@ def test_soft_x_gabriel_conj_export() -> None:
     assert "sample-ARI" in SOFT_X_GABRIEL_CONJ_SI_NOTE
     assert "defaults off" in SOFT_X_GABRIEL_CONJ_SI_NOTE
     assert "awaiting" in SOFT_X_GABRIEL_CONJ_SI_NOTE
+
+
+def test_soft_capacity_frac_multiseed_export() -> None:
+    """#44 / A2-T42: multi-seed soft_capacity_frac sweep export.
+
+    Frozen majors+ARI across seeds 0..2 under A4 primary + soft
+    betweenness.  Defaults remain off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_CAPACITY_FRAC_MULTISEED_METHOD,
+        SOFT_CAPACITY_FRAC_MULTISEED_NESTED,
+        SOFT_CAPACITY_FRAC_MULTISEED_SEEDS,
+        SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE,
+        SOFT_CAPACITY_FRAC_MULTISEED_TORI,
+        format_soft_capacity_frac_multiseed_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert SOFT_CAPACITY_FRAC_MULTISEED_METHOD == "betweenness"
+    assert SOFT_CAPACITY_FRAC_MULTISEED_SEEDS == (0, 1, 2)
+    for seed in SOFT_CAPACITY_FRAC_MULTISEED_SEEDS:
+        assert all(m <= 1 for m in SOFT_CAPACITY_FRAC_MULTISEED_NESTED[seed].values())
+    assert SOFT_CAPACITY_FRAC_MULTISEED_TORI[0][0.25][0] == 2
+    assert SOFT_CAPACITY_FRAC_MULTISEED_TORI[1][0.25][0] == 1
+    assert SOFT_CAPACITY_FRAC_MULTISEED_TORI[2][0.1][0] == 2
+    assert SOFT_CAPACITY_FRAC_MULTISEED_TORI[2][0.25][0] == 1
+    tsv = format_soft_capacity_frac_multiseed_table()
+    assert "seed\tdataset\ttau\tfrac\tmajors\tsample_ari" in tsv
+    assert "seed-fragile" in SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE
+    assert "defaults off" in SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE
+    assert "awaiting" in SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE

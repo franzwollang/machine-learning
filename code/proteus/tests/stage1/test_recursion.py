@@ -2583,3 +2583,71 @@ def test_soft_x_gabriel_conj_nested_tori_ari() -> None:
     assert live["soft_x_conj"][0] <= 1
     assert live["soft_x_conj"][2] <= 1
     assert recovered == 0
+
+
+def test_soft_capacity_frac_multiseed_nested_tori_ari() -> None:
+    """#44 / A2-T42: multi-seed soft_capacity_frac majors+ARI (seeds 0..2).
+
+    Nested@0.27 collapses under soft for all seeds/fracs.  Tori@0.5
+    chance-ARI K=2 is seed-fragile (seed0 until frac=0.9; seed2 only at
+    frac=0.1; seed1 already ≤1).  No sample-ARI recovery; flags off.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_CAPACITY_FRAC_MULTISEED_FRACS,
+        SOFT_CAPACITY_FRAC_MULTISEED_NESTED,
+        SOFT_CAPACITY_FRAC_MULTISEED_SEEDS,
+        SOFT_CAPACITY_FRAC_MULTISEED_TORI,
+        a4_roc_primary_config,
+    )
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_soft_capacity_frac == 0.25
+
+    recovered = 0
+    for seed in SOFT_CAPACITY_FRAC_MULTISEED_SEEDS:
+        nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=seed)
+        tori = make_linked_tori(n_per_torus=120, seed=seed)
+
+        def _adapt(points, tau: float, rng_seed: int = seed):
+            sc = Stage1Scaffold(
+                dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
+                ann_backend="naive", rng=np.random.default_rng(rng_seed),
+            )
+            sc.init_from(points, n_seeds=8)
+            sc.run_until_stable(
+                points,
+                StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+            )
+            return sc
+
+        sc_n = _adapt(nested.points, 0.27)
+        sc_t = _adapt(tori.points, 0.5)
+        for frac in SOFT_CAPACITY_FRAC_MULTISEED_FRACS:
+            cfg = a4_roc_primary_config(
+                soft_capacity_only=True, soft_capacity_frac=float(frac),
+            )
+            expect_n = SOFT_CAPACITY_FRAC_MULTISEED_NESTED[seed][frac]
+            expect_t, expect_ari = SOFT_CAPACITY_FRAC_MULTISEED_TORI[seed][frac]
+            maj_n, ari_n = _hollow_majors_and_sample_ari(
+                sc_n, nested.points, nested.labels, cfg,
+            )
+            maj_t, ari_t = _hollow_majors_and_sample_ari(
+                sc_t, tori.points, tori.labels, cfg,
+            )
+            assert maj_n == expect_n
+            assert maj_t == expect_t
+            assert ari_n is None or ari_n < 0.5
+            if expect_t >= 2:
+                assert ari_t is not None and ari_t < 0.5
+                if expect_ari is not None:
+                    assert abs(ari_t - expect_ari) < 0.08
+            else:
+                assert ari_t is None or ari_t < 0.5
+            for maj, ari in ((maj_n, ari_n), (maj_t, ari_t)):
+                if maj >= 2 and ari is not None and ari >= 0.5:
+                    recovered += 1
+    assert recovered == 0

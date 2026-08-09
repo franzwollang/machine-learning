@@ -221,6 +221,8 @@ class RecursionConfig:
     sample-ARI recovery; defaults off.  A2-T41: soft×
     ``hollow_require_gabriel_and_h`` conjunction collapses nested+tori
     majors≤1 (soft alone still leaves tori chance-ARI K=2); not recovery.
+    A2-T42: multi-seed soft_capacity_frac sweep (seeds 0..2) — tori
+    chance-ARI K=2 seed-fragile; nested≤1; defaults off.
    
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +

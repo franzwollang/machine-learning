@@ -92,6 +92,10 @@ class HollowEdgeConfig:
     tori@0.5 chance-ARI K=2; conj alone and soft×conj collapse both
     nested@0.27 and tori@0.5 to ≤1 major (still not sample-ARI recovery).
     Flags remain default-off.
+
+    A2-T42: multi-seed ``soft_capacity_frac`` sweep (seeds 0..2) — see
+    :data:`SOFT_CAPACITY_FRAC_MULTISEED_*`.  Nested collapses across
+    seeds; tori chance-ARI K=2 is seed-fragile.  Defaults off.
     """
 
     mid_radius_frac: float = 0.35
@@ -305,6 +309,82 @@ def format_soft_x_gabriel_conj_table() -> str:
             f"{mode}\ttori\t{SOFT_X_GABRIEL_CONJ_TORI_TAU:g}\t{tm}\t{ta_s}"
         )
     lines.append(f"# {SOFT_X_GABRIEL_CONJ_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Multi-seed soft-capacity frac sweep (A2-T42 → A3/A4 SI sync)
+# ---------------------------------------------------------------------------
+# Extends A2-T40 seed-0 frac sweep across dataset seeds 0..2 (scaffold RNG
+# matched to dataset seed).  Nested stays ≤1 major under soft for all
+# seeds/fracs; tori chance-ARI K=2 is seed-fragile (seed0 until frac=0.9;
+# seed2 only at frac=0.1; seed1 already ≤1).  No sample-ARI recovery.
+
+SOFT_CAPACITY_FRAC_MULTISEED_SEEDS: tuple[int, ...] = (0, 1, 2)
+SOFT_CAPACITY_FRAC_MULTISEED_FRACS: tuple[float, ...] = (0.1, 0.25, 0.5, 0.9)
+SOFT_CAPACITY_FRAC_MULTISEED_NESTED_TAU: float = 0.27
+SOFT_CAPACITY_FRAC_MULTISEED_TORI_TAU: float = 0.5
+SOFT_CAPACITY_FRAC_MULTISEED_METHOD: str = "betweenness"
+
+# seed → frac → nested majors
+SOFT_CAPACITY_FRAC_MULTISEED_NESTED: dict[int, dict[float, int]] = {
+    0: {0.1: 1, 0.25: 1, 0.5: 1, 0.9: 1},
+    1: {0.1: 1, 0.25: 1, 0.5: 1, 0.9: 1},
+    2: {0.1: 1, 0.25: 1, 0.5: 1, 0.9: 1},
+}
+
+# seed → frac → (tori majors, sample_ARI_or_None)
+SOFT_CAPACITY_FRAC_MULTISEED_TORI: dict[int, dict[float, tuple[int, float | None]]] = {
+    0: {
+        0.1: (2, 0.26),
+        0.25: (2, 0.26),
+        0.5: (2, 0.26),
+        0.9: (1, None),
+    },
+    1: {
+        0.1: (1, None),
+        0.25: (1, None),
+        0.5: (1, None),
+        0.9: (1, None),
+    },
+    2: {
+        0.1: (2, 0.22),
+        0.25: (1, None),
+        0.5: (1, None),
+        0.9: (1, None),
+    },
+}
+
+SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE: str = (
+    "A2-T42 multi-seed soft_capacity_frac sweep (A4 primary+betweenness, "
+    "seeds 0..2): nested@0.27 majors≤1 all seeds/fracs; tori@0.5 chance-ARI "
+    "K=2 is seed-fragile (seed0 until frac=0.9; seed2 only frac=0.1 ARI≈0.22; "
+    "seed1 already ≤1). No sample-ARI recovery; defaults off; no awaiting flip."
+)
+
+
+def format_soft_capacity_frac_multiseed_table() -> str:
+    """TSV export of multi-seed soft-capacity frac sweep (A2-T42)."""
+
+    lines = [
+        "# multi-seed soft_capacity_frac sweep (A4 primary + soft betweenness)",
+        f"# method={SOFT_CAPACITY_FRAC_MULTISEED_METHOD} "
+        f"seeds={list(SOFT_CAPACITY_FRAC_MULTISEED_SEEDS)}",
+        "seed\tdataset\ttau\tfrac\tmajors\tsample_ari",
+    ]
+    for seed in SOFT_CAPACITY_FRAC_MULTISEED_SEEDS:
+        for frac, maj in SOFT_CAPACITY_FRAC_MULTISEED_NESTED[seed].items():
+            lines.append(
+                f"{seed}\tnested\t{SOFT_CAPACITY_FRAC_MULTISEED_NESTED_TAU:g}\t"
+                f"{frac:g}\t{maj}\t"
+            )
+        for frac, (maj, ari) in SOFT_CAPACITY_FRAC_MULTISEED_TORI[seed].items():
+            ari_s = "" if ari is None else f"{ari:.2f}"
+            lines.append(
+                f"{seed}\ttori\t{SOFT_CAPACITY_FRAC_MULTISEED_TORI_TAU:g}\t"
+                f"{frac:g}\t{maj}\t{ari_s}"
+            )
+    lines.append(f"# {SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE}")
     return "\n".join(lines)
 
 
