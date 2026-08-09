@@ -782,3 +782,51 @@ def format_dual_scale_ph_table(result: DualScalePHResult) -> str:
             f"{r.coarse_match}\t{r.fine_match}"
         )
     return "\n".join(lines)
+
+
+def median_nn_gap(points: np.ndarray) -> float:
+    """Median nearest-neighbour gap (exclude self) for a point cloud.
+
+    Harness length-scale probe for per-shell sigma experiments (#41). Returns
+    ``nan`` when fewer than two points are present.
+    """
+    pts = np.asarray(points, dtype=float)
+    if pts.ndim != 2 or pts.shape[0] < 2:
+        return float("nan")
+    # Pairwise distances; diagonal is zero — take row-wise min over others.
+    diff = pts[:, None, :] - pts[None, :, :]
+    dist = np.sqrt(np.sum(diff * diff, axis=-1))
+    np.fill_diagonal(dist, np.inf)
+    return float(np.median(np.min(dist, axis=1)))
+
+
+def per_region_median_nn_sigma(
+    all_positions: np.ndarray,
+    region_labels: np.ndarray,
+    *,
+    include_labels: Optional[Iterable[int]] = None,
+    floor: float = 1e-12,
+) -> tuple[list[int], list[float]]:
+    """Per-region local sigma = median NN gap of that region's nodes (#41).
+
+    Returns ``(labels, sigmas)`` aligned for ``run_dual_scale_per_region_ph`` /
+    ``run_per_region_ph`` sequence ``sigma_star``. Empty / singleton regions
+    get ``floor`` so filtration radius stays positive.
+    """
+    if include_labels is None:
+        labs = sorted(int(x) for x in np.unique(np.asarray(region_labels)))
+    else:
+        labs = [int(x) for x in include_labels]
+    clouds = extract_region_node_positions(
+        all_positions,
+        region_labels,
+        include_labels=labs,
+    )
+    sigmas: list[float] = []
+    for cloud in clouds:
+        gap = median_nn_gap(cloud)
+        if not np.isfinite(gap) or gap <= 0.0:
+            sigmas.append(float(floor))
+        else:
+            sigmas.append(float(gap))
+    return labs, sigmas
