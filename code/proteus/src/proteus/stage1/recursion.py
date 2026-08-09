@@ -142,9 +142,10 @@ class RecursionConfig:
 
     **A2-T14 (flag-gated, default off):**
     ``prefer_signal_density_band_prepass`` keeps the top
-    ``finer_signal_density_keep_frac`` of nodes by knn-density residual
-    against a smooth radial histogram expectation, then runs the band
-    gap on the kept subset (apply cut to full scaffold).
+    ``finer_signal_density_keep_frac`` of nodes by knn-density × radial-hist
+    signal score, then runs the band gap on the kept subset (apply cut to
+    full scaffold).  Do **not** divide by ``rho_radial`` — that upweights
+    sparse mid-continuum tissue and regresses nested-shell recovery.
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
@@ -451,11 +452,13 @@ def _signal_density_residual_keep_mask(
     hist_bins: int = 16,
     knn: int = 8,
 ) -> np.ndarray:
-    """Keep nodes with high knn-density residual vs radial histogram (#44 T14).
+    """Keep nodes with high knn-density × radial-hist signal (#44 T14).
 
-    Tissue that fills the mid-radius continuum is typically locally sparser
-    (or more radially diffuse) than shell arcs.  Operational residual:
-    ``rho_knn(i) / (rho_radial(r_i) + eps)``; keep the top ``keep_frac``.
+    Mid-radius continuum tissue often sits in low-count radius bins while
+    shell arcs land in dense modes.  Operational score:
+    ``rho_knn(i) * (rho_radial(r_i) + eps)``; keep the top ``keep_frac``.
+    (Dividing by ``rho_radial`` falsely upweights sparse mid bins and
+    regresses nested-shell e2e recovery — see A2-T15 / A2-T18.)
     """
 
     pts = np.asarray(positions, dtype=float)
@@ -484,7 +487,8 @@ def _signal_density_residual_keep_mask(
     # Assign each radius to a bin.
     bin_idx = np.clip(np.digitize(r, edges[1:-1], right=False), 0, bins - 1)
     rho_radial = rho_bin[bin_idx]
-    residual = rho_knn / (rho_radial + 1e-12)
+    # Prefer locally dense nodes that also sit in dense radius modes (shells).
+    residual = rho_knn * (rho_radial + 1e-12)
     n_keep = max(2, int(np.ceil(n * frac)))
     order = np.argsort(-residual)
     mask = np.zeros(n, dtype=bool)
