@@ -1225,17 +1225,30 @@ def test_halve_grid_steps_densifies_two_thirds_three_quarter_phi() -> None:
         assert float(by[(dense, "two_thirds_interval")]["tau_star"]) >= float(
             by[(dense, "three_quarter_interval")]["tau_star"]
         )
-        assert np.isfinite(float(by[(dense, "two_thirds_interval")]["phi_star"]))
-        assert np.isfinite(float(by[(dense, "three_quarter_interval")]["phi_star"]))
-    # Pin: on seed-0 hierarchy, three_quarter remains closer to E[tau] than
-    # two_thirds on *both* grids (discrete densification does not flip the
-    # ranking that motivates keeping 3q as the closest fractional probe).
+    # Pin densification effect (hierarchy seed=0):
+    # - standard grid: three_quarter (~0.82×) closer to E[tau] than two_thirds
+    #   (~1.49×) — discrete jump 1.49→0.82.
+    # - half-step denser grid: two_thirds lands ≈1.00× (closest / exact on this
+    #   fixture) while three_quarter undershoots further (~0.76×). Densifying
+    #   does *not* preserve the standard-grid 3q-closest ranking.
+    err_tt_std = abs(
+        float(by[(False, "two_thirds_interval")]["tau_over_expected"]) - 1.0
+    )
+    err_tq_std = abs(
+        float(by[(False, "three_quarter_interval")]["tau_over_expected"]) - 1.0
+    )
+    assert err_tq_std < err_tt_std
+    ratio_tt_dense = float(by[(True, "two_thirds_interval")]["tau_over_expected"])
+    ratio_tq_dense = float(by[(True, "three_quarter_interval")]["tau_over_expected"])
+    err_tt_dense = abs(ratio_tt_dense - 1.0)
+    err_tq_dense = abs(ratio_tq_dense - 1.0)
+    assert err_tt_dense < err_tq_dense
+    assert 0.9 < ratio_tt_dense < 1.1
+    assert ratio_tq_dense < 1.0
+    # Phi finite on both grids (diagnostic usability).
     for dense in (False, True):
-        err_tt = abs(float(by[(dense, "two_thirds_interval")]["tau_over_expected"]) - 1.0)
-        err_tq = abs(
-            float(by[(dense, "three_quarter_interval")]["tau_over_expected"]) - 1.0
-        )
-        assert err_tq <= err_tt + 1e-9
+        for mode in modes:
+            assert np.isfinite(float(by[(dense, mode)]["phi_star"]))
     assert PersistenceConfig().resolve_within_interval == "none"
     assert ScaleSearchConfig().halve_grid_steps is False
 
