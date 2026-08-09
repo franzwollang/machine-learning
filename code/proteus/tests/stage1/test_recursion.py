@@ -282,6 +282,8 @@ def test_finer_research_flag_defaults_off() -> None:
     assert 0.0 < cfg.finer_prepass_min_frac <= 0.5
     assert cfg.prefer_radial_gap_prepass is False
     assert cfg.finer_radial_min_gap_ratio > 0.0
+    assert cfg.prefer_radial_band_prepass is False
+    assert cfg.finer_radial_hist_bins >= 8
 
 
 def test_major_lifted_component_partition_requires_two_majors() -> None:
@@ -409,6 +411,71 @@ def test_radial_gap_partition_recovers_concentric_rings() -> None:
     ) is None
 
 
+def test_radial_band_gap_partition_ignores_midband_bridges() -> None:
+    """#44: trough-masked radial gap recovers shells when mid-band fills continuum."""
+
+    from proteus.stage1.recursion import (
+        _radial_band_gap_partition,
+        _radial_gap_partition,
+    )
+    from proteus.types import Link
+
+    class _Links:
+        def __init__(self, edges: list[tuple[int, int]]):
+            self._edges = edges
+
+        def neighbour_graph(self, n: int) -> dict[int, list[int]]:
+            g = {i: [] for i in range(n)}
+            for i, j in self._edges:
+                g[i].append(j)
+                g[j].append(i)
+            return g
+
+        def lifted_links(self):
+            return [
+                Link(i=i, j=j, count_ij=1.0, count_ji=1.0, lifted=True)
+                for i, j in self._edges
+            ]
+
+    class _Node:
+        def __init__(self, pos, hits=1.0):
+            self.position = np.asarray(pos, dtype=float)
+            self.hit_count = hits
+            self.d_final = 1
+
+    class _Scaf:
+        def __init__(self, nodes, edges):
+            self.nodes = nodes
+            self.links = _Links(edges)
+            self.tau = 0.1
+
+    angles = np.linspace(0.0, 2.0 * np.pi, 8, endpoint=False)
+    inner = [_Node([np.cos(a), np.sin(a)]) for a in angles]
+    outer = [_Node([3.0 * np.cos(a), 3.0 * np.sin(a)]) for a in angles]
+    # Mid-band fillers dilute the plain radial gap below min_gap_ratio.
+    mid = [_Node([2.0 * np.cos(a), 2.0 * np.sin(a)]) for a in angles[:4]]
+    nodes = inner + outer + mid
+    edges = (
+        [(i, (i + 1) % 8) for i in range(8)]
+        + [(8 + i, 8 + ((i + 1) % 8)) for i in range(8)]
+        + [(0, 8), (0, 16), (8, 16)]  # bridges → one lifted CC
+    )
+    scaf = _Scaf(nodes, edges)
+    # Plain radial gap fails (continuum) at the default ratio.
+    assert _radial_gap_partition(
+        scaf, min_frac=0.15, min_abs=3, min_gap_ratio=0.25,
+    ) is None
+    pre = _radial_band_gap_partition(
+        scaf, min_frac=0.15, min_abs=3, min_gap_ratio=0.25, hist_bins=12,
+    )
+    assert pre is not None
+    assert pre.n_clusters == 2
+    assert pre.partition_q_score > 0.0
+    # Inner ring (0..7) must be a single label, distinct from outer (8..15).
+    assert len(set(int(x) for x in pre.labels[:8])) == 1
+    assert int(pre.labels[0]) != int(pre.labels[8])
+
+
 def test_research_finer_split_rejects_invalid_cap() -> None:
     """#44: finer re-search is a no-op when the cap is not strictly inside (tau_min, tau*)."""
 
@@ -523,6 +590,11 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     A2 diagnostic: major lifted-CC prepass misses shells (graph stays 1 CC or
     noise-fragments). Flag-gated ``prefer_radial_gap_prepass`` is the next
     proposed path; do not assert leaf-count==2 until e2e recovery is green.
+
+    A2-T10/T11: mid-band bridges keep lifted CC=1 and dilute plain radial
+    gaps; ``prefer_radial_band_prepass`` (histogram-trough exclusion) recovers
+    shell ARI on unit scaffolds with mid fillers — e2e nested recovery still
+    not asserted here.
     """
 
     from tests.datasets.synthetic.nested_spheres import make_nested_spheres
@@ -555,8 +627,8 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     # Flag off: coarse K=1 terminates — at most one leaf (current #44 defect).
     assert len(tree_off.leaves) == 1
 
-    # Aspiration (not asserted yet): allow_finer_research + radial / DM
-    # should recover ~2 leaves.  Keep the config construction here as the
+    # Aspiration (not asserted yet): allow_finer_research + radial-band /
+    # DM should recover ~2 leaves.  Keep the config construction here as the
     # living sketch for follow-on validation runs.
     _aspirational = RecursionConfig(
         scale_search=base.scale_search,
@@ -565,6 +637,7 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
         allow_finer_research=True,
         prefer_disconnected_prepass=True,
         prefer_radial_gap_prepass=True,
+        prefer_radial_band_prepass=True,
         require_dm_split=True,
         finer_tau_cap_ratio=0.5,
         max_finer_scale_steps=12,
@@ -573,4 +646,5 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     assert _aspirational.allow_finer_research is True
     assert _aspirational.prefer_disconnected_prepass is True
     assert _aspirational.prefer_radial_gap_prepass is True
+    assert _aspirational.prefer_radial_band_prepass is True
     assert _aspirational.max_finer_scale_steps == 12
