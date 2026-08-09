@@ -83,12 +83,14 @@ Remaining work:
 - **Persistence tau* is coarse-end.** The persistence selector lands tau* at the coarse end
   of the persistent interval (hierarchical tau*=0.36 vs expected 0.0225); refine toward the
   within-interval characteristic scale before making persistence the default for structured
-  regions.
+  regions. Design recommendation (A6): hybrid — persistence as accept/reject arbiter, then
+  within-interval `load_crossover` resolve behind a flag (default off); do not change defaults
+  yet.
 - **Delete the legacy load-band selector** (and dormant `_legacy_slope_selector`,
-  `_detect_peak` in `controller.py`) once `load_crossover` dominates every
-  scenario/recursion regression — docstring-deprecated behind the flag until an explicit
-  deletion merge lands (M2 mitigation). Optional SI S14.3 mirror of the DEPRECATED label
-  (A3 owns `SI.tex`).
+  `_detect_peak` in `controller.py`). **Deletion-ready:** zero tests set
+  `selector=load_band`; dormant helpers have zero callers; SI S14.3/S2.5.1 already mark
+  load_band DEPRECATED/flag-only (A3). Execute A6 checklist on next merge (also fix stale
+  `test_scale_search_persistence.py` comment "default load-band").
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -129,13 +131,15 @@ circle `b1 = 1` target of #25.
   operational — must be logged in SI S14.2/S14.3 before any test flip);
   `tests/scenarios/synthetic/test_ph_harness_scaffold.py` clean-geometry smokes green;
   recovery xfails unchanged.
+- **FINDING (A4 diagnostics):** on tissue-polluted whole clouds (`tissue_fraction~0.2`),
+  fixed_threshold over-reports `b1` and lifetime alone inflates `b0` without restoring
+  clean Betti; **signal-label / per-region filtering is load-bearing** and restores
+  `(b0,b1)=(1,1)` under both readings. Clean torus grid can recover `b1=2` at
+  `lifetime_frac=0.5`. Do not flip awaiting recovery tests yet.
 - **Remaining before flipping recovery tests:**
-  1. *Fitted-region evidence* — run lifetime vs fixed-threshold diagnostics on fitted
-     circle / tori / spheres regions (not clean synthetic clouds alone).
-  2. *Tissue-pollution strategy* — PH per accepted region / signal nodes, not the whole
-     raw scaffold (harness API supports this; needs green fitted evidence).
-  3. *Threshold logging* — defend `DEFAULT_LIFETIME_FRAC` in SI S14.2/S14.3 before
-     flipping `@awaiting` recovery tests.
+  1. *Fitted-region evidence* — PH on fitted circle / tori / spheres accepted-region nodes.
+  2. *Threshold logging* — defend `DEFAULT_LIFETIME_FRAC` in SI S14.2/S14.3 before flips.
+  3. *Per-region harness on nested_spheres clean shells* as a stepping stone to fitted scaffolds.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -151,5 +155,8 @@ circle `b1 = 1` target of #25.
   returns `True` (same default as `score_edit(..., dual_connected=True)`).
 - Remaining: when the S6 dual/face graph lands (M4 dual-flow), supply real adjacency into
   that hook (or call sites) so connectivity is computed in the edit dry run rather than
-  defaulting open. Do not close this issue until S6 wiring replaces the conservative
-  default.
+  defaulting open. S6 adjacency contract documented (A5 NOTE: verts=simplex ids; edges=
+  facet-sharing; induced BFS on affected set; `None` ⇒ True). Placeholder
+  `@awaiting("stage2.dual_flow")` test locks the future wiring. Dual-flow module still
+  absent on integration (`flag_complex.py` only). Do not close until S6 wiring replaces
+  the conservative default.
