@@ -32,7 +32,10 @@ u_{\mathrm{global}},\ u_{\mathrm{local}} & \text{global and local tissue floors}
 G_C=(\mathcal V_C,\mathcal E_C) & \text{Stage 1 scaffold graph (shadow}\cup\text{lifted edges)} & \text{S2.3.3}\\
 C(i\to j) & \text{directed co-activation transition mass on an edge} & \text{S2.3.3,S3.1}\\
 K_v,A_{\mathrm{sym}},W_v & \text{geometric kernel, co-activation evidence, edge weight} & \text{S2.6.1}\\
+M_{\mathrm{transit}} & \text{mid-support / hollow-edge factor (proposed)} & \text{S2.6.1--S2.6.2}\\
 Q(S;v),Q(\mathcal P;v) & \text{cluster and partition coherence scores} & \text{S2.6.1}\\
+H(i,j),h_0 & \text{hollowness ratio and cut threshold (proposed)} & \text{S2.6.2}\\
+f_{\mathrm{mid}},n_{\mathrm{end}}^{\min} & \text{mid-ball fraction and endpoint-mass floor (proposed)} & \text{S2.6.2}\\
 \mathcal K_C,\ \mathcal S_C & \text{Stage 2 complex and simplex set} & \text{S4}\\
 S,\ |S|_d & \text{simplex and intrinsic }d\text{-volume} & \text{S4,S6}\\
 h_i,\ n_{i\to j} & \text{hit mass and directed transition count} & \text{S2,S3}\\
@@ -93,7 +96,8 @@ Several objects appear in multiple parts of Proteus. The following list identifi
   \item The flag-complex invariant and transition-count policies: S4.1--S4.4.
   \item Torsion ratio $R_S$, edge-ratio fallback, and warp policies: S5.
   \item Face pressures $p_f$ and simplex-local density: S6.
-  \item Dual / face adjacency for the S10.4 evidence-gate connectivity check: S6.6 (proposed stub; OPEN\_ISSUES~\#43).
+  \item Dual / face adjacency for the S10.4 evidence-gate connectivity check: S6.6 (proposed; OPEN\_ISSUES~\#43; \texttt{stage2.dual\_flow} + \texttt{GateConfig.apply\_dual\_adjacency}).
+  \item Hollow-edge / empty-region evidence $H(i,j)$, $M_{\mathrm{transit}}$, and the proposed \texttt{prefer\_hollow\_edge\_prepass}: S2.6.2 (OPEN\_ISSUES~\#44; theory note \texttt{reference/empty\_region\_evidence\_and\_scale.md}).
   \item Gaussian summaries $(\boldsymbol\mu_C,\Sigma_C)$, closed-form membership $\mu_C(\mathbf x)$, PL membership $\mu_C^{\mathrm{PL}}$, and trajectory $\boldsymbol\mu(\mathbf x)$: S7.
   \item Generative mass field $m$, geometry-derived router $q(j\mid i;m)$, and identifiability: S10.
   \item Lyapunov function and dynamic convergence lemmas: S12.
@@ -813,7 +817,16 @@ W_v(i,j)=K_v(i,j)\,A_{\mathrm{sym}}(i,j),
 the primitive evidence for every Stage~1 clustering decision: $K_v$ supplies
 geometric scale-conditioning (Axiom~2 guarantees it operates on a density
 field), while $A_{\mathrm{sym}}$ supplies empirical co-activation evidence from
-the scaffold's learning dynamics.
+the scaffold's learning dynamics. A \emph{proposed} extension (OPEN\_ISSUES~\#44;
+S2.6.2 hollow-edge) multiplies by a mid-support factor
+$M_{\mathrm{transit}}(i,j)\in[0,1]$ measured from data occupancy along the
+lifted segment,
+\[
+W_v(i,j)=K_v(i,j)\,A_{\mathrm{sym}}(i,j)\,M_{\mathrm{transit}}(i,j),
+\]
+so length-conditioned geometry alone cannot treat a void-bridging shortcut as
+strong within-support evidence. Until that factor is wired and calibrated,
+$M_{\mathrm{transit}}\equiv 1$ and the product above is unchanged.
 
 \paragraph{Internal, boundary, and pairwise evidence.}
 Let $E_v$ be the lifted-edge set at scale $v$. For a candidate node set $S$,
@@ -1025,13 +1038,25 @@ The optional hybrid mode \texttt{"load\_crossover"} keeps persistence as the
 arbiter but re-picks $\tau^\star$ by running the S2.5.1 variance-load $L{=}1$
 up-crossing on the accepted persistent \emph{subgrid} only. Empirically
 (hierarchy), within-block loads sit above~$1$, so the hybrid still returns the
-coarsest stabilized point of the block ($\tau^\star\approx0.2$, roughly $9\times$
+coarsest stabilized point of the block ($\tau^\star\approx0.2$, roughly $9\times$--$16\times$
 the fine-leaf packing scale that unit tests call \texttt{expected\_tau}) --- a
-category mismatch, not a failed load-crossover. Circle and swiss-roll hybrids are
-no-ops (no persistent split; ordinary $L{=}1$ fallback already near geometric
-truth). Fine-end-of-block resolution is rejected as anti-SI. The flag remains
-operational / default-\texttt{"none"} until a SI-justified within-interval
-signal exists; do not flip the default (S14.3).
+category mismatch, not a failed load-crossover. Two additional
+\emph{experimental} landings (default off; proposal-path probes) keep
+persistence as arbiter and re-pick $\tau^\star$ inside the accepted persistent
+grid block:
+\begin{itemize}[leftmargin=1.5em]
+  \item \texttt{"mid\_interval"} --- midpoint of the accepted block (A6-T28 /
+  A6-T32); hierarchy Phi probe $\approx 2.7\times$ fine-leaf
+  \texttt{expected\_tau}.
+  \item \texttt{"fine\_end\_of\_block"} --- finest grid point of the accepted
+  block (A6-T31); hierarchy Phi probe \emph{undershoots}
+  \texttt{expected\_tau} ($\approx 0.25\times$), so treat as an overshoot-risk
+  diagnostic rather than a candidate default.
+\end{itemize}
+Circle and swiss-roll hybrids / experimental modes are no-ops (no persistent
+split; ordinary $L{=}1$ fallback already near geometric truth). None of these
+modes is SI-justified as an acceptance rule; the flag remains operational /
+default-\texttt{"none"} (S14.3). Do not flip the default.
 
 \paragraph{Coarse-anchoring of the persistence interval.} The bare two-point
 rule is made robust to warm-start path dependence by requiring the accepted
@@ -1170,6 +1195,107 @@ steps$\le8$; band and noncentroid alone remain unrecovered on that harness.
 These flags stay proposal-path / default-off pending linked-tori and swiss-roll
 guards and awaiting-flip confirmation --- they are \emph{not} acceptance-path,
 and do not yet retire the S2.6.1 stand-ins.
+
+\paragraph{Hollow-edge / empty-region evidence (proposed; OPEN\_ISSUES~\#44).}
+\label{sec:si-hollow-edge}
+Geometry-specific prepasses (radial / PCA / tube / spectral) impose a global
+coordinate and still miss interlocking linked-tori. The deeper diagnosis is a
+\emph{category error} in the word ``scale'': \emph{resolution} scale (the
+$\tau$ at which a feature's support is resolved; $L{=}1$ up-crossing, S2.5.1)
+is distinct from \emph{separation} scale (the $\tau$ at which two supports
+become distinguishable to the scaffold graph). Disconnection of supports is
+scale-free and topological --- the nested-spheres scaffold at $\tau{=}0.27$ and
+$\tau{=}0.004$ shares the same $64$ nodes --- so finer-than-$\tau^\star$
+descent cannot create information the statistic cannot see. Moreover, at
+equilibrium every scaffold-side statistic self-normalizes away the geometry it
+was meant to measure; structural tests must therefore be \emph{data-side}.
+
+For a lifted edge $(i,j)$ with endpoints $\mathbf x_i,\mathbf x_j$ and length
+$L$, the batch hollow-edge probe asks whether data occupy the region the edge
+spans:
+\begin{itemize}[leftmargin=1.5em]
+  \item $n_{\mathrm{mid}}$ = number of samples within radius
+  $r{=}f_{\mathrm{mid}}L$ of the midpoint $(\mathbf x_i+\mathbf x_j)/2$
+  (lens / Gabriel-ball approximation);
+  \item $n_{\mathrm{end}}$ = mean of the same counts around $\mathbf x_i$ and
+  $\mathbf x_j$;
+  \item hollowness ratio $H(i,j)=n_{\mathrm{mid}}/(n_{\mathrm{end}}+\varepsilon)$.
+\end{itemize}
+Within-support edges have $H=\mathrm{O}(1)$; void bridges have
+$H\approx\mathrm{tissue}/\mathrm{signal}\approx0$. Cut edges with $H<h_0$
+\emph{before} connected-components / AP clustering, at a hollowness-sensitive
+scaffold scale, with \emph{no} finer descent. The ratio form is robust to a
+uniform tissue background. The proper null is Poisson: under a locally uniform
+manifold of density $\rho$ estimated from the endpoint counts, the mid-ball
+count is $\mathrm{Poisson}(\rho\,V_{\mathrm{ball}})$, so ``hollow'' is a
+calibrated likelihood-ratio (or e-value) decision --- $h_0$ is
+\emph{acceptance-path} once calibrated (S14.3). The mid-ball fraction
+$f_{\mathrm{mid}}$, a minimum endpoint mass floor $n_{\mathrm{end}}^{\min}$, and
+any online EWMA histogram bins remain \emph{proposal-path} operational
+defaults. Naive $f_{\mathrm{mid}}{=}1/4$ (theory-note $L/4$) false-hollows when
+$n_{\mathrm{end}}\approx 0$ ($H\to 0$ mass-false-positive); the landed probe
+(A2-T27) uses $f_{\mathrm{mid}}{=}0.35$, provisional $h_0{=}0.35$, and
+$n_{\mathrm{end}}^{\min}{=}0.5$ jointly with Gabriel fallback --- seed-$0$
+nested$+$tori majors hit, multi-seed fragile. At
+$n_{\mathrm{end}}<n_{\mathrm{end}}^{\min}$, fall back to the classical Gabriel
+empty-diameter test (cut when the open diameter ball contains no data), which
+needs no density estimate (Gabriel \& Sokal~1969; Toussaint~1980
+relative-neighborhood / lens variant).
+
+An online Stage-1-native form records the projection parameter $t\in[0,1]$ of
+each co-activating sample onto the segment and maintains a tiny EWMA histogram
+(ends / middle). Connected support $\Rightarrow$ mid-bin mass $\mathrm{O}(1/3)$;
+a bridge $\Rightarrow$ bimodal end-concentration. That mid-bin mass is the
+natural $M_{\mathrm{transit}}$ factor in the S2.6.1 edge weight
+$W_v=K_v A_{\mathrm{sym}} M_{\mathrm{transit}}$.
+
+Predicted mechanism (frozen-scaffold probe first): nested shells cut
+shell-to-shell bridges $\to\mathrm{cc}{=}2$; linked tori cut every A--B void
+bridge without a global coordinate $\to\mathrm{cc}{=}2$; manifold-zoo junctions
+carry data $\to$ no cut; swiss-roll inter-wrap shortcuts cut while the sheet
+stays connected. Density structure (blob hierarchies) remains persistence
+(S2.6.2) $+$ DM (S2.6.3); resolution remains $L{=}1$.
+
+\paragraph{Cluster-tree framing.}
+What Stage~1's structural layer estimates is Hartigan's density cluster tree.
+Classical anchors: Chaudhuri--Dasgupta (2010) robust single linkage (consistent
+cluster-tree estimator; connectivity radius $+$ density floor); ToMATo
+(Chazal--Guibas--Oudot--Skraba~2013) (density-mode merging gated by persistence
+--- formalizes the S2.6.2 gate); Stuetzle (2003) runt pruning (principled
+cleanup aligned with eventual \#27 stand-in deletion). Framing the $\tau$ sweep
+as cluster-tree estimation turns disconnected supports into ordinary high-level
+tree splits and supplies known consistency results.
+
+\paragraph{Landed proposal-path wiring and protocol.}
+Module \texttt{proteus.stage1.edge\_evidence} exposes
+\texttt{hollowness\_scores} / \texttt{prune\_hollow\_edges} behind
+\texttt{HollowEdgeConfig}; recursion consumes them via
+\texttt{RecursionConfig.prefer\_hollow\_edge\_prepass} (default off; S14.3)
+together with operational knobs
+\texttt{hollow\_mid\_radius\_frac}, \texttt{hollow\_h0},
+\texttt{hollow\_min\_end\_count}, \texttt{hollow\_gabriel\_fallback}.
+When the prepass fires, Q is scored on the \emph{pruned} edge set. Protocol
+status (do \emph{not} flip awaiting):
+\begin{itemize}[leftmargin=1.5em]
+  \item Frozen-scaffold probe (A2-T27): theory direction supported; $L/4$ alone
+  fails; joint $f_{\mathrm{mid}}{=}0.35$, $h_0{=}0.35$, Gabriel fallback is
+  seed-fragile.
+  \item Unit wiring $+$ swiss / circle / zoo guards under the hit config
+  (A2-T28): inter-wrap shortcuts cut, sheet $\mathrm{cc}$ stays $1$.
+  \item Adversarial-null ROC harness (A4-T18): connected sheets with density
+  gradients / curvature must not cut; gap tissue must cut; calibration of
+  acceptance-path $h_0$ still open (Poisson-null / Youden on ROC grid).
+  \item Fuller suite persist$(+\mathrm{dm})$ $+$ hollow, \emph{no} finer
+  descent (A2-T29): uniforms / zoo safe; nested unrecovered at scale-search
+  $\tau^\star$; linked-tori may spurious-split with near-zero ARI. Fixed-$\tau$
+  oracle (nested $@0.27$, tori $@0.5$) recovers majors${=}2$. Mechanism
+  attribution: at $\tau^\star$ hollow rarely fires --- scale-search $\tau^\star$
+  $\neq$ hollowness-sensitive $\tau$. Next: multi-$\tau$ hollow scan or couple
+  hollow to the persistence grid; finish $h_0$ Poisson-null calibration.
+\end{itemize}
+Do not retire the radial/PCA family or flip awaiting until calibrated $h_0$ $+$
+$\tau$-coupling evidence lands. Supporting draft:
+\texttt{docs/Proteus/paper\_1\_foundational/reference/empty\_region\_evidence\_and\_scale.md}.
 
 \subsection*{S2.6.3 Dirichlet--Multinomial Cluster-Acceptance Reduction (proposed)}
 \label{sec:si-dm-cluster-reduction}
@@ -1802,24 +1928,61 @@ The normalization is exact because barycentric coordinates integrate uniformly o
 \subsection*{S6.5 Variants and Debugging Modes}
 For debugging, replace the PL profile by the uniform density $p(\mathbf x\mid S)=m_S/|S|_d$. This isolates topology and mass selection from interpolation choices. Other variants may use alternative face-pressure aggregations, but the canonical profile above is preferred because it is linear in the same pressures used by the dual-flow solve.
 
-\subsection*{S6.6 Dual / Face Adjacency for the Evidence Gate (proposed stub;
+\subsection*{S6.6 Dual / Face Adjacency for the Evidence Gate (proposed;
 OPEN\_ISSUES~\#43)}
 \label{sec:si-dual-adjacency}
 The S10.4 dynamic-preservation rule (A2) requires that an edit be
 evidence-bearing only if the \emph{affected} dual subgraph remains connected.
 Vertices of that dual are simplices of the post-edit dry-run complex; an
 undirected edge joins two simplices that share a facet (codimension-$1$ face).
-The Stage-2 dual-flow / face-graph producer (\texttt{stage2.dual\_flow}, not yet
-landed) should expose this adjacency as a Mapping-like list
-\texttt{adj.get(u, ())} of neighbor simplex ids (symmetric; a missing key is
-an isolated vertex). Connectivity is the induced BFS on the affected id set
-(vacuous $\mathrm{True}$ for empty or singleton affected sets). When the
-producer is unavailable, consumers treat adjacency as \texttt{None} and
-conservatively accept ($A2$ open) --- matching
-\texttt{affected\_dual\_subgraph\_connected} /
-\texttt{score\_edit(..., dual\_connected=True)}. This subsection is a
-\emph{proposed} stub so implementers can wire against the contract; it does not
-change S6.2 conservation math and does not flip the
+Connectivity is the induced BFS on the affected id set (vacuous $\mathrm{True}$
+for empty or singleton affected sets).
+
+\paragraph{Landed proposal-path producer.}
+The Stage-2 module \texttt{proteus.stage2.dual\_flow} implements this adjacency
+contract (not full S6 dual-flow):
+\begin{itemize}[leftmargin=1.5em]
+  \item \texttt{DualFlowConfig.enable\_dual\_adjacency} (default off; S14.3)
+  gates builders. When off, builders return \texttt{None} so consumers keep the
+  conservative acceptance path.
+  \item \texttt{build\_dual\_adjacency} / \texttt{build\_dual\_adjacency\_from\_complex}
+  emit a symmetric Mapping-like adjacency
+  \texttt{adj.get(u, ())} of neighbor simplex ids (isolated simplices appear
+  with an empty neighbor tuple). Construction indexes facets
+  $\to$ owning simplex ids and joins every pair that shares a facet.
+  \item \texttt{dry\_run\_dual\_from\_edit} (A5-T34): apply a Complex
+  remove/add edit, collect affected simplex ids (survivors sharing a vertex
+  with removed/added simplices and/or containing an affected node, plus new
+  ids), build post-edit adjacency when enabled, and return
+  \texttt{DualDryRunResult} including the A2 connectivity bool.
+  \item \texttt{solve\_conservative\_pressures} behind
+  \texttt{DualFlowConfig.enable\_conservative\_bp} (default off; A5-T35) is an
+  \emph{identity/damped sketch} ($p\approx\hat p$), \textbf{not} the S6.2 loopy
+  Gaussian BP solve; residuals are API-shaped only.
+  \item \texttt{affected\_subgraph\_connected} is a thin alias of
+  \texttt{proteus.evidence.gate.affected\_dual\_subgraph\_connected}.
+  \item \texttt{resolve\_dual\_connected} builds (if enabled) and returns the
+  A2 bool; when the flag is off it returns \texttt{True}.
+\end{itemize}
+Remaining S6 gaps (mass/density/benchmark
+\texttt{@awaiting("stage2.dual\_flow")} stay xfail): S6.1 online face-pressure
+tallies; real S6.2 loopy Gaussian BP; S6.3 boundary taxonomy; S6.4
+simplex-local density.
+
+\paragraph{Evidence-gate wiring.}
+\texttt{GateConfig.apply\_dual\_adjacency} (default off) controls whether
+\texttt{score\_edit} / \texttt{EvidenceGate.evaluate} recompute connectivity
+from a supplied \texttt{dual\_adjacency} $+$ \texttt{affected\_simplices}.
+When the flag is false, callers' \texttt{dual\_connected} bool is honoured and
+any adjacency kwarg is ignored (acceptance path unchanged). When true and both
+kwargs are present, a disconnected affected dual subgraph rejects the edit.
+When the producer is unavailable (\texttt{None} adjacency) consumers still
+treat A2 as open --- matching
+\texttt{affected\_dual\_subgraph\_connected(..., adj=None)} $\Rightarrow$
+\texttt{True} / \texttt{score\_edit(..., dual\_connected=True)}.
+
+This subsection is \emph{proposed} / default-off; it does not change S6.2
+conservation math and does not flip the remaining
 \texttt{stage2.dual\_flow} awaiting tests.
 
 \section*{S7. Multiscale Fuzzy Memberships}
@@ -2547,7 +2710,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
 \texttt{coarse\_anchored} & \text{true}\ (\text{coarsest split must persist}) & \text{S2.6.2} & \text{operational}\\
 \texttt{cold\_start\_recheck} & \text{false}\ (\text{refuted gate; see S2.6.2}) & \text{S2.6.2} & \text{diagnostic}\\
-\texttt{resolve\_within\_interval} & \texttt{"none"}\ (\texttt{"load\_crossover"} hybrid; \#28) & \text{S2.6.2} & \text{operational}\\
+\texttt{resolve\_within\_interval} & \texttt{"none"}\ (\texttt{"load\_crossover"} hybrid; \texttt{"mid\_interval"} / \texttt{"fine\_end\_of\_block"} experimental; \#28) & \text{S2.6.2} & \text{operational}\\
 \texttt{allow\_finer\_research} & \text{false}\ (\text{finer-than-}\tau^\star\text{ re-search; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
@@ -2560,6 +2723,14 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{prefer\_signal\_density\_band\_prepass} & \text{false}\ (\text{unit nested recovery; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{finer\_signal\_density\_keep\_frac} & 0.55 & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{prefer\_pca\_axis\_gap\_prepass} & \text{false}\ (\text{offset rings; tori unrecovered; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{prefer\_hollow\_edge\_prepass} & \text{false}\ (\text{wired; stage1.edge\_evidence; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+h_0\ (\text{hollowness cut}) & 0.35\ \text{provisional}\ (\text{Poisson-null ROC open; \#44}) & \text{S2.6.2} & \text{proposed (calibrated; \#44)}\\
+f_{\mathrm{mid}}\ (\text{mid-ball fraction}) & 0.35\ (L/4\text{ false-hollows at low }n_{\mathrm{end}}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+n_{\mathrm{end}}^{\min} & 0.5\ (\text{else Gabriel empty-diameter}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+M_{\mathrm{transit}} & 1\ (\text{identity until online EWMA lands}) & \text{S2.6.1} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.enable\_dual\_adjacency} & \text{false} & \text{S6.6} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.enable\_conservative\_bp} & \text{false}\ (\text{identity/damped sketch only}) & \text{S6.6} & \text{operational (proposal-path)}\\
+\texttt{GateConfig.apply\_dual\_adjacency} & \text{false} & \text{S6.6,S10.4} & \text{operational (proposal-path)}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
 \text{node maturity}\ (\texttt{prune\_after}) & 25\text{ updates} & \text{S3.2} & \text{operational}\\
 \text{neonatal link guard}\ (\texttt{protected\_until}) & 25\text{ iters} & \text{S3.1} & \text{operational}\\

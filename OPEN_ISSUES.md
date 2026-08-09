@@ -95,8 +95,16 @@ Remaining work:
 - **Landed (A6-T28..T30 experimental):** `resolve_within_interval="mid_interval"`
   midpoint probe (default still `"none"`); `load_band` deprecated alias →
   `load_crossover` + DeprecationWarning; paper §scale notes experimental
-  mid-interval / hybrid default-off. Do **not** flip default. Remaining: more
-  within-interval experiments + A3 SI row for `mid_interval`.
+  mid-interval / hybrid default-off. Do **not** flip default.
+- **Landed (A3-T39 SI):** S2.6.2/S14.3 `mid_interval` experimental row.
+- **Landed (A6-T31..T33 experimental):** `fine_end_of_block` (default still
+  `"none"`); Phi table on hierarchy: `none`~`fine_cluster`, `load_crossover`~16×
+  E[τ], `mid_interval`~2.7×, `fine_end` undershoots (~0.25×).
+- **Landed (A6-T34..T36 + A3 SI sync):** `three_quarter_interval` experimental
+  (default `"none"`); Phi: three_quarter ~0.82× E[τ] closest probe but slight
+  undershoot; mid≤3/4≤fine ordering locked; paper lists three-quarter among
+  probes. Do **not** flip default. Remaining: circle/swiss Phi + A3
+  `three_quarter` SI row.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -190,11 +198,29 @@ re-searched *finer* scales inside a single feature.
   (Gabriel 1969, Toussaint 1980, Chaudhuri–Dasgupta 2010, ToMATo), and ordered
   experiment protocol:
   `docs/Proteus/paper_1_foundational/reference/empty_region_evidence_and_scale.md`.
-- **Remaining:** frozen-scaffold hollowness probe (decisive) → calibrated `h_0`
-  (adversarial-null ROC, no fixture tuning) → flag-gated
-  `prefer_hollow_edge_prepass` in clustering → fuller suite with NO descent →
-  then retire radial/PCA family + awaiting-flip review (A1 sign-off). Tube /
-  spectral / linking-number cues are deprioritized. Distinct from #28.
+- **Landed (A2-T27..T29 + A3-T38 + A4-T18):** frozen-scaffold probe +
+  `stage1/edge_evidence.py` + `prefer_hollow_edge_prepass` (default off; Q on
+  pruned edges) + SI S2.6.1/S2.6.2/S14.3 hollow prose + adversarial-null ROC
+  harness (`hollow_edge_nulls` / `test_hollow_edge_roc`).
+- **FINDING (A2-T27 probe, loud):** note `L/4` mid-ball alone mass-false-hollows
+  (`n_end~0` ⇒ `H=0`, prune shatters). Operational hit cfg `mid_frac=0.35`,
+  `h0=0.35`, `min_end=0.5` + Gabriel-empty fallback recovers nested+tori majors=2
+  at seed0 but is **multi-seed fragile**. Cross-tori interlocking H50 med~1;
+  oracle cut-label-cross still 1 CC via tissue. Zoo/swiss/circle stay 1 under
+  hit cfg. Theory direction supported; **universal `h_0` not calibrated**.
+- **FINDING (A2-T29 e2e, no descent):** persist+hollow: circle/swiss/zoo=1;
+  nested=1 at scale-search τ*; tori 1|2 with ARI~0 (not recovery). Fixed-τ
+  oracle nested@0.27 + tori@0.5 → majors=2. **Blocker:** scale-search τ* ≠
+  hollowness-sensitive τ — need multi-τ hollow scan and/or couple hollow to
+  persistence grid; calibrate `h_0` via A4 ROC + A2 scores.
+- **Landed (A4 related ROC):** mid_frac 0.25/0.35 AUC 0.993/1.0; A2-parity
+  `(0.35,0.35)+Gabriel` TPR=1 FPR~0.014; **sheet null** mean H~1.03 with
+  **q01~0.57 > A2 h0=0.35** — current h0 sits below empirical sheet floor.
+- **Remaining:** multi-τ / persistence-coupled hollow scan → raise/AND-gate
+  `h_0` vs sheet q01 (A2-T31 / A4-T24) → fuller suite green at operational τ*
+  → retire radial/PCA family + awaiting-flip review (A1 sign-off). **Do not
+  flip awaiting.** Distinct from #28. Post-track: open #45 open-loop /
+  `max_nodes` (`reference/open_loop_growth_and_node_cap.md`) into M4.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
@@ -249,9 +275,16 @@ circle `b1 = 1` target of #25.
   prototype (nested clean shells / linked_tori grids); denser-coverage probe
   recovers SI `1.5σ*` on clean circles (prefer coverage over raising mult).
   PH synthetic 32/32 green. Recovery `@awaiting` unchanged.
-- **Remaining before flipping recovery tests:** denser *fitted-scaffold*
-  coverage toward SI `1.5σ*`; optional calibrated-mult protocol harness; wire
-  runner into recovery scaffolding (stay `@awaiting`).
+- **Landed (A4-T19..T20):** denser fitted `max_nodes≥128` recovers SI `1.5σ*`
+  on circle `scaffold_at_star` (prefer over mult=6); `run_per_region_ph` +
+  diagnostics wired into nested/tori `@awaiting` scaffolding (clean harness
+  green; fitted still xfail).
+- **FINDING (A4 nested fitted denser):** max_nodes 64/128/256 raises n_sig
+  but SI `(1,0,1)` **not** recovered — betti worsens (spurious b1). Denser
+  alone insufficient; need lifetime/hollow/filter path. Keep `@awaiting`.
+- **Remaining before flipping recovery tests:** nested/tori fitted PH with
+  lifetime + hollow-pruned nodes; optional calibrated-mult harness; keep
+  recovery `@awaiting` until SI-default fitted evidence is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -270,6 +303,14 @@ circle `b1 = 1` target of #25.
   `GateConfig.apply_dual_adjacency` wires into `score_edit`/`evaluate`
   (disconnect ⇒ reject). Wiring test flipped green; evidence subset 10 passed.
   A3-T36 drafted SI S6.6 DualAdjacency stub. Mass/density/benchmark remain
-  `@awaiting("stage2.dual_flow")`. Acceptance path still `None` ⇒ True / flags
-  default off — **do not close #43** until acceptance-path default replaces the
-  conservative open default / fuller S6 (BP, boundary taxonomy, density).
+  `@awaiting("stage2.dual_flow")`.
+- **Landed (A5-T34..T36 + A3-T40):** `dry_run_dual_from_edit` helper; experimental
+  `ConservativeBPResult` / `enable_conservative_bp` sketch (not real loopy BP);
+  expanded synthetic dual graphs; SI S6.6 expanded to match producer + gate flag.
+  Evidence subset 20 passed.
+- **Landed (A5-EXP-S61):** `accumulate_face_pressure_tally` (S6.1) +
+  `classify_boundary_facets` (S6.3) behind flags (default off); evidence 25
+  passed. Gaps: live routing wire, real S6.2 BP, seam stitching, S6.4 density.
+  Acceptance path still `None` ⇒ True / flags default off — **do not close
+  #43** until acceptance-path default replaces the conservative open default /
+  fuller S6.

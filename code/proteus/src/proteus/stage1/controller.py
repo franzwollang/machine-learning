@@ -35,10 +35,11 @@ class ScaleSearchConfig:
     ``load_crossover`` resolution scale when no split persists.  Persistence
     requires the per-grid-point partitions, so selecting it implies
     ``record_partitions``.  When a persistent split exists and
-    ``persistence.resolve_within_interval`` is ``"load_crossover"`` or the
-    experimental ``"mid_interval"``, persistence still decides accept/reject
-    but ``tau*`` is re-picked inside that persistent subgrid (default
-    ``"none"`` preserves coarse-end ``tau*``).
+    ``persistence.resolve_within_interval`` is ``"load_crossover"`` or an
+    experimental probe (``"mid_interval"``, ``"three_quarter_interval"``,
+    ``"fine_end_of_block"``), persistence still decides accept/reject but
+    ``tau*`` is re-picked inside that persistent subgrid (default ``"none"``
+    preserves coarse-end ``tau*``).
 
     The legacy ``load_band`` selector (OPEN_ISSUES #28) is **deprecated**:
     passing it emits :class:`DeprecationWarning` and redirects to
@@ -400,7 +401,10 @@ def _resolve_persistence_tau_index(
     accept/reject gate but re-pick ``tau*`` via :func:`_select_load_crossover`
     on the persistent subgrid only (OPEN_ISSUES #28 hybrid option).  With
     experimental ``"mid_interval"``, land at the integer midpoint of the
-    accepted block (probe only; default stays ``"none"``).
+    accepted block; with experimental ``"three_quarter_interval"``, land
+    three-quarters of the way from ``i_lo`` toward ``i_hi``; with
+    experimental ``"fine_end_of_block"``, land at ``i_hi`` (probe only;
+    default stays ``"none"``).
     """
 
     i_lo = int(persistence_result.tau_star_index)  # type: ignore[arg-type]
@@ -417,10 +421,19 @@ def _resolve_persistence_tau_index(
         # Integer midpoint of [i_lo, i_hi]; experimental coarse-vs-mid probe.
         return (i_lo + i_hi) // 2
 
+    if mode == "three_quarter_interval":
+        # Three-quarters from coarse toward fine; between mid and fine-end.
+        return i_lo + (3 * (i_hi - i_lo)) // 4
+
+    if mode == "fine_end_of_block":
+        # Finest index of the accepted persistent block; experimental probe.
+        return i_hi
+
     if mode != "load_crossover":
         raise ValueError(
             f"Unknown PersistenceConfig.resolve_within_interval={mode!r}; "
-            "expected 'none', 'load_crossover', or 'mid_interval'."
+            "expected 'none', 'load_crossover', 'mid_interval', "
+            "'three_quarter_interval', or 'fine_end_of_block'."
         )
 
     sub_load = np.asarray(load_trace[i_lo : i_hi + 1], dtype=float)

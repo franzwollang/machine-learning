@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-09T15:40-05:00",
-  "turn": 44,
+  "updated_at": "2026-08-09T16:10-05:00",
+  "turn": 46,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "hollow-edge evidence protocol; retire geometry cues"
+    "goal": "multi-tau hollow + h0 vs sheet q01"
   },
   "recent": [
-    "Scooped A2 tube+spectral + A5 dual_flow + A6 mid_interval",
-    "Merged HUMAN #44 hollow-edge directive + theory note",
-    "Retargeted A2-T27..T29 / A3-T38 / A4-T18"
+    "Double-scoop hollow/ROC/SI + S6.1/S6.3 + three_quarter",
+    "Sheet null q01~0.57 > A2 h0=0.35",
+    "Nested denser PH worsens betti"
   ],
   "discoveries": [
-    "Tube/spectral unit ok but e2e tori unrecovered",
-    "Directive: disconnection is scale-free; descent wrong family",
-    "Coverage probe recovers SI 1.5σ* on clean circles"
+    "Blocker: scale-search tau* \u2260 hollowness-sensitive tau",
+    "A2-parity ROC strong but h0 below sheet floor",
+    "three_quarter Phi closest (~0.82\u00d7 E[tau])"
   ],
   "open_threads": [
-    "No awaiting flip pending hollow-edge green",
-    "#43 dual_flow landed; acceptance still None=>True",
-    "A2 frozen-scaffold hollowness probe next"
+    "A2-T30 multi-tau hollow scan",
+    "A4-T24 export HollowEdgeConfig table",
+    "#45 open-loop after #44"
   ],
-  "next_step": "MERGE_DONE push; watch A2-T27 hollow probe",
+  "next_step": "MERGE_DONE push; watch A2-T30/A4-T24",
   "blockers": []
 }
