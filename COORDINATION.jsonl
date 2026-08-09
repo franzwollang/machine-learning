@@ -32,3 +32,4 @@
 {"ts":"2026-08-09T13:25:00-05:00","from":"A1","type":"TASK_ASSIGN","note":"A6-T16..T18 within-interval diagnose; A3-T16..T18 idle holds; A5-T16..T18 dual_flow watch; A2 keep T7–T9; A4 keep T8–T10"}
 {"ts":"2026-08-09T13:25:00-05:00","from":"A1","type":"TASK_REFILL","note":"A3/A5/A6 queues refilled 3-deep after DONE drains; A2/A4 mid-CLAIM unchanged"}
 {"ts":"2026-08-09T13:26:00-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"107429ec63427ceddc09bedc2318652af70e718a","note":"Scooped A3+A5 mailboxes + A6 T13–T15 resolve_within_interval; tests 11 passed / 1 xfailed dual_flow; A2/A4 unchanged mid-CLAIM","tips":{"A2":"d9a5ad2","A3":"cd45f4d","A4":"64daad6","A5":"7705741","A6":"9f65310"}}
+{"ts":"2026-08-09T13:27:00-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"fabc91e16e33fa9b5ea4cd814adca12e0e7c4b14","note":"Final pushed tip SHA after MERGE_DONE mailbox sync","tips":{"A2":"d9a5ad2","A3":"cd45f4d","A4":"64daad6","A5":"7705741","A6":"9f65310"}}
