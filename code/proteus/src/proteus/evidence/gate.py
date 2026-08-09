@@ -70,9 +70,12 @@ class DualAdjacency(Protocol):
       edit dry-run. Connectivity is of the *induced* subgraph on that set (BFS).
     * **``None``** — S6 producer unavailable; :func:`affected_dual_subgraph_connected`
       returns ``True`` (same default as ``score_edit(..., dual_connected=True)``).
-    * **Producer** — Stage-2 dual-flow / face-graph. Call path: dry-run adj →
+    * **Producer** — :mod:`proteus.stage2.dual_flow` (proposal-path stub;
+      ``DualFlowConfig.enable_dual_adjacency``, default off). Full S6 pressure
+      solve / density still outstanding (#43). Call path: dry-run adj →
       ``affected_dual_subgraph_connected(adj, affected)`` →
-      ``score_edit(..., dual_connected=bool)``.
+      ``score_edit(..., dual_connected=bool)`` or gated
+      ``apply_dual_adjacency`` kwargs on :func:`score_edit`.
 
     Vacuous ``True`` for empty / singleton affected sets. No behavior change vs
     plain ``Mapping[Hashable, Sequence[Hashable]]`` — this Protocol documents the
@@ -103,11 +106,20 @@ class GateConfig:
         Neighbour count used in the equilibration-window formula (SI S3.6).
     rho_min:
         Star-matrix conditioning flag threshold (SI S10.4).
+    apply_dual_adjacency:
+        Proposal-path flag (#43 / SI S10.4 A2). When ``False`` (default),
+        ``score_edit`` / :meth:`EvidenceGate.evaluate` honour the caller-supplied
+        ``dual_connected`` bool and ignore any ``dual_adjacency`` kwarg —
+        acceptance path unchanged. When ``True`` and both ``dual_adjacency`` and
+        ``affected_simplices`` are provided, connectivity is computed via
+        :func:`affected_dual_subgraph_connected` (Stage-2 dual-flow stub).
+        Operational default off until full S6 dual-flow is acceptance-ready.
     """
 
     tau_bf: float = 3.0
     k: int = 10
     rho_min: float = RHO_MIN_DEFAULT
+    apply_dual_adjacency: bool = False
 
 
 def gate_window(n_nodes: int, queue_len: int, k: int) -> int:
@@ -145,7 +157,9 @@ def affected_dual_subgraph_connected(
     subgraph to stay connected for an edit to be evidence-bearing. Vertices of
     the dual graph are simplices; an edge joins two simplices that share a
     facet (codim-1 face). That adjacency is a Stage-2 dual-flow / face-graph
-    artifact (SI S6 / S10.4) and is **not built yet** (OPEN_ISSUES #43).
+    artifact (SI S6 / S10.4). Experimental producer:
+    :mod:`proteus.stage2.dual_flow` (proposal-path, flag-gated; full S6 pressure
+    solve still outstanding — OPEN_ISSUES #43).
 
     ``dual_adjacency`` shape: see :class:`DualAdjacency` (S6 adjacency contract).
 
@@ -161,7 +175,9 @@ def affected_dual_subgraph_connected(
 
     Call sites should compute this on the post-edit dry-run complex and pass the
     boolean into :func:`score_edit` / :meth:`EvidenceGate.evaluate` as
-    ``dual_connected=...``. Do not invent a dual graph here.
+    ``dual_connected=...``, or (proposal-path) pass ``dual_adjacency`` +
+    ``affected_simplices`` with ``GateConfig.apply_dual_adjacency=True`` so the
+    gate computes connectivity from the ``stage2.dual_flow`` stub.
     """
 
     if dual_adjacency is None:
@@ -193,6 +209,8 @@ def score_edit(
     edit_stars: Mapping[int, np.ndarray] | None = None,
     keep_stars: Mapping[int, np.ndarray] | None = None,
     dual_connected: bool = True,
+    dual_adjacency: DualAdjacency | None = None,
+    affected_simplices: Sequence[Hashable] | None = None,
 ) -> EvidenceVerdict:
     """Score one edit under the S10.4 dynamic-preservation rule (SI S3.4, S10.4).
 
@@ -208,9 +226,24 @@ def score_edit(
     (see :mod:`proteus.evidence.star_matrix`); when omitted the caller asserts the
     stars are conditioned. ``dual_connected`` is the affected dual-subgraph
     connectivity result from the dry run (Stage-2 dual graph; OPEN_ISSUES #43).
+
+    When ``config.apply_dual_adjacency`` is true and both ``dual_adjacency`` and
+    ``affected_simplices`` are provided, ``dual_connected`` is overwritten by
+    :func:`affected_dual_subgraph_connected` (proposal-path wiring for the
+    ``stage2.dual_flow`` stub). Flag off ⇒ kwargs ignored; acceptance path
+    unchanged.
     """
 
     config = config or GateConfig()
+    if (
+        config.apply_dual_adjacency
+        and dual_adjacency is not None
+        and affected_simplices is not None
+    ):
+        dual_connected = affected_dual_subgraph_connected(
+            dual_adjacency, affected_simplices
+        )
+
     ill: set[int] = set()
     if edit_stars is not None:
         ill |= quarantined_nodes(edit_stars, config.rho_min)
@@ -334,6 +367,8 @@ class EvidenceGate:
         edit_stars: Mapping[int, np.ndarray] | None = None,
         keep_stars: Mapping[int, np.ndarray] | None = None,
         dual_connected: bool = True,
+        dual_adjacency: DualAdjacency | None = None,
+        affected_simplices: Sequence[Hashable] | None = None,
     ) -> EvidenceVerdict:
         """Score ``proposal``; force-reject if cadence/budget forbids it now (S3.6)."""
 
@@ -348,6 +383,8 @@ class EvidenceGate:
             edit_stars=edit_stars,
             keep_stars=keep_stars,
             dual_connected=dual_connected,
+            dual_adjacency=dual_adjacency,
+            affected_simplices=affected_simplices,
         )
         if verdict.accepted and not self.can_accept(proposal):
             verdict = EvidenceVerdict(
