@@ -284,6 +284,8 @@ def test_finer_research_flag_defaults_off() -> None:
     assert cfg.finer_radial_min_gap_ratio > 0.0
     assert cfg.prefer_radial_band_prepass is False
     assert cfg.finer_radial_hist_bins >= 8
+    assert cfg.prefer_noncentroid_radial_band_prepass is False
+    assert cfg.finer_radial_min_trough_rel == 0.0
 
 
 def test_major_lifted_component_partition_requires_two_majors() -> None:
@@ -486,6 +488,114 @@ def test_radial_band_gap_partition_ignores_midband_bridges() -> None:
     assert int(pre.labels[0]) != int(pre.labels[12])
 
 
+def test_radial_band_trough_gate_and_coord_median_origin() -> None:
+    """#44 / A2-T13: trough-depth gate rejects weak bimodality; coord-median recovers."""
+
+    from proteus.stage1.recursion import (
+        _coordinate_median,
+        _radial_band_gap_partition,
+    )
+    from proteus.types import Link
+
+    class _Links:
+        def __init__(self, edges: list[tuple[int, int]]):
+            self._edges = edges
+
+        def neighbour_graph(self, n: int) -> dict[int, list[int]]:
+            g = {i: [] for i in range(n)}
+            for i, j in self._edges:
+                g[i].append(j)
+                g[j].append(i)
+            return g
+
+        def lifted_links(self):
+            return [
+                Link(i=i, j=j, count_ij=1.0, count_ji=1.0, lifted=True)
+                for i, j in self._edges
+            ]
+
+    class _Node:
+        def __init__(self, pos, hits=1.0):
+            self.position = np.asarray(pos, dtype=float)
+            self.hit_count = hits
+            self.d_final = 1
+
+    class _Scaf:
+        def __init__(self, nodes, edges):
+            self.nodes = nodes
+            self.links = _Links(edges)
+            self.tau = 0.1
+
+    def _ring(radius: float, count: int, center=(0.0, 0.0)) -> list:
+        angs = np.linspace(0.0, 2.0 * np.pi, count, endpoint=False)
+        cx, cy = center
+        return [
+            _Node([cx + radius * np.cos(a), cy + radius * np.sin(a)])
+            for a in angs
+        ]
+
+    # Nearly filled continuum: peaks exist but trough is shallow → gate rejects.
+    shallow_nodes = _ring(1.0, 10) + _ring(3.0, 10)
+    for rm in np.linspace(1.2, 2.8, 9):
+        shallow_nodes.extend(_ring(float(rm), 6))
+    shallow_edges = (
+        [(i, j) for i in range(10) for j in range(i + 1, 10)]
+        + [(10 + i, 10 + j) for i in range(10) for j in range(i + 1, 10)]
+    )
+    shallow = _Scaf(shallow_nodes, shallow_edges)
+    assert _radial_band_gap_partition(
+        shallow, min_frac=0.15, min_abs=3, min_gap_ratio=0.25,
+        hist_bins=12, min_trough_rel=0.55,
+    ) is None
+
+    # Clear two-shell mid continuum still recovers under a moderate trough gate.
+    inner = _ring(1.0, 12)
+    outer = _ring(3.0, 12)
+    mid: list = []
+    for rm in np.linspace(1.4, 2.6, 7):
+        mid.extend(_ring(float(rm), 4))
+    clear_nodes = inner + outer + mid
+    clear_edges = (
+        [(i, j) for i in range(12) for j in range(i + 1, 12)]
+        + [(12 + i, 12 + j) for i in range(12) for j in range(i + 1, 12)]
+        + [(0, 12)]
+    )
+    clear = _Scaf(clear_nodes, clear_edges)
+    pre = _radial_band_gap_partition(
+        clear, min_frac=0.15, min_abs=3, min_gap_ratio=0.25,
+        hist_bins=12, min_trough_rel=0.25,
+    )
+    assert pre is not None and pre.n_clusters == 2 and pre.partition_q_score > 0.0
+
+    # Dense one-sided tissue pulls the mean; coordinate-median stays nearer 0.
+    rng = np.random.default_rng(7)
+    skew_nodes = _ring(1.0, 12) + _ring(3.0, 12)
+    for _ in range(10):
+        skew_nodes.append(_Node([4.5 + 0.15 * rng.normal(), 0.2 * rng.normal()]))
+    for rm in np.linspace(1.4, 2.6, 5):
+        skew_nodes.extend(_ring(float(rm), 3))
+    skew_edges = (
+        [(i, j) for i in range(12) for j in range(i + 1, 12)]
+        + [(12 + i, 12 + j) for i in range(12) for j in range(i + 1, 12)]
+        + [(0, 12)]
+    )
+    skew = _Scaf(skew_nodes, skew_edges)
+    pts = np.asarray([nd.position for nd in skew_nodes], dtype=float)
+    mean_c = pts.mean(axis=0)
+    med_c = _coordinate_median(pts)
+    assert float(abs(med_c[0])) < float(abs(mean_c[0]))
+    pre_nc = _radial_band_gap_partition(
+        skew, min_frac=0.12, min_abs=3, min_gap_ratio=0.2,
+        hist_bins=14, origin="coord_median", min_trough_rel=0.2,
+    )
+    assert pre_nc is not None
+    assert pre_nc.n_clusters == 2
+    assert pre_nc.partition_q_score > 0.0
+    assert len(set(int(x) for x in pre_nc.labels[:12])) == 1
+    assert len(set(int(x) for x in pre_nc.labels[12:24])) == 1
+    assert int(pre_nc.labels[0]) != int(pre_nc.labels[12])
+
+
 def test_research_finer_split_rejects_invalid_cap() -> None:
     """#44: finer re-search is a no-op when the cap is not strictly inside (tau_min, tau*)."""
 
@@ -648,6 +758,7 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
         prefer_disconnected_prepass=True,
         prefer_radial_gap_prepass=True,
         prefer_radial_band_prepass=True,
+        prefer_noncentroid_radial_band_prepass=True,
         require_dm_split=True,
         finer_tau_cap_ratio=0.5,
         max_finer_scale_steps=12,
@@ -657,4 +768,5 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     assert _aspirational.prefer_disconnected_prepass is True
     assert _aspirational.prefer_radial_gap_prepass is True
     assert _aspirational.prefer_radial_band_prepass is True
+    assert _aspirational.prefer_noncentroid_radial_band_prepass is True
     assert _aspirational.max_finer_scale_steps == 12
