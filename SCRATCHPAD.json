@@ -1,22 +1,22 @@
 {
-  "updated_at": "2026-07-24T17:40-05:00",
-  "turn": 25,
-  "focus": { "milestone": "M1", "issue": 27, "goal": "fuller-suite validation of persist+dm; result: blocked upstream by scale selection (#44), not the gate" },
+  "updated_at": "2026-08-09T11:05-05:00",
+  "turn": 27,
+  "focus": { "milestone": "M1", "issue": 44, "goal": "fuller-suite blocker reframed: recursion won't descend into a single coarse feature to find finer sub-structure (the other half of #27's gate)" },
   "recent": [
-    "Ran persist+dm across fuller suite (/tmp/dm_validate_fuller.py): nested_spheres(gt2)->default1/persist7/dm66/persist+dm12; linked_tori(gt2)->1/1/68/1; manifold_zoo(gt1cc)->1/1/76/1. NO path recovers gt component count.",
-    "Root cause found via scale probes (/tmp/dm_probe.py,2.py): L=1 crossover picks tau*=0.81(spheres)/0.50(tori) where single-scale default_K=1; components separate only at tau~0.004/0.006 (~80x finer than tau* AND than expected_tau). Recursion terminates at root before any gate runs.",
-    "Filed #44 (scale selection too coarse to expose disconnected components). #27 stand-in deletion now gated on #44. persist+dm still validated on canonical suite (circle1/hier6/swiss1)."
+    "User corrected #44 framing: coarse tau* unifying disconnected components is CORRECT; bug is K=1-at-tau* termination never re-searching finer scales.",
+    "Reframed #44 as dual of #27: acceptance gate should OWN stop/descent, not K>=2-at-tau* heuristic.",
+    "TEMP OVERRIDE (user): subagent models restricted to composer-2.5-fast + cursor-grok-4.5-high only (credit burn); historical defaults table superseded until lifted."
   ],
   "discoveries": [
-    "The fuller-suite failure is UPSTREAM of the acceptance gate: at the characteristic/selected scale the whole disconnected scene clusters as K=1, so DM/persistence never see multi-component structure. Separation needs ~80x finer tau.",
-    "dm-alone catastrophically over-fragments (66-76 leaves) on all fuller scenes, consistent with the canonical-suite single-scale under-determination finding.",
-    "Even at ground-truth expected_tau, single-scale connectivity clustering returns K=1 for cleanly-separated shells/tori (#44 locus 2: possible Hebbian graph bridging or 64-node under-resolution)."
+    "Fuller-suite failure is UPSTREAM of the acceptance gate: at tau* the disconnected scene is K=1; separation needs ~80x finer tau — but descent never looks there.",
+    "dm-alone over-fragments (66-76 leaves) on fuller scenes; persist+dm still validated on canonical suite (c1/h6/s1).",
+    "Even at expected_tau, single-scale connectivity returns K=1 for shells/tori."
   ],
   "open_threads": [
-    "#44: decide fix locus - finer-scale first split / disconnected-component pre-pass (selection) vs Hebbian-graph bridging / node budget (clustering).",
-    "#27 stand-in deletion + default flip BLOCKED on #44; canonical-suite validation of persist+dm holds.",
-    "#43 dual-subgraph connectivity blocks on S6 dual graph; #41 PH Betti recovery."
+    "#44 design Qs: finer re-search window; stop guarantee; cheap disconnected-component pre-pass.",
+    "#27 stand-in deletion BLOCKED on #44; persist+dm validated on canonical suite.",
+    "Subagent model override active: only composer-2.5-fast / cursor-grok-4.5-high until user lifts."
   ],
-  "next_step": "Checkpoint the tracking updates. Next lever: #44 - probe whether a disconnected-lifted-component pre-pass or a finer first-split scale recovers nested_spheres/linked_tori cc=2.",
+  "next_step": "Prototype #44: recurse into K=1 regions at finer-than-parent tau*, gated by DM/persistence; confirm spheres/tori cc=2 without shattering circle/swiss.",
   "blockers": []
 }

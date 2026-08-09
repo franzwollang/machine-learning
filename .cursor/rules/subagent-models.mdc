@@ -8,9 +8,31 @@ alwaysApply: true
 Model slugs in the table are agent-adjustable per the rule-governance rule (availability
 and pricing shift); the cross-family audit rule below is PROTECTED.
 
+## TEMPORARY OVERRIDE — credit burn (active)
+
+**Until the user lifts this override, subagents may ONLY use these two model slugs:**
+
+| Allowed slug | Role under the override |
+|---|---|
+| `composer-2.5-fast` | Default for exploration, skims, summarization, general implementation, best-of-N, and other non-audit work |
+| `cursor-grok-4.5-high` | Hard features / math-heavy work, and all audits / red-teams / reviews |
+
+Do **not** select Claude, GPT, Gemini, or any other slug for subagents while this override
+is active — even if the historical defaults table below names them. If a Task tool call
+requires a `model` argument, pass one of the two allowed slugs above (or omit/`inherit`
+only when the parent is already one of those two).
+
+Cross-family audits under this override: prefer `cursor-grok-4.5-high` to review work
+produced by Composer (or by a Claude/GPT parent). Do not use Composer to audit its own
+output. Dual independent reviewers are paused until non-Grok families are allowed again.
+
+## Historical defaults (superseded while override is active)
+
 Default choices balancing cost and capability. Start at the cheapest tier that fits the
 task; escalate only when a cheaper attempt fails or the task is acceptance-path critical
-(spec math, evidence gate, scale/cluster selection).
+(spec math, evidence gate, scale/cluster selection). **Ignored while the override above
+is active** — remap every row to `composer-2.5-fast` or `cursor-grok-4.5-high` per that
+section.
 
 | Task | Model | Why |
 |---|---|---|
@@ -29,6 +51,7 @@ Claude, so reviews of Claude-written code/math go to GPT (`gpt-5.4-high`) or Gro
 (`cursor-grok-4.5-high`); if a GPT subagent wrote it, review with Claude or Gemini.
 For high-stakes derivations (SI lemmas, evidence-gate math), use two independent
 reviewers from different families and reconcile disagreements yourself.
+**(While the temporary override is active, only Grok is available for audits — see above.)**
 
 ## Delegation patterns for this repo
 

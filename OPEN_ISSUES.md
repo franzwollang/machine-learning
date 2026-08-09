@@ -86,39 +86,51 @@ Remaining work:
   `_detect_peak` in `controller.py`) once `load_crossover` is validated to dominate across
   every scenario/recursion regression — kept behind the flag until then (M2 mitigation).
 
-## 44. Scale selection picks too-coarse tau* to separate disconnected components
+## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
-Surfaced by the M1-Part-B fuller-suite validation (#27, turn 25). On genuinely
-disconnected multi-component scenes the `L=1` load-crossover selector
-(`controller._select_load_crossover`, SI S2.5.1) lands `tau*` at a scale where
-Stage-1 connectivity clustering sees the whole scene as **one** cluster, so
-recursion terminates at a single leaf and *no* downstream acceptance gate
-(default stand-ins, persistence, DM) can recover the components.
+Surfaced by the M1-Part-B fuller-suite validation (#27, turn 25). **The coarse
+`tau*` is not the bug** — a scene of disconnected components *should* have a
+coarse characteristic scale where they unify into one feature (at
+nested-spheres `tau*=0.81` a `~0.9`-wide kernel legitimately blurs the two
+shells across their radial gap into one annular feature; that is the correct
+**root** of the hierarchy). The bug is that `run_recursive_discovery`
+(`recursion.py:226`) treats a region that clusters as `K=1` at its own
+characteristic scale as **terminal**, and only ever descends into sub-clusters
+it already found. It never re-examines a single-feature region at scales *finer*
+than the parent `tau*`, where genuine sub-structure (disconnected shells/tori,
+junction patches) becomes visible. So `root(one blob) -> {shell_1, shell_2}` is
+never built.
 
-- **Evidence (`/tmp/dm_probe.py`, `/tmp/dm_probe2.py`):**
-  - nested_spheres (gt cc=2): selector `tau*=0.81`, `expected_tau=0.31`; single-scale
-    `default_K=1` at both; the shells separate (`default_K=2`) only at `tau≈0.004`
-    and re-fuse for `tau≳0.008`.
-  - linked_tori (gt cc=2): selector `tau*=0.50`, `expected_tau=0.48`; `default_K=1`
-    at both; the tori separate only at `tau≈0.006`.
-  - So the separating scale is ~80× finer than *both* the selected and the
-    ground-truth characteristic scale; disconnection is invisible at the
-    characteristic scale under the current single-scale connectivity clustering.
-- **Two candidate loci (needs a decision, likely both):**
-  1. *Selection:* the load-crossover (and persistence) anchor the coarse
-    characteristic scale of the whole scene; disconnected components need the
-    first split to occur at a finer scale (or a pre-pass that separates spatially
-    disconnected lifted-graph components before scale selection runs per region).
-  2. *Clustering:* even at `expected_tau` the single-scale connectivity clustering
-    returns K=1 for cleanly-separated shells/tori — investigate whether the
-    Hebbian lifted graph is bridging the inter-component gap at the characteristic
-    kernel width, or whether the 64-node budget under-resolves the gap.
-- **Relation to #28:** #28 covers the load-band cleanup and the persistence
-  coarse-end tau*; this is the distinct failure that the coarse anchor is
-  *too coarse to expose disconnection at all*. Fixing it unblocks the #27 stand-in
-  deletion (the fuller suite currently cannot test a stand-in replacement because
-  its structure never reaches the clustering stage) and the `@awaiting("stage1.controller")`
-  component-separation scenarios for nested_spheres / linked_tori (#41).
+- **Evidence (`/tmp/dm_probe.py`, `/tmp/dm_probe2.py`):** the finer split exists,
+  the recursion just never looks for it.
+  - nested_spheres (gt cc=2): `default_K=1` from `tau*=0.81` down to `tau≈0.008`;
+    the two shells separate (`default_K=2`) at `tau≈0.004`.
+  - linked_tori (gt cc=2): `default_K=1` at `tau*=0.50`; the two tori separate at
+    `tau≈0.006`.
+- **This is the other half of #27, not a separate scale-selection defect.** The
+  `K>=2`-at-`tau*` descent rule and the acceptance gate are duals: stopping on
+  `K=1` avoids over-fragmenting uniform manifolds (false positives) but misses
+  disconnected sub-components (false negatives, this issue); always descending
+  finer does the reverse (`dm`-alone -> 66-76 leaves). The principled fix is to
+  make the **acceptance gate own the stop/descent decision** instead of the
+  `K>=2`-at-`tau*` heuristic: descend into a region, probe scales finer than the
+  parent `tau*`, and let the DM verdict / persistence decide whether the finer
+  split is evidence-bearing (disconnected components have zero inter-block flow ->
+  block-diagonal `N` -> large homogeneity BF -> accept) or spurious (uniform arcs
+  -> reject -> terminal). The gate must both *veto* spurious splits and *trigger*
+  descent to real splits hidden below the coarse characteristic scale.
+- **Design questions to settle:** (a) how to choose the finer re-search window per
+  region (strictly `< tau*`? adaptive grid?); (b) the stopping guarantee (descent
+  ends when the gated finer split fails, or on `min_samples`/`max_depth`) so a
+  uniform manifold does not recurse indefinitely; (c) whether a cheap
+  disconnected-lifted-component pre-pass should short-circuit the obvious
+  zero-flow case before the general finer-scale search.
+- **Unblocks:** #27 stand-in deletion (the fuller suite currently cannot test a
+  stand-in replacement because its structure never reaches the clustering stage)
+  and the `@awaiting("stage1.controller")` component-separation scenarios for
+  nested_spheres / linked_tori (#41). Distinct from #28 (load-band cleanup /
+  persistence coarse-end `tau*` refinement), which is about *which* single scale
+  is picked, not about descending past it.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 

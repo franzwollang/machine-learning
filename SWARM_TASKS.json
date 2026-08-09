@@ -1,0 +1,180 @@
+{
+  "updated_at": "2026-08-09T11:32-05:00",
+  "integration_branch": "coord/integration",
+  "merge_order": [
+    "coord/A2-issue44-descent",
+    "coord/A3-issue42-star-matrix",
+    "coord/A4-issue41-topology",
+    "coord/A5-issue43-dual-connectivity",
+    "coord/A6-issue28-docs"
+  ],
+  "agents": {
+    "A1": {
+      "branch": "coord/A1-tracker",
+      "role": "tracker",
+      "queue": [
+        {
+          "id": "A1-T1",
+          "status": "ready",
+          "summary": "Seed HELLO; verify all worker HELLO lines; announce first TASK_ASSIGN snapshot"
+        },
+        {
+          "id": "A1-T2",
+          "status": "ready",
+          "summary": "After workers claim, run first MERGE_START→integration merge→tests→MERGE_DONE; refill queues"
+        },
+        {
+          "id": "A1-T3",
+          "status": "ready",
+          "summary": "Apply REQUEST_TRACKER edits to OPEN_ISSUES/PLANNING/logs; keep queues 2–3 deep"
+        }
+      ]
+    },
+    "A2": {
+      "branch": "coord/A2-issue44-descent",
+      "role": "worker",
+      "owns_issues": [44],
+      "owns_files": [
+        "code/proteus/src/proteus/stage1/recursion.py"
+      ],
+      "queue": [
+        {
+          "id": "A2-T1",
+          "status": "ready",
+          "issue": 44,
+          "summary": "Design spike: propose finer-than-parent-tau* re-search API + stop guarantee; write design note to COORDINATION (NOTE), no behavior change yet unless flag-gated"
+        },
+        {
+          "id": "A2-T2",
+          "status": "ready",
+          "issue": 44,
+          "summary": "Prototype flag-gated descent into K=1 regions (default off); unit/recursion test sketch for nested_spheres cc=2 aspiration"
+        },
+        {
+          "id": "A2-T3",
+          "status": "ready",
+          "issue": 44,
+          "summary": "Validate circle/swiss do not shatter under the flag; document results via REQUEST_TRACKER for #44"
+        }
+      ]
+    },
+    "A3": {
+      "branch": "coord/A3-issue42-star-matrix",
+      "role": "worker",
+      "owns_issues": [42],
+      "owns_files": [
+        "code/proteus/src/proteus/evidence/star_matrix.py",
+        "docs/Proteus/paper_1_foundational/SI.tex"
+      ],
+      "queue": [
+        {
+          "id": "A3-T1",
+          "status": "ready",
+          "issue": 42,
+          "summary": "Audit S10.4 vs star_matrix.py; list gap (Jacobian vs incidence proxy) in COORDINATION NOTE"
+        },
+        {
+          "id": "A3-T2",
+          "status": "ready",
+          "issue": 42,
+          "summary": "Draft SI S10.4 prose blessing incidence+rank guard OR specifying router Jacobian; keep proposed/operational labeling clear"
+        },
+        {
+          "id": "A3-T3",
+          "status": "ready",
+          "issue": 42,
+          "summary": "Align module docstring with chosen SI wording; add/adjust a focused unit test if needed; REQUEST_TRACKER to trim #42"
+        }
+      ]
+    },
+    "A4": {
+      "branch": "coord/A4-issue41-topology",
+      "role": "worker",
+      "owns_issues": [41],
+      "owns_files": [
+        "code/proteus/tests/metrics/persistent_homology.py",
+        "code/proteus/tests/scenarios/synthetic/"
+      ],
+      "queue": [
+        {
+          "id": "A4-T1",
+          "status": "ready",
+          "issue": 41,
+          "summary": "Inventory existing PH helpers + @awaiting topology tests; NOTE the filtration/reading options"
+        },
+        {
+          "id": "A4-T2",
+          "status": "ready",
+          "issue": 41,
+          "summary": "Scaffold per-region PH harness (still @awaiting if deps missing); do not flip tests without green evidence"
+        },
+        {
+          "id": "A4-T3",
+          "status": "ready",
+          "issue": 41,
+          "summary": "Document tissue-pollution + persistence-lifetime threshold proposal; REQUEST_TRACKER for #41/#25 notes"
+        }
+      ]
+    },
+    "A5": {
+      "branch": "coord/A5-issue43-dual-connectivity",
+      "role": "worker",
+      "owns_issues": [43],
+      "owns_files": [
+        "code/proteus/src/proteus/evidence/gate.py",
+        "code/proteus/tests/evidence/",
+        "code/proteus/tests/**/test*gate*"
+      ],
+      "queue": [
+        {
+          "id": "A5-T1",
+          "status": "ready",
+          "issue": 43,
+          "summary": "Map score_edit dual_connected hook + call sites; NOTE what S6 dual graph must provide"
+        },
+        {
+          "id": "A5-T2",
+          "status": "ready",
+          "issue": 43,
+          "summary": "Add pure-function stub for affected dual-subgraph connectivity (flag or clearly stubbed); property test that disconnect => reject when hook is false"
+        },
+        {
+          "id": "A5-T3",
+          "status": "ready",
+          "issue": 43,
+          "summary": "Keep Stage-1 untouched; REQUEST_TRACKER with remaining S6 dependency wording for #43"
+        }
+      ]
+    },
+    "A6": {
+      "branch": "coord/A6-issue28-docs",
+      "role": "worker",
+      "owns_issues": [28],
+      "owns_files": [
+        "docs/Proteus/paper_1_foundational/paper.tex",
+        "code/proteus/src/proteus/stage1/controller.py"
+      ],
+      "queue": [
+        {
+          "id": "A6-T1",
+          "status": "ready",
+          "issue": 28,
+          "summary": "Locate legacy load-band / _detect_peak / _legacy_slope_selector; NOTE deletion checklist (do not delete yet without A1 merge plan)"
+        },
+        {
+          "id": "A6-T2",
+          "status": "ready",
+          "issue": 28,
+          "summary": "paper.tex one-line pointer to S2.6.2 persistence as cluster-count arbiter if still missing; do not edit SI.tex (A3 owns it) or recursion.py"
+        },
+        {
+          "id": "A6-T3",
+          "status": "ready",
+          "issue": 28,
+          "summary": "If safe behind flag only: mark load_band path deprecated in controller docstring; REQUEST_TRACKER for #28 bullets + any SI wording A1 should assign later"
+        }
+      ]
+    }
+  },
+  "notes": "A1 refills queues to 2–3 ready tasks per agent after each MERGE_DONE. Workers take the first status=ready item for their id, CLAIM it, then DONE/BLOCKED."
+}

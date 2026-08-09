@@ -14,3 +14,6 @@ __pycache__/
 code/tests/artifacts/*
 !code/tests/artifacts/.gitkeep
 docs/Proteus/reference
+
+# Local swarm launch prompts (regenerate anytime; not shared state)
+_SWARM_PROMPTS.tmp.txt
