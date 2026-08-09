@@ -18,6 +18,8 @@ Green tests lock:
   ``enable_live_bmu_tally`` (A5-T43; still not Stage-1 wiring).
 * S6.2 ``A_S`` geometry + soft message-pass sketch behind
   ``enable_as_message_pass`` (A5-T44; not loopy Gaussian BP).
+* S6.2 whitened ``λ_f`` + ``μ_S`` soft solve behind
+  ``enable_mu_weighted_solve`` (A5-EXP-mu; eq. si-dual-flow-weight).
 * S6.3 boundary taxonomy behind ``enable_boundary_taxonomy``; seam stitch /
   ghost reservoir sketches behind ``enable_seam_ghost`` (A5-T45).
 * S6.4 simplex-local PL density *sketch* behind ``enable_simplex_density``
@@ -26,8 +28,9 @@ Green tests lock:
 Gaps vs full SI S6 (do **not** flip these elsewhere yet):
 
 * **S6.1** Tally + dry-run + BMU harness exist; Stage-1 live wiring still open.
-* **S6.2** Soft ``A_S`` message-pass only — no loopy Gaussian BP / ``μ_S`` /
-  whitened ``λ_f``. See module docstring acceptance-path plan (A5-T42).
+* **S6.2** Soft ``A_S`` / ``μ_S`` sketches only — no loopy Gaussian BP /
+  multi-simplex face graph. See module docstring acceptance-path plan
+  (A5-T42).
 * **S6.3** Seam/ghost sketches are scalar; no face registry / patch graph.
 * **S6.4** Density sketch only; live evaluator / mass normalization open.
 * Mass-conservation / density / benchmark ``@awaiting("stage2.dual_flow")``
@@ -59,7 +62,9 @@ from proteus.stage2 import (
     classify_boundary_facets,
     conservation_residual_r_cons,
     dry_run_dual_from_edit,
+    epsilon_flux,
     locate_bmu_simplex,
+    mu_S_weight,
     resolve_dual_connected,
     route_live_bmu_face_tallies,
     simplex_local_density,
@@ -67,8 +72,10 @@ from proteus.stage2 import (
     simplex_volume,
     solve_as_message_pass,
     solve_conservative_pressures,
+    solve_mu_weighted_pressures,
     stitch_orientation_seam_pressures,
     vertex_weights_from_facet_pressures,
+    whiten_empirical_pressures,
 )
 from proteus.types import (
     BoundaryType,
@@ -739,6 +746,7 @@ def test_acceptance_path_plan_documented_in_dual_flow_module():
     assert cfg.enable_face_tallies is False
     assert cfg.enable_live_bmu_tally is False
     assert cfg.enable_as_message_pass is False
+    assert cfg.enable_mu_weighted_solve is False
     assert cfg.enable_boundary_taxonomy is False
     assert cfg.enable_seam_ghost is False
     assert cfg.enable_simplex_density is False
@@ -872,3 +880,121 @@ def test_seam_stitch_antisymmetric_and_ghost_leak():
     assert ghost is not None
     np.testing.assert_allclose(ghost.adjusted, [0.75, 2.0, 2.25])
     assert ghost.ghost_load == pytest.approx(0.25 * 1.0 + 0.25 * 3.0)
+
+
+# ---------------------------------------------------------------------------
+# A5-EXP-mu: whitened λ_f + μ_S soft solve (default off)
+# ---------------------------------------------------------------------------
+
+
+def test_mu_weighted_solve_flag_off_returns_none():
+    """enable_mu_weighted_solve=False ⇒ solve_mu_weighted_pressures is None."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    A_S = build_divergence_stencil(P)
+    hat = np.ones(3)
+    assert solve_mu_weighted_pressures(hat, A_S) is None
+    assert solve_mu_weighted_pressures(hat, A_S, config=DualFlowConfig()) is None
+
+
+def test_mu_S_weight_matches_si_formula():
+    """μ_S = 0.1 * λ̄ / (‖A_S‖_F² + ε_A) (eq. si-dual-flow-weight)."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    A_S = build_divergence_stencil(P)
+    fro2 = float(np.sum(A_S * A_S))
+    eps_A = 1e-8
+    expected = 0.1 * 1.0 / (fro2 + eps_A)
+    assert mu_S_weight(A_S, bar_lambda=1.0, mu_scale=0.1, eps_A=eps_A) == pytest.approx(
+        expected
+    )
+
+
+def test_whiten_and_mu_weighted_solve_reduces_r_cons():
+    """Whitening + μ_S soft solve reports mu_S and reduces r_cons vs hat."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    A_S = build_divergence_stencil(P)
+    hat = np.array([2.0, 0.1, 0.1])
+    r0 = conservation_residual_r_cons(A_S, hat)
+    assert r0 > 0.0
+
+    whitened, std = whiten_empirical_pressures(hat, floor=1e-8)
+    assert whitened.shape == (3,)
+    assert np.all(std >= 1e-8)
+
+    cfg = DualFlowConfig(
+        enable_mu_weighted_solve=True,
+        bp_damping=0.5,
+        bp_max_iters=12,
+        as_step=0.5,
+        mu_scale=0.1,
+    )
+    out = solve_mu_weighted_pressures(hat, A_S, config=cfg)
+    assert out is not None
+    assert out.mu_S > 0.0
+    assert out.lambda_f.shape == (3,)
+    assert np.allclose(out.lambda_f, 1.0)
+    assert out.r_cons < r0
+    assert out.pressures.shape == (3,)
+    assert np.isfinite(out.hessian_cond)
+    assert out.epsilon_flux >= 0.0
+    assert isinstance(out.spectrum_damped, bool)
+    assert "μ_S" in out.note or "mu" in out.note.lower()
+
+
+def test_epsilon_flux_distinct_from_r_cons():
+    """ε_flux = ‖Ap‖²/(‖p‖²+ε); r_cons also divides by ‖A‖_F²+ε_A."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    A_S = build_divergence_stencil(P)
+    p = np.array([2.0, 0.1, 0.1])
+    e = epsilon_flux(A_S, p)
+    r = conservation_residual_r_cons(A_S, p)
+    assert e > 0.0 and r > 0.0
+    # Same numerator flux²; r_cons further / (‖A‖_F²+ε_A) in num path → r < e
+    # for nondegenerate A_S with fro² > 1 typically; at least they differ.
+    assert e != pytest.approx(r)
+
+
+def test_spectrum_cond_cap_triggers_damping_flag():
+    """spectrum_cond_cap=0 forces spectrum_damped=True on nontrivial Hess."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    A_S = build_divergence_stencil(P)
+    hat = np.array([2.0, 0.1, 0.1])
+    cfg = DualFlowConfig(
+        enable_mu_weighted_solve=True,
+        bp_max_iters=4,
+        as_step=0.5,
+        spectrum_cond_cap=0.0,
+    )
+    out = solve_mu_weighted_pressures(hat, A_S, config=cfg)
+    assert out is not None
+    assert out.spectrum_damped is True
+    assert out.hessian_cond > 0.0
+
+
+def test_live_bmu_tallies_feed_mu_weighted_solve():
+    """Compose A5-T43 live tallies → A5-EXP-mu solve on BMU winner (flags on)."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    positions = {0: left}
+    cfg_tally = DualFlowConfig(enable_live_bmu_tally=True, tally_scale=1.0)
+    live = route_live_bmu_face_tallies(
+        [np.array([0.7, 0.7]), np.array([0.6, 0.6])],
+        positions,
+        config=cfg_tally,
+    )
+    assert live is not None
+    hat = live.tallies_by_simplex[0].tallies
+    A_S = build_divergence_stencil(left)
+    cfg_solve = DualFlowConfig(
+        enable_mu_weighted_solve=True,
+        bp_max_iters=10,
+        as_step=0.5,
+    )
+    out = solve_mu_weighted_pressures(hat, A_S, config=cfg_solve)
+    assert out is not None
+    assert out.r_cons >= 0.0
+    assert out.pressures.shape == hat.shape

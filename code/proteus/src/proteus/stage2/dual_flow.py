@@ -15,11 +15,14 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   default off; A5-T43) — still not acceptance-path Stage-1 wiring.
 * **S6.2** loopy Gaussian BP conservative reconstruction (real factor-graph
   solve; this module sketches an identity / damped copy behind
-  ``enable_conservative_bp`` and an ``A_S`` residual / soft message-pass
-  behind ``enable_as_message_pass``). Remaining real-BP gaps: whitened
-  ``λ_f`` data term; ``μ_S`` conservation weights (eq. si-dual-flow-weight);
-  full loopy Gaussian BP with spectrum conditioning; global ``ε_flux``;
-  online tallies → offline solve schedule; true-manifold flux zeroing (S6.3).
+  ``enable_conservative_bp``, an ``A_S`` residual / soft message-pass
+  behind ``enable_as_message_pass``, and a whitened ``λ_f`` / ``μ_S``-
+  weighted soft solve behind ``enable_mu_weighted_solve`` (eq.
+  si-dual-flow-weight; A5-EXP-mu) with soft spectrum step-shrink and an
+  ungated ``ε_flux`` health-check helper (A5-EXP-flux). Remaining real-BP
+  gaps: full loopy Gaussian BP on the multi-simplex face/factor graph;
+  online tallies → offline solve schedule; true-manifold flux zeroing
+  (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
   seams land behind ``enable_boundary_taxonomy`` (proposed; default off).
   Heuristic single-owner → true-manifold; hint sets override. Seam stitch /
@@ -49,6 +52,9 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
 * ``DualFlowConfig.enable_as_message_pass`` — when off,
   :func:`solve_as_message_pass` returns ``None``; when on, soft ``A_S``
   residual nudge (not full loopy BP).
+* ``DualFlowConfig.enable_mu_weighted_solve`` — when off,
+  :func:`solve_mu_weighted_pressures` returns ``None``; when on, soft
+  quadratic with whitened ``λ_f`` + SI ``μ_S`` (not loopy BP).
 * ``DualFlowConfig.enable_boundary_taxonomy`` — when off,
   :func:`classify_boundary_facets` returns ``None``.
 * ``DualFlowConfig.enable_seam_ghost`` — when off, seam stitch / ghost
@@ -105,6 +111,7 @@ __all__ = [
     "LiveBmuTallyResult",
     "SeamStitchResult",
     "GhostReservoirResult",
+    "MuWeightedSolveResult",
     "build_dual_adjacency",
     "build_dual_adjacency_from_complex",
     "dry_run_dual_from_edit",
@@ -115,7 +122,11 @@ __all__ = [
     "route_live_bmu_face_tallies",
     "build_divergence_stencil",
     "conservation_residual_r_cons",
+    "epsilon_flux",
     "solve_as_message_pass",
+    "whiten_empirical_pressures",
+    "mu_S_weight",
+    "solve_mu_weighted_pressures",
     "classify_boundary_facets",
     "stitch_orientation_seam_pressures",
     "apply_ghost_reservoir",
@@ -164,6 +175,12 @@ class DualFlowConfig:
         ``None``. When ``True``, soft-projects pressures toward ``ker(A_S)``
         while anchoring empirical tallies and reports nonzero ``r_cons``
         (A5-T44 sketch — **not** loopy Gaussian BP).
+    enable_mu_weighted_solve:
+        When ``False`` (default), :func:`solve_mu_weighted_pressures`
+        returns ``None``. When ``True``, soft-minimizes the SI S6.2
+        whitened ``λ_f`` data term plus ``μ_S‖A_S p‖²`` conservation
+        (eq. si-dual-flow-weight; A5-EXP-mu). Still **not** loopy Gaussian
+        BP on the face/factor graph.
     enable_boundary_taxonomy:
         When ``False`` (default), :func:`classify_boundary_facets` returns
         ``None``. When ``True``, labels single-owner facets via SI S6.3
@@ -194,6 +211,18 @@ class DualFlowConfig:
     as_step:
         Soft conservation gradient step for :func:`solve_as_message_pass`
         (default ``0.25``). Operational proposal-path only.
+    mu_scale:
+        Leading constant in SI ``μ_S = mu_scale * λ̄_S / (‖A_S‖_F² + ε_A)``
+        (default ``0.1``; SI S6.2 / S14.3 operational). Tunable toward
+        ``0.01``–``1.0`` when residual balance drifts.
+    whiten_floor:
+        Floor on running empirical std used to whiten ``hat p_f``
+        (default ``1e-8``). Operational / numerical.
+    spectrum_cond_cap:
+        Soft spectrum-damping trigger for :func:`solve_mu_weighted_pressures`
+        (default ``1e6``). When local Hessian ``cond`` exceeds this, the
+        gradient step is halved each iteration (proposal-path stand-in for
+        SI ``damping when spectra are poorly conditioned``).
     ghost_coupling:
         Weak leak fraction in ``[0, 1]`` from computational-boundary
         pressures into the ghost reservoir (default ``0.1``). Operational.
@@ -204,6 +233,7 @@ class DualFlowConfig:
     enable_face_tallies: bool = False
     enable_live_bmu_tally: bool = False
     enable_as_message_pass: bool = False
+    enable_mu_weighted_solve: bool = False
     enable_boundary_taxonomy: bool = False
     enable_seam_ghost: bool = False
     enable_simplex_density: bool = False
@@ -213,6 +243,9 @@ class DualFlowConfig:
     volume_floor: float = 1e-12
     as_eps: float = 1e-8
     as_step: float = 0.25
+    mu_scale: float = 0.1
+    whiten_floor: float = 1e-8
+    spectrum_cond_cap: float = 1e6
     ghost_coupling: float = 0.1
 
 
@@ -918,6 +951,30 @@ def conservation_residual_r_cons(
     return num / den
 
 
+def epsilon_flux(
+    divergence_stencil: np.ndarray,
+    pressures: np.ndarray,
+    *,
+    eps: float = 1e-12,
+) -> float:
+    """Single-simplex SI S6.2 ``ε_flux`` health-check shape (ungated).
+
+    ``‖A_S p‖₂² / (‖p‖₂² + ε)`` — the global post-solve flux diagnostic
+    (eq. after si-dual-flow-residuals). Distinct from ``r_cons``, which
+    normalizes by ``‖A_S‖_F² + ε_A``. Multi-simplex summation remains a
+    future face-graph wiring step.
+    """
+
+    A_S = np.asarray(divergence_stencil, dtype=float)
+    p = np.asarray(pressures, dtype=float).reshape(-1)
+    if A_S.ndim != 2 or A_S.shape[1] != p.shape[0]:
+        raise ValueError(
+            f"A_S shape {A_S.shape} incompatible with pressures length {p.shape[0]}"
+        )
+    flux = A_S @ p
+    return float(np.dot(flux, flux)) / (float(np.dot(p, p)) + float(eps))
+
+
 def solve_as_message_pass(
     empirical_pressures: np.ndarray,
     divergence_stencil: np.ndarray,
@@ -979,6 +1036,197 @@ def solve_as_message_pass(
         note=(
             "sketch only: soft A_S message-pass; full loopy Gaussian BP "
             "(SI S6.2) not implemented"
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class MuWeightedSolveResult:
+    """SI S6.2 ``μ_S``-weighted soft solve sketch (proposal-path; A5-EXP-mu).
+
+    Single-simplex soft gradient on the whitened data + conservation
+    objective. ``hessian_cond`` is ``cond(diag(λ) + μ A_Sᵀ A_S)`` (whitened
+    scaling) for spectrum diagnostics; ``epsilon_flux`` is the SI S6.2
+    post-solve flux health check on the unwhitened pressures.
+    """
+
+    empirical: np.ndarray
+    empirical_whitened: np.ndarray
+    pressures: np.ndarray
+    lambda_f: np.ndarray
+    mu_S: float
+    r_data: float
+    r_cons: float
+    epsilon_flux: float
+    iters: int
+    hessian_cond: float
+    spectrum_damped: bool
+    note: str = (
+        "sketch only: whitened λ_f + μ_S soft solve; full loopy Gaussian BP "
+        "(SI S6.2) not implemented"
+    )
+
+
+def whiten_empirical_pressures(
+    empirical_pressures: np.ndarray,
+    running_std: np.ndarray | None = None,
+    *,
+    floor: float = 1e-8,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Whiten ``hat p_f`` by running empirical std (SI S6.2).
+
+    Returns ``(whitened, std_used)``. When ``running_std`` is ``None``, uses
+    ``max(|hat|, floor)`` per facet as a one-shot stand-in (proposal-path;
+    online tallies would supply a real running std).
+    """
+
+    hat = np.asarray(empirical_pressures, dtype=float).reshape(-1)
+    fl = float(floor)
+    if fl <= 0.0:
+        raise ValueError("whiten_floor must be > 0")
+    if running_std is None:
+        std = np.maximum(np.abs(hat), fl)
+    else:
+        std = np.asarray(running_std, dtype=float).reshape(-1)
+        if std.shape != hat.shape:
+            raise ValueError(
+                f"running_std shape {std.shape} != pressures {hat.shape}"
+            )
+        std = np.maximum(std, fl)
+    return hat / std, std
+
+
+def mu_S_weight(
+    divergence_stencil: np.ndarray,
+    *,
+    bar_lambda: float = 1.0,
+    mu_scale: float = 0.1,
+    eps_A: float = 1e-8,
+) -> float:
+    """SI S6.2 conservation weight ``μ_S`` (eq. si-dual-flow-weight).
+
+    ``μ_S = mu_scale * λ̄_S / (‖A_S‖_F² + ε_A)`` with operational
+    ``mu_scale=0.1`` (S14.3).
+    """
+
+    A_S = np.asarray(divergence_stencil, dtype=float)
+    if A_S.ndim != 2:
+        raise ValueError("divergence_stencil must be 2-D")
+    fro2 = float(np.sum(A_S * A_S))
+    return float(mu_scale) * float(bar_lambda) / (fro2 + float(eps_A))
+
+
+def solve_mu_weighted_pressures(
+    empirical_pressures: np.ndarray,
+    divergence_stencil: np.ndarray,
+    *,
+    running_std: np.ndarray | None = None,
+    lambda_f: np.ndarray | None = None,
+    config: DualFlowConfig | None = None,
+) -> MuWeightedSolveResult | None:
+    """Whitened ``λ_f`` + ``μ_S`` soft solve (SI S6.2; A5-EXP-mu).
+
+    When ``enable_mu_weighted_solve`` is off, returns ``None``. When on,
+    soft-minimizes
+
+        Σ_f λ_f (p_f - hat̃_f)² + μ_S ‖A_S p‖₂²
+
+    with baseline ``λ_f = 1`` after whitening (SI) and
+    ``μ_S = 0.1 λ̄_S / (‖A_S‖_F² + ε_A)``. Gradient steps with
+    ``bp_damping`` / ``bp_max_iters`` / ``as_step`` — **not** loopy
+    Gaussian BP. Do **not** flip ``@awaiting("stage2.dual_flow")``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_mu_weighted_solve:
+        return None
+
+    hat_raw = np.asarray(empirical_pressures, dtype=float).reshape(-1)
+    A_S = np.asarray(divergence_stencil, dtype=float)
+    if A_S.ndim != 2 or A_S.shape[1] != hat_raw.shape[0]:
+        raise ValueError(
+            f"divergence_stencil shape {A_S.shape} incompatible with "
+            f"pressures length {hat_raw.shape[0]}"
+        )
+
+    hat_w, std = whiten_empirical_pressures(
+        hat_raw, running_std, floor=float(cfg.whiten_floor)
+    )
+    n = hat_w.shape[0]
+    if lambda_f is None:
+        lam = np.ones(n, dtype=float)
+    else:
+        lam = np.asarray(lambda_f, dtype=float).reshape(-1)
+        if lam.shape != (n,):
+            raise ValueError(f"lambda_f shape {lam.shape} != ({n},)")
+        if np.any(lam < 0.0):
+            raise ValueError("lambda_f must be nonnegative")
+
+    bar_lam = float(np.mean(lam))
+    mu = mu_S_weight(
+        A_S,
+        bar_lambda=bar_lam,
+        mu_scale=float(cfg.mu_scale),
+        eps_A=float(cfg.as_eps),
+    )
+    damp = float(cfg.bp_damping)
+    if not 0.0 <= damp <= 1.0:
+        raise ValueError("bp_damping must be in [0, 1]")
+    iters = int(cfg.bp_max_iters)
+    if iters < 1:
+        raise ValueError("bp_max_iters must be >= 1")
+    step = float(cfg.as_step)
+    if step < 0.0:
+        raise ValueError("as_step must be >= 0")
+
+    # Soft gradient on  Σ λ (p_w - hat_w)² + μ ‖A_S (p_w ⊙ std)‖²
+    # Work in whitened coords; evaluate conservation on unwhitened pressures.
+    p_w = hat_w.copy()
+    AtA = A_S.T @ A_S
+    scale = std.reshape(-1, 1) * AtA * std.reshape(1, -1)
+    hess = np.diag(lam) + mu * scale
+    try:
+        cond = float(np.linalg.cond(hess))
+    except np.linalg.LinAlgError:
+        cond = float("inf")
+    spectrum_damped = bool(cond > float(cfg.spectrum_cond_cap))
+    eff_step = step
+    if spectrum_damped:
+        # SI: "damping when spectra are poorly conditioned" — soft stand-in.
+        eff_step = step * 0.5
+
+    for i in range(iters):
+        p_w = (1.0 - damp) * hat_w + damp * p_w
+        p_phys = p_w * std
+        grad = lam * (p_w - hat_w) + mu * (std * (AtA @ p_phys))
+        use_step = eff_step
+        if spectrum_damped:
+            use_step = eff_step / float(2 ** min(i, 8))
+        p_w = p_w - use_step * grad
+
+    p = p_w * std
+
+    eps = 1e-12
+    r_data = float(np.sum((p - hat_raw) ** 2) / (np.sum(hat_raw**2) + eps))
+    r_cons = conservation_residual_r_cons(
+        A_S, p, eps_A=float(cfg.as_eps), eps=eps
+    )
+    e_flux = epsilon_flux(A_S, p, eps=eps)
+    return MuWeightedSolveResult(
+        empirical=hat_raw,
+        empirical_whitened=hat_w,
+        pressures=p,
+        lambda_f=lam,
+        mu_S=mu,
+        r_data=r_data,
+        r_cons=r_cons,
+        epsilon_flux=e_flux,
+        iters=iters,
+        hessian_cond=cond,
+        spectrum_damped=spectrum_damped,
+        note=(
+            "sketch only: whitened λ_f + μ_S soft solve; full loopy Gaussian "
+            "BP / multi-simplex face graph (SI S6.2) not implemented"
         ),
     )
 
