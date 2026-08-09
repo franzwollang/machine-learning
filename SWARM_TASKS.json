@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T12:55-05:00",
+  "updated_at": "2026-08-09T13:05-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -14,17 +14,17 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T13",
+          "id": "A1-T16",
           "status": "ready",
-          "summary": "Next cadence: scoop tips; keep #44 SI A+C held (nested still 1-leaf); verify A3 SI load_band trim + lifetime_frac place"
+          "summary": "Next cadence: scoop A2/A4 mid-turn tips; keep #44 SI A+C held until recovery evidence"
         },
         {
-          "id": "A1-T14",
+          "id": "A1-T17",
           "status": "ready",
-          "summary": "Assigned A3-T12 to place A4 lifetime_frac SI draft; confirm after DONE"
+          "summary": "Confirm A6 persistence.py docstring trim + optional resolve_within_interval assign after DONE"
         },
         {
-          "id": "A1-T15",
+          "id": "A1-T18",
           "status": "ready",
           "summary": "Watch dual_flow landing; if present, re-point A5 from idle watch to wiring CLAIM"
         }
@@ -70,22 +70,22 @@
       ],
       "queue": [
         {
-          "id": "A3-T10",
-          "status": "ready",
-          "issue": 28,
-          "summary": "CLAIM SI.tex: drop S14.3/S2.5.1 'retained behind flag'/DEPRECATED load_band sentences (code deleted). Also flag stale persistence.py module docstring 'load-band transition default' via REQUEST_TRACKER (not A3-owned file)"
-        },
-        {
-          "id": "A3-T12",
-          "status": "ready",
-          "issue": 41,
-          "summary": "CLAIM SI.tex: place A4 mailbox draft for DEFAULT_LIFETIME_FRAC=0.5 (S14.2 clause + S14.3 operational row); include tissue/per-region caveat; do NOT claim fitted-circle recovery"
-        },
-        {
-          "id": "A3-T11",
+          "id": "A3-T13",
           "status": "ready",
           "issue": 44,
-          "summary": "Idle hold: #44 SI A+C paragraph — nested/tori still 1-leaf under recommended pairing; wait for A1 assign after recovery evidence"
+          "summary": "Idle hold: #44 SI A+C paragraph — nested/tori still 1-leaf; wait for A1 assign after recovery evidence"
+        },
+        {
+          "id": "A3-T14",
+          "status": "ready",
+          "issue": 28,
+          "summary": "Optional NOTE: confirm SI has no remaining DEPRECATED/retained-behind-flag load_band rows after T10; REQUEST_TRACKER if any remnant"
+        },
+        {
+          "id": "A3-T15",
+          "status": "ready",
+          "issue": 41,
+          "summary": "Idle: no further SI #41 edit unless A1 assigns after fitted-region evidence; hold only"
         }
       ]
     },
@@ -133,22 +133,22 @@
       ],
       "queue": [
         {
-          "id": "A5-T10",
+          "id": "A5-T13",
           "status": "ready",
           "issue": 43,
           "summary": "Re-check integration each turn for stage2/dual_flow; if present, CLAIM wiring into affected_dual_subgraph_connected"
         },
         {
-          "id": "A5-T11",
-          "status": "ready",
-          "issue": 43,
-          "summary": "Optional: one NOTE cross-linking DualAdjacency Protocol to SI S6.2/S10.4 section anchors (no SI edit — REQUEST_TRACKER if prose needed)"
-        },
-        {
-          "id": "A5-T12",
+          "id": "A5-T14",
           "status": "ready",
           "issue": 43,
           "summary": "REPORT via NOTE if still blocked on S6; keep queue warm without drive-by Stage-1 edits"
+        },
+        {
+          "id": "A5-T15",
+          "status": "ready",
+          "issue": 43,
+          "summary": "Optional: skim dual_flow-related awaiting markers; NOTE any additional wiring surfaces beyond gate hook"
         }
       ]
     },
@@ -161,29 +161,30 @@
       "owns_files": [
         "docs/Proteus/paper_1_foundational/paper.tex",
         "code/proteus/src/proteus/stage1/controller.py",
+        "code/proteus/src/proteus/stage1/persistence.py",
         "code/proteus/tests/stage1/test_scale_search_persistence.py"
       ],
       "queue": [
         {
-          "id": "A6-T10",
+          "id": "A6-T13",
           "status": "ready",
           "issue": 28,
-          "summary": "Grep confirm no selector=load_band remains; NOTE any stale SI/paper/persistence.py pointers for A3/A1"
+          "summary": "CLAIM persistence.py: rewrite module docstring — load_band deleted; selectors are load_crossover/persistence only"
         },
         {
-          "id": "A6-T11",
+          "id": "A6-T14",
           "status": "ready",
           "issue": 28,
-          "summary": "If A1 assigns: prototype PersistenceConfig.resolve_within_interval='load_crossover' behind default-off flag (else hold NOTE-only)"
+          "summary": "ASSIGNED: prototype PersistenceConfig.resolve_within_interval='load_crossover' behind default-off flag; no default flip; tests for flag-off parity"
         },
         {
-          "id": "A6-T12",
+          "id": "A6-T15",
           "status": "ready",
           "issue": 28,
-          "summary": "Paper.tex: one-line check that load_band is not still described as live selector; REQUEST_TRACKER if SI-only fix needed"
+          "summary": "NOTE hierarchy tau* under resolve_within_interval=load_crossover vs none; no awaiting flips; REQUEST_TRACKER with numbers"
         }
       ]
     }
   },
-  "notes": "2026-08-09T12:55: final scoop A2 nested/tori 1-leaf + docs, A4 fitted-circle FINDING + SI draft, A6 deletion DONE; assigned A3-T10/T12; refilled A2/A4/A6."
+  "notes": "2026-08-09T13:05: scooped A3 SI load_band trim + lifetime_frac place, A5 DualAdjacency SI anchors, A6 T10–T12 greps; assigned A6 persistence.py + resolve_within_interval; refilled A3/A5/A6."
 }

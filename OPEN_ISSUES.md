@@ -83,10 +83,11 @@ Remaining work:
   of the persistent interval (hierarchical tau*=0.36 vs expected 0.0225); refine toward the
   within-interval characteristic scale before making persistence the default for structured
   regions. Design recommendation (A6): hybrid — persistence as accept/reject arbiter, then
-  within-interval `load_crossover` resolve behind a flag (default off); do not change defaults
-  yet.
-- **SI cleanup after deletion:** drop S14.3/S2.5.1 "retained behind flag" / DEPRECATED
-  `load_band` sentences now that the code path is gone (A3).
+  within-interval `load_crossover` resolve behind a flag
+  (`PersistenceConfig.resolve_within_interval`, default off); do not change defaults yet.
+- **Docstring stale:** `stage1/persistence.py` module docstring still says the legacy
+  load-band selector is the transition default — rewrite for `load_crossover` /
+  `persistence` only (code path already deleted; SI S2.5.1/S14.3 cleaned).
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -128,7 +129,7 @@ circle `b1 = 1` target of #25.
   the right input — band holes are essential (#25).
 - **Landed (A4 harness):** `per_region_topology` / lifetime helpers with
   `FILTRATION_MULT=1.5` (SI S14.2) and `DEFAULT_LIFETIME_FRAC=0.5` (proposal-path
-  operational — must be logged in SI S14.2/S14.3 before any test flip);
+  operational; now logged in SI S14.2/S14.3);
   `tests/scenarios/synthetic/test_ph_harness_scaffold.py` clean-geometry smokes green;
   recovery xfails unchanged.
 - **FINDING (A4 diagnostics):** on tissue-polluted whole clouds (`tissue_fraction~0.2`),
@@ -142,13 +143,12 @@ circle `b1 = 1` target of #25.
   yields `b1=0` (whole and accepted-region); lifetime inflates `b0` still with
   `b1=0`. NN signal-label filter recovers `b1=1` only near `~8*sigma*` (existence
   proof, not SI default). Do not flip awaiting tests.
-- **SI draft ready (A4 mailbox):** S14.2 lifetime clause + S14.3
-  `lifetime_frac=0.5` operational row — A3 to place when assigned (proposal-path;
-  do not claim fitted recovery in SI).
+- **Landed (SI log):** S14.2 lifetime-reading clause + S14.3 `lifetime_frac=0.5`
+  operational row (proposal-path; tissue/per-region caveat; no fitted-circle recovery
+  claim).
 - **Remaining before flipping recovery tests:**
   1. *Fitted-region evidence* that recovers Betti at an SI-defensible reading.
-  2. *Threshold logging* — place A4’s `DEFAULT_LIFETIME_FRAC` draft in SI S14.2/S14.3.
-  3. *Per-region harness on nested_spheres clean shells* as a stepping stone.
+  2. *Per-region harness on nested_spheres clean shells* as a stepping stone.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
