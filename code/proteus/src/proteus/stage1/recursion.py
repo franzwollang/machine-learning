@@ -115,11 +115,11 @@ class RecursionConfig:
     prepass usually misses concentric shells because the lifted graph stays
     **one CC** (or splits into tiny noise fragments) across the finer walk —
     shells remain radius-bridged.  A radial gap in distance-from-centroid on
-    scaffold positions recovers shell membership when a clear gap exists
-    (oracle / unit scaffold), which motivates
-    ``prefer_radial_gap_prepass`` (#44, proposed / operational, default off).
-    Pair with ``require_persistent_split``; do not flip awaiting tests until
-    e2e leaf/ARI recovery is green.
+    scaffold positions recovers shell membership on clean two-ring unit
+    scaffolds (``prefer_radial_gap_prepass``, default off).  E2E (n_seeds=8):
+    persist+radial+``steps<=4`` keeps circle=1 but nested stays 1 leaf;
+    deeper steps (8–12) shatter circle (10–22 leaves) and yield nested 3–4
+    leaves with ARI≈0 — still not shell recovery.  Hold awaiting / SI A+C.
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
