@@ -49,6 +49,16 @@ __all__ = [
 class DualAdjacency(Protocol):
     """S6 dual / face-graph adjacency list shape (SI S6.2 / S10.4; #43).
 
+    SI anchors (read-only cross-links; no SI prose change this turn):
+
+    * Producer home — SI **S6 Dual Flow** ``\\label{sec:si-dual-flow}``;
+      subsection **S6.2 Conservative Reconstruction** (face/factor graph that
+      yields simplex adjacency once dual-flow lands as ``stage2.dual_flow``).
+    * Consumer home — SI **S10.4 Star Matrix Identifiability**, paragraph
+      **Dynamic preservation rule** (condition A2: affected dual subgraph
+      remains connected for an edit to be evidence-bearing). Operational
+      star-matrix proxy labeled ``\\label{par:si-star-runtime-matrix}``.
+
     Contract for values passed as ``dual_adjacency`` (not invented here):
 
     * **Vertices** — simplex ids of the *post-edit dry-run* complex.
