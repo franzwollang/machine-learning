@@ -28,12 +28,14 @@ class ScaleSearchConfig:
     ``"load_crossover"`` (default) selects the grid point at the variance-load
     ``load approx 1`` up-crossing --- the coarsest scale at which the mean
     per-node variance first reaches the cap ``tau`` (SI S2.5.1).  ``"load_band"``
-    is the legacy ``0.65 <= load <= 1`` coarsest-in-band heuristic retained
-    behind this flag for regression bisection during the M2 transition
-    (OPEN_ISSUES #28).  ``"persistence"`` uses the Q-partition persistence signal
-    --- the coarsest ``tau`` at which a multi-cluster partition persists across
-    adjacent grid points --- for structural (recursion) timing, falling back to
-    the ``load_crossover`` resolution scale when no split persists.  Persistence
+    is **DEPRECATED** (OPEN_ISSUES #28): the legacy ``0.65 <= load <= 1``
+    coarsest-in-band heuristic, retained only behind this flag for regression
+    bisection during the M2 transition; do not use for new work --- prefer
+    ``load_crossover`` (resolution) or ``persistence`` (structural timing).
+    ``"persistence"`` uses the Q-partition persistence signal --- the coarsest
+    ``tau`` at which a multi-cluster partition persists across adjacent grid
+    points --- for structural (recursion) timing, falling back to the
+    ``load_crossover`` resolution scale when no split persists.  Persistence
     requires the per-grid-point partitions, so selecting it implies
     ``record_partitions``.
     """
@@ -403,7 +405,14 @@ def _select_load_band(
     tau_grid: np.ndarray,
     stabilized: list[bool],
 ) -> int:
-    """Legacy: select characteristic scale near the load≈1.0 crossover.
+    """DEPRECATED (OPEN_ISSUES #28): legacy load-band characteristic-scale rule.
+
+    Retained only behind ``ScaleSearchConfig.selector="load_band"`` for
+    regression bisection.  New code should use ``_select_load_crossover``
+    (default resolution selector) or the persistence path.  Scheduled for
+    deletion once ``load_crossover`` dominates every scenario/recursion
+    regression (same issue: also drops dormant ``_legacy_slope_selector`` /
+    ``_detect_peak``).
 
     The grid is in descending τ order (coarse to fine).  Among stabilized
     grid points with ``0.65 <= load <= 1.0``, take the **coarsest**
@@ -467,7 +476,11 @@ def _legacy_slope_selector(
     tau_grid: np.ndarray,
     stabilized: list[bool],
 ) -> int:
-    """Slope-based selector (kept for diagnostics)."""
+    """DEPRECATED / dormant (OPEN_ISSUES #28): slope-based selector.
+
+    No callers remain; kept only until the load-band deletion pass removes it
+    with ``_select_load_band`` and ``_detect_peak``.
+    """
 
     n = len(tau_grid)
     if n < 3:
@@ -504,7 +517,10 @@ def _legacy_slope_selector(
 
 
 def _detect_peak(phi: np.ndarray) -> int:
-    """Find the best peak in the response trace.
+    """DEPRECATED / dormant (OPEN_ISSUES #28): peak finder for response traces.
+
+    No callers remain in the active scale-search path; deletion is bundled
+    with the legacy load-band selector removal.
 
     Uses centered second differences to find local maxima among eligible
     (non -inf) grid points.  Falls back to argmax if no interior peak
