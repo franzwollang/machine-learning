@@ -784,6 +784,124 @@ def format_dual_scale_ph_table(result: DualScalePHResult) -> str:
     return "\n".join(lines)
 
 
+@dataclass(frozen=True)
+class ScheduledMultRegionRow:
+    """One region under a per-region filtration_mult schedule (#41 / A4-T33)."""
+
+    region_id: int
+    n_points: int
+    sigma_star: float
+    filtration_mult: float
+    betti: tuple[int, ...]
+    match: bool | None
+
+
+@dataclass(frozen=True)
+class ScheduledMultPHResult:
+    """Per-region PH with an explicit filtration_mult schedule."""
+
+    rows: tuple[ScheduledMultRegionRow, ...]
+    mult_by_region: tuple[tuple[int, float], ...]
+    expected_betti: tuple[int, ...] | None
+    all_match: bool | None
+    scenario: str
+
+
+def run_scheduled_mult_per_region_ph(
+    all_positions: np.ndarray,
+    region_labels: np.ndarray,
+    sigma_star: float | Sequence[float],
+    *,
+    mult_by_region: dict[int, float] | Sequence[tuple[int, float]],
+    scenario: str = "scheduled_mult",
+    reading: ReadingMode = "fixed_threshold",
+    max_dim: int = 2,
+    lifetime_frac: float = DEFAULT_LIFETIME_FRAC,
+    expected_betti: tuple[int, ...] | None = None,
+) -> ScheduledMultPHResult:
+    """Run PH with a distinct ``filtration_mult`` per region label (#41).
+
+    Used for nested shell schedules (e.g. coarse=3 on the inner shell and
+    circle-calibrated mult=6 on the outer). Evidence-gathering only — does not
+    change SI ``FILTRATION_MULTIPLIER``.
+    """
+    if isinstance(mult_by_region, dict):
+        schedule = [(int(k), float(v)) for k, v in sorted(mult_by_region.items())]
+    else:
+        schedule = [(int(k), float(v)) for k, v in mult_by_region]
+    if not schedule:
+        raise ValueError("mult_by_region must be non-empty")
+
+    # Resolve per-region sigma when a sequence is supplied.
+    labs = [lab for lab, _ in schedule]
+    if np.isscalar(sigma_star):
+        sig_map = {lab: float(sigma_star) for lab in labs}  # type: ignore[arg-type]
+    else:
+        sig_seq = [float(s) for s in sigma_star]  # type: ignore[arg-type]
+        if len(sig_seq) != len(labs):
+            raise ValueError(
+                f"sigma_star length {len(sig_seq)} != n_schedule {len(labs)}"
+            )
+        sig_map = {lab: sig for lab, sig in zip(labs, sig_seq)}
+
+    rows: list[ScheduledMultRegionRow] = []
+    for lab, mult in schedule:
+        result = run_per_region_ph(
+            all_positions,
+            region_labels,
+            sig_map[lab],
+            scenario=f"{scenario}_r{lab}",
+            include_labels=[lab],
+            reading=reading,
+            max_dim=max_dim,
+            filtration_mult=float(mult),
+            lifetime_frac=lifetime_frac,
+            expected_betti=expected_betti,
+        )
+        if not result.reports:
+            continue
+        rep = result.reports[0]
+        betti = tuple(int(x) for x in rep.betti)
+        match: bool | None = None
+        if expected_betti is not None:
+            match = betti == tuple(expected_betti)
+        rows.append(
+            ScheduledMultRegionRow(
+                region_id=int(lab),
+                n_points=int(rep.n_points),
+                sigma_star=float(rep.sigma_star),
+                filtration_mult=float(mult),
+                betti=betti,
+                match=match,
+            )
+        )
+
+    all_match: bool | None = None
+    if expected_betti is not None and rows:
+        all_match = all(r.match is True for r in rows) and len(rows) == len(schedule)
+    return ScheduledMultPHResult(
+        rows=tuple(rows),
+        mult_by_region=tuple(schedule),
+        expected_betti=(
+            tuple(expected_betti) if expected_betti is not None else None
+        ),
+        all_match=all_match,
+        scenario=str(scenario),
+    )
+
+
+def format_scheduled_mult_ph_table(result: ScheduledMultPHResult) -> str:
+    """Compact TSV for per-region filtration_mult schedules."""
+    header = "region_id\tn\tsigma\tmult\tbetti\tmatch"
+    lines = [header]
+    for r in result.rows:
+        lines.append(
+            f"{r.region_id}\t{r.n_points}\t{r.sigma_star:g}\t"
+            f"{r.filtration_mult:g}\t{r.betti}\t{r.match}"
+        )
+    return "\n".join(lines)
+
+
 def median_nn_gap(points: np.ndarray) -> float:
     """Median nearest-neighbour gap (exclude self) for a point cloud.
 
