@@ -63,8 +63,18 @@ class RecursionConfig:
     guarantee:** at most one finer attempt per region invocation; if the
     capped search still yields ``K<=1`` / ``Q<=0`` or the gate rejects, the
     region is terminal; ``min_samples`` / ``max_depth`` still bound the tree.
-    Prefer pairing with ``require_dm_split`` (and/or persistence) so uniform
-    manifolds do not shatter.  See design NOTE on ``coord/A2`` mailbox.
+    Prefer pairing with ``require_persistent_split`` (and optionally
+    ``require_dm_split``) so uniform manifolds do not shatter — A2-T3
+    measured circle/swiss stay at 1 leaf under persist + modest
+    ``max_finer_scale_steps``, while the flag alone over-fragments.  See
+    design NOTE on ``coord/A2`` mailbox.
+
+    ``max_finer_scale_steps`` bounds how many successive geometric shrinks of
+    the ``tau_max`` cap are attempted inside one region (each step multiplies
+    the cap by ``finer_tau_cap_ratio``).  Nested multi-component scenes can
+    require many grid steps below the coarse ``tau*`` (OPEN_ISSUES #44
+    evidence: ~80x).  Default ``8`` is an operational budget; the flag remains
+    off so the default acceptance path is unchanged.
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
@@ -77,6 +87,7 @@ class RecursionConfig:
     dm_cluster: DMClusterConfig = field(default_factory=DMClusterConfig)
     allow_finer_research: bool = False
     finer_tau_cap_ratio: float = 1.0 / np.sqrt(2.0)
+    max_finer_scale_steps: int = 8
     prefer_disconnected_prepass: bool = False
     seed: int = 42
 
@@ -169,49 +180,61 @@ def _research_finer_split(
     config: RecursionConfig,
     parent_tau: float,
 ):
-    """One capped scale re-search strictly finer than ``parent_tau`` (#44).
+    """Capped multi-step scale re-search strictly finer than ``parent_tau`` (#44).
 
-    Returns ``(scale_result, scaffold, cluster_result)`` when a multi-cluster
-    proposal with ``Q > 0`` appears under the cap, else ``None``.  Does not
-    recurse; the caller applies accept gates and child descent.
+    Walks ``tau_max`` downward geometrically (``finer_tau_cap_ratio`` per step,
+    at most ``max_finer_scale_steps`` times) until a multi-cluster proposal with
+    ``Q > 0`` appears, else returns ``None``.  Does not recurse into children;
+    the caller applies accept gates and child descent.  **Stop guarantee:**
+    step budget + ``tau_min`` bound the walk; a failed / gated-out proposal
+    leaves the region terminal.
     """
 
     ratio = float(config.finer_tau_cap_ratio)
     if not (0.0 < ratio < 1.0):
         ratio = float(config.scale_search.grid_ratio)
-    tau_cap = float(parent_tau) * ratio
     tau_min = float(config.scale_search.tau_min)
-    if not (tau_min < tau_cap < float(parent_tau)):
-        return None
-
-    scale_search_config = replace(config.scale_search, tau_max=tau_cap)
-    if config.require_persistent_split:
-        scale_search_config = replace(
-            scale_search_config,
-            selector="persistence",
-            record_partitions=True,
-        )
-
-    result = run_scale_search(data, dim, scale_search_config)
-    scaffold = result.scaffold_at_star
-    if scaffold is None or len(scaffold.nodes) < 2:
-        return None
-
-    if config.require_persistent_split:
-        persistence = result.persistence_result
-        if persistence is None or persistence.tau_star_index is None:
-            return None
+    tau_cap = float(parent_tau) * ratio
+    max_steps = max(1, int(config.max_finer_scale_steps))
 
     # Optional cheap short-circuit hook (OPEN_ISSUES #44c): currently a no-op
     # placeholder so the flag is wired without changing the general path.
-    # A future pre-pass can inspect lifted components / zero inter-block flow
-    # before the full AP+DM merge when ``prefer_disconnected_prepass`` is on.
     _ = config.prefer_disconnected_prepass
 
-    cluster_result = _cluster_scaffold(scaffold, config)
-    if cluster_result.n_clusters <= 1 or cluster_result.partition_q_score <= 0.0:
-        return None
-    return result, scaffold, cluster_result
+    for _step in range(max_steps):
+        if not (tau_min < tau_cap < float(parent_tau)):
+            return None
+
+        scale_search_config = replace(config.scale_search, tau_max=tau_cap)
+        if config.require_persistent_split:
+            scale_search_config = replace(
+                scale_search_config,
+                selector="persistence",
+                record_partitions=True,
+            )
+
+        result = run_scale_search(data, dim, scale_search_config)
+        scaffold = result.scaffold_at_star
+        if scaffold is None or len(scaffold.nodes) < 2:
+            tau_cap *= ratio
+            continue
+
+        if config.require_persistent_split:
+            persistence = result.persistence_result
+            if persistence is None or persistence.tau_star_index is None:
+                tau_cap *= ratio
+                continue
+
+        cluster_result = _cluster_scaffold(scaffold, config)
+        if (
+            cluster_result.n_clusters > 1
+            and cluster_result.partition_q_score > 0.0
+        ):
+            return result, scaffold, cluster_result
+
+        tau_cap *= ratio
+
+    return None
 
 
 def _dm_accepts_split(
@@ -296,6 +319,7 @@ def _descend_into_clusters(
             dm_cluster=config.dm_cluster,
             allow_finer_research=config.allow_finer_research,
             finer_tau_cap_ratio=config.finer_tau_cap_ratio,
+            max_finer_scale_steps=config.max_finer_scale_steps,
             prefer_disconnected_prepass=config.prefer_disconnected_prepass,
             seed=config.seed + region_id + label,
         )
