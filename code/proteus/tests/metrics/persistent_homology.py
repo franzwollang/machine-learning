@@ -631,3 +631,26 @@ def format_lifetime_frac_sweep_table(
             f"{row.n_points}\t{row.betti}\t{match}"
         )
     return "\n".join(lines)
+
+
+def format_per_region_ph_diagnostics(result: PerRegionPHRunResult) -> str:
+    """Compact diagnostic block for nested_spheres / linked_tori scaffolding.
+
+    Used by ``@awaiting`` recovery tests to record runner state without
+    flipping assertions (A4-T20). Safe to embed in ``pytest.fail`` messages.
+    """
+    lines = [
+        f"scenario={result.scenario}",
+        f"reading={result.reading}",
+        f"filtration_mult={result.filtration_mult:g}",
+        f"lifetime_frac={result.lifetime_frac:g}",
+        f"expected_betti={result.expected_betti}",
+        f"all_match={result.all_match}",
+        "region_id\tn\tbetti\tsigma\tr",
+    ]
+    for rep in result.reports:
+        lines.append(
+            f"{rep.region_id}\t{rep.n_points}\t{rep.betti}\t"
+            f"{rep.sigma_star:g}\t{rep.filtration_radius:g}"
+        )
+    return "\n".join(lines)
