@@ -444,3 +444,190 @@ def compare_readings(
         lifetime_frac=float(lifetime_frac),
         n_points=n_points,
     )
+
+
+@dataclass(frozen=True)
+class LifetimeFracSweepRow:
+    """One row of a ``lifetime_frac`` (or mult) sweep table (#41 / A4-T15)."""
+
+    lifetime_frac: float
+    filtration_mult: float
+    betti: tuple[int, ...]
+    n_points: int
+    matches_target: bool | None = None
+    region_id: int | None = None
+
+
+def sweep_lifetime_frac(
+    points: np.ndarray,
+    sigma_star: float,
+    *,
+    fracs: Sequence[float],
+    filtration_mult: float = FILTRATION_MULTIPLIER,
+    max_dim: int = 2,
+    target_betti: tuple[int, ...] | None = None,
+    region_id: int | None = None,
+) -> list[LifetimeFracSweepRow]:
+    """Sweep lifetime reading over ``lifetime_frac`` values on one cloud.
+
+    Returns a table artifact for calibration / documentation. Does not change
+    SI defaults or flip recovery assertions — callers decide with evidence.
+    """
+    arr = np.asarray(points, dtype=float)
+    n_points = int(arr.shape[0]) if arr.ndim == 2 else 0
+    rows: list[LifetimeFracSweepRow] = []
+    for frac in fracs:
+        if n_points == 0:
+            betti = tuple(0 for _ in range(max_dim + 1))
+        else:
+            betti = lifetime_betti_numbers(
+                arr,
+                sigma_star,
+                max_dim=max_dim,
+                filtration_mult=filtration_mult,
+                lifetime_frac=float(frac),
+            )
+        match: bool | None = None
+        if target_betti is not None:
+            match = betti == tuple(target_betti)
+        rows.append(
+            LifetimeFracSweepRow(
+                lifetime_frac=float(frac),
+                filtration_mult=float(filtration_mult),
+                betti=betti,
+                n_points=n_points,
+                matches_target=match,
+                region_id=region_id,
+            )
+        )
+    return rows
+
+
+def sweep_lifetime_frac_per_region(
+    all_positions: np.ndarray,
+    region_labels: np.ndarray,
+    sigma_star: float | Sequence[float],
+    *,
+    fracs: Sequence[float],
+    include_labels: Optional[Iterable[int]] = None,
+    filtration_mult: float = FILTRATION_MULTIPLIER,
+    max_dim: int = 2,
+    target_betti: tuple[int, ...] | None = None,
+) -> list[LifetimeFracSweepRow]:
+    """Per-region ``lifetime_frac`` sweep via accepted-region label split.
+
+    Flattened table: one ``LifetimeFracSweepRow`` per (region, frac). Useful for
+    nested-sphere / linked-tori clean-shell harnesses (#41).
+    """
+    region_points = extract_region_node_positions(
+        all_positions,
+        region_labels,
+        include_labels=include_labels,
+    )
+    n = len(region_points)
+    if np.isscalar(sigma_star):
+        sigmas = [float(sigma_star)] * n  # type: ignore[arg-type]
+    else:
+        sigmas = [float(s) for s in sigma_star]  # type: ignore[arg-type]
+        if len(sigmas) != n:
+            raise ValueError(
+                f"sigma_star length {len(sigmas)} != n_regions {n}"
+            )
+    if include_labels is None:
+        region_ids = list(range(n))
+    else:
+        region_ids = [int(x) for x in include_labels]
+        if len(region_ids) != n:
+            raise ValueError(
+                f"include_labels length {len(region_ids)} != n_regions {n}"
+            )
+
+    rows: list[LifetimeFracSweepRow] = []
+    for rid, pts, sig in zip(region_ids, region_points, sigmas):
+        rows.extend(
+            sweep_lifetime_frac(
+                pts,
+                sig,
+                fracs=fracs,
+                filtration_mult=filtration_mult,
+                max_dim=max_dim,
+                target_betti=target_betti,
+                region_id=rid,
+            )
+        )
+    return rows
+
+
+@dataclass(frozen=True)
+class PerRegionPHRunResult:
+    """Result of a per-region PH probe run (#41 / A4-T16 scaffolding)."""
+
+    reports: tuple[RegionTopologyReport, ...]
+    expected_betti: tuple[int, ...] | None
+    all_match: bool | None
+    reading: ReadingMode
+    filtration_mult: float
+    lifetime_frac: float
+    scenario: str
+
+
+def run_per_region_ph(
+    all_positions: np.ndarray,
+    region_labels: np.ndarray,
+    sigma_star: float | Sequence[float],
+    *,
+    scenario: str = "generic",
+    include_labels: Optional[Iterable[int]] = None,
+    reading: ReadingMode = "lifetime",
+    max_dim: int = 2,
+    filtration_mult: float = FILTRATION_MULTIPLIER,
+    lifetime_frac: float = DEFAULT_LIFETIME_FRAC,
+    expected_betti: tuple[int, ...] | None = None,
+) -> PerRegionPHRunResult:
+    """Prototype runner: accepted-region labels → PH reports + optional match.
+
+    Intended scaffolding for nested_spheres / linked_tori recovery paths.
+    Callers may keep scenario assertions ``@awaiting`` / xfail until
+    ``all_match`` is green on fitted regions — this helper never weakens tests.
+    """
+    reports = topology_from_accepted_regions(
+        all_positions,
+        region_labels,
+        sigma_star,
+        include_labels=include_labels,
+        reading=reading,
+        max_dim=max_dim,
+        filtration_mult=filtration_mult,
+        lifetime_frac=lifetime_frac,
+    )
+    match: bool | None = None
+    if expected_betti is not None:
+        target = tuple(expected_betti)
+        match = all(rep.betti == target for rep in reports) and len(reports) > 0
+    return PerRegionPHRunResult(
+        reports=tuple(reports),
+        expected_betti=(
+            tuple(expected_betti) if expected_betti is not None else None
+        ),
+        all_match=match,
+        reading=reading,
+        filtration_mult=float(filtration_mult),
+        lifetime_frac=float(lifetime_frac),
+        scenario=str(scenario),
+    )
+
+
+def format_lifetime_frac_sweep_table(
+    rows: Sequence[LifetimeFracSweepRow],
+) -> str:
+    """Render a compact text table for COORDINATION / artifact notes."""
+    header = "region_id\tfrac\tmult\tn\tbetti\tmatch"
+    lines = [header]
+    for row in rows:
+        rid = "" if row.region_id is None else str(row.region_id)
+        match = "" if row.matches_target is None else str(row.matches_target)
+        lines.append(
+            f"{rid}\t{row.lifetime_frac:g}\t{row.filtration_mult:g}\t"
+            f"{row.n_points}\t{row.betti}\t{match}"
+        )
+    return "\n".join(lines)
