@@ -3,6 +3,9 @@
 Operational rules live in `.cursor/rules/swarm-coordination.mdc`. This file is the
 **schema stub** for `COORDINATION.jsonl` mailboxes (one per `coord/A*` branch).
 
+**Durable branches:** `coord/A1` … `coord/A6` and `coord/integration`. Do not rename
+branches when issues change — reassign work in `SWARM_TASKS.json` only.
+
 ## File roles
 
 | File | Writer | Role |
@@ -46,9 +49,7 @@ One JSON object per line. Unknown fields are allowed; keep lines compact.
 
 ```bash
 git fetch origin
-for b in coord/A1-tracker coord/A2-issue44-descent coord/A3-issue42-star-matrix \
-         coord/A4-issue41-topology coord/A5-issue43-dual-connectivity \
-         coord/A6-issue28-docs coord/integration; do
+for b in coord/A1 coord/A2 coord/A3 coord/A4 coord/A5 coord/A6 coord/integration; do
   git show "origin/${b}:COORDINATION.jsonl" 2>/dev/null | tail -n 15 \
     > "/tmp/coord_${b##*/}.jsonl" || true
 done

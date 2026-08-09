@@ -1,16 +1,16 @@
 {
-  "updated_at": "2026-08-09T11:32-05:00",
+  "updated_at": "2026-08-09T11:40-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
-    "coord/A2-issue44-descent",
-    "coord/A3-issue42-star-matrix",
-    "coord/A4-issue41-topology",
-    "coord/A5-issue43-dual-connectivity",
-    "coord/A6-issue28-docs"
+    "coord/A2",
+    "coord/A3",
+    "coord/A4",
+    "coord/A5",
+    "coord/A6"
   ],
   "agents": {
     "A1": {
-      "branch": "coord/A1-tracker",
+      "branch": "coord/A1",
       "role": "tracker",
       "queue": [
         {
@@ -21,19 +21,21 @@
         {
           "id": "A1-T2",
           "status": "ready",
-          "summary": "After workers claim, run first MERGE_START→integration merge→tests→MERGE_DONE; refill queues"
+          "summary": "After workers claim, run first MERGE_START\u2192integration merge\u2192tests\u2192MERGE_DONE; refill queues"
         },
         {
           "id": "A1-T3",
           "status": "ready",
-          "summary": "Apply REQUEST_TRACKER edits to OPEN_ISSUES/PLANNING/logs; keep queues 2–3 deep"
+          "summary": "Apply REQUEST_TRACKER edits to OPEN_ISSUES/PLANNING/logs; keep queues 2\u20133 deep"
         }
       ]
     },
     "A2": {
-      "branch": "coord/A2-issue44-descent",
+      "branch": "coord/A2",
       "role": "worker",
-      "owns_issues": [44],
+      "owns_issues": [
+        44
+      ],
       "owns_files": [
         "code/proteus/src/proteus/stage1/recursion.py"
       ],
@@ -59,9 +61,11 @@
       ]
     },
     "A3": {
-      "branch": "coord/A3-issue42-star-matrix",
+      "branch": "coord/A3",
       "role": "worker",
-      "owns_issues": [42],
+      "owns_issues": [
+        42
+      ],
       "owns_files": [
         "code/proteus/src/proteus/evidence/star_matrix.py",
         "docs/Proteus/paper_1_foundational/SI.tex"
@@ -88,9 +92,11 @@
       ]
     },
     "A4": {
-      "branch": "coord/A4-issue41-topology",
+      "branch": "coord/A4",
       "role": "worker",
-      "owns_issues": [41],
+      "owns_issues": [
+        41
+      ],
       "owns_files": [
         "code/proteus/tests/metrics/persistent_homology.py",
         "code/proteus/tests/scenarios/synthetic/"
@@ -117,9 +123,11 @@
       ]
     },
     "A5": {
-      "branch": "coord/A5-issue43-dual-connectivity",
+      "branch": "coord/A5",
       "role": "worker",
-      "owns_issues": [43],
+      "owns_issues": [
+        43
+      ],
       "owns_files": [
         "code/proteus/src/proteus/evidence/gate.py",
         "code/proteus/tests/evidence/",
@@ -147,9 +155,11 @@
       ]
     },
     "A6": {
-      "branch": "coord/A6-issue28-docs",
+      "branch": "coord/A6",
       "role": "worker",
-      "owns_issues": [28],
+      "owns_issues": [
+        28
+      ],
       "owns_files": [
         "docs/Proteus/paper_1_foundational/paper.tex",
         "code/proteus/src/proteus/stage1/controller.py"
@@ -176,5 +186,5 @@
       ]
     }
   },
-  "notes": "A1 refills queues to 2–3 ready tasks per agent after each MERGE_DONE. Workers take the first status=ready item for their id, CLAIM it, then DONE/BLOCKED."
+  "notes": "Branches coord/A1..A6 are durable identities (never rename for issues). A1 refills queues to 2\u20133 ready tasks per agent after each MERGE_DONE and may reassign owns_issues/owns_files over time. Workers take the first status=ready item for their id, CLAIM it, then DONE/BLOCKED."
 }
