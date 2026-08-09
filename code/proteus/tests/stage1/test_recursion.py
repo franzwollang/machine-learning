@@ -1198,6 +1198,7 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
         prefer_pca_axis_gap_prepass=True,
         prefer_tube_major_radius_prepass=True,
         prefer_spectral_gap_prepass=True,
+        prefer_hollow_edge_prepass=True,
         require_dm_split=True,
         finer_tau_cap_ratio=0.5,
         max_finer_scale_steps=12,
@@ -1212,6 +1213,7 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     assert _aspirational.prefer_pca_axis_gap_prepass is True
     assert _aspirational.prefer_tube_major_radius_prepass is True
     assert _aspirational.prefer_spectral_gap_prepass is True
+    assert _aspirational.prefer_hollow_edge_prepass is True
     assert _aspirational.max_finer_scale_steps == 12
 
 

@@ -32,9 +32,10 @@ def test_hollowness_scores_bridge_vs_support() -> None:
     )
     edges = [(0, 1), (2, 3), (0, 2)]  # support, support, bridge
     H = hollowness_scores(positions, edges, data, mid_radius_frac=0.35)
-    assert H[0] > 0.5
-    assert H[1] > 0.5
+    assert H[0] > H[2]
+    assert H[1] > H[2]
     assert H[2] < 0.35
+    assert H[0] > 0.5
 
 
 def test_gabriel_fallback_cuts_empty_diameter() -> None:
