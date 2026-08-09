@@ -14,19 +14,21 @@ Green tests lock:
 * Conservative BP *sketch* behind ``enable_conservative_bp`` (identity/damped;
   not the SI S6.2 loopy Gaussian solve).
 * S6.1 face-pressure tally helper behind ``enable_face_tallies``; dry-run can
-  demo-wire tallies via ``samples=`` (still not live BMU routing).
-* S6.3 boundary taxonomy behind ``enable_boundary_taxonomy`` (single-owner
-  heuristic + hint sets; not full seam stitching).
+  demo-wire tallies via ``samples=``; live BMU harness behind
+  ``enable_live_bmu_tally`` (A5-T43; still not Stage-1 wiring).
+* S6.2 ``A_S`` geometry + soft message-pass sketch behind
+  ``enable_as_message_pass`` (A5-T44; not loopy Gaussian BP).
+* S6.3 boundary taxonomy behind ``enable_boundary_taxonomy``; seam stitch /
+  ghost reservoir sketches behind ``enable_seam_ghost`` (A5-T45).
 * S6.4 simplex-local PL density *sketch* behind ``enable_simplex_density``
   (default off; does not flip density awaiting tests).
 
 Gaps vs full SI S6 (do **not** flip these elsewhere yet):
 
-* **S6.1** Tally helper + dry-run demo exist; live sample routing still open.
-* **S6.2** No real loopy Gaussian BP / ``A_S p_S`` conservation solve (sketch
-  only; ``r_cons`` stubbed at 0). See module docstring acceptance-path plan
-  + real-BP gap list (A5-T42).
-* **S6.3** Taxonomy stub lacks ghost-reservoir / seam pressure stitching.
+* **S6.1** Tally + dry-run + BMU harness exist; Stage-1 live wiring still open.
+* **S6.2** Soft ``A_S`` message-pass only — no loopy Gaussian BP / ``μ_S`` /
+  whitened ``λ_f``. See module docstring acceptance-path plan (A5-T42).
+* **S6.3** Seam/ghost sketches are scalar; no face registry / patch graph.
 * **S6.4** Density sketch only; live evaluator / mass normalization open.
 * Mass-conservation / density / benchmark ``@awaiting("stage2.dual_flow")``
   (and ``stage2.density``) remain xfail until that producer lands.
@@ -49,16 +51,23 @@ from proteus.evidence.dm_score import NodeTransition
 from proteus.stage2 import (
     DualFlowConfig,
     accumulate_face_pressure_tally,
+    apply_ghost_reservoir,
     barycentric_coordinates,
+    build_divergence_stencil,
     build_dual_adjacency,
     build_dual_adjacency_from_complex,
     classify_boundary_facets,
+    conservation_residual_r_cons,
     dry_run_dual_from_edit,
+    locate_bmu_simplex,
     resolve_dual_connected,
+    route_live_bmu_face_tallies,
     simplex_local_density,
     simplex_outward_normals,
     simplex_volume,
+    solve_as_message_pass,
     solve_conservative_pressures,
+    stitch_orientation_seam_pressures,
     vertex_weights_from_facet_pressures,
 )
 from proteus.types import (
@@ -728,5 +737,138 @@ def test_acceptance_path_plan_documented_in_dual_flow_module():
     assert cfg.enable_dual_adjacency is False
     assert cfg.enable_conservative_bp is False
     assert cfg.enable_face_tallies is False
+    assert cfg.enable_live_bmu_tally is False
+    assert cfg.enable_as_message_pass is False
     assert cfg.enable_boundary_taxonomy is False
+    assert cfg.enable_seam_ghost is False
     assert cfg.enable_simplex_density is False
+
+
+# ---------------------------------------------------------------------------
+# A5-T43: live BMU face-tally routing harness (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_live_bmu_tally_flag_off_returns_none():
+    """enable_live_bmu_tally=False ⇒ route_live_bmu_face_tallies is None."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    samples = [np.array([0.2, 0.2])]
+    assert route_live_bmu_face_tallies(samples, [P]) is None
+    assert route_live_bmu_face_tallies(
+        samples, [P], config=DualFlowConfig()
+    ) is None
+
+
+def test_live_bmu_routes_to_containing_or_nearest_simplex():
+    """BMU prefers containment; else nearest barycenter; tallies only on winner."""
+
+    # Two adjacent triangles sharing {1,2}.
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    positions = {0: left, 1: right}
+
+    # Inside left triangle (near origin).
+    assert locate_bmu_simplex(np.array([0.2, 0.2]), positions) == 0
+    # Inside right triangle.
+    assert locate_bmu_simplex(np.array([1.2, 0.2]), positions) == 1
+    # Outside both, closer to right barycenter ~(1.333, 0.333).
+    assert locate_bmu_simplex(np.array([3.0, 0.0]), positions) == 1
+
+    cfg = DualFlowConfig(enable_live_bmu_tally=True, tally_scale=1.0)
+    samples = [
+        np.array([0.2, 0.2]),  # → left
+        np.array([1.2, 0.2]),  # → right
+        np.array([0.25, 0.15]),  # → left
+    ]
+    out = route_live_bmu_face_tallies(samples, positions, config=cfg)
+    assert out is not None
+    assert out.assignments == (0, 1, 0)
+    assert set(out.tallies_by_simplex.keys()) == {0, 1}
+    # Left got two samples; right one — tallies are nonnegative.
+    assert np.all(out.tallies_by_simplex[0].tallies >= 0.0)
+    assert np.all(out.tallies_by_simplex[1].tallies >= 0.0)
+    # Two left samples accumulate more total pressure than a single right hit
+    # for these interior points (may be near-zero at bary; use outside-ish).
+    outside_left = route_live_bmu_face_tallies(
+        [np.array([0.7, 0.7])], positions, config=cfg
+    )
+    assert outside_left is not None
+    assert outside_left.assignments == (0,)
+    assert outside_left.tallies_by_simplex[0].tallies[0] > 0.0
+
+
+# ---------------------------------------------------------------------------
+# A5-T44: A_S residual / soft message-pass sketch (default off)
+# ---------------------------------------------------------------------------
+
+
+def test_as_message_pass_flag_off_returns_none():
+    """enable_as_message_pass=False ⇒ solve_as_message_pass is None."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    A_S = build_divergence_stencil(P)
+    hat = np.ones(3)
+    assert solve_as_message_pass(hat, A_S) is None
+    assert solve_as_message_pass(hat, A_S, config=DualFlowConfig()) is None
+
+
+def test_divergence_stencil_and_as_message_pass_reduces_r_cons():
+    """A_S has shape (d, d+1); soft message-pass reports/reduces r_cons."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    A_S = build_divergence_stencil(P)
+    assert A_S.shape == (2, 3)
+    # Facet areas (edge lengths) are positive for a nondegenerate triangle.
+    assert np.linalg.norm(A_S, ord="fro") > 0.0
+
+    hat = np.array([2.0, 0.1, 0.1])  # deliberately unbalanced
+    r0 = conservation_residual_r_cons(A_S, hat)
+    assert r0 > 0.0
+
+    cfg = DualFlowConfig(
+        enable_as_message_pass=True,
+        bp_damping=0.5,
+        bp_max_iters=8,
+        as_step=0.25,
+    )
+    out = solve_as_message_pass(hat, A_S, config=cfg)
+    assert out is not None
+    assert out.r_cons >= 0.0
+    assert out.r_cons < r0
+    assert out.pressures.shape == (3,)
+    assert "A_S" in out.note or "message-pass" in out.note
+
+
+# ---------------------------------------------------------------------------
+# A5-T45: seam stitch / ghost reservoir sketches (default off)
+# ---------------------------------------------------------------------------
+
+
+def test_seam_ghost_flag_off_returns_none():
+    """enable_seam_ghost=False ⇒ stitch / ghost helpers are None."""
+
+    assert stitch_orientation_seam_pressures(1.0, -0.5) is None
+    assert apply_ghost_reservoir(
+        np.array([1.0, 2.0]), computational_mask=[True, False]
+    ) is None
+
+
+def test_seam_stitch_antisymmetric_and_ghost_leak():
+    """Seam ⇒ p_a = -p_b; ghost leaks γ from computational facets only."""
+
+    cfg = DualFlowConfig(enable_seam_ghost=True, ghost_coupling=0.25)
+    seam = stitch_orientation_seam_pressures(1.0, -0.5, config=cfg)
+    assert seam is not None
+    assert seam.pressure_a == pytest.approx(-seam.pressure_b)
+    # (1 - (-0.5))/2 = 0.75
+    assert seam.pressure_a == pytest.approx(0.75)
+
+    ghost = apply_ghost_reservoir(
+        np.array([1.0, 2.0, 3.0]),
+        computational_mask=[True, False, True],
+        config=cfg,
+    )
+    assert ghost is not None
+    np.testing.assert_allclose(ghost.adjusted, [0.75, 2.0, 2.25])
+    assert ghost.ghost_load == pytest.approx(0.25 * 1.0 + 0.25 * 3.0)
