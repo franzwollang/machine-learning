@@ -33,11 +33,14 @@ this module's interval as the accept/reject arbiter and, by default, lands
 re-pick ``tau*`` via ``load_crossover`` or experimental ``mid_interval`` /
 ``mid_interval_load_screened`` / ``two_thirds_interval`` /
 ``two_thirds_load_screened`` / ``three_quarter_interval`` /
-``three_quarter_load_screened`` /
+``three_quarter_load_screened`` / ``load_weighted_interval`` /
 ``fine_end_of_block`` *within* the accepted persistent subgrid without
-changing the accept/reject arbiter (OPEN_ISSUES #28).  The legacy
-``load_band`` scale selector is gone from the acceptance path; the controller
-keeps a deprecated alias that warns and redirects to ``load_crossover``.
+changing the accept/reject arbiter (OPEN_ISSUES #28).
+``ScaleSearchConfig.halve_grid_steps`` (default ``False``) densifies the
+geometric ``tau`` grid (half log-step) so within-block fractional probes
+see more candidates.  The legacy ``load_band`` scale selector is gone from
+the acceptance path; the controller keeps a deprecated alias that warns and
+redirects to ``load_crossover``.
 
 .. note::
    The acceptance rule is **coarse-anchored** by default
@@ -162,6 +165,11 @@ class PersistenceConfig:
         ``≪ 1`` (below
         :data:`proteus.stage1.controller._WITHIN_INTERVAL_LOAD_SCREEN_MIN`);
         contrast vs raw ``three_quarter_interval`` (OPEN_ISSUES #28).
+        ``"load_weighted_interval"`` is an **experimental** probe that
+        picks the block index whose variance load is closest to 1 among
+        indices not ≪ 1 (shared floor); falls back to ``i_lo`` when none
+        clear the screen (OPEN_ISSUES #28 / A6-T47).  Distinct from
+        ``"load_crossover"`` (straddle-pair rule).
         ``"fine_end_of_block"`` is an **experimental** probe that lands at
         the finest index ``i_hi`` of the accepted block (contrast vs mid /
         coarse; still not SI-justified).  Applied in the controller, not in
@@ -185,6 +193,7 @@ class PersistenceConfig:
         "two_thirds_load_screened",
         "three_quarter_interval",
         "three_quarter_load_screened",
+        "load_weighted_interval",
         "fine_end_of_block",
     ] = "none"
 
