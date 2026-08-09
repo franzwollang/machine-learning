@@ -60,6 +60,13 @@ class HollowEdgeConfig:
     A2-T34: ``mst_critical_only=True`` restricts cuts to hollow edges that
     also lie on a Euclidean MST of the lifted graph (conservative
     capacity/bridge proxy).  Contrast vs H-only and Gabriel∧H; default off.
+
+    A2 capacity/flow follow-on: ``bridge_critical_only=True`` intersects
+    hollow cuts with *graph-theoretic bridges* of the lifted undirected
+    graph (edges whose removal increases the CC count).  Bridges ⊆ every
+    spanning tree, so this is a stricter true cut-set than MST-critical;
+    default off.  Mutually independent of ``mst_critical_only`` (both may
+    apply as successive intersections).
     """
 
     mid_radius_frac: float = 0.35
@@ -68,6 +75,7 @@ class HollowEdgeConfig:
     gabriel_fallback: bool = True
     require_gabriel_and_h: bool = False
     mst_critical_only: bool = False
+    bridge_critical_only: bool = False
     eps: float = _EPS
 
 
@@ -93,6 +101,7 @@ def a4_roc_primary_config(**overrides: object) -> HollowEdgeConfig:
         gabriel_fallback=A4_PRIMARY_GABRIEL_FALLBACK,
         require_gabriel_and_h=False,
         mst_critical_only=False,
+        bridge_critical_only=False,
     )
     base.update(overrides)
     return HollowEdgeConfig(**base)  # type: ignore[arg-type]
@@ -249,6 +258,61 @@ def mst_edge_mask(
     return in_mst
 
 
+def bridge_edge_mask(
+    edges: list[tuple[int, int]],
+    *,
+    n_nodes: int | None = None,
+) -> np.ndarray:
+    """Boolean mask ``True`` iff edge is a bridge of the undirected graph.
+
+    Tarjan-style DFS discovery: an edge ``(u,v)`` is a bridge when it is a
+    tree edge and ``low[v] > disc[u]`` (no back-edge from ``v``'s subtree
+    reaches ``u`` or an ancestor).  Used by ``bridge_critical_only`` hollow
+    pruning (capacity/flow beyond MST): only true cut-set edges may be cut.
+    """
+
+    if not edges:
+        return np.zeros(0, dtype=bool)
+    if n_nodes is None:
+        n_nodes = 0
+        for i, j in edges:
+            n_nodes = max(n_nodes, int(i) + 1, int(j) + 1)
+    n = int(n_nodes)
+    adj: list[list[tuple[int, int]]] = [[] for _ in range(n)]
+    for k, (i, j) in enumerate(edges):
+        ii, jj = int(i), int(j)
+        if ii == jj or ii < 0 or jj < 0 or ii >= n or jj >= n:
+            continue
+        adj[ii].append((jj, k))
+        adj[jj].append((ii, k))
+
+    disc = [-1] * n
+    low = [-1] * n
+    parent = [-1] * n
+    time = 0
+    is_bridge = np.zeros(len(edges), dtype=bool)
+
+    def dfs(u: int) -> None:
+        nonlocal time
+        disc[u] = time
+        low[u] = time
+        time += 1
+        for v, ek in adj[u]:
+            if disc[v] == -1:
+                parent[v] = u
+                dfs(v)
+                low[u] = min(low[u], low[v])
+                if low[v] > disc[u]:
+                    is_bridge[ek] = True
+            elif v != parent[u]:
+                low[u] = min(low[u], disc[v])
+
+    for s in range(n):
+        if disc[s] == -1 and adj[s]:
+            dfs(s)
+    return is_bridge
+
+
 def hollow_edge_mask(
     positions: np.ndarray,
     edges: list[tuple[int, int]],
@@ -267,7 +331,9 @@ def hollow_edge_mask(
     empty-ball Gabriel-only spurious cuts; keep proposal-path / default-off.
 
     When ``mst_critical_only`` is set, intersect the hollow mask with the
-    Euclidean MST edge mask (A2-T34).
+    Euclidean MST edge mask (A2-T34).  When ``bridge_critical_only`` is set,
+    further (or instead) intersect with graph-theoretic bridges (capacity /
+    flow cut-set beyond the MST proxy).
     """
 
     cfg = config if config is not None else HollowEdgeConfig()
@@ -304,6 +370,10 @@ def hollow_edge_mask(
                 cut[k] = False
     if cfg.mst_critical_only and len(edges) > 0:
         cut = np.logical_and(cut, mst_edge_mask(pos, edges))
+    if cfg.bridge_critical_only and len(edges) > 0:
+        cut = np.logical_and(
+            cut, bridge_edge_mask(edges, n_nodes=int(pos.shape[0])),
+        )
     return cut
 
 

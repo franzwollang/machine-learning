@@ -330,7 +330,9 @@ def test_a4_roc_primary_config_preset() -> None:
     assert cfg.min_end_count == A4_PRIMARY_MIN_END_COUNT == 0.5
     assert cfg.gabriel_fallback is A4_PRIMARY_GABRIEL_FALLBACK is False
     assert cfg.mst_critical_only is False
+    assert cfg.bridge_critical_only is False
     assert HollowEdgeConfig().mst_critical_only is False
+    assert HollowEdgeConfig().bridge_critical_only is False
 
 
 def test_mst_critical_only_intersects_hollow_mask() -> None:
@@ -382,3 +384,65 @@ def test_mst_critical_only_intersects_hollow_mask() -> None:
     assert bool(cut_mst[2]) is False
     assert not np.any(cut_mst & ~mst)
     assert not np.any(cut_mst & ~cut_all)
+
+
+def test_bridge_critical_only_intersects_hollow_mask() -> None:
+    """#44: bridge-critical hollow cuts only graph bridges ∩ hollow.
+
+    Two blobs linked by a single long void bridge: the bridge is both MST
+    and a graph-theoretic bridge.  Adding a redundant short chord removes
+    the bridge property from the long edge — ``bridge_critical_only`` then
+    keeps it (not a cut-set), while H-only still cuts it.
+    """
+
+    from proteus.stage1.edge_evidence import bridge_edge_mask, mst_edge_mask
+
+    rng = np.random.default_rng(2)
+    blob_a = rng.normal(loc=[-3.0, 0.0], scale=0.12, size=(60, 2))
+    blob_b = rng.normal(loc=[3.0, 0.0], scale=0.12, size=(60, 2))
+    data = np.vstack([blob_a, blob_b])
+    positions = np.array(
+        [
+            [-3.0, 0.0],
+            [-2.85, 0.2],
+            [3.0, 0.0],
+            [2.85, 0.2],
+        ],
+        dtype=float,
+    )
+    # Supports + single long bridge: long edge is a bridge.
+    edges_single = [(0, 1), (2, 3), (0, 2)]
+    br_single = bridge_edge_mask(edges_single, n_nodes=4)
+    assert bool(br_single[2]) is True
+
+    cfg_bridge = HollowEdgeConfig(
+        mid_radius_frac=0.35, h0=0.35, min_end_count=0.5, gabriel_fallback=False,
+        bridge_critical_only=True,
+    )
+    cut_single = hollow_edge_mask(positions, edges_single, data, config=cfg_bridge)
+    assert bool(cut_single[2]) is True  # hollow + bridge → cut
+
+    # Redundant short chord: long edge is no longer a bridge.
+    edges_cycle = [(0, 1), (2, 3), (0, 2), (1, 3)]
+    br_cycle = bridge_edge_mask(edges_cycle, n_nodes=4)
+    assert bool(br_cycle[2]) is False
+    mst = mst_edge_mask(positions, edges_cycle)
+    # Long bridge still not in Euclidean MST (short chord wins).
+    assert bool(mst[2]) is False
+
+    cfg_all = HollowEdgeConfig(
+        mid_radius_frac=0.35, h0=0.35, min_end_count=0.5, gabriel_fallback=False,
+        bridge_critical_only=False,
+    )
+    cut_all = hollow_edge_mask(positions, edges_cycle, data, config=cfg_all)
+    cut_br = hollow_edge_mask(positions, edges_cycle, data, config=cfg_bridge)
+    assert bool(cut_all[2]) is True
+    assert bool(cut_br[2]) is False  # not a bridge → keep under bridge-only
+    assert not np.any(cut_br & ~br_cycle)
+    assert not np.any(cut_br & ~cut_all)
+
+
+def test_bridge_critical_default_off() -> None:
+    """Bridge-critical flag stays default-off (proposal-path)."""
+
+    assert HollowEdgeConfig().bridge_critical_only is False
