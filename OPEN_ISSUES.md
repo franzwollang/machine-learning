@@ -79,15 +79,17 @@ equilibrium). The knee proposal is therefore demoted to a diagnostic; persistenc
 compensated count, is the structural signal, and `L = 1` fixes each feature's resolution.
 
 Remaining work:
-- **Persistence tau* is coarse-end (hybrid prototyped, default off).** Flag
-  `PersistenceConfig.resolve_within_interval` (`"none"` | `"load_crossover"`, default
-  `"none"`) is wired: persistence remains the accept/reject arbiter; optional
-  within-interval `load_crossover` re-picks `tau*` inside the accepted persistent
-  subgrid. Hierarchy NOTE (A6-T15, seed=0, max_grid=8): default/`none` → `tau*=0.36`;
-  `load_crossover`-within → `tau*=0.199` (still ~9× `expected_tau=0.0225`; block loads
-  already >1 / grid[0] unstabilized). Do **not** flip the default; further refine or
-  accept that persistence stays a structural arbiter with coarse-end resolution until a
-  better within-interval signal exists. SI prose for the flag still optional.
+- **Persistence tau* is coarse-end (hybrid prototyped, default off; diagnose closed).**
+  Flag `PersistenceConfig.resolve_within_interval` (`"none"` | `"load_crossover"`,
+  default `"none"`) is wired. A6-T16..T18: within-block loads on hierarchy persistent
+  subgrid are all >1 → LC picks coarsest stabilized `tau*=0.199` (~9×
+  `expected_tau=0.0225`); root cause is category mismatch (`expected_tau` = fine-leaf
+  packing vs persistence coarse 3-way / `fine_cluster_tau=0.36`). Circle/swiss: hybrid
+  is a no-op (no persist split; LC fallback already near expected). Fine-end-of-block
+  rejected as anti-SI. Paper §scale synced to L=1 + coarse-end; hierarchy hybrid≫expected
+  regression locked. Do **not** flip the default; persistence stays structural arbiter
+  with coarse-end resolution until a SI-justified within-interval signal exists. Optional
+  SI prose for the flag.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -122,10 +124,16 @@ re-searched *finer* scales inside a single feature.
   prepass misses concentric shells (same radius-connected graph at recurse caps);
   persist rejects shell-scale splits; dm over-clusters. Need radius-aware /
   signal-band / tissue-filtered split — not more pairing knobs. SI A+C still held.
-- **Remaining:** diagnose why major lifted CC misses concentric shells (scaffold
-  CCs vs radius bands); prototype radius-aware / signal-only prepass (flag-gated,
-  default off); hold awaiting flips. SI S2.6.2+S14.3 A+C paragraph held until
-  recovery evidence is greener. Distinct from #28.
+- **FINDING (A2 radial-gap):** lifted graph **radius-bridges** shells (usually
+  `n_cc=1`; rare splits are noise fragments). Flag-gated
+  `prefer_radial_gap_prepass` (default off) recovers shell membership on clean
+  unit scaffolds / GT-signal-filtered radial gap (ARI_shell=1.0), but e2e
+  tissue-filled nested_spheres still unrecovered (persist+radial+steps≤4 →
+  circle=1 nested=1; deeper shatters circle). Next: tissue/signal-aware radial
+  mask or non-centroid radial feature — not more AP/DM knobs.
+- **Remaining:** tissue/signal-aware radial mask (flag-gated, default off);
+  gap vs persist depth study; hold awaiting flips. SI S2.6.2+S14.3 A+C paragraph
+  held until recovery evidence is greener. Distinct from #28.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 

@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T13:40-05:00",
-  "turn": 35,
+  "updated_at": "2026-08-09T14:03-05:00",
+  "turn": 36,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "radius-aware shell split after pairing dead-end"
+    "goal": "tissue/signal radial mask after radial-gap e2e miss"
   },
   "recent": [
-    "Scooped A2-T7..T9: persist safe, nested unrecovered",
-    "Refilled A2-T10..T12 radius/signal prepass diagnose",
-    "A3/A5 idle drains refilled; A4/A6 mid-CLAIM"
+    "Scooped A2 prefer_radial_gap_prepass (default off)",
+    "Scooped A6 within-interval diagnose + paper L=1 sync",
+    "Refilled A3/A5/A6; A2 T10–T12 retargeted; A4 mid-CLAIM"
   ],
   "discoveries": [
-    "Pairing knobs exhausted for #44 shells (ARI≲0.09)",
-    "Hybrid hierarchy tau* 0.36→0.199 still ~9x expected"
+    "Lifted graph radius-bridges shells; unit radial OK, e2e not",
+    "#28 ~9x is category mismatch (fine-leaf vs coarse persist)"
   ],
   "open_threads": [
-    "A4-T8..T10 / A6-T16..T18 mid-turn studies",
+    "A4-T8..T10 still mid-CLAIM",
     "#44 SI A+C held; dual_flow absent",
-    "Need radius-band / signal-only prepass path"
+    "Need tissue/signal-aware radial mask path"
   ],
-  "next_step": "MERGE_DONE push; next turn scoop A4/A6",
+  "next_step": "MERGE_DONE push; next turn scoop A4",
   "blockers": []
 }

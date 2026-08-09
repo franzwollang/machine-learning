@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T13:40-05:00",
+  "updated_at": "2026-08-09T14:03-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -14,17 +14,17 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T22",
+          "id": "A1-T25",
           "status": "ready",
-          "summary": "Next cadence: scoop A4-T8..T10 / A6-T16..T18 mid-turn tips; keep #44 SI A+C held"
+          "summary": "Next cadence: scoop A4-T8..T10 mid-turn tip; watch A2 tissue/signal radial mask"
         },
         {
-          "id": "A1-T23",
+          "id": "A1-T26",
           "status": "ready",
-          "summary": "If A2 posts radius-band diagnosis with a flag-gated proposal, update #44 / consider A3 SI only after recovery evidence"
+          "summary": "If A2 posts tissue/signal radial recovery with ARI>0.5, update #44 / consider A3 SI A+C"
         },
         {
-          "id": "A1-T24",
+          "id": "A1-T27",
           "status": "ready",
           "summary": "Watch dual_flow landing; re-point A5 from idle watch to wiring CLAIM when present"
         }
@@ -45,19 +45,19 @@
           "id": "A2-T10",
           "status": "ready",
           "issue": 44,
-          "summary": "Diagnose why major lifted-CC prepass misses concentric shells: probe scaffold CC counts vs radius bands at recurse caps; NOTE only"
+          "summary": "Post-radial-gap: tissue/signal-aware radial mask design or thin prototype (flag-gated default off); NOTE; no awaiting flips"
         },
         {
           "id": "A2-T11",
           "status": "ready",
           "issue": 44,
-          "summary": "Propose radius-aware / signal-only / tissue-filtered prepass design (flag-gated default off); NOTE or thin prototype; no awaiting flips"
+          "summary": "Gap vs persist depth study under prefer_radial_gap_prepass on nested_spheres; NOTE only"
         },
         {
           "id": "A2-T12",
           "status": "ready",
           "issue": 44,
-          "summary": "If a prototype recovers nested cc≈2 with ARI>0.5 without circle shatter, REQUEST_TRACKER for A3 SI A+C; else NOTE blockers and hold awaiting"
+          "summary": "If prototype recovers nested cc≈2 ARI>0.5 without circle shatter, REQUEST_TRACKER for A3 SI A+C; else NOTE blockers and hold awaiting"
         }
       ]
     },
@@ -70,19 +70,19 @@
       ],
       "queue": [
         {
-          "id": "A3-T19",
+          "id": "A3-T22",
           "status": "ready",
           "issue": 44,
-          "summary": "Idle hold: #44 SI A+C paragraph — pairing studies closed with no recovery; wait for A1 assign after radius-aware evidence"
+          "summary": "Idle hold: #44 SI A+C paragraph — wait for A1 assign after tissue/signal radial recovery evidence"
         },
         {
-          "id": "A3-T20",
+          "id": "A3-T23",
           "status": "ready",
           "issue": 28,
-          "summary": "Idle: optional SI note for PersistenceConfig.resolve_within_interval only if A1 assigns; else hold (default none; hierarchy still ~9x)"
+          "summary": "Idle: optional SI note for PersistenceConfig.resolve_within_interval only if A1 assigns; else hold (default none; diagnose closed)"
         },
         {
-          "id": "A3-T21",
+          "id": "A3-T24",
           "status": "ready",
           "issue": 41,
           "summary": "Idle: no further SI #41 edit unless A1 assigns after fitted-region recovery evidence; hold only"
@@ -133,19 +133,19 @@
       ],
       "queue": [
         {
-          "id": "A5-T19",
+          "id": "A5-T22",
           "status": "ready",
           "issue": 43,
           "summary": "Re-check integration each turn for stage2/dual_flow; if present, CLAIM wiring into affected_dual_subgraph_connected"
         },
         {
-          "id": "A5-T20",
+          "id": "A5-T23",
           "status": "ready",
           "issue": 43,
           "summary": "REPORT via NOTE if still blocked on S6; keep queue warm without drive-by Stage-1 edits"
         },
         {
-          "id": "A5-T21",
+          "id": "A5-T24",
           "status": "ready",
           "issue": 43,
           "summary": "Optional: confirm DualAdjacency SI anchors still accurate after any gate.py churn; NOTE only"
@@ -166,25 +166,25 @@
       ],
       "queue": [
         {
-          "id": "A6-T16",
+          "id": "A6-T19",
           "status": "ready",
           "issue": 28,
-          "summary": "NOTE: probe why within-block load_crossover still lands ~9x expected on hierarchy (loads>1 / unstabilized grid[0]); no default flip"
+          "summary": "Confirm paper L=1/coarse-end sync + hierarchy hybrid lock are on tip; DONE/REQUEST_TRACKER if not already filed"
         },
         {
-          "id": "A6-T17",
+          "id": "A6-T20",
           "status": "ready",
           "issue": 28,
-          "summary": "Optional: circle/swiss tau* under resolve_within_interval=load_crossover vs none; NOTE only; keep default none"
+          "summary": "Idle hold: no resolve_within_interval default flip; NOTE only if new SI-justified within-interval signal appears"
         },
         {
-          "id": "A6-T18",
+          "id": "A6-T21",
           "status": "ready",
           "issue": 28,
-          "summary": "If a better within-interval resolve emerges, REQUEST_TRACKER; else NOTE that coarse-end remains acceptance default"
+          "summary": "Optional: draft one-line REQUEST_TRACKER for A3 SI flag prose if A1 wants; else hold"
         }
       ]
     }
   },
-  "notes": "2026-08-09T13:40: scooped A2-T7..T9 (pairing closed, no nested recovery) + A3-T16..T18 + A5-T16..T18 mailboxes; A6 mid CLAIM T16–T18; A4 mid CLAIM T8–T10. Refilled A2/A3/A5. #44 SI A+C held."
+  "notes": "2026-08-09T14:03: scooped A2 prefer_radial_gap_prepass + A6 T16–T18 diagnose + paper L=1 sync; A3/A5 idle drains refilled; A4 mid T8–T10. #44 SI A+C held. Tests 18p recursion+persistence + 3p/1x evidence."
 }
