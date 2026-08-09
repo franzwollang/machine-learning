@@ -93,6 +93,7 @@ Several objects appear in multiple parts of Proteus. The following list identifi
   \item The flag-complex invariant and transition-count policies: S4.1--S4.4.
   \item Torsion ratio $R_S$, edge-ratio fallback, and warp policies: S5.
   \item Face pressures $p_f$ and simplex-local density: S6.
+  \item Dual / face adjacency for the S10.4 evidence-gate connectivity check: S6.6 (proposed stub; OPEN\_ISSUES~\#43).
   \item Gaussian summaries $(\boldsymbol\mu_C,\Sigma_C)$, closed-form membership $\mu_C(\mathbf x)$, PL membership $\mu_C^{\mathrm{PL}}$, and trajectory $\boldsymbol\mu(\mathbf x)$: S7.
   \item Generative mass field $m$, geometry-derived router $q(j\mid i;m)$, and identifiability: S10.
   \item Lyapunov function and dynamic convergence lemmas: S12.
@@ -1153,7 +1154,15 @@ plus relative trough-depth gate
 \texttt{prefer\_signal\_density\_band\_prepass} (keep the top
 \texttt{finer\_signal\_density\_keep\_frac} of nodes by knn-density residual
 against a smooth radial-histogram expectation, then run the band gap on the
-kept subset). Under the unit harness
+kept subset). A non-radial dual,
+\texttt{prefer\_pca\_axis\_gap\_prepass} (default off; OPEN\_ISSUES~\#44),
+projects scaffold positions onto the leading principal component and takes the
+largest balanced 1-D gap (same size / min-gap-ratio / $Q{>}0$ gates as the
+radial gap), plus a centroid-separation gate
+$\|c_0-c_1\|/(\mathrm{rms}_0+\mathrm{rms}_1)\ge1$ that rejects PC1 diameter
+cuts on concentric scaffolds. Unit offset rings recover under that cue;
+interlocking linked-tori remain unrecovered under end-to-end
+persist$+$pca --- do not flip awaiting. Under the unit harness
 ($n_{\mathrm{per}}=64$, $n_{\mathrm{seeds}}=8$, persist on,
 $\texttt{max\_finer\_scale\_steps}\le12$), signal-density recovers nested shells
 at $2$ leaves / $\mathrm{ARI}{=}1.0$ while the circle stays one leaf at
@@ -1792,6 +1801,26 @@ The normalization is exact because barycentric coordinates integrate uniformly o
 
 \subsection*{S6.5 Variants and Debugging Modes}
 For debugging, replace the PL profile by the uniform density $p(\mathbf x\mid S)=m_S/|S|_d$. This isolates topology and mass selection from interpolation choices. Other variants may use alternative face-pressure aggregations, but the canonical profile above is preferred because it is linear in the same pressures used by the dual-flow solve.
+
+\subsection*{S6.6 Dual / Face Adjacency for the Evidence Gate (proposed stub;
+OPEN\_ISSUES~\#43)}
+\label{sec:si-dual-adjacency}
+The S10.4 dynamic-preservation rule (A2) requires that an edit be
+evidence-bearing only if the \emph{affected} dual subgraph remains connected.
+Vertices of that dual are simplices of the post-edit dry-run complex; an
+undirected edge joins two simplices that share a facet (codimension-$1$ face).
+The Stage-2 dual-flow / face-graph producer (\texttt{stage2.dual\_flow}, not yet
+landed) should expose this adjacency as a Mapping-like list
+\texttt{adj.get(u, ())} of neighbor simplex ids (symmetric; a missing key is
+an isolated vertex). Connectivity is the induced BFS on the affected id set
+(vacuous $\mathrm{True}$ for empty or singleton affected sets). When the
+producer is unavailable, consumers treat adjacency as \texttt{None} and
+conservatively accept ($A2$ open) --- matching
+\texttt{affected\_dual\_subgraph\_connected} /
+\texttt{score\_edit(..., dual\_connected=True)}. This subsection is a
+\emph{proposed} stub so implementers can wire against the contract; it does not
+change S6.2 conservation math and does not flip the
+\texttt{stage2.dual\_flow} awaiting tests.
 
 \section*{S7. Multiscale Fuzzy Memberships}
 \label{sec:si-memberships}
@@ -2447,6 +2476,29 @@ fitted scaffolds (S14.3); do not flip topology-recovery tests on this default
 alone, and do not treat fitted-circle recovery as established at the SI
 $1.5\,\sigma_\star$ reading.
 
+\paragraph{Proposed topology-recovery reading path
+(OPEN\_ISSUES~\#41).}
+Acceptance reading remains the fixed-threshold Betti count at filtration
+radius $1.5\,\sigma_\star$
+(\texttt{filtration\_mult}${}=1.5$) on accepted-region / signal-filtered node
+positions. Fitted-scaffold $b_1=0$ at that radius is diagnosed as
+\emph{loop-unborn} (insufficient accepted-region coverage or $\sigma_\star$
+consistency so the true $H_1$ has not yet birthed), not a licence to raise the
+filtration multiplier on the acceptance path. Prefer denser accepted-region
+node coverage (and $\sigma_\star$ consistency) so that true $H_1$ births occur
+at or below $1.5\,\sigma_\star$. An optional fallback --- only after a
+\emph{declared} calibration protocol on a reference ensemble --- may log a
+calibrated \texttt{filtration\_mult} in S14.3 as a \emph{proposed / calibrated}
+constant; empirical windows such as $\mathrm{mult}\approx6$ on a single fitted
+circle are existence proofs, not silent default changes. Lifetime reading stays
+proposal-path diagnostic: existence proofs that need
+$\texttt{lifetime\_frac}\ge4$ (or modest-$n$ clean-shell windows near
+$\approx0.75$) do not licence bumping the S14.3 operational default of $0.5$.
+Signal / per-region filtering remains mandatory preprocessing for tissue
+scaffolds. Do not flip topology-recovery awaiting tests until the
+coverage-first path (or a logged calibrated mult) recovers fitted regions at
+the stated reading.
+
 \paragraph{Maximum mean discrepancy.}
 Use an RBF kernel with bandwidth set by the median heuristic on the combined sample. Default to $1{,}000$ samples drawn from the model and $1{,}000$ samples from the held-out test set, repeated over $5$ seeds; report mean$\pm$std and a permutation test $p$-value.
 
@@ -2507,6 +2559,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{finer\_radial\_min\_trough\_rel} & 0\ (\text{0.35 on noncentroid path}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{prefer\_signal\_density\_band\_prepass} & \text{false}\ (\text{unit nested recovery; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{finer\_signal\_density\_keep\_frac} & 0.55 & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{prefer\_pca\_axis\_gap\_prepass} & \text{false}\ (\text{offset rings; tori unrecovered; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
 \text{node maturity}\ (\texttt{prune\_after}) & 25\text{ updates} & \text{S3.2} & \text{operational}\\
 \text{neonatal link guard}\ (\texttt{protected\_until}) & 25\text{ iters} & \text{S3.1} & \text{operational}\\
@@ -2537,6 +2590,8 @@ n_{\min} & \max(10d,1000) & \text{S8.2} & \text{operational}\\
 \theta_{\mathrm{rej}} & 0.8 & \text{S8.4} & \text{empirical}\\
 \rho_{\min} & 10^{-4}\ (\text{conservative }10^{-3}) & \text{S10.4} & \text{operational}\\
 \texttt{lifetime\_frac}\ (\text{VR lifetime Betti reading}) & 0.5 & \text{S14.2} & \text{operational (proposal-path; OPEN\_ISSUES \#41)}\\
+\texttt{filtration\_mult}\ (\text{VR fixed-threshold}) & 1.5 & \text{S14.2} & \text{operational (acceptance; \#41)}\\
+\texttt{filtration\_mult}_{\mathrm{cal}}\ (\text{optional VR fallback}) & \text{unset (protocol TBD)} & \text{S14.2} & \text{proposed (calibrated; \#41)}\\
 \end{array}
 \]
 Defaults marked empirical are expected to be retuned after benchmark evidence; defaults marked theory/statistical follow directly from the corresponding derivation or test convention. Defaults marked \emph{calibrated} are measured on a declared reference ensemble by a written protocol (e.g.\ $c_{d,k}$ via S2.5.5, $C_Q(d)$ via S3.3) and shipped as a lookup table. The legacy \texttt{selector="load\_band"} heuristic has been removed from the reference implementation (OPEN\_ISSUES~\#28). This table now covers every algorithmic constant in the reference implementation (\texttt{src/proteus/}): the acceptance-path quantities are derived or calibrated, and the proposal-path constants are free operational defaults backstopped by the evidence gate (S3.4). Two classes are deliberately excluded as non-algorithmic and logged per S14.4 rather than tabulated: pure numerical guards (floors $\epsilon\sim10^{-8}$--$10^{-12}$ against division by zero) and ANN-index library hyperparameters (HNSW $M{=}16$, $\mathrm{ef}_{\mathrm{construction}}{=}200$, $\mathrm{ef}_{\mathrm{search}}{=}100$), which affect recall/runtime but not the learned object. The calibration reference ensemble's own parameters (uniform $d$-ball, $\approx\!3000$ samples, $4$ ensembles, target $\approx\!120$ nodes) are specified with the protocol in S2.5.5. The clustering cleanup stand-ins remain provisional (OPEN\_ISSUES~\#27): they are operational placeholders slated for removal once the S3.4 evidence gate lands.
