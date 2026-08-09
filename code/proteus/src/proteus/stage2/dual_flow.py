@@ -19,10 +19,13 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   behind ``enable_as_message_pass``, and a whitened ``λ_f`` / ``μ_S``-
   weighted soft solve behind ``enable_mu_weighted_solve`` (eq.
   si-dual-flow-weight; A5-EXP-mu) with soft spectrum step-shrink and an
-  ungated ``ε_flux`` health-check helper (A5-EXP-flux). Remaining real-BP
-  gaps: full loopy Gaussian BP on the multi-simplex face/factor graph;
-  online tallies → offline solve schedule; true-manifold flux zeroing
-  (S6.3).
+  ungated ``ε_flux`` health-check helper (A5-EXP-flux). Count-aware
+  ``λ_f=1+n_f/(1+n̄)`` lands behind ``enable_count_aware_lambda``
+  (A5-T46; baseline remains ``λ_f=1``). Multi-simplex patch
+  ``Σ_S μ_S‖A_S p_S‖²`` soft solve lands behind ``enable_patch_mu_solve``
+  (A5-T47 stub — not loopy BP). Remaining real-BP gaps: full loopy
+  Gaussian BP on the multi-simplex face/factor graph; online tallies →
+  offline solve schedule; true-manifold flux zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
   seams land behind ``enable_boundary_taxonomy`` (proposed; default off).
   Heuristic single-owner → true-manifold; hint sets override. Seam stitch /
@@ -49,12 +52,20 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
   :func:`accumulate_face_pressure_tally` / dry-run tally field return ``None``.
 * ``DualFlowConfig.enable_live_bmu_tally`` — when off,
   :func:`route_live_bmu_face_tallies` returns ``None`` (A5-T43 harness).
+* ``DualFlowConfig.enable_stage1_bmu_wiring`` — when off,
+  :func:`route_stage1_bmu_face_tallies` returns ``None`` (A5-T48 sketch).
 * ``DualFlowConfig.enable_as_message_pass`` — when off,
   :func:`solve_as_message_pass` returns ``None``; when on, soft ``A_S``
   residual nudge (not full loopy BP).
 * ``DualFlowConfig.enable_mu_weighted_solve`` — when off,
   :func:`solve_mu_weighted_pressures` returns ``None``; when on, soft
   quadratic with whitened ``λ_f`` + SI ``μ_S`` (not loopy BP).
+* ``DualFlowConfig.enable_count_aware_lambda`` — when off,
+  :func:`count_aware_lambda_f` is unused by the soft solve (baseline
+  ``λ_f=1``); when on with ``face_hit_counts``, applies SI count-aware
+  weights (A5-T46).
+* ``DualFlowConfig.enable_patch_mu_solve`` — when off,
+  :func:`solve_patch_mu_weighted_pressures` returns ``None`` (A5-T47).
 * ``DualFlowConfig.enable_boundary_taxonomy`` — when off,
   :func:`classify_boundary_facets` returns ``None``.
 * ``DualFlowConfig.enable_seam_ghost`` — when off, seam stitch / ghost
@@ -109,9 +120,11 @@ __all__ = [
     "FaceTallyResult",
     "SimplexDensityResult",
     "LiveBmuTallyResult",
+    "Stage1BmuTallyResult",
     "SeamStitchResult",
     "GhostReservoirResult",
     "MuWeightedSolveResult",
+    "PatchMuSolveResult",
     "build_dual_adjacency",
     "build_dual_adjacency_from_complex",
     "dry_run_dual_from_edit",
@@ -120,13 +133,16 @@ __all__ = [
     "accumulate_face_pressure_tally",
     "locate_bmu_simplex",
     "route_live_bmu_face_tallies",
+    "route_stage1_bmu_face_tallies",
     "build_divergence_stencil",
     "conservation_residual_r_cons",
     "epsilon_flux",
     "solve_as_message_pass",
     "whiten_empirical_pressures",
     "mu_S_weight",
+    "count_aware_lambda_f",
     "solve_mu_weighted_pressures",
+    "solve_patch_mu_weighted_pressures",
     "classify_boundary_facets",
     "stitch_orientation_seam_pressures",
     "apply_ghost_reservoir",
@@ -170,6 +186,12 @@ class DualFlowConfig:
         winning simplex (containment, else nearest barycenter) and accumulates
         S6.1 tallies on that BMU only (A5-T43). Does **not** wire Stage-1
         routing; does not flip mass/density ``@awaiting``.
+    enable_stage1_bmu_wiring:
+        When ``False`` (default), :func:`route_stage1_bmu_face_tallies`
+        returns ``None``. When ``True``, experimental sketch maps each
+        sample's Stage-1 node BMU → candidate simplices incident on that
+        node, then tallies on the winning simplex among those candidates
+        (A5-T48). Still proposal-path; does not flip ``@awaiting``.
     enable_as_message_pass:
         When ``False`` (default), :func:`solve_as_message_pass` returns
         ``None``. When ``True``, soft-projects pressures toward ``ker(A_S)``
@@ -181,6 +203,17 @@ class DualFlowConfig:
         whitened ``λ_f`` data term plus ``μ_S‖A_S p‖²`` conservation
         (eq. si-dual-flow-weight; A5-EXP-mu). Still **not** loopy Gaussian
         BP on the face/factor graph.
+    enable_count_aware_lambda:
+        When ``False`` (default), soft solves keep baseline ``λ_f=1``
+        after whitening. When ``True`` and ``face_hit_counts`` is supplied
+        to :func:`solve_mu_weighted_pressures`, uses SI count-aware
+        ``λ_f=1+n_f/(1+n̄)`` (A5-T46). Operational proposal-path only.
+    enable_patch_mu_solve:
+        When ``False`` (default), :func:`solve_patch_mu_weighted_pressures`
+        returns ``None``. When ``True``, soft-minimizes a multi-simplex
+        patch objective ``Σ λ(p-hat)² + Σ_S μ_S‖A_S p_S‖²`` with
+        concatenated per-simplex face blocks (A5-T47 stub — **not** a
+        shared face-registry / loopy BP graph).
     enable_boundary_taxonomy:
         When ``False`` (default), :func:`classify_boundary_facets` returns
         ``None``. When ``True``, labels single-owner facets via SI S6.3
@@ -232,8 +265,11 @@ class DualFlowConfig:
     enable_conservative_bp: bool = False
     enable_face_tallies: bool = False
     enable_live_bmu_tally: bool = False
+    enable_stage1_bmu_wiring: bool = False
     enable_as_message_pass: bool = False
     enable_mu_weighted_solve: bool = False
+    enable_count_aware_lambda: bool = False
+    enable_patch_mu_solve: bool = False
     enable_boundary_taxonomy: bool = False
     enable_seam_ghost: bool = False
     enable_simplex_density: bool = False
@@ -350,6 +386,25 @@ class LiveBmuTallyResult:
     note: str = (
         "sketch only: experimental BMU harness; not Stage-1 live wiring; "
         "do not flip @awaiting(stage2.dual_flow)"
+    )
+
+
+@dataclass(frozen=True)
+class Stage1BmuTallyResult:
+    """Stage-1 BMU → simplex tally wiring sketch (SI S6.1; A5-T48).
+
+    ``node_bmus`` echoes the caller-supplied Stage-1 node BMU per sample.
+    ``assignments`` are winning simplex ids among candidates incident on
+    that node. Still proposal-path — does not replace Stage-1 routing or
+    flip mass/density ``@awaiting``.
+    """
+
+    tallies_by_simplex: Mapping[Hashable, FaceTallyResult]
+    node_bmus: tuple[Hashable, ...]
+    assignments: tuple[Hashable, ...]
+    note: str = (
+        "sketch only: Stage-1 node BMU → incident-simplex tally; not "
+        "acceptance-path wiring; do not flip @awaiting(stage2.dual_flow)"
     )
 
 
@@ -867,6 +922,87 @@ def route_live_bmu_face_tallies(
     )
 
 
+def route_stage1_bmu_face_tallies(
+    samples: Sequence[np.ndarray],
+    stage1_node_bmus: Sequence[Hashable],
+    node_to_simplices: Mapping[Hashable, Sequence[Hashable]],
+    simplex_vertex_positions: Mapping[Hashable, np.ndarray],
+    *,
+    prior_tallies: Mapping[Hashable, np.ndarray] | None = None,
+    config: DualFlowConfig | None = None,
+) -> Stage1BmuTallyResult | None:
+    """Stage-1 BMU → live face-tally wiring sketch (SI S6.1; A5-T48).
+
+    When ``enable_stage1_bmu_wiring`` is off, returns ``None``. When on:
+
+    1. Each sample carries a Stage-1 node BMU id (ANN winner).
+    2. Candidate simplices are those listed in ``node_to_simplices[bmu]``
+       (incident / starring the BMU node).
+    3. Among candidates, :func:`locate_bmu_simplex` picks the winning
+       simplex; S6.1 tallies accumulate on that winner only.
+
+    Proposal-path bridge toward acceptance wiring — does **not** call into
+    Stage-1 controllers, does **not** flip ``@awaiting``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_stage1_bmu_wiring:
+        return None
+
+    if len(samples) != len(stage1_node_bmus):
+        raise ValueError(
+            f"samples length {len(samples)} != stage1_node_bmus "
+            f"{len(stage1_node_bmus)}"
+        )
+    pos_map = {
+        sid: np.asarray(P, dtype=float)
+        for sid, P in simplex_vertex_positions.items()
+    }
+    if not pos_map:
+        raise ValueError("simplex_vertex_positions must be non-empty")
+
+    tally_cfg = DualFlowConfig(
+        enable_face_tallies=True,
+        tally_scale=cfg.tally_scale,
+        volume_floor=cfg.volume_floor,
+    )
+    priors: dict[Hashable, np.ndarray] = {}
+    if prior_tallies is not None:
+        priors = {k: np.asarray(v, dtype=float) for k, v in prior_tallies.items()}
+
+    last_by_sid: dict[Hashable, FaceTallyResult] = {}
+    assignments: list[Hashable] = []
+    node_ids: list[Hashable] = []
+    for raw, node_bmu in zip(samples, stage1_node_bmus, strict=True):
+        node_ids.append(node_bmu)
+        candidates = list(node_to_simplices.get(node_bmu, ()))
+        if not candidates:
+            raise ValueError(
+                f"no simplices mapped for Stage-1 BMU node {node_bmu!r}"
+            )
+        cand_pos = {sid: pos_map[sid] for sid in candidates if sid in pos_map}
+        if not cand_pos:
+            raise ValueError(
+                f"candidate simplices for node {node_bmu!r} missing positions"
+            )
+        sid = locate_bmu_simplex(raw, cand_pos)
+        assignments.append(sid)
+        prior = priors.get(sid)
+        result = accumulate_face_pressure_tally(
+            raw, pos_map[sid], prior_tallies=prior, config=tally_cfg
+        )
+        if result is None:
+            raise RuntimeError("tally accumulation unexpectedly disabled")
+        priors[sid] = result.tallies
+        last_by_sid[sid] = result
+
+    return Stage1BmuTallyResult(
+        tallies_by_simplex=last_by_sid,
+        node_bmus=tuple(node_ids),
+        assignments=tuple(assignments),
+    )
+
+
 def _intrinsic_basis(vertex_positions: np.ndarray, *, eps: float = 1e-12) -> np.ndarray:
     """Orthonormal basis rows spanning the affine hull of ``P`` (shape ``(d, D)``)."""
 
@@ -1116,15 +1252,35 @@ def mu_S_weight(
     return float(mu_scale) * float(bar_lambda) / (fro2 + float(eps_A))
 
 
+def count_aware_lambda_f(
+    face_hit_counts: np.ndarray,
+) -> np.ndarray:
+    """SI S6.2 count-aware data weights ``λ_f = 1 + n_f / (1 + n̄)``.
+
+    Baseline remains ``λ_f=1`` (scale-stable early runs); this variant is
+    gated by ``enable_count_aware_lambda`` (A5-T46). ``n̄`` is the mean of
+    nonnegative hit counts ``n_f``.
+    """
+
+    n_f = np.asarray(face_hit_counts, dtype=float).reshape(-1)
+    if np.any(n_f < 0.0):
+        raise ValueError("face_hit_counts must be nonnegative")
+    if n_f.size == 0:
+        return n_f.copy()
+    nbar = float(np.mean(n_f))
+    return 1.0 + n_f / (1.0 + nbar)
+
+
 def solve_mu_weighted_pressures(
     empirical_pressures: np.ndarray,
     divergence_stencil: np.ndarray,
     *,
     running_std: np.ndarray | None = None,
     lambda_f: np.ndarray | None = None,
+    face_hit_counts: np.ndarray | None = None,
     config: DualFlowConfig | None = None,
 ) -> MuWeightedSolveResult | None:
-    """Whitened ``λ_f`` + ``μ_S`` soft solve (SI S6.2; A5-EXP-mu).
+    """Whitened ``λ_f`` + ``μ_S`` soft solve (SI S6.2; A5-EXP-mu / A5-T46).
 
     When ``enable_mu_weighted_solve`` is off, returns ``None``. When on,
     soft-minimizes
@@ -1132,9 +1288,11 @@ def solve_mu_weighted_pressures(
         Σ_f λ_f (p_f - hat̃_f)² + μ_S ‖A_S p‖₂²
 
     with baseline ``λ_f = 1`` after whitening (SI) and
-    ``μ_S = 0.1 λ̄_S / (‖A_S‖_F² + ε_A)``. Gradient steps with
-    ``bp_damping`` / ``bp_max_iters`` / ``as_step`` — **not** loopy
-    Gaussian BP. Do **not** flip ``@awaiting("stage2.dual_flow")``.
+    ``μ_S = 0.1 λ̄_S / (‖A_S‖_F² + ε_A)``. When
+    ``enable_count_aware_lambda`` is on and ``face_hit_counts`` is given
+    (and ``lambda_f`` is ``None``), uses ``λ_f=1+n_f/(1+n̄)``. Gradient
+    steps with ``bp_damping`` / ``bp_max_iters`` / ``as_step`` — **not**
+    loopy Gaussian BP. Do **not** flip ``@awaiting("stage2.dual_flow")``.
     """
 
     cfg = config or DualFlowConfig()
@@ -1154,7 +1312,19 @@ def solve_mu_weighted_pressures(
     )
     n = hat_w.shape[0]
     if lambda_f is None:
-        lam = np.ones(n, dtype=float)
+        if cfg.enable_count_aware_lambda:
+            if face_hit_counts is None:
+                raise ValueError(
+                    "enable_count_aware_lambda requires face_hit_counts "
+                    "when lambda_f is not supplied"
+                )
+            lam = count_aware_lambda_f(face_hit_counts)
+            if lam.shape != (n,):
+                raise ValueError(
+                    f"face_hit_counts length {lam.shape[0]} != ({n},)"
+                )
+        else:
+            lam = np.ones(n, dtype=float)
     else:
         lam = np.asarray(lambda_f, dtype=float).reshape(-1)
         if lam.shape != (n,):
@@ -1212,6 +1382,15 @@ def solve_mu_weighted_pressures(
         A_S, p, eps_A=float(cfg.as_eps), eps=eps
     )
     e_flux = epsilon_flux(A_S, p, eps=eps)
+    note = (
+        "sketch only: whitened λ_f + μ_S soft solve; full loopy Gaussian "
+        "BP / multi-simplex face graph (SI S6.2) not implemented"
+    )
+    if cfg.enable_count_aware_lambda and lambda_f is None:
+        note = (
+            "sketch only: count-aware λ_f=1+n_f/(1+n̄) + μ_S soft solve; "
+            "full loopy Gaussian BP (SI S6.2) not implemented"
+        )
     return MuWeightedSolveResult(
         empirical=hat_raw,
         empirical_whitened=hat_w,
@@ -1224,10 +1403,182 @@ def solve_mu_weighted_pressures(
         iters=iters,
         hessian_cond=cond,
         spectrum_damped=spectrum_damped,
-        note=(
-            "sketch only: whitened λ_f + μ_S soft solve; full loopy Gaussian "
-            "BP / multi-simplex face graph (SI S6.2) not implemented"
-        ),
+        note=note,
+    )
+
+
+@dataclass(frozen=True)
+class PatchMuSolveResult:
+    """Multi-simplex patch ``Σ_S μ_S`` soft solve stub (SI S6.2; A5-T47).
+
+    Pressures are concatenated per-simplex face blocks (independent copies —
+    shared-face identification / face registry is future work). ``mu_S`` maps
+    simplex id → local conservation weight; ``mu_S_sum`` is their sum.
+    """
+
+    empirical: np.ndarray
+    pressures: np.ndarray
+    lambda_f: np.ndarray
+    mu_S: Mapping[Hashable, float]
+    mu_S_sum: float
+    r_data: float
+    r_cons: float
+    epsilon_flux: float
+    iters: int
+    block_sizes: tuple[int, ...]
+    simplex_ids: tuple[Hashable, ...]
+    note: str = (
+        "sketch only: block-concat patch Σ μ_S‖A_S p_S‖²; not shared "
+        "face-registry / loopy Gaussian BP (SI S6.2)"
+    )
+
+
+def solve_patch_mu_weighted_pressures(
+    empirical_by_simplex: Mapping[Hashable, np.ndarray],
+    stencils_by_simplex: Mapping[Hashable, np.ndarray],
+    *,
+    face_hit_counts_by_simplex: Mapping[Hashable, np.ndarray] | None = None,
+    config: DualFlowConfig | None = None,
+) -> PatchMuSolveResult | None:
+    """Multi-simplex patch soft solve (SI S6.2; A5-T47).
+
+    When ``enable_patch_mu_solve`` is off, returns ``None``. When on,
+    soft-minimizes
+
+        Σ_f λ_f (p_f - hat_f)² + Σ_S μ_S ‖A_S p_S‖₂²
+
+    over **block-concatenated** per-simplex face pressures (each simplex
+    owns a private copy of its facet pressures — shared-face glue is not
+    implemented). ``μ_S`` uses :func:`mu_S_weight` per stencil; reported
+    ``mu_S_sum`` is ``Σ_S μ_S``. Optional count-aware ``λ_f`` when
+    ``enable_count_aware_lambda`` and hit counts are supplied.
+
+    Proposal-path stub only — do **not** flip ``@awaiting``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_patch_mu_solve:
+        return None
+
+    if not empirical_by_simplex:
+        raise ValueError("empirical_by_simplex must be non-empty")
+    ids = tuple(empirical_by_simplex.keys())
+    for sid in ids:
+        if sid not in stencils_by_simplex:
+            raise ValueError(f"missing divergence stencil for simplex {sid!r}")
+
+    blocks_hat: list[np.ndarray] = []
+    blocks_A: list[np.ndarray] = []
+    blocks_lam: list[np.ndarray] = []
+    mu_map: dict[Hashable, float] = {}
+    block_sizes: list[int] = []
+
+    for sid in ids:
+        hat = np.asarray(empirical_by_simplex[sid], dtype=float).reshape(-1)
+        A_S = np.asarray(stencils_by_simplex[sid], dtype=float)
+        if A_S.ndim != 2 or A_S.shape[1] != hat.shape[0]:
+            raise ValueError(
+                f"stencil {sid!r} shape {A_S.shape} incompatible with "
+                f"pressures length {hat.shape[0]}"
+            )
+        n = hat.shape[0]
+        if cfg.enable_count_aware_lambda:
+            if (
+                face_hit_counts_by_simplex is None
+                or sid not in face_hit_counts_by_simplex
+            ):
+                raise ValueError(
+                    "enable_count_aware_lambda requires "
+                    "face_hit_counts_by_simplex for every simplex"
+                )
+            lam = count_aware_lambda_f(face_hit_counts_by_simplex[sid])
+            if lam.shape != (n,):
+                raise ValueError(
+                    f"hit counts for {sid!r} length {lam.shape[0]} != ({n},)"
+                )
+        else:
+            lam = np.ones(n, dtype=float)
+        bar_lam = float(np.mean(lam))
+        mu = mu_S_weight(
+            A_S,
+            bar_lambda=bar_lam,
+            mu_scale=float(cfg.mu_scale),
+            eps_A=float(cfg.as_eps),
+        )
+        mu_map[sid] = mu
+        blocks_hat.append(hat)
+        blocks_A.append(A_S)
+        blocks_lam.append(lam)
+        block_sizes.append(n)
+
+    hat_raw = np.concatenate(blocks_hat)
+    lam_all = np.concatenate(blocks_lam)
+    # Block-diagonal soft Hessian: per-simplex AtA scaled by μ_S.
+    n_tot = hat_raw.shape[0]
+    AtA_big = np.zeros((n_tot, n_tot), dtype=float)
+    offset = 0
+    for sid, A_S, n in zip(ids, blocks_A, block_sizes, strict=True):
+        AtA = A_S.T @ A_S
+        sl = slice(offset, offset + n)
+        AtA_big[sl, sl] = float(mu_map[sid]) * AtA
+        offset += n
+
+    damp = float(cfg.bp_damping)
+    if not 0.0 <= damp <= 1.0:
+        raise ValueError("bp_damping must be in [0, 1]")
+    iters = int(cfg.bp_max_iters)
+    if iters < 1:
+        raise ValueError("bp_max_iters must be >= 1")
+    step = float(cfg.as_step)
+    if step < 0.0:
+        raise ValueError("as_step must be >= 0")
+
+    # Whiten globally with one-shot |hat| floor (proposal-path).
+    hat_w, std = whiten_empirical_pressures(
+        hat_raw, None, floor=float(cfg.whiten_floor)
+    )
+    p_w = hat_w.copy()
+    for _ in range(iters):
+        p_w = (1.0 - damp) * hat_w + damp * p_w
+        p_phys = p_w * std
+        # AtA_big already folds μ_S into each block; whitened conservation
+        # gradient is std ⊙ (AtA_big @ p_phys).
+        grad = lam_all * (p_w - hat_w) + std * (AtA_big @ p_phys)
+        p_w = p_w - step * grad
+
+    p = p_w * std
+    eps = 1e-12
+    r_data = float(np.sum((p - hat_raw) ** 2) / (np.sum(hat_raw**2) + eps))
+
+    # Aggregate r_cons / ε_flux over blocks.
+    flux2 = 0.0
+    cons_num = 0.0
+    offset = 0
+    for A_S, n in zip(blocks_A, block_sizes, strict=True):
+        p_S = p[offset : offset + n]
+        Ap = A_S @ p_S
+        f2 = float(np.dot(Ap, Ap))
+        fro2 = float(np.sum(A_S * A_S))
+        flux2 += f2
+        cons_num += f2 / (fro2 + float(cfg.as_eps))
+        offset += n
+    denom = float(np.sum(p * p)) + eps
+    r_cons = cons_num / denom
+    e_flux = flux2 / denom
+    mu_sum = float(sum(mu_map.values()))
+
+    return PatchMuSolveResult(
+        empirical=hat_raw,
+        pressures=p,
+        lambda_f=lam_all,
+        mu_S=mu_map,
+        mu_S_sum=mu_sum,
+        r_data=r_data,
+        r_cons=r_cons,
+        epsilon_flux=e_flux,
+        iters=iters,
+        block_sizes=tuple(block_sizes),
+        simplex_ids=ids,
     )
 
 
