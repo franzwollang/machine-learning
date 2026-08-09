@@ -1048,14 +1048,22 @@ grid block:
   \item \texttt{"mid\_interval"} --- midpoint of the accepted block (A6-T28 /
   A6-T32); hierarchy Phi probe $\approx 2.7\times$ fine-leaf
   \texttt{expected\_tau}.
+  \item \texttt{"three\_quarter\_interval"} --- three-quarters of the way from
+  coarse to fine within the accepted block
+  ($i_{\mathrm{lo}}+3(i_{\mathrm{hi}}-i_{\mathrm{lo}})\!/\!4$; A6-T34..T36);
+  hierarchy Phi probe $\approx 0.82\times$ \texttt{expected\_tau} --- closest
+  of the experimental landings to $E[\tau]$ but a slight undershoot. Do not
+  promote to default on this alone.
   \item \texttt{"fine\_end\_of\_block"} --- finest grid point of the accepted
   block (A6-T31); hierarchy Phi probe \emph{undershoots}
   \texttt{expected\_tau} ($\approx 0.25\times$), so treat as an overshoot-risk
   diagnostic rather than a candidate default.
 \end{itemize}
-Circle and swiss-roll hybrids / experimental modes are no-ops (no persistent
-split; ordinary $L{=}1$ fallback already near geometric truth). None of these
-modes is SI-justified as an acceptance rule; the flag remains operational /
+Ordering on the hierarchy Phi table (seed~$0$): mid $\ge$ three-quarter $\ge$
+fine-end; load-crossover / \texttt{"none"} remain $\sim 16\times$. Circle and
+swiss-roll hybrids / experimental modes are no-ops (no persistent split;
+ordinary $L{=}1$ fallback already near geometric truth). None of these modes is
+SI-justified as an acceptance rule; the flag remains operational /
 default-\texttt{"none"} (S14.3). Do not flip the default.
 
 \paragraph{Coarse-anchoring of the persistence interval.} The bare two-point
@@ -1288,11 +1296,36 @@ status (do \emph{not} flip awaiting):
   \item Fuller suite persist$(+\mathrm{dm})$ $+$ hollow, \emph{no} finer
   descent (A2-T29): uniforms / zoo safe; nested unrecovered at scale-search
   $\tau^\star$; linked-tori may spurious-split with near-zero ARI. Fixed-$\tau$
-  oracle (nested $@0.27$, tori $@0.5$) recovers majors${=}2$. Mechanism
-  attribution: at $\tau^\star$ hollow rarely fires --- scale-search $\tau^\star$
-  $\neq$ hollowness-sensitive $\tau$. Next: multi-$\tau$ hollow scan or couple
-  hollow to the persistence grid; finish $h_0$ Poisson-null calibration.
+  oracle $K{=}2$ is \emph{not} recovery (sample ARI$\sim$chance; A2-T30).
+  Mechanism attribution: at $\tau^\star$ hollow rarely fires --- scale-search
+  $\tau^\star$ $\neq$ hollowness-sensitive $\tau$. Next: multi-$\tau$ hollow
+  scan or couple hollow to the persistence grid; finish $h_0$ Poisson-null
+  calibration.
 \end{itemize}
+
+\paragraph{ROC mid-frac table and sheet-null vs $h_0$ tension (proposed;
+A4-T18 continuation).}
+Adversarial-null ROC on sheet$+$gap generators (A4; proposal-path evidence,
+not an acceptance flip):
+\begin{itemize}[leftmargin=1.5em]
+  \item $f_{\mathrm{mid}}{=}0.25$: AUC $\approx 0.993$;
+  $f_{\mathrm{mid}}{=}0.35$: AUC $\approx 1.0$.
+  \item A2-parity operating point $(f_{\mathrm{mid}},h_0){=}(0.35,0.35)$ with
+  Gabriel fallback: TPR${=}1$, FPR$\approx 0.014$ on the gap/tissue suite.
+  \item Sheet null (connected manifold, no void): mean $H\approx 1.03$,
+  empirical $q_{01}(H)\approx 0.57$. That lower tail sits \emph{above} the
+  provisional cut $h_0{=}0.35$, so an $H$-only rule at this $h_0$ has
+  near-zero sheet FPR --- but the same $h_0$ is therefore
+  \emph{not} a tight Poisson-null quantile of the sheet distribution.
+\end{itemize}
+Tension for calibration: A2's operational $h_0{=}0.35$ is below the sheet
+null $q_{01}$, so it is permissive relative to a $1\%$-tail sheet null and
+relies on Gabriel / $n_{\mathrm{end}}^{\min}$ for low-count edges. Raising
+$h_0$ toward $\approx 0.57$ (or a proper Poisson LR threshold) may cut true
+voids more aggressively but must be re-checked against TPR on gap bridges and
+against nested/tori sample-ARI (not $K$ alone). Do not flip S14.3 $h_0$ or
+awaiting on this table.
+
 Do not retire the radial/PCA family or flip awaiting until calibrated $h_0$ $+$
 $\tau$-coupling evidence lands. Supporting draft:
 \texttt{docs/Proteus/paper\_1\_foundational/reference/empty\_region\_evidence\_and\_scale.md}.
@@ -1836,6 +1869,18 @@ When a sample $\mathbf x$ is assigned to a winning simplex $S$, compute residual
 \]
 This fractional tallying avoids winner-take-all face votes and produces smoother boundary/flux evidence for the later conservative solve.
 
+\paragraph{Landed proposal-path stub (OPEN\_ISSUES~\#43; A5-EXP-S61).}
+\texttt{proteus.stage2.dual\_flow.accumulate\_face\_pressure\_tally} implements
+the increment above behind
+\texttt{DualFlowConfig.enable\_face\_tallies} (default off; S14.3), returning
+\texttt{FaceTallyResult} (increments, cumulative tallies, barycenter, normals)
+or \texttt{None} when the flag is off. Outward normals come from
+\texttt{simplex\_outward\_normals}; an operational \texttt{tally\_scale}
+(default $1.0$) multiplies increments. The helper is \emph{not} wired into
+live sample routing yet --- it is a unit-tested sketch for dry-run / diagnostic
+paths only. Do not flip mass/density
+\texttt{@awaiting("stage2.dual\_flow")} on this stub.
+
 \subsection*{S6.2 Conservative Reconstruction}
 For each simplex $S$ with facets $f_0,\dots,f_d$, outward unit normals $\mathbf n_{f_i}\in\mathbb R^d$, and facet areas $A_{f_i}$, stack the incident pressures as $\mathbf p_S=(p_{f_0},\dots,p_{f_d})^\top$ and define
 \[
@@ -1909,6 +1954,16 @@ Boundary facets are classified before the dual-flow solve.
 \end{itemize}
 The density evaluator distinguishes no-data from no-flux. Boundary classifications and residuals are logged so persistent errors can be traced to boundary handling rather than mistaken for interior topology failure.
 
+\paragraph{Landed proposal-path stub (OPEN\_ISSUES~\#43; A5-EXP-S61).}
+\texttt{proteus.stage2.dual\_flow.classify\_boundary\_facets} labels single-owner
+facets behind \texttt{DualFlowConfig.enable\_boundary\_taxonomy} (default off;
+S14.3). Default label for a single-owner facet is true-manifold; optional
+hint sets map facets to computational or orientation-seam. Interior facets
+(two or more owners) are omitted. Returned \texttt{facet\_id} values are
+enumeration indices into the result list, not a global face registry. Seam
+stitching and ghost-reservoir attachment remain future work. Do not flip
+awaiting on this taxonomy stub.
+
 \subsection*{S6.4 Simplex-Local Density Formula}
 \label{sec:si-simplex-density}
 For simplex $S$ with vertices $v_0,\dots,v_d$ and facets $f_0,\dots,f_d$, define a vertex weight by summing incident facet pressures. With barycentric coordinates $\beta_i(\mathbf x)$, set
@@ -1965,9 +2020,10 @@ contract (not full S6 dual-flow):
   A2 bool; when the flag is off it returns \texttt{True}.
 \end{itemize}
 Remaining S6 gaps (mass/density/benchmark
-\texttt{@awaiting("stage2.dual\_flow")} stay xfail): S6.1 online face-pressure
-tallies; real S6.2 loopy Gaussian BP; S6.3 boundary taxonomy; S6.4
-simplex-local density.
+\texttt{@awaiting("stage2.dual\_flow")} stay xfail): wire S6.1 tallies into
+live routing; real S6.2 loopy Gaussian BP (sketch only today); S6.3 seam
+stitching / ghost reservoir beyond the taxonomy stub; S6.4 simplex-local
+density.
 
 \paragraph{Evidence-gate wiring.}
 \texttt{GateConfig.apply\_dual\_adjacency} (default off) controls whether
@@ -2710,7 +2766,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
 \texttt{coarse\_anchored} & \text{true}\ (\text{coarsest split must persist}) & \text{S2.6.2} & \text{operational}\\
 \texttt{cold\_start\_recheck} & \text{false}\ (\text{refuted gate; see S2.6.2}) & \text{S2.6.2} & \text{diagnostic}\\
-\texttt{resolve\_within\_interval} & \texttt{"none"}\ (\texttt{"load\_crossover"} hybrid; \texttt{"mid\_interval"} / \texttt{"fine\_end\_of\_block"} experimental; \#28) & \text{S2.6.2} & \text{operational}\\
+\texttt{resolve\_within\_interval} & \texttt{"none"}\ (\texttt{"load\_crossover"} hybrid; \texttt{"mid\_interval"} / \texttt{"three\_quarter\_interval"} / \texttt{"fine\_end\_of\_block"} experimental; \#28) & \text{S2.6.2} & \text{operational}\\
 \texttt{allow\_finer\_research} & \text{false}\ (\text{finer-than-}\tau^\star\text{ re-search; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
@@ -2724,12 +2780,14 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{finer\_signal\_density\_keep\_frac} & 0.55 & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{prefer\_pca\_axis\_gap\_prepass} & \text{false}\ (\text{offset rings; tori unrecovered; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{prefer\_hollow\_edge\_prepass} & \text{false}\ (\text{wired; stage1.edge\_evidence; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-h_0\ (\text{hollowness cut}) & 0.35\ \text{provisional}\ (\text{Poisson-null ROC open; \#44}) & \text{S2.6.2} & \text{proposed (calibrated; \#44)}\\
-f_{\mathrm{mid}}\ (\text{mid-ball fraction}) & 0.35\ (L/4\text{ false-hollows at low }n_{\mathrm{end}}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+h_0\ (\text{hollowness cut}) & 0.35\ \text{provisional}\ (\text{sheet }q_{01}(H)\approx0.57\text{ tension; Poisson LR open; \#44}) & \text{S2.6.2} & \text{proposed (calibrated; \#44)}\\
+f_{\mathrm{mid}}\ (\text{mid-ball fraction}) & 0.35\ (L/4\text{ false-hollows at low }n_{\mathrm{end}}; \text{ROC AUC}\approx1.0\text{ at }0.35) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 n_{\mathrm{end}}^{\min} & 0.5\ (\text{else Gabriel empty-diameter}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 M_{\mathrm{transit}} & 1\ (\text{identity until online EWMA lands}) & \text{S2.6.1} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_dual\_adjacency} & \text{false} & \text{S6.6} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_conservative\_bp} & \text{false}\ (\text{identity/damped sketch only}) & \text{S6.6} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.enable\_face\_tallies} & \text{false}\ (\text{S6.1 stub; not live-routed; \#43}) & \text{S6.1} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.enable\_boundary\_taxonomy} & \text{false}\ (\text{S6.3 stub; no seam stitch; \#43}) & \text{S6.3} & \text{operational (proposal-path)}\\
 \texttt{GateConfig.apply\_dual\_adjacency} & \text{false} & \text{S6.6,S10.4} & \text{operational (proposal-path)}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
 \text{node maturity}\ (\texttt{prune\_after}) & 25\text{ updates} & \text{S3.2} & \text{operational}\\
