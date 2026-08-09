@@ -18,10 +18,11 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   ``enable_conservative_bp``, an ``A_S`` residual / soft message-pass
   behind ``enable_as_message_pass``, and a whitened ``λ_f`` / ``μ_S``-
   weighted soft solve behind ``enable_mu_weighted_solve`` (eq.
-  si-dual-flow-weight; A5-EXP-mu). Remaining real-BP gaps: full loopy
-  Gaussian BP with spectrum conditioning; global ``ε_flux``; online
-  tallies → offline solve schedule; true-manifold flux zeroing (S6.3);
-  multi-simplex face/factor graph (single-simplex sketch only).
+  si-dual-flow-weight; A5-EXP-mu) with soft spectrum step-shrink and an
+  ungated ``ε_flux`` health-check helper (A5-EXP-flux). Remaining real-BP
+  gaps: full loopy Gaussian BP on the multi-simplex face/factor graph;
+  online tallies → offline solve schedule; true-manifold flux zeroing
+  (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
   seams land behind ``enable_boundary_taxonomy`` (proposed; default off).
   Heuristic single-owner → true-manifold; hint sets override. Seam stitch /
@@ -121,6 +122,7 @@ __all__ = [
     "route_live_bmu_face_tallies",
     "build_divergence_stencil",
     "conservation_residual_r_cons",
+    "epsilon_flux",
     "solve_as_message_pass",
     "whiten_empirical_pressures",
     "mu_S_weight",
@@ -216,6 +218,11 @@ class DualFlowConfig:
     whiten_floor:
         Floor on running empirical std used to whiten ``hat p_f``
         (default ``1e-8``). Operational / numerical.
+    spectrum_cond_cap:
+        Soft spectrum-damping trigger for :func:`solve_mu_weighted_pressures`
+        (default ``1e6``). When local Hessian ``cond`` exceeds this, the
+        gradient step is halved each iteration (proposal-path stand-in for
+        SI ``damping when spectra are poorly conditioned``).
     ghost_coupling:
         Weak leak fraction in ``[0, 1]`` from computational-boundary
         pressures into the ghost reservoir (default ``0.1``). Operational.
@@ -238,6 +245,7 @@ class DualFlowConfig:
     as_step: float = 0.25
     mu_scale: float = 0.1
     whiten_floor: float = 1e-8
+    spectrum_cond_cap: float = 1e6
     ghost_coupling: float = 0.1
 
 
@@ -943,6 +951,30 @@ def conservation_residual_r_cons(
     return num / den
 
 
+def epsilon_flux(
+    divergence_stencil: np.ndarray,
+    pressures: np.ndarray,
+    *,
+    eps: float = 1e-12,
+) -> float:
+    """Single-simplex SI S6.2 ``ε_flux`` health-check shape (ungated).
+
+    ``‖A_S p‖₂² / (‖p‖₂² + ε)`` — the global post-solve flux diagnostic
+    (eq. after si-dual-flow-residuals). Distinct from ``r_cons``, which
+    normalizes by ``‖A_S‖_F² + ε_A``. Multi-simplex summation remains a
+    future face-graph wiring step.
+    """
+
+    A_S = np.asarray(divergence_stencil, dtype=float)
+    p = np.asarray(pressures, dtype=float).reshape(-1)
+    if A_S.ndim != 2 or A_S.shape[1] != p.shape[0]:
+        raise ValueError(
+            f"A_S shape {A_S.shape} incompatible with pressures length {p.shape[0]}"
+        )
+    flux = A_S @ p
+    return float(np.dot(flux, flux)) / (float(np.dot(p, p)) + float(eps))
+
+
 def solve_as_message_pass(
     empirical_pressures: np.ndarray,
     divergence_stencil: np.ndarray,
@@ -1013,8 +1045,9 @@ class MuWeightedSolveResult:
     """SI S6.2 ``μ_S``-weighted soft solve sketch (proposal-path; A5-EXP-mu).
 
     Single-simplex soft gradient on the whitened data + conservation
-    objective. ``hessian_cond`` is ``cond(diag(λ) + μ A_Sᵀ A_S)`` for
-    spectrum diagnostics — not a loopy BP damping schedule.
+    objective. ``hessian_cond`` is ``cond(diag(λ) + μ A_Sᵀ A_S)`` (whitened
+    scaling) for spectrum diagnostics; ``epsilon_flux`` is the SI S6.2
+    post-solve flux health check on the unwhitened pressures.
     """
 
     empirical: np.ndarray
@@ -1024,8 +1057,10 @@ class MuWeightedSolveResult:
     mu_S: float
     r_data: float
     r_cons: float
+    epsilon_flux: float
     iters: int
     hessian_cond: float
+    spectrum_damped: bool
     note: str = (
         "sketch only: whitened λ_f + μ_S soft solve; full loopy Gaussian BP "
         "(SI S6.2) not implemented"
@@ -1114,7 +1149,7 @@ def solve_mu_weighted_pressures(
             f"pressures length {hat_raw.shape[0]}"
         )
 
-    hat_w, _std = whiten_empirical_pressures(
+    hat_w, std = whiten_empirical_pressures(
         hat_raw, running_std, floor=float(cfg.whiten_floor)
     )
     n = hat_w.shape[0]
@@ -1148,28 +1183,35 @@ def solve_mu_weighted_pressures(
     # Work in whitened coords; evaluate conservation on unwhitened pressures.
     p_w = hat_w.copy()
     AtA = A_S.T @ A_S
-    # Conservation on p = p_w * std  ⇒  ‖A (p_w ⊙ std)‖²
-    # grad_{p_w} = 2 λ ⊙ (p_w - hat_w) + 2 μ (std ⊙ (Aᵀ A (p_w ⊙ std)))
-    for _ in range(iters):
-        p_w = (1.0 - damp) * hat_w + damp * p_w
-        p_phys = p_w * std
-        grad = lam * (p_w - hat_w) + mu * (std * (AtA @ p_phys))
-        p_w = p_w - step * grad
-
-    p = p_w * std
-    # Spectrum of the whitened-space local Hessian diag(λ) + μ (std⊙) AᵀA (⊙std)
     scale = std.reshape(-1, 1) * AtA * std.reshape(1, -1)
     hess = np.diag(lam) + mu * scale
     try:
         cond = float(np.linalg.cond(hess))
     except np.linalg.LinAlgError:
         cond = float("inf")
+    spectrum_damped = bool(cond > float(cfg.spectrum_cond_cap))
+    eff_step = step
+    if spectrum_damped:
+        # SI: "damping when spectra are poorly conditioned" — soft stand-in.
+        eff_step = step * 0.5
+
+    for i in range(iters):
+        p_w = (1.0 - damp) * hat_w + damp * p_w
+        p_phys = p_w * std
+        grad = lam * (p_w - hat_w) + mu * (std * (AtA @ p_phys))
+        use_step = eff_step
+        if spectrum_damped:
+            use_step = eff_step / float(2 ** min(i, 8))
+        p_w = p_w - use_step * grad
+
+    p = p_w * std
 
     eps = 1e-12
     r_data = float(np.sum((p - hat_raw) ** 2) / (np.sum(hat_raw**2) + eps))
     r_cons = conservation_residual_r_cons(
         A_S, p, eps_A=float(cfg.as_eps), eps=eps
     )
+    e_flux = epsilon_flux(A_S, p, eps=eps)
     return MuWeightedSolveResult(
         empirical=hat_raw,
         empirical_whitened=hat_w,
@@ -1178,8 +1220,10 @@ def solve_mu_weighted_pressures(
         mu_S=mu,
         r_data=r_data,
         r_cons=r_cons,
+        epsilon_flux=e_flux,
         iters=iters,
         hessian_cond=cond,
+        spectrum_damped=spectrum_damped,
         note=(
             "sketch only: whitened λ_f + μ_S soft solve; full loopy Gaussian "
             "BP / multi-simplex face graph (SI S6.2) not implemented"

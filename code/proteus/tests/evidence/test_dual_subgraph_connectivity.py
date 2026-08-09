@@ -62,6 +62,7 @@ from proteus.stage2 import (
     classify_boundary_facets,
     conservation_residual_r_cons,
     dry_run_dual_from_edit,
+    epsilon_flux,
     locate_bmu_simplex,
     mu_S_weight,
     resolve_dual_connected,
@@ -937,7 +938,41 @@ def test_whiten_and_mu_weighted_solve_reduces_r_cons():
     assert out.r_cons < r0
     assert out.pressures.shape == (3,)
     assert np.isfinite(out.hessian_cond)
+    assert out.epsilon_flux >= 0.0
+    assert isinstance(out.spectrum_damped, bool)
     assert "μ_S" in out.note or "mu" in out.note.lower()
+
+
+def test_epsilon_flux_distinct_from_r_cons():
+    """ε_flux = ‖Ap‖²/(‖p‖²+ε); r_cons also divides by ‖A‖_F²+ε_A."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    A_S = build_divergence_stencil(P)
+    p = np.array([2.0, 0.1, 0.1])
+    e = epsilon_flux(A_S, p)
+    r = conservation_residual_r_cons(A_S, p)
+    assert e > 0.0 and r > 0.0
+    # Same numerator flux²; r_cons further / (‖A‖_F²+ε_A) in num path → r < e
+    # for nondegenerate A_S with fro² > 1 typically; at least they differ.
+    assert e != pytest.approx(r)
+
+
+def test_spectrum_cond_cap_triggers_damping_flag():
+    """spectrum_cond_cap=0 forces spectrum_damped=True on nontrivial Hess."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    A_S = build_divergence_stencil(P)
+    hat = np.array([2.0, 0.1, 0.1])
+    cfg = DualFlowConfig(
+        enable_mu_weighted_solve=True,
+        bp_max_iters=4,
+        as_step=0.5,
+        spectrum_cond_cap=0.0,
+    )
+    out = solve_mu_weighted_pressures(hat, A_S, config=cfg)
+    assert out is not None
+    assert out.spectrum_damped is True
+    assert out.hessian_cond > 0.0
 
 
 def test_live_bmu_tallies_feed_mu_weighted_solve():
