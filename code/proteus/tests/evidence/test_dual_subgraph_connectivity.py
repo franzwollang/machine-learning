@@ -1,7 +1,24 @@
-"""Affected dual-subgraph connectivity stub (SI S10.4 / OPEN_ISSUES #43)."""
+"""Affected dual-subgraph connectivity stub (SI S10.4 / OPEN_ISSUES #43).
+
+Green tests below lock the pure BFS hook and the ``dual_connected=False`` ⇒
+evidence-path reject property. They intentionally use hand-built adjacency
+dicts — **not** a Stage-2 dual/face graph.
+
+S6 / M4 dual-flow wiring (do **not** flip without ``stage2.dual_flow``):
+
+* Module key: ``stage2.dual_flow`` (SI S6.2 / S10.4).
+* When dual-flow lands, replace the conservative ``None`` → ``True`` default by
+  supplying a real post-edit dual adjacency into
+  ``affected_dual_subgraph_connected`` (or call sites) and pass the bool into
+  ``score_edit`` / ``EvidenceGate.evaluate``.
+* Keep the disconnect⇒reject property test; add integration coverage under an
+  ``@awaiting("stage2.dual_flow", ...)`` marker until the producer exists, then
+  remove that marker (never weaken thresholds).
+"""
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from proteus.evidence import (
     EvidenceGate,
@@ -12,6 +29,7 @@ from proteus.evidence import (
 )
 from proteus.evidence.dm_score import NodeTransition
 from proteus.types import EditProposal, EditType
+from tests.harness.markers import awaiting
 
 
 def test_stub_defaults_true_without_dual_graph():
@@ -69,3 +87,17 @@ def test_disconnect_rejects_evidence_path():
         dual_connected=disconnected,
     )
     assert not v_gate.accepted
+
+
+@awaiting("stage2.dual_flow", si="S6.2")
+def test_s6_dual_adjacency_wires_into_evidence_gate():
+    """Integration placeholder: real dual/face graph → score_edit (OPEN_ISSUES #43).
+
+    When ``stage2.dual_flow`` lands, this should:
+    1. Build post-edit dry-run dual adjacency (simplices as verts; facet edges).
+    2. Compute ``affected_dual_subgraph_connected(adj, affected_ids)``.
+    3. Pass that bool into ``score_edit`` / ``EvidenceGate.evaluate``.
+    4. Assert disconnect rejects on the evidence path (same property as the
+       hand-built test above) — do not flip until the producer exists.
+    """
+    pytest.fail("awaiting stage2.dual_flow dual/face adjacency producer")

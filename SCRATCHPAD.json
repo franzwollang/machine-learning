@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T12:15-05:00",
-  "turn": 29,
+  "updated_at": "2026-08-09T12:35-05:00",
+  "turn": 31,
   "focus": {
-    "milestone": "M1",
-    "issue": 44,
-    "goal": "swarm: #42 closed; #43 stub in; await A2 #44 design"
+    "milestone": "M2",
+    "issue": 28,
+    "goal": "A6 execute load_band deletion; #44 recovery still open"
   },
   "recent": [
-    "Merged A2→A6 into coord/integration; tests: dual_connectivity 3/3, star_matrix 5/5, scale_search 2/2",
-    "Resolved #42 (S10.4 incidence+rank-guard blessed); trimmed #28/#43 from REQUEST_TRACKER",
-    "Refilled A3/A5/A6 queues; A2 still HELLO-only"
+    "Second scoop: A3 SI DEPRECATED, A4 diagnostics, A5 S6 contract, A6 deletion-ready",
+    "Tests: 25 passed / 1 xfailed (dual_flow awaiting)",
+    "Scheduled A6-T7 load_band deletion; refilled A3/A5/A6"
   ],
   "discoveries": [
-    "Worker tips vs integration previously differed mainly by mailboxes; code tips arrived mid-cadence from A3/A5/A6.",
-    "Fuller-suite failure remains UPSTREAM of gate: K=1-at-tau* never re-searches finer (#44)."
+    "Tissue filter load-bearing for PH; lifetime alone on whole scaffold insufficient",
+    "load_band unused by entire test suite — deletion-ready"
   ],
   "open_threads": [
-    "A2 #44 design spike not started",
-    "A4 CLAIMed A4-T1 inventory; no DONE yet",
-    "#28 deletion still needs readiness matrix + A1 merge plan"
+    "A2 T4–T6 not claimed this cycle",
+    "A3 #44 SI A+C held until nested_spheres evidence",
+    "S6 dual_flow still absent"
   ],
-  "next_step": "Push MERGE_DONE; next turn scoop A2/A4 progress",
+  "next_step": "MERGE_DONE push; next turn verify A6 deletion",
   "blockers": []
 }

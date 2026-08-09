@@ -533,8 +533,10 @@ arc/surface suite. If $L$ never reaches $1$ (over-coarse searched band) the fine
 stabilized point is taken; if $L\ge 1$ throughout (over-fine band) the coarsest
 stabilized point is taken. The reference implementation is
 \texttt{stage1.controller.\_select\_load\_crossover}; the legacy load-band
-heuristic ($0.65\le L\le1$, coarsest in band) is retained behind a selector flag
-only for regression bisection during the transition.
+heuristic ($0.65\le L\le1$, coarsest in band) is \emph{DEPRECATED}
+(OPEN\_ISSUES~\#28; S14.3) and retained only behind
+\texttt{ScaleSearchConfig.selector="load\_band"} for regression bisection
+during the transition --- not for new work.
 
 \emph{Support/response traces are diagnostics, not the selector.} The Lindeberg
 response $\Phi_C(\tau)$ and the compensated node-count / support trace
@@ -2415,6 +2417,7 @@ N_{\min},N_{\max}\ (\text{node-count bounds}) & 4,\ 128 & \text{S2.5.1} & \text{
 M_{\max}\ (\text{epoch safety cap}) & 40 & \text{S2.5.1} & \text{operational}\\
 k\ (\text{scaffold }k\text{-NN}) & 8 & \text{S2.5.1} & \text{operational}\\
 \tau^\star\text{ selector} & \text{variance-load }L=1\text{ up-crossing} & \text{S2.5.1} & \text{derived}\\
+\texttt{selector="load\_band"} & \text{legacy }0.65\le L\le1\text{ coarsest-in-band; flag-only} & \text{S2.5.1} & \text{DEPRECATED}\\
 \Phi_C,V_C\text{ traces} & \text{scale diagnostics (not selector)} & \text{S2.5.1} & \text{diagnostic}\\
 \Sigma_{\mathrm{smooth}} & \tau I\ (\text{heat-kernel bridge, isotropic}) & \text{S2.5.4} & \text{convention}\\
 c_{d,k} & \text{uniform }d\text{-ball table (S2.5.5); } c_{d,k}^{\mathrm{iso}}\text{ fallback} & \text{S2.5.5} & \text{calibrated}\\
@@ -2457,7 +2460,7 @@ n_{\min} & \max(10d,1000) & \text{S8.2} & \text{operational}\\
 \rho_{\min} & 10^{-4}\ (\text{conservative }10^{-3}) & \text{S10.4} & \text{operational}\\
 \end{array}
 \]
-Defaults marked empirical are expected to be retuned after benchmark evidence; defaults marked theory/statistical follow directly from the corresponding derivation or test convention. Defaults marked \emph{calibrated} are measured on a declared reference ensemble by a written protocol (e.g.\ $c_{d,k}$ via S2.5.5, $C_Q(d)$ via S3.3) and shipped as a lookup table. This table now covers every algorithmic constant in the reference implementation (\texttt{src/proteus/}): the acceptance-path quantities are derived or calibrated, and the proposal-path constants are free operational defaults backstopped by the evidence gate (S3.4). Two classes are deliberately excluded as non-algorithmic and logged per S14.4 rather than tabulated: pure numerical guards (floors $\epsilon\sim10^{-8}$--$10^{-12}$ against division by zero) and ANN-index library hyperparameters (HNSW $M{=}16$, $\mathrm{ef}_{\mathrm{construction}}{=}200$, $\mathrm{ef}_{\mathrm{search}}{=}100$), which affect recall/runtime but not the learned object. The calibration reference ensemble's own parameters (uniform $d$-ball, $\approx\!3000$ samples, $4$ ensembles, target $\approx\!120$ nodes) are specified with the protocol in S2.5.5. The clustering cleanup stand-ins remain provisional (OPEN\_ISSUES~\#27): they are operational placeholders slated for removal once the S3.4 evidence gate lands.
+Defaults marked empirical are expected to be retuned after benchmark evidence; defaults marked theory/statistical follow directly from the corresponding derivation or test convention. Defaults marked \emph{calibrated} are measured on a declared reference ensemble by a written protocol (e.g.\ $c_{d,k}$ via S2.5.5, $C_Q(d)$ via S3.3) and shipped as a lookup table. Defaults marked \emph{DEPRECATED} are retained flag-only for regression bisection and must not be used for new work (e.g.\ \texttt{selector="load\_band"}, OPEN\_ISSUES~\#28). This table now covers every algorithmic constant in the reference implementation (\texttt{src/proteus/}): the acceptance-path quantities are derived or calibrated, and the proposal-path constants are free operational defaults backstopped by the evidence gate (S3.4). Two classes are deliberately excluded as non-algorithmic and logged per S14.4 rather than tabulated: pure numerical guards (floors $\epsilon\sim10^{-8}$--$10^{-12}$ against division by zero) and ANN-index library hyperparameters (HNSW $M{=}16$, $\mathrm{ef}_{\mathrm{construction}}{=}200$, $\mathrm{ef}_{\mathrm{search}}{=}100$), which affect recall/runtime but not the learned object. The calibration reference ensemble's own parameters (uniform $d$-ball, $\approx\!3000$ samples, $4$ ensembles, target $\approx\!120$ nodes) are specified with the protocol in S2.5.5. The clustering cleanup stand-ins remain provisional (OPEN\_ISSUES~\#27): they are operational placeholders slated for removal once the S3.4 evidence gate lands.
 
 \subsection*{S14.4 Logging Checklist}
 Required logs are per region $C$ unless otherwise stated.

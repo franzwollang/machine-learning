@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T12:15-05:00",
+  "updated_at": "2026-08-09T12:35-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -14,19 +14,19 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T4",
+          "id": "A1-T10",
           "status": "ready",
-          "summary": "Next cadence: re-read worker mailboxes; merge A2→A6 if new tips; refill queues 2–3 deep"
+          "summary": "Next cadence: scoop any mid-turn tips; verify A6 load_band deletion green; refill queues"
         },
         {
-          "id": "A1-T5",
+          "id": "A1-T11",
           "status": "ready",
-          "summary": "When A6 deletion checklist is ready, schedule load_band removal behind tests on integration"
+          "summary": "When A2 nested_spheres NOTE is green enough, assign A3 SI S2.6.2+S14.3 A+C wording for #44"
         },
         {
-          "id": "A1-T6",
+          "id": "A1-T12",
           "status": "ready",
-          "summary": "Watch A2 #44 design spike; after NOTE, open follow-on tasks / SI assignment as needed"
+          "summary": "After load_band deletion lands, trim #28 deletion bullet and update M2 board"
         }
       ]
     },
@@ -37,26 +37,27 @@
         44
       ],
       "owns_files": [
-        "code/proteus/src/proteus/stage1/recursion.py"
+        "code/proteus/src/proteus/stage1/recursion.py",
+        "code/proteus/tests/stage1/test_recursion.py"
       ],
       "queue": [
         {
-          "id": "A2-T1",
+          "id": "A2-T4",
           "status": "ready",
           "issue": 44,
-          "summary": "Design spike: propose finer-than-parent-tau* re-search API + stop guarantee; write design note to COORDINATION (NOTE), no behavior change yet unless flag-gated"
+          "summary": "Measure nested_spheres/linked_tori leaf counts under recommended pairing (persist+allow_finer_research+steps<=4+min_samples); NOTE results; no awaiting flips"
         },
         {
-          "id": "A2-T2",
+          "id": "A2-T5",
           "status": "ready",
           "issue": 44,
-          "summary": "Prototype flag-gated descent into K=1 regions (default off); unit/recursion test sketch for nested_spheres cc=2 aspiration"
+          "summary": "Docstring/RecursionConfig help text: document required persist pairing for uniform manifolds; REQUEST_TRACKER if SI prose needed"
         },
         {
-          "id": "A2-T3",
+          "id": "A2-T6",
           "status": "ready",
           "issue": 44,
-          "summary": "Validate circle/swiss do not shatter under the flag; document results via REQUEST_TRACKER for #44"
+          "summary": "Either implement prefer_disconnected_prepass short-circuit or NOTE why keep stub; keep default off"
         }
       ]
     },
@@ -69,21 +70,21 @@
       ],
       "queue": [
         {
-          "id": "A3-T4",
+          "id": "A3-T7",
+          "status": "ready",
+          "issue": 41,
+          "summary": "Draft-only NOTE: SI S14.2/S14.3 placement for DEFAULT_LIFETIME_FRAC=0.5 (await A4 calibration numbers; no SI edit until A1 assigns)"
+        },
+        {
+          "id": "A3-T8",
+          "status": "ready",
+          "summary": "Idle: hold #44 SI A+C paragraph until A1 assigns after nested_spheres evidence; re-read A2 mailbox and NOTE readiness"
+        },
+        {
+          "id": "A3-T9",
           "status": "ready",
           "issue": 28,
-          "summary": "SI S14.3: mirror DEPRECATED/flag-only label for load_band if still listed as operational (support #28; do not delete code)"
-        },
-        {
-          "id": "A3-T5",
-          "status": "ready",
-          "summary": "Consistency pass: paper.tex / gate.py / star_matrix cross-refs vs blessed S10.4 incidence proxy (NOTE only unless SI tweak needed)"
-        },
-        {
-          "id": "A3-T6",
-          "status": "ready",
-          "issue": 44,
-          "summary": "After A2 design NOTE: sketch SI wording options for finer-descent stop/acceptance ownership (NOTE; no SI edit until A1 assigns)"
+          "summary": "After A6 deletes load_band code: trim SI 'retained behind flag' sentences if still present (CLAIM only once deletion is on integration)"
         }
       ]
     },
@@ -99,22 +100,22 @@
       ],
       "queue": [
         {
-          "id": "A4-T1",
+          "id": "A4-T5",
           "status": "ready",
           "issue": 41,
-          "summary": "Inventory existing PH helpers + @awaiting topology tests; NOTE the filtration/reading options"
+          "summary": "Wire a scenario helper that feeds accepted-region node positions into per_region_topology; keep recovery tests awaiting"
         },
         {
-          "id": "A4-T2",
+          "id": "A4-T6",
           "status": "ready",
           "issue": 41,
-          "summary": "Scaffold per-region PH harness (still @awaiting if deps missing); do not flip tests without green evidence"
+          "summary": "Draft SI S14.2/S14.3 log text for DEFAULT_LIFETIME_FRAC=0.5; REQUEST_TRACKER so A3 can place when assigned"
         },
         {
-          "id": "A4-T3",
+          "id": "A4-T7",
           "status": "ready",
           "issue": 41,
-          "summary": "Document tissue-pollution + persistence-lifetime threshold proposal; REQUEST_TRACKER for #41/#25 notes"
+          "summary": "Fitted-circle scaffold PH probe (signal nodes / accepted region); NOTE lifetime vs fixed_threshold; no awaiting flips"
         }
       ]
     },
@@ -131,22 +132,22 @@
       ],
       "queue": [
         {
-          "id": "A5-T4",
+          "id": "A5-T7",
           "status": "ready",
           "issue": 43,
-          "summary": "Document S6 adjacency contract for affected_dual_subgraph_connected in COORDINATION NOTE (no Stage-1 edits)"
+          "summary": "Re-check integration for stage2/dual_flow each turn; if present, CLAIM wiring into affected_dual_subgraph_connected"
         },
         {
-          "id": "A5-T5",
+          "id": "A5-T8",
           "status": "ready",
           "issue": 43,
-          "summary": "Add awaiting/xfail marker note or stub test module comment for real dual-graph wiring; do not flip without S6"
+          "summary": "Optional: add typed Protocol/stub docstring on dual_adjacency shape matching S6 contract NOTE (no behavior change)"
         },
         {
-          "id": "A5-T6",
+          "id": "A5-T9",
           "status": "ready",
           "issue": 43,
-          "summary": "Idle watch: if dual-flow files appear on integration, CLAIM wiring task via NOTE; else REPORT status next turn"
+          "summary": "REPORT via NOTE if still blocked on S6; keep queue warm without drive-by Stage-1 edits"
         }
       ]
     },
@@ -158,29 +159,30 @@
       ],
       "owns_files": [
         "docs/Proteus/paper_1_foundational/paper.tex",
-        "code/proteus/src/proteus/stage1/controller.py"
+        "code/proteus/src/proteus/stage1/controller.py",
+        "code/proteus/tests/stage1/test_scale_search_persistence.py"
       ],
       "queue": [
         {
-          "id": "A6-T4",
+          "id": "A6-T7",
           "status": "ready",
           "issue": 28,
-          "summary": "Inventory scenario/recursion tests still touching load_band; NOTE deletion-readiness matrix (no deletes yet)"
+          "summary": "EXECUTE load_band deletion per A6-T5 checklist: drop selector branch + helpers; fix stale load-band comment in test_scale_search_persistence.py; pytest scale_search+circle/swiss/hierarchy+recursion"
         },
         {
-          "id": "A6-T5",
+          "id": "A6-T8",
           "status": "ready",
           "issue": 28,
-          "summary": "Draft load_band/_legacy_slope_selector/_detect_peak deletion checklist in COORDINATION for A1 merge plan"
+          "summary": "REQUEST_TRACKER after deletion: ask A1 to trim #28 deletion bullet; note A3 follow-up for SI flag wording cleanup"
         },
         {
-          "id": "A6-T6",
+          "id": "A6-T9",
           "status": "ready",
           "issue": 28,
-          "summary": "Design-only NOTE on persistence coarse-end refinement options (do not change default selector)"
+          "summary": "Optional prototype NOTE only: PersistenceConfig.resolve_within_interval='load_crossover' API sketch (default off; no behavior change)"
         }
       ]
     }
   },
-  "notes": "2026-08-09T12:15: merged A2–A6 tips; resolved #42; trimmed #28/#43; refilled A3/A5/A6 queues. A2 still needs first CLAIM on #44. Integration turn-boundary only."
+  "notes": "2026-08-09T12:35: second scoop A3–A6 + A4-T4 diagnostics; #28 deletion-ready → A6-T7 execute; refilled A3/A5/A6; A2 still on T4–T6."
 }
