@@ -19,6 +19,9 @@ Filtration / reading options (OPEN_ISSUES #41):
   3. Per-region assembly — run (1) or (2) on each accepted cluster/region's
      node positions separately (nested spheres / linked tori; tissue pollution
      also pushes toward per-region rather than whole-scaffold PH).
+
+Diagnostic helper ``compare_readings`` returns both (1) and (2) for the same
+cloud so evidence-gathering tests can contrast them without choosing a default.
 """
 from __future__ import annotations
 
@@ -297,3 +300,66 @@ def extract_region_node_positions(
         uniq = [int(x) for x in include_labels]
 
     return [pos[labels == lab] for lab in uniq]
+
+
+@dataclass(frozen=True)
+class ReadingComparison:
+    """Side-by-side fixed_threshold vs lifetime Betti readings (#41 diagnostics)."""
+
+    fixed_threshold: tuple[int, ...]
+    lifetime: tuple[int, ...]
+    sigma_star: float
+    filtration_radius: float
+    lifetime_frac: float
+    n_points: int
+
+
+def compare_readings(
+    points: np.ndarray,
+    sigma_star: float,
+    *,
+    max_dim: int = 2,
+    filtration_mult: float = FILTRATION_MULTIPLIER,
+    lifetime_frac: float = DEFAULT_LIFETIME_FRAC,
+) -> ReadingComparison:
+    """Compare SI fixed-threshold reading against lifetime reading on one cloud.
+
+    Diagnostic helper for #41 item 1 (filtration/persistence reading). Does not
+    choose a production default — callers record both and decide with evidence.
+    """
+    arr = np.asarray(points, dtype=float)
+    r = filtration_radius(sigma_star, multiplier=filtration_mult)
+    n_points = int(arr.shape[0]) if arr.ndim == 2 else 0
+    if arr.size == 0 or arr.ndim != 2 or arr.shape[0] == 0:
+        zeros = tuple(0 for _ in range(max_dim + 1))
+        return ReadingComparison(
+            fixed_threshold=zeros,
+            lifetime=zeros,
+            sigma_star=float(sigma_star),
+            filtration_radius=r,
+            lifetime_frac=float(lifetime_frac),
+            n_points=0,
+        )
+    fixed = region_betti_numbers(
+        arr,
+        sigma_star,
+        reading="fixed_threshold",
+        max_dim=max_dim,
+        filtration_mult=filtration_mult,
+    )
+    life = region_betti_numbers(
+        arr,
+        sigma_star,
+        reading="lifetime",
+        max_dim=max_dim,
+        filtration_mult=filtration_mult,
+        lifetime_frac=lifetime_frac,
+    )
+    return ReadingComparison(
+        fixed_threshold=fixed,
+        lifetime=life,
+        sigma_star=float(sigma_star),
+        filtration_radius=r,
+        lifetime_frac=float(lifetime_frac),
+        n_points=n_points,
+    )
