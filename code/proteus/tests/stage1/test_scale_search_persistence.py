@@ -390,8 +390,8 @@ def test_resolve_within_interval_fine_end_vs_mid_coarse() -> None:
 def test_phi_within_interval_landing_vs_hierarchy_expected_tau() -> None:
     # Diagnostic probe (A6-T32): correlate within-interval landing modes with
     # Phi_C(tau*) and hierarchy fine-leaf expected_tau. Reports a small table;
-    # asserts category mismatch (all modes ≫ expected_tau) so a future default
-    # flip must be intentional. Does not change acceptance-path defaults.
+    # pins that load_crossover hybrid stays ≫ expected_tau while mid/fine_end
+    # refine (fine_end can undershoot). Does not flip acceptance defaults.
     dataset = make_hierarchical_gaussian(
         children_per_coarse=2, n_samples=600, ambient_dim=4, seed=0,
     )
@@ -454,18 +454,22 @@ def test_phi_within_interval_landing_vs_hierarchy_expected_tau() -> None:
     by_mode = {str(r["mode"]): r for r in rows}
     # Coarse-end (none) still tracks the bump-detect / fine_cluster scale.
     assert 0.5 < float(by_mode["none"]["tau_over_fine_cluster"]) < 1.5
-    # Every within-interval mode remains many× fine-leaf expected_tau.
-    for mode in modes:
-        assert float(by_mode[mode]["tau_over_expected"]) > 5.0
-    # Ordering on this fixture: fine_end is finest (smallest tau), then mid,
-    # then none (coarse); load_crossover stays inside the block.
+    # load_crossover hybrid remains many× fine-leaf expected_tau (known #28 gap).
+    assert float(by_mode["load_crossover"]["tau_over_expected"]) > 5.0
+    # mid_interval refines toward expected_tau but stays above it on this fixture.
+    assert float(by_mode["mid_interval"]["tau_star"]) < float(by_mode["none"]["tau_star"])
+    assert float(by_mode["mid_interval"]["tau_over_expected"]) > 1.0
+    # fine_end_of_block is the finest landing and can undershoot expected_tau
+    # (overshoot risk — not an acceptance candidate without SI justification).
+    assert float(by_mode["fine_end_of_block"]["tau_star"]) <= float(
+        by_mode["mid_interval"]["tau_star"]
+    )
+    assert float(by_mode["fine_end_of_block"]["tau_over_expected"]) < 1.0
+    # Grid-index ordering: none ≤ mid ≤ fine_end (coarse→fine along descending tau).
     assert int(by_mode["fine_end_of_block"]["peak_index"]) >= int(
         by_mode["mid_interval"]["peak_index"]
     )
     assert int(by_mode["mid_interval"]["peak_index"]) >= int(by_mode["none"]["peak_index"])
-    assert float(by_mode["fine_end_of_block"]["tau_star"]) <= float(
-        by_mode["none"]["tau_star"]
-    )
     # Phi at landing is finite for every mode (diagnostic usability).
     for mode in modes:
         assert np.isfinite(float(by_mode[mode]["phi_star"]))
