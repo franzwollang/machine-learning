@@ -25,9 +25,12 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   ``Σ_S μ_S‖A_S p_S‖²`` soft solve lands behind ``enable_patch_mu_solve``
   (A5-T47 stub — not loopy BP). Shared-face antisymmetry soft glue for
   that patch solve lands behind ``enable_shared_face_glue`` (A5-EXP-glue;
-  still not a global face registry / loopy BP). Remaining real-BP gaps:
-  full loopy Gaussian BP on the multi-simplex face/factor graph; online
-  tallies → offline solve schedule; true-manifold flux zeroing (S6.3).
+  still not a global face registry / loopy BP). Complex → node-star
+  incidence + ANN BMU query for Stage-1 tally wiring lands behind
+  ``enable_complex_ann_incidence`` (A5-EXP-ann-inc). Remaining real-BP
+  gaps: full loopy Gaussian BP / global face-id solve on the multi-simplex
+  face/factor graph; online tallies → offline solve schedule;
+  true-manifold flux zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
   seams land behind ``enable_boundary_taxonomy`` (proposed; default off).
   Heuristic single-owner → true-manifold; hint sets override. Seam stitch /
@@ -56,6 +59,11 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
   :func:`route_live_bmu_face_tallies` returns ``None`` (A5-T43 harness).
 * ``DualFlowConfig.enable_stage1_bmu_wiring`` — when off,
   :func:`route_stage1_bmu_face_tallies` returns ``None`` (A5-T48 sketch).
+* ``DualFlowConfig.enable_complex_ann_incidence`` — when off,
+  :func:`build_node_to_simplices_from_complex` /
+  :func:`query_stage1_ann_bmus` /
+  :func:`route_stage1_from_complex` return ``None`` (A5-EXP-ann-inc;
+  Complex star + ANN BMU bridge into the Stage-1 tally sketch).
 * ``DualFlowConfig.enable_as_message_pass`` — when off,
   :func:`solve_as_message_pass` returns ``None``; when on, soft ``A_S``
   residual nudge (not full loopy BP).
@@ -141,6 +149,10 @@ __all__ = [
     "locate_bmu_simplex",
     "route_live_bmu_face_tallies",
     "route_stage1_bmu_face_tallies",
+    "build_node_to_simplices_from_complex",
+    "build_simplex_positions_from_complex",
+    "query_stage1_ann_bmus",
+    "route_stage1_from_complex",
     "build_divergence_stencil",
     "conservation_residual_r_cons",
     "epsilon_flux",
@@ -199,6 +211,14 @@ class DualFlowConfig:
         sample's Stage-1 node BMU → candidate simplices incident on that
         node, then tallies on the winning simplex among those candidates
         (A5-T48). Still proposal-path; does not flip ``@awaiting``.
+    enable_complex_ann_incidence:
+        When ``False`` (default), :func:`build_node_to_simplices_from_complex`
+        / :func:`build_simplex_positions_from_complex` /
+        :func:`query_stage1_ann_bmus` / :func:`route_stage1_from_complex`
+        return ``None``. When ``True``, builds node→incident-simplex maps
+        from a :class:`~proteus.types.Complex` and queries Stage-1 ANN
+        (or naive positions) BMUs to feed the Stage-1 tally sketch
+        (A5-EXP-ann-inc). Proposal-path only; does not flip ``@awaiting``.
     enable_as_message_pass:
         When ``False`` (default), :func:`solve_as_message_pass` returns
         ``None``. When ``True``, soft-projects pressures toward ``ker(A_S)``
@@ -283,6 +303,7 @@ class DualFlowConfig:
     enable_face_tallies: bool = False
     enable_live_bmu_tally: bool = False
     enable_stage1_bmu_wiring: bool = False
+    enable_complex_ann_incidence: bool = False
     enable_as_message_pass: bool = False
     enable_mu_weighted_solve: bool = False
     enable_count_aware_lambda: bool = False
@@ -1084,6 +1105,163 @@ def route_stage1_bmu_face_tallies(
         tallies_by_simplex=last_by_sid,
         node_bmus=tuple(node_ids),
         assignments=tuple(assignments),
+    )
+
+
+def build_node_to_simplices_from_complex(
+    complex: Complex,
+    *,
+    config: DualFlowConfig | None = None,
+) -> dict[Hashable, tuple[Hashable, ...]] | None:
+    """Invert Complex incidence: node id → incident simplex ids (SI S6.1).
+
+    When ``enable_complex_ann_incidence`` is off, returns ``None``. When on,
+    each top-dimensional simplex index ``i`` is recorded under every
+    ``vertex_ids`` entry (A5-EXP-ann-inc). Orphan nodes (no incident
+    simplex) are omitted. Proposal-path helper for Stage-1 BMU → star
+    candidate lists — does not flip ``@awaiting``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_complex_ann_incidence:
+        return None
+
+    buckets: dict[Hashable, list[Hashable]] = defaultdict(list)
+    for sid, simplex in enumerate(complex.simplices):
+        for vid in simplex.vertex_ids:
+            buckets[vid].append(sid)
+    return {vid: tuple(sids) for vid, sids in buckets.items()}
+
+
+def build_simplex_positions_from_complex(
+    complex: Complex,
+    *,
+    config: DualFlowConfig | None = None,
+) -> dict[Hashable, np.ndarray] | None:
+    """Map simplex enumeration id → ``(d+1, D)`` vertex positions (SI S6.1).
+
+    When ``enable_complex_ann_incidence`` is off, returns ``None``. Positions
+    are sliced from ``complex.vertex_positions`` by each simplex's
+    ``vertex_ids`` (A5-EXP-ann-inc).
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_complex_ann_incidence:
+        return None
+
+    V = np.asarray(complex.vertex_positions, dtype=float)
+    out: dict[Hashable, np.ndarray] = {}
+    for sid, simplex in enumerate(complex.simplices):
+        vids = tuple(int(v) for v in simplex.vertex_ids)
+        out[sid] = V[list(vids), :]
+    return out
+
+
+def query_stage1_ann_bmus(
+    samples: Sequence[np.ndarray],
+    *,
+    ann: object | None = None,
+    node_positions: np.ndarray | None = None,
+    config: DualFlowConfig | None = None,
+) -> tuple[Hashable, ...] | None:
+    """Stage-1 ANN (or naive) BMU node ids for each sample (SI S6.1).
+
+    When ``enable_complex_ann_incidence`` is off, returns ``None``. When on:
+
+    * If ``ann`` exposes ``query_knn(point, k)``, uses ``k=1`` and takes the
+      nearest index (duck-typed; works with :class:`proteus.ann.ANNIndex`).
+    * Else if ``node_positions`` is ``(N, D)``, uses exact Euclidean argmin
+      (naive Stage-1 stand-in).
+
+    Proposal-path only — does not mutate Stage-1 controllers.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_complex_ann_incidence:
+        return None
+
+    if ann is None and node_positions is None:
+        raise ValueError("provide ann or node_positions for BMU query")
+
+    bmus: list[Hashable] = []
+    if ann is not None:
+        if not hasattr(ann, "query_knn"):
+            raise TypeError("ann must provide query_knn(point, k)")
+        for raw in samples:
+            idx, _dists = ann.query_knn(np.asarray(raw, dtype=float), k=1)
+            if len(idx) == 0:
+                raise ValueError("ANN returned empty BMU set")
+            bmus.append(int(idx[0]))
+        return tuple(bmus)
+
+    P = np.asarray(node_positions, dtype=float)
+    if P.ndim != 2 or P.shape[0] == 0:
+        raise ValueError("node_positions must be non-empty (N, D)")
+    for raw in samples:
+        x = np.asarray(raw, dtype=float).reshape(-1)
+        if x.shape[0] != P.shape[1]:
+            raise ValueError(
+                f"sample dim {x.shape[0]} != node_positions dim {P.shape[1]}"
+            )
+        d2 = np.sum((P - x) ** 2, axis=1)
+        bmus.append(int(np.argmin(d2)))
+    return tuple(bmus)
+
+
+def route_stage1_from_complex(
+    samples: Sequence[np.ndarray],
+    complex: Complex,
+    *,
+    ann: object | None = None,
+    node_positions: np.ndarray | None = None,
+    prior_tallies: Mapping[Hashable, np.ndarray] | None = None,
+    config: DualFlowConfig | None = None,
+) -> Stage1BmuTallyResult | None:
+    """Complex + ANN BMU → Stage-1 face-tally wiring sketch (SI S6.1).
+
+    When ``enable_complex_ann_incidence`` is off, returns ``None``. When on:
+
+    1. Build ``node_to_simplices`` / simplex positions from ``complex``.
+    2. Query Stage-1 node BMUs via :func:`query_stage1_ann_bmus`.
+    3. Delegate to :func:`route_stage1_bmu_face_tallies` (forced on).
+
+    A5-EXP-ann-inc bridge — still proposal-path; does not flip ``@awaiting``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_complex_ann_incidence:
+        return None
+
+    node_map = build_node_to_simplices_from_complex(complex, config=cfg)
+    pos_map = build_simplex_positions_from_complex(complex, config=cfg)
+    if node_map is None or pos_map is None:
+        raise RuntimeError("complex incidence unexpectedly disabled")
+    if not node_map or not pos_map:
+        raise ValueError("complex must contain at least one simplex")
+
+    positions = (
+        np.asarray(node_positions, dtype=float)
+        if node_positions is not None
+        else np.asarray(complex.vertex_positions, dtype=float)
+    )
+    node_bmus = query_stage1_ann_bmus(
+        samples, ann=ann, node_positions=positions if ann is None else None, config=cfg
+    )
+    if node_bmus is None:
+        raise RuntimeError("ANN BMU query unexpectedly disabled")
+
+    tally_cfg = DualFlowConfig(
+        enable_stage1_bmu_wiring=True,
+        tally_scale=cfg.tally_scale,
+        volume_floor=cfg.volume_floor,
+    )
+    return route_stage1_bmu_face_tallies(
+        samples,
+        node_bmus,
+        node_map,
+        pos_map,
+        prior_tallies=prior_tallies,
+        config=tally_cfg,
     )
 
 
