@@ -78,6 +78,17 @@ class RecursionConfig:
     **1 leaf** on nested_spheres / linked_tori (gt cc=2) at n≈160–240 — shell
     recovery is **not** solved by this pairing; deeper walks / prepass tend to
     over-fragment with near-zero ARI.  Do not flip awaiting component tests.
+
+    **A2-T7/T8 pairing studies (measurement only):** with the unit-test scale
+    harness (``n_seeds=8``), ``persist=True`` keeps circle = 1 leaf across
+    ``prefer_disconnected_prepass`` on/off, ``finer_prepass_min_frac`` in
+    ``{0.15,0.2,0.3,0.4}``, and ``max_finer_scale_steps`` in ``{4,8,12}``.
+    Dropping persist still false-hits (~16–21 leaves) even with prepass.
+    Harness caveat: leaner ``n_seeds=6`` can yield circle 2–7 leaves under the
+    same persist pairing — match the unit-test envelope when judging shatter.
+    On nested_spheres none of persist±prepass±``require_dm_split`` recovered
+    gt cc=2 with ARI>0.5 (steps≤8 → 1 leaf; deeper / dm-without-persist →
+    5–9 leaves, ARI≲0.09).  Hold A3 SI A+C until a real recovery path exists.
     Optional SI prose for gate-owns-stop + persist pairing: see A3 mailbox
     Opt A+C sketch (REQUEST_TRACKER).
 
