@@ -33,7 +33,10 @@ class ScaleSearchConfig:
     points --- for structural (recursion) timing, falling back to the
     ``load_crossover`` resolution scale when no split persists.  Persistence
     requires the per-grid-point partitions, so selecting it implies
-    ``record_partitions``.
+    ``record_partitions``.  When a persistent split exists and
+    ``persistence.resolve_within_interval="load_crossover"``, persistence still
+    decides accept/reject but ``tau*`` is the load-crossover pick restricted to
+    that persistent subgrid (default ``"none"`` preserves coarse-end ``tau*``).
 
     The legacy ``load_band`` selector (OPEN_ISSUES #28) has been removed; unknown
     selector values raise ``ValueError``.
@@ -179,7 +182,9 @@ def run_scale_search(
             persistence_result is not None
             and persistence_result.tau_star_index is not None
         ):
-            peak_idx = int(persistence_result.tau_star_index)
+            peak_idx = _resolve_persistence_tau_index(
+                persistence_result, load_trace, stabilized, config.persistence,
+            )
     else:
         raise ValueError(
             f"Unknown ScaleSearchConfig.selector={config.selector!r}; "
@@ -350,6 +355,40 @@ def _cold_start_recheck(
         tau_star=None,
         cold_start_rejected=True,
     )
+
+
+def _resolve_persistence_tau_index(
+    persistence_result: PersistenceResult,
+    load_trace: np.ndarray,
+    stabilized: list[bool],
+    persistence: PersistenceConfig,
+) -> int:
+    """Map an accepted persistent split to a characteristic-scale grid index.
+
+    Default (``resolve_within_interval="none"``): return the coarse-end arbiter
+    index from :func:`compute_persistence`.  With
+    ``resolve_within_interval="load_crossover"``, keep that interval as the
+    accept/reject gate but re-pick ``tau*`` via :func:`_select_load_crossover`
+    on the persistent subgrid only (OPEN_ISSUES #28 hybrid option A).
+    """
+
+    i_lo = int(persistence_result.tau_star_index)  # type: ignore[arg-type]
+    mode = persistence.resolve_within_interval
+    if mode == "none":
+        return i_lo
+    if mode != "load_crossover":
+        raise ValueError(
+            f"Unknown PersistenceConfig.resolve_within_interval={mode!r}; "
+            "expected 'none' or 'load_crossover'."
+        )
+
+    run_len = int(persistence_result.run_lengths[i_lo])
+    if run_len < 1:
+        return i_lo
+    i_hi = min(i_lo + run_len - 1, len(load_trace) - 1)
+    sub_load = np.asarray(load_trace[i_lo : i_hi + 1], dtype=float)
+    sub_stab = list(stabilized[i_lo : i_hi + 1])
+    return i_lo + _select_load_crossover(sub_load, sub_stab)
 
 
 def _select_load_crossover(

@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T12:55-05:00",
-  "turn": 32,
+  "updated_at": "2026-08-09T13:25-05:00",
+  "turn": 34,
   "focus": {
     "milestone": "M2",
     "issue": 28,
-    "goal": "load_band deleted; #44 nested still 1-leaf"
+    "goal": "hybrid prototyped; wait A2/A4 scoops"
   },
   "recent": [
-    "Final scoop: A2 nested/tori 1-leaf + pairing docs; A4 fitted-circle b1=0 at SI default",
-    "load_band deleted; DualAdjacency landed; tests 28p/1x on subset",
-    "Assigned A3-T10 SI load_band trim + A3-T12 lifetime_frac place"
+    "Scooped A6 resolve_within_interval + docstring (#28)",
+    "A3/A5 queue drained+refilled; dual_flow still absent",
+    "Trimmed #28 remaining; M2 board updated"
   ],
   "discoveries": [
-    "Fitted-circle SI 1.5*sigma* still b1=0; ~8*sigma* existence only",
+    "Hybrid hierarchy tau* 0.36→0.199 still ~9x expected",
     "Recommended #44 pairing keeps nested/tori at 1 leaf"
   ],
   "open_threads": [
-    "A2 prepass/dm pairing studies for shell recovery",
-    "A3 SI cleanup + lifetime_frac place; #44 A+C still held",
-    "S6 dual_flow still absent"
+    "A2-T7..T9 / A4-T8..T10 mid-turn studies",
+    "#44 SI A+C held; dual_flow absent",
+    "Within-interval resolve still too coarse for default"
   ],
-  "next_step": "MERGE_DONE push; next turn verify A3 SI edits",
+  "next_step": "MERGE_DONE push; next turn scoop A2/A4",
   "blockers": []
 }
