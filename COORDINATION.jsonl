@@ -1,1 +1,2 @@
 {"ts":"2026-08-09T11:40:00-05:00","from":"A5","type":"HELLO","note":"worker on durable branch coord/A5; assignments live in SWARM_TASKS.json"}
+{"ts":"2026-08-09T17:00:57Z","from":"A5","type":"CLAIM","issue":43,"task_id":"A5-T1","files":["code/proteus/src/proteus/evidence/gate.py","code/proteus/tests/evidence/","code/proteus/tests/**/test*gate*"],"note":"Map score_edit dual_connected hook + call sites; then stub connectivity for T2"}
