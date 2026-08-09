@@ -21,7 +21,8 @@ backstopped by the gate itself (SI S14.3): ``tau_bf`` in ``[1, 3]`` for splits,
 from __future__ import annotations
 
 import heapq
-from collections.abc import Mapping, Sequence
+from collections import deque
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from math import log
 
@@ -36,6 +37,7 @@ __all__ = [
     "gate_window",
     "hysteresis_window",
     "edit_budget",
+    "affected_dual_subgraph_connected",
     "score_edit",
     "EvidenceGate",
 ]
@@ -85,6 +87,53 @@ def edit_budget(n_nodes: int) -> int:
     if n <= 2:
         return 1
     return max(1, int(n / log(n)))
+
+
+def affected_dual_subgraph_connected(
+    dual_adjacency: Mapping[Hashable, Sequence[Hashable]] | None,
+    affected_simplices: Sequence[Hashable],
+) -> bool:
+    """Whether the induced dual subgraph on ``affected_simplices`` is connected.
+
+    SI S10.4's dynamic-preservation rule (A2) requires the *affected* dual
+    subgraph to stay connected for an edit to be evidence-bearing. Vertices of
+    the dual graph are simplices; an edge joins two simplices that share a
+    facet (codim-1 face). That adjacency is a Stage-2 dual-flow / face-graph
+    artifact (SI S6 / S10.4) and is **not built yet** (OPEN_ISSUES #43).
+
+    Behavior of this stub:
+
+    * ``dual_adjacency is None`` — S6 graph unavailable; conservatively return
+      ``True`` so callers without a dual graph assert connectivity (same default
+      as ``score_edit(..., dual_connected=True)``).
+    * Empty or singleton ``affected_simplices`` — vacuously connected.
+    * Otherwise — BFS on the *induced* subgraph (only walk neighbors that are
+      themselves in the affected set). Returns ``False`` if any affected
+      simplex is unreachable from the first.
+
+    Call sites should compute this on the post-edit dry-run complex and pass the
+    boolean into :func:`score_edit` / :meth:`EvidenceGate.evaluate` as
+    ``dual_connected=...``. Do not invent a dual graph here.
+    """
+
+    if dual_adjacency is None:
+        return True
+
+    affected = list(dict.fromkeys(affected_simplices))
+    if len(affected) <= 1:
+        return True
+
+    affected_set = set(affected)
+    start = affected[0]
+    seen: set[Hashable] = {start}
+    queue: deque[Hashable] = deque([start])
+    while queue:
+        u = queue.popleft()
+        for v in dual_adjacency.get(u, ()):
+            if v in affected_set and v not in seen:
+                seen.add(v)
+                queue.append(v)
+    return seen == affected_set
 
 
 def score_edit(
