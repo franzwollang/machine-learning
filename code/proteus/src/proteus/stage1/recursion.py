@@ -69,11 +69,17 @@ class RecursionConfig:
     guarantee:** at most one finer attempt per region invocation; if the
     capped search still yields ``K<=1`` / ``Q<=0`` or the gate rejects, the
     region is terminal; ``min_samples`` / ``max_depth`` still bound the tree.
-    Prefer pairing with ``require_persistent_split`` (and optionally
-    ``require_dm_split``) so uniform manifolds do not shatter — A2-T3
-    measured circle/swiss stay at 1 leaf under persist + modest
-    ``max_finer_scale_steps``, while the flag alone over-fragments.  See
-    design NOTE on ``coord/A2`` mailbox.
+
+    **Recommended pairing for uniform manifolds (required):** enable
+    ``require_persistent_split`` together with ``allow_finer_research``, keep
+    ``max_finer_scale_steps <= 4``, and ``min_samples >= 80``.  A2-T3 measured
+    circle/swiss = 1 leaf under that pairing; flag alone over-fragments the
+    circle (~21 leaves).  A2-T4: the same recommended pairing still yields
+    **1 leaf** on nested_spheres / linked_tori (gt cc=2) at n≈160–240 — shell
+    recovery is **not** solved by this pairing; deeper walks / prepass tend to
+    over-fragment with near-zero ARI.  Do not flip awaiting component tests.
+    Optional SI prose for gate-owns-stop + persist pairing: see A3 mailbox
+    Opt A+C sketch (REQUEST_TRACKER).
 
     ``max_finer_scale_steps`` bounds how many successive geometric shrinks of
     the ``tau_max`` cap are attempted inside one region (each step multiplies
