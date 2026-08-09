@@ -95,6 +95,86 @@ A4_PRIMARY_MIN_END_COUNT: float = 0.5
 A4_PRIMARY_GABRIEL_FALLBACK: bool = False
 
 
+# ---------------------------------------------------------------------------
+# Poisson-null ``h0`` calibration export (A2-T38 → A3/A4 SI sync)
+# ---------------------------------------------------------------------------
+# Snapshot of sheet-null H quantiles (connected density-gradient sheet,
+# seed=0, n=49 edges) from ``tests.scenarios.synthetic.hollow_edge_nulls``.
+# Under a locally homogeneous Poisson field ``E[H]≈1``; the lower tail is
+# the practical null for choosing acceptance-path ``h0`` without fixture
+# seed-tuning.  Live harness may re-check within tolerance; do not flip
+# RecursionConfig / HollowEdgeConfig defaults from these numbers alone.
+
+POISSON_NULL_SHEET_SEED: int = 0
+POISSON_NULL_SHEET_N_EDGES: int = 49
+
+# mid_radius_frac → {quantile_label: H}
+POISSON_NULL_SHEET_H_QUANTILES: dict[float, dict[str, float]] = {
+    0.25: {
+        "q0.01": 0.15,
+        "q0.05": 0.4087,
+        "q0.1": 0.6925,
+        "q0.25": 0.8077,
+        "q0.5": 1.0,
+        "mean_h": 1.0177,
+    },
+    0.35: {
+        "q0.01": 0.4265,
+        "q0.05": 0.6596,
+        "q0.1": 0.7438,
+        "q0.25": 0.8913,
+        "q0.5": 1.0164,
+        "mean_h": 1.0328,
+    },
+    0.5: {
+        "q0.01": 0.7571,
+        "q0.05": 0.8164,
+        "q0.1": 0.8621,
+        "q0.25": 0.9362,
+        "q0.5": 1.0087,
+        "mean_h": 1.0177,
+    },
+}
+
+# A4 recommend_hollow_edge_configs primary (sheet FPR≈0, bridge TPR≈0.9):
+# h0=0.7 ≤ sheet q01≈0.82 at mid=0.5 with gabriel off.  SI should note
+# sheet-null safe ≠ nested/tori sample-ARI recovery.
+POISSON_NULL_PRIMARY_MID: float = A4_PRIMARY_MID_RADIUS_FRAC
+POISSON_NULL_PRIMARY_H0: float = A4_PRIMARY_H0
+POISSON_NULL_PRIMARY_SHEET_Q01: float = 0.82
+POISSON_NULL_SI_NOTE: str = (
+    "Poisson-null sheet H: mid=0.25/0.35/0.5 q01≈0.15/0.43/0.76 (meanH≈1); "
+    "A4 primary mid=0.5 h0=0.7≤q01≈0.82 gabriel=False (sheet FPR≈0, bridge "
+    "TPR≈0.9). Sheet-null safe ≠ nested cut-set / sample-ARI recovery; "
+    "keep HollowEdgeConfig / RecursionConfig defaults off."
+)
+
+
+def format_poisson_null_h0_table(
+    quantiles: dict[float, dict[str, float]] | None = None,
+) -> str:
+    """Compact TSV of sheet-null H quantiles for A3/A4 SI handoff (A2-T38)."""
+
+    qmap = POISSON_NULL_SHEET_H_QUANTILES if quantiles is None else quantiles
+    header = "mid\tq01\tq05\tq10\tq25\tq50\tmeanH"
+    lines = [header]
+    for mid in sorted(qmap):
+        row = qmap[mid]
+        lines.append(
+            f"{mid:g}\t{row['q0.01']:.4f}\t{row['q0.05']:.4f}\t"
+            f"{row['q0.1']:.4f}\t{row['q0.25']:.4f}\t{row['q0.5']:.4f}\t"
+            f"{row['mean_h']:.4f}"
+        )
+    lines.append(
+        f"# primary mid={POISSON_NULL_PRIMARY_MID:g} "
+        f"h0={POISSON_NULL_PRIMARY_H0:g} "
+        f"sheet_q01≈{POISSON_NULL_PRIMARY_SHEET_Q01:g} "
+        f"gabriel={A4_PRIMARY_GABRIEL_FALLBACK}"
+    )
+    lines.append(f"# {POISSON_NULL_SI_NOTE}")
+    return "\n".join(lines)
+
+
 def a4_roc_primary_config(**overrides: object) -> HollowEdgeConfig:
     """A4 sheet/bridge ROC primary preset (OPEN_ISSUES #44 / A2-T33).
 

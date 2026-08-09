@@ -500,3 +500,49 @@ def test_soft_capacity_default_off() -> None:
 
     assert HollowEdgeConfig().soft_capacity_only is False
     assert HollowEdgeConfig().soft_capacity_frac == 0.25
+
+
+def test_poisson_null_h0_calibration_export_table() -> None:
+    """#44 / A2-T38: export Poisson-null sheet H quantiles for A3/A4 SI.
+
+    Recomputes sheet-null quantiles via the A4 adversarial harness and
+    checks the frozen export in ``edge_evidence`` stays within tolerance.
+    Documents A4 primary ``h0=0.7 ≤ sheet q01`` at mid=0.5.  Defaults
+    remain off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        A4_PRIMARY_H0,
+        A4_PRIMARY_MID_RADIUS_FRAC,
+        POISSON_NULL_PRIMARY_H0,
+        POISSON_NULL_PRIMARY_MID,
+        POISSON_NULL_PRIMARY_SHEET_Q01,
+        POISSON_NULL_SHEET_H_QUANTILES,
+        POISSON_NULL_SHEET_N_EDGES,
+        POISSON_NULL_SI_NOTE,
+        a4_roc_primary_config,
+        format_poisson_null_h0_table,
+    )
+    from tests.scenarios.synthetic.hollow_edge_nulls import sheet_null_h_quantiles
+
+    assert HollowEdgeConfig().h0 == 0.35  # operational default unchanged
+    assert a4_roc_primary_config().h0 == A4_PRIMARY_H0 == POISSON_NULL_PRIMARY_H0
+    assert POISSON_NULL_PRIMARY_MID == A4_PRIMARY_MID_RADIUS_FRAC == 0.5
+
+    for mid, snap in POISSON_NULL_SHEET_H_QUANTILES.items():
+        live = sheet_null_h_quantiles(mid_radius_frac=float(mid), seed=0)
+        assert live.n_edges == POISSON_NULL_SHEET_N_EDGES
+        assert abs(live.mean_h - snap["mean_h"]) < 0.05
+        for key in ("q0.01", "q0.05", "q0.1", "q0.25", "q0.5"):
+            assert abs(live.quantiles[key] - snap[key]) < 0.08
+
+    # Primary discipline: h0 at/below sheet lower tail at mid=0.5.
+    q01_mid05 = POISSON_NULL_SHEET_H_QUANTILES[0.5]["q0.01"]
+    assert POISSON_NULL_PRIMARY_H0 <= POISSON_NULL_PRIMARY_SHEET_Q01
+    assert POISSON_NULL_PRIMARY_H0 <= q01_mid05 + 0.05  # allow snap rounding
+
+    tsv = format_poisson_null_h0_table()
+    assert tsv.splitlines()[0].startswith("mid\t")
+    assert "primary mid=0.5" in tsv
+    assert "sample-ARI" in POISSON_NULL_SI_NOTE
+    assert "defaults off" in POISSON_NULL_SI_NOTE
