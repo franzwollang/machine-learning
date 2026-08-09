@@ -288,6 +288,7 @@ def test_finer_research_flag_defaults_off() -> None:
     assert cfg.finer_radial_min_trough_rel == 0.0
     assert cfg.prefer_signal_density_band_prepass is False
     assert 0.0 < cfg.finer_signal_density_keep_frac <= 1.0
+    assert cfg.prefer_pca_axis_gap_prepass is False
 
 
 def test_major_lifted_component_partition_requires_two_majors() -> None:
@@ -678,6 +679,99 @@ def test_signal_density_band_prefers_shell_arcs() -> None:
     assert int(pre.labels[0]) != int(pre.labels[12])
 
 
+def test_pca_axis_gap_recovers_offset_rings() -> None:
+    """#44 / A2-T21: PCA-axis gap splits laterally offset rings (non-radial).
+
+    Two side-by-side rings share no radial-from-origin trough but separate
+    cleanly on PC1.  Concentric rings should fail the gap-ratio gate.
+    """
+
+    from proteus.stage1.recursion import (
+        _pca_axis_gap_partition,
+        _radial_gap_partition,
+    )
+    from proteus.types import Link
+
+    class _Links:
+        def __init__(self, edges: list[tuple[int, int]]):
+            self._edges = edges
+
+        def neighbour_graph(self, n: int) -> dict[int, list[int]]:
+            g = {i: [] for i in range(n)}
+            for i, j in self._edges:
+                g[i].append(j)
+                g[j].append(i)
+            return g
+
+        def lifted_links(self):
+            return [
+                Link(i=i, j=j, count_ij=1.0, count_ji=1.0, lifted=True)
+                for i, j in self._edges
+            ]
+
+    class _Node:
+        def __init__(self, pos, hits=1.0):
+            self.position = np.asarray(pos, dtype=float)
+            self.hit_count = hits
+            self.d_final = 1
+
+    class _Scaf:
+        def __init__(self, nodes, edges):
+            self.nodes = nodes
+            self.links = _Links(edges)
+            self.tau = 0.1
+
+    def _ring(cx: float, cy: float, radius: float, count: int) -> list:
+        angs = np.linspace(0.0, 2.0 * np.pi, count, endpoint=False)
+        return [
+            _Node([cx + radius * np.cos(a), cy + radius * np.sin(a)])
+            for a in angs
+        ]
+
+    left = _ring(0.0, 0.0, 1.0, 16)
+    right = _ring(3.5, 0.0, 1.0, 16)
+    nodes = left + right
+    # Intra-ring complete graphs + one weak bridge (lifted-connected).
+    edges = (
+        [(i, j) for i in range(16) for j in range(i + 1, 16)]
+        + [(16 + i, 16 + j) for i in range(16) for j in range(i + 1, 16)]
+        + [(0, 16)]
+    )
+    scaf = _Scaf(nodes, edges)
+    # Radial gap is the wrong cue for offset rings (may still fire on a
+    # diameter); PCA-axis must recover left/right membership.
+    pre = _pca_axis_gap_partition(
+        scaf, min_frac=0.2, min_abs=3, min_gap_ratio=0.25,
+    )
+    assert pre is not None
+    assert pre.n_clusters == 2
+    assert pre.partition_q_score > 0.0
+    assert len(set(int(x) for x in pre.labels[:16])) == 1
+    assert len(set(int(x) for x in pre.labels[16:])) == 1
+    assert int(pre.labels[0]) != int(pre.labels[16])
+
+    # Concentric control: PC1 diameter cut fails centroid-separation gate.
+    inner = _ring(0.0, 0.0, 1.0, 16)
+    outer = _ring(0.0, 0.0, 3.0, 16)
+    conc = _Scaf(
+        inner + outer,
+        (
+            [(i, j) for i in range(16) for j in range(i + 1, 16)]
+            + [(16 + i, 16 + j) for i in range(16) for j in range(i + 1, 16)]
+            + [(0, 16)]
+        ),
+    )
+    assert _pca_axis_gap_partition(
+        conc, min_frac=0.2, min_abs=3, min_gap_ratio=0.25,
+    ) is None
+    # Radial gap still the right cue for concentric.
+    rad = _radial_gap_partition(
+        conc, min_frac=0.2, min_abs=3, min_gap_ratio=0.25,
+    )
+    assert rad is not None
+    assert rad.n_clusters == 2
+
+
 def test_research_finer_split_rejects_invalid_cap() -> None:
     """#44: finer re-search is a no-op when the cap is not strictly inside (tau_min, tau*)."""
 
@@ -803,6 +897,10 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     stays 1 leaf (radial origin not suited to offset linked rings). Do not
     flip awaiting until A1 confirms + tori path exists. Swiss: steps≤4 → 1
     leaf; steps=8 shatters — keep ``max_finer_scale_steps≤4`` for uniforms.
+
+    A2-T21: ``prefer_pca_axis_gap_prepass`` recovers offset (non-linked) rings
+    on unit scaffolds; interlocking linked_tori e2e still unrecovered — hold
+    awaiting.
     """
 
     from tests.datasets.synthetic.nested_spheres import make_nested_spheres
@@ -848,6 +946,7 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
         prefer_radial_band_prepass=True,
         prefer_noncentroid_radial_band_prepass=True,
         prefer_signal_density_band_prepass=True,
+        prefer_pca_axis_gap_prepass=True,
         require_dm_split=True,
         finer_tau_cap_ratio=0.5,
         max_finer_scale_steps=12,
@@ -859,4 +958,5 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     assert _aspirational.prefer_radial_band_prepass is True
     assert _aspirational.prefer_noncentroid_radial_band_prepass is True
     assert _aspirational.prefer_signal_density_band_prepass is True
+    assert _aspirational.prefer_pca_axis_gap_prepass is True
     assert _aspirational.max_finer_scale_steps == 12
