@@ -192,7 +192,9 @@ class RecursionConfig:
     scale-free, so the prepass runs at the region's own ``tau*`` and does
     **not** require finer-scale descent.  A2-T27 probe: seed-0 nested+tori
     major-CC hit near ``mid_radius_frac=0.35`` / ``h0=0.35``; multi-seed
-    fragile and ``h0`` uncalibrated — do **not** flip awaiting.
+    fragile and ``h0`` uncalibrated — do **not** flip awaiting.  A2-T30:
+    fixed-tau ``K=2`` majors have sample ARI≈chance (empty-ball /
+    non-cut-set failure modes); treat as diagnostic only.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +

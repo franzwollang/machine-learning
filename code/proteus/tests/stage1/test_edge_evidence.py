@@ -6,6 +6,7 @@ import numpy as np
 
 from proteus.stage1.edge_evidence import (
     HollowEdgeConfig,
+    edge_ball_occupancy,
     gabriel_diameter_empty,
     hollowness_scores,
     hollow_edge_mask,
@@ -145,3 +146,120 @@ def test_swiss_guard_shortcuts_cut_sheet_stays_connected() -> None:
         union(i, j)
     n_cc = len({find(i) for i in range(8)})
     assert n_cc == 1
+
+
+def test_edge_ball_occupancy_matches_hollowness_scores() -> None:
+    """Occupancy helper agrees with H = n_mid / (n_end + eps)."""
+
+    rng = np.random.default_rng(3)
+    data = rng.normal(size=(50, 2))
+    positions = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]], dtype=float)
+    edges = [(0, 1), (0, 2)]
+    n_mid, n_end, _lengths = edge_ball_occupancy(
+        positions, edges, data, mid_radius_frac=0.5,
+    )
+    H = hollowness_scores(positions, edges, data, mid_radius_frac=0.5, eps=1e-9)
+    np.testing.assert_allclose(H, n_mid / (n_end + 1e-9))
+
+
+def test_adapted_nested_scaffold_mid035_empty_ball_regime() -> None:
+    """A2-T30: mid_frac=0.35 on adapted nested scaffold is empty-ball dominated.
+
+    Median ``n_end`` is low and cross-shell vs intra-shell ``H`` does not
+    separate — documents why Gabriel fallback spuriously yields K=2.
+    """
+
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from proteus.stage1.stabilization import StabilizationConfig
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    nested = make_nested_spheres(n_per_sphere=200, extrusion_dim=1, seed=0)
+    data = nested.points
+    labels = nested.labels
+    sc = Stage1Scaffold(
+        dim=int(data.shape[1]), tau=0.27, k=8, max_nodes=64,
+        ann_backend="naive", rng=np.random.default_rng(0),
+    )
+    sc.init_from(data, n_seeds=8)
+    sc.run_until_stable(
+        data, StabilizationConfig(max_epochs=40, min_equilibrium_epochs=3),
+    )
+    pos = np.asarray([sc.nodes[i].position for i in range(len(sc.nodes))])
+    edges = [(int(link.i), int(link.j)) for link in sc.links.lifted_links()]
+    assert len(edges) >= 10
+
+    _n_mid, n_end, _L = edge_ball_occupancy(
+        pos, edges, data, mid_radius_frac=0.35,
+    )
+    assert float(np.median(n_end)) < 1.5
+
+    H = hollowness_scores(pos, edges, data, mid_radius_frac=0.35)
+    sig = labels >= 0
+    Xs = data[sig]
+    ys = labels[sig]
+    nn = np.argmin(((pos[:, None, :] - Xs[None, :, :]) ** 2).sum(-1), axis=1)
+    node_shell = ys[nn]
+    cross = [H[k] for k, (i, j) in enumerate(edges) if node_shell[i] != node_shell[j]]
+    intra = [H[k] for k, (i, j) in enumerate(edges) if node_shell[i] == node_shell[j]]
+    assert cross and intra
+    # Non-discriminative at 0.35: medians both near empty-ball collapse.
+    assert abs(float(np.median(cross)) - float(np.median(intra))) < 0.25
+
+
+def test_adapted_nested_scaffold_mid05_h_separates_but_not_cutset() -> None:
+    """A2-T30: mid_frac=0.5 separates H on nested, but prune stays 1 CC.
+
+    Documents that discriminative ``H`` alone is not a lifted cut-set on the
+    adapted Hebbian graph (redundant paths).  No awaiting flip.
+    """
+
+    from proteus.stage1.clustering import _lifted_components_covering_all_nodes
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from proteus.stage1.stabilization import StabilizationConfig
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    nested = make_nested_spheres(n_per_sphere=200, extrusion_dim=1, seed=0)
+    data = nested.points
+    labels = nested.labels
+    sc = Stage1Scaffold(
+        dim=int(data.shape[1]), tau=0.27, k=8, max_nodes=64,
+        ann_backend="naive", rng=np.random.default_rng(0),
+    )
+    sc.init_from(data, n_seeds=8)
+    sc.run_until_stable(
+        data, StabilizationConfig(max_epochs=40, min_equilibrium_epochs=3),
+    )
+    n = len(sc.nodes)
+    pos = np.asarray([sc.nodes[i].position for i in range(n)])
+    edges = [(int(link.i), int(link.j)) for link in sc.links.lifted_links()]
+    H = hollowness_scores(pos, edges, data, mid_radius_frac=0.5)
+    sig = labels >= 0
+    Xs = data[sig]
+    ys = labels[sig]
+    nn = np.argmin(((pos[:, None, :] - Xs[None, :, :]) ** 2).sum(-1), axis=1)
+    node_shell = ys[nn]
+    cross = np.asarray(
+        [H[k] for k, (i, j) in enumerate(edges) if node_shell[i] != node_shell[j]],
+        dtype=float,
+    )
+    intra = np.asarray(
+        [H[k] for k, (i, j) in enumerate(edges) if node_shell[i] == node_shell[j]],
+        dtype=float,
+    )
+    assert len(cross) >= 5 and len(intra) >= 5
+    assert float(np.median(intra)) > float(np.median(cross)) + 0.2
+
+    kept = prune_hollow_edges(
+        pos, edges, data,
+        config=HollowEdgeConfig(
+            mid_radius_frac=0.5, h0=0.65, min_end_count=1.0, gabriel_fallback=False,
+        ),
+    )
+    graph = {i: [] for i in range(n)}
+    for i, j in kept:
+        graph[i].append(j)
+        graph[j].append(i)
+    comps = _lifted_components_covering_all_nodes(n, graph)
+    majors = [c for c in comps if len(c) >= max(3, int(np.ceil(n * 0.2)))]
+    assert len(majors) < 2
+

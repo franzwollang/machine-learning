@@ -33,6 +33,15 @@ class HollowEdgeConfig:
     joint nested+tori major-CC recovery on seed 0 near
     ``mid_radius_frac=0.35``, ``h0=0.35`` (note's ``L/4`` alone false-hollows
     when ``n_end≈0``); multi-seed fragile — do not flip awaiting.
+
+    A2-T30 audit (adapted nested/tori scaffolds): at ``mid_radius_frac=0.35``
+    mid-balls are typically smaller than the node→data gap, so ``H≈0`` on
+    *both* cross-shell and intra-shell lifted edges (non-discriminative).
+    Around ``mid_radius_frac=0.5`` cross vs intra ``H`` separates on nested
+    lifted edges, but hollow-pruning still fails as a cut-set (redundant
+    Hebbian paths) and fixed-tau ``K=2`` majors have sample ARI≈chance —
+    do **not** treat major-CC count as recovery.  Gabriel fallback at low
+    ``n_end`` amplifies spurious cuts.  Keep flag default-off.
     """
 
     mid_radius_frac: float = 0.35
@@ -40,6 +49,48 @@ class HollowEdgeConfig:
     min_end_count: float = 0.5
     gabriel_fallback: bool = True
     eps: float = _EPS
+
+
+def edge_ball_occupancy(
+    positions: np.ndarray,
+    edges: list[tuple[int, int]],
+    data: np.ndarray,
+    *,
+    mid_radius_frac: float = 0.35,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return ``(n_mid, n_end, lengths)`` per edge for hollow diagnostics.
+
+    ``n_end`` is the mean of the endpoint-ball counts (same balls as
+    :func:`hollowness_scores`).  Used to detect the empty-ball regime
+    where ``H`` collapses without discriminating bridges.
+    """
+
+    pos = np.asarray(positions, dtype=float)
+    pts = np.asarray(data, dtype=float)
+    if pts.ndim != 2:
+        raise ValueError("data must be 2-D")
+    frac = float(mid_radius_frac)
+    if frac <= 0.0:
+        raise ValueError("mid_radius_frac must be positive")
+    n_mid = np.empty(len(edges), dtype=float)
+    n_end = np.empty(len(edges), dtype=float)
+    lengths = np.empty(len(edges), dtype=float)
+    for k, (i, j) in enumerate(edges):
+        xi = pos[int(i)]
+        xj = pos[int(j)]
+        length = float(np.linalg.norm(xi - xj))
+        lengths[k] = length
+        if length <= 0.0:
+            n_mid[k] = 0.0
+            n_end[k] = 0.0
+            continue
+        radius = frac * length
+        mid = 0.5 * (xi + xj)
+        n_mid[k] = float(np.sum(np.linalg.norm(pts - mid, axis=1) <= radius))
+        n_i = float(np.sum(np.linalg.norm(pts - xi, axis=1) <= radius))
+        n_j = float(np.sum(np.linalg.norm(pts - xj, axis=1) <= radius))
+        n_end[k] = 0.5 * (n_i + n_j)
+    return n_mid, n_end, lengths
 
 
 def hollowness_scores(
@@ -64,28 +115,15 @@ def hollowness_scores(
         Mid / endpoint ball radius as a fraction of edge length ``L``.
     """
 
-    pos = np.asarray(positions, dtype=float)
-    pts = np.asarray(data, dtype=float)
-    if pts.ndim != 2:
-        raise ValueError("data must be 2-D")
+    n_mid, n_end, lengths = edge_ball_occupancy(
+        positions, edges, data, mid_radius_frac=mid_radius_frac,
+    )
     scores = np.empty(len(edges), dtype=float)
-    frac = float(mid_radius_frac)
-    if frac <= 0.0:
-        raise ValueError("mid_radius_frac must be positive")
-    for k, (i, j) in enumerate(edges):
-        xi = pos[int(i)]
-        xj = pos[int(j)]
-        length = float(np.linalg.norm(xi - xj))
-        if length <= 0.0:
+    for k in range(len(edges)):
+        if lengths[k] <= 0.0:
             scores[k] = 1.0
-            continue
-        radius = frac * length
-        mid = 0.5 * (xi + xj)
-        n_mid = int(np.sum(np.linalg.norm(pts - mid, axis=1) <= radius))
-        n_i = int(np.sum(np.linalg.norm(pts - xi, axis=1) <= radius))
-        n_j = int(np.sum(np.linalg.norm(pts - xj, axis=1) <= radius))
-        n_end = 0.5 * (n_i + n_j)
-        scores[k] = float(n_mid) / (float(n_end) + float(eps))
+        else:
+            scores[k] = float(n_mid[k]) / (float(n_end[k]) + float(eps))
     return scores
 
 
@@ -133,20 +171,9 @@ def hollow_edge_mask(
         mid_radius_frac=float(cfg.mid_radius_frac),
         eps=float(cfg.eps),
     )
-    # Endpoint mass for the decidability gate (same balls as H).
-    end_mass = np.empty(len(edges), dtype=float)
-    frac = float(cfg.mid_radius_frac)
-    for k, (i, j) in enumerate(edges):
-        xi = pos[int(i)]
-        xj = pos[int(j)]
-        length = float(np.linalg.norm(xi - xj))
-        if length <= 0.0:
-            end_mass[k] = 0.0
-            continue
-        radius = frac * length
-        n_i = int(np.sum(np.linalg.norm(pts - xi, axis=1) <= radius))
-        n_j = int(np.sum(np.linalg.norm(pts - xj, axis=1) <= radius))
-        end_mass[k] = 0.5 * (n_i + n_j)
+    _, end_mass, _ = edge_ball_occupancy(
+        pos, edges, pts, mid_radius_frac=float(cfg.mid_radius_frac),
+    )
 
     cut = np.zeros(len(edges), dtype=bool)
     gab = (

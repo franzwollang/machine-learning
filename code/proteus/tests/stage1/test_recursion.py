@@ -1294,12 +1294,12 @@ def test_finer_research_persist_sd_pca_regression_harness() -> None:
 
 
 def test_hollow_edge_persist_no_descent_regression_harness() -> None:
-    """#44 / A2-T29: persist(+dm)+hollow, NO finer descent — leaf-count harness.
+    """#44 / A2-T29/T30: persist(+dm)+hollow, NO finer descent — leaf harness.
 
     Guards uniforms / zoo under hollow prepass without ``allow_finer_research``.
-    Documents nested/tori = 1 leaf at scale-search ``tau*`` (hollow fires on
-    fixed-tau oracle ~0.27/0.5 but not at load-crossover ``tau*``).  Do **not**
-    flip awaiting.
+    Documents nested/tori = 1 leaf at scale-search ``tau*``.  Fixed-tau
+    ``K=2`` at ~0.27/0.5 is **not** recovery (sample ARI near chance;
+    A2-T30).  Do **not** flip awaiting.
     """
 
     from proteus.stage1.recursion import _hollow_edge_partition
@@ -1362,7 +1362,10 @@ def test_hollow_edge_persist_no_descent_regression_harness() -> None:
     tori_leaves = _run(tori.points, tori.points.shape[1], persist=True, dm=False, min_samples=40)
     assert tori_leaves >= 1
 
-    # Fixed-tau oracle: hollow recovers majors when tau matches the probe.
+    # Fixed-tau "oracle": K=2 majors can appear at probe taus, but sample ARI
+    # is near chance (A2-T30) — do **not** treat K=2 as component recovery.
+    from sklearn.metrics import adjusted_rand_score
+
     def _oracle(points, tau: float):
         sc = Stage1Scaffold(
             dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
@@ -1373,13 +1376,25 @@ def test_hollow_edge_persist_no_descent_regression_harness() -> None:
             points,
             StabilizationConfig(max_epochs=40, min_equilibrium_epochs=3),
         )
-        return _hollow_edge_partition(
+        part = _hollow_edge_partition(
             sc, points,
             mid_radius_frac=0.35, h0=0.35, min_end_count=0.5, min_frac=0.2,
         )
+        return sc, part
 
-    h_nested = _oracle(nested.points, 0.27)
-    h_tori = _oracle(tori.points, 0.5)
+    def _sample_ari(sc, part, points, labels) -> float:
+        pos = np.asarray([sc.nodes[i].position for i in range(len(sc.nodes))])
+        nn = np.argmin(
+            ((points[:, None, :] - pos[None, :, :]) ** 2).sum(-1), axis=1,
+        )
+        pred = part.labels[nn]
+        mask = np.asarray(labels) >= 0
+        return float(adjusted_rand_score(labels[mask], pred[mask]))
+
+    sc_n, h_nested = _oracle(nested.points, 0.27)
+    sc_t, h_tori = _oracle(tori.points, 0.5)
     assert h_nested is not None and h_nested.n_clusters == 2
     assert h_tori is not None and h_tori.n_clusters == 2
-    assert tori_leaves in (1, 2)  # spurious 2-leaf possible; ARI not asserted
+    assert _sample_ari(sc_n, h_nested, nested.points, nested.labels) < 0.2
+    assert _sample_ari(sc_t, h_tori, tori.points, tori.labels) < 0.2
+    assert tori_leaves in (1, 2)  # spurious 2-leaf possible; ARI not recovery
