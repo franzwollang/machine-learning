@@ -165,6 +165,22 @@ class RecursionConfig:
     linked_tori still unrecovered under e2e persist+pca (geometry
     interpenetration) — do not flip awaiting.
 
+    **A2-T24 (flag-gated, default off):**
+    ``prefer_tube_major_radius_prepass`` assigns nodes by tube residual to a
+    Hopf-linked major-circle pair (axis-aligned template over coordinate
+    permutations): circle A in a coordinate plane about the origin, circle B
+    translated by ``R`` into the orthogonal plane.  Recovers interlocking
+    thin rings / thick tori on unit scaffolds in the synthetic linked_tori
+    pose; concentric shells and laterally offset rings are the wrong cue
+    (should miss or fail ``Q``).  E2e linked_tori recovery is **not**
+    claimed — do not flip awaiting.
+
+    **A2-T25 (flag-gated, default off):**
+    ``prefer_spectral_gap_prepass`` bipartitions via the Fiedler vector of
+    the normalised Laplacian of the lifted neighbour graph (fallback:
+    position kNN).  Alternate linking-structure cue; report circle / swiss /
+    nested regressions under the flag — default remains off.
+
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
       ``allow_finer_research`` + ``max_finer_scale_steps<=4`` +
@@ -175,7 +191,8 @@ class RecursionConfig:
       + ``prefer_signal_density_band_prepass`` + ``steps>=8`` +
       ``keep_frac=0.55`` + ``min_samples=20`` → 2 leaves ARI=1.0.
     - Linked tori: still open; try ``prefer_pca_axis_gap_prepass`` (offset
-      cue) — e2e recovery not claimed.
+      cue) or ``prefer_tube_major_radius_prepass`` (interlock cue) —
+      e2e recovery not claimed.
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
@@ -200,6 +217,10 @@ class RecursionConfig:
     prefer_signal_density_band_prepass: bool = False
     finer_signal_density_keep_frac: float = 0.55
     prefer_pca_axis_gap_prepass: bool = False
+    prefer_tube_major_radius_prepass: bool = False
+    finer_tube_min_residual_ratio: float = 0.15
+    prefer_spectral_gap_prepass: bool = False
+    finer_spectral_knn: int = 8
     seed: int = 42
 
 
@@ -539,6 +560,288 @@ def _pca_axis_gap_partition(
     )
 
 
+def _tube_residuals_hopf_xy_yz(
+    positions: np.ndarray, major_radius: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Tube distances to Hopf-linked major circles in xy and yz planes."""
+
+    R = float(major_radius)
+    xy = np.sqrt(positions[:, 0] ** 2 + positions[:, 1] ** 2)
+    xy = np.maximum(xy, 1e-12)
+    nearest_xy = np.column_stack(
+        [R * positions[:, 0] / xy, R * positions[:, 1] / xy, np.zeros(len(positions))],
+    )
+    d_xy = np.linalg.norm(positions - nearest_xy, axis=1)
+
+    yz = np.sqrt(positions[:, 1] ** 2 + positions[:, 2] ** 2)
+    yz = np.maximum(yz, 1e-12)
+    nearest_yz = np.column_stack(
+        [
+            np.full(len(positions), R),
+            R * positions[:, 1] / yz,
+            R * positions[:, 2] / yz,
+        ],
+    )
+    d_yz = np.linalg.norm(positions - nearest_yz, axis=1)
+    return d_xy, d_yz
+
+
+def _tube_major_radius_partition(
+    scaffold: "Stage1Scaffold",  # noqa: F821
+    *,
+    min_frac: float = 0.2,
+    min_abs: int = 3,
+    min_residual_ratio: float = 0.15,
+) -> ClusterResult | None:
+    """Return a 2-way partition from Hopf-linked tube residuals, else ``None``.
+
+    OPEN_ISSUES #44 / A2-T24 interlocking-tori cue: linked rings do not
+    separate along a single radial or PC1 axis when they interpenetrate.
+    Assign each scaffold node to the nearer of two major circles in the
+    synthetic linked_tori pose (circle in a coordinate plane about the
+    origin; sister circle translated by ``R`` into the orthogonal plane).
+    Search coordinate permutations and translations that place a candidate
+    ring centre at the origin (do **not** mean-centre the whole cloud —
+    that breaks the Hopf template).  Requires balanced sizes, mean residual
+    separation ``>= min_residual_ratio * R``, and ``Q>0``.  Ambient ``d>3``
+    uses the leading three principal components (then re-translated).
+    """
+
+    n = len(scaffold.nodes)
+    if n < 2 * max(int(min_abs), 1):
+        return None
+    frac = float(min_frac)
+    if not (0.0 < frac <= 0.5):
+        frac = 0.2
+    threshold = max(int(min_abs), int(np.ceil(n * frac)))
+    if 2 * threshold > n:
+        return None
+
+    positions = np.asarray(
+        [scaffold.nodes[i].position for i in range(n)], dtype=float,
+    )
+    if positions.ndim != 2 or positions.shape[0] != n:
+        return None
+    d = int(positions.shape[1])
+    if d < 3:
+        return None
+    if d > 3:
+        centered = positions - positions.mean(axis=0)
+        try:
+            _u, _s, vt = np.linalg.svd(centered, full_matrices=False)
+        except np.linalg.LinAlgError:
+            return None
+        if vt.shape[0] < 3:
+            return None
+        # PCA coords are mean-centred; translation search below restores pose.
+        base = centered @ vt[:3].T
+    else:
+        base = positions.copy()
+
+    perms = (
+        (0, 1, 2),
+        (0, 2, 1),
+        (1, 2, 0),
+        (1, 0, 2),
+        (2, 0, 1),
+        (2, 1, 0),
+    )
+    best: tuple[float, np.ndarray, np.ndarray, float] | None = None
+    for perm in perms:
+        P0 = base[:, list(perm)]
+        # Candidate origin = mean of points near the first plane (small |z|).
+        z_scale = float(np.std(P0[:, 2])) + 1e-9
+        near = np.abs(P0[:, 2]) <= max(z_scale, 1e-6)
+        if int(np.sum(near)) < threshold:
+            near = np.ones(n, dtype=bool)
+        origin = P0[near].mean(axis=0)
+        # Also try raw (no shift) and half-shift along x (Hopf second centre).
+        cyl0 = np.sqrt(P0[:, 0] ** 2 + P0[:, 1] ** 2)
+        R_guess = float(np.median(cyl0[near])) if np.any(near) else float(np.median(cyl0))
+        origins = (
+            np.zeros(3),
+            origin,
+            np.array([origin[0] - 0.5 * R_guess, origin[1], origin[2]]),
+            np.array([0.5 * R_guess, 0.0, 0.0]),
+        )
+        for o in origins:
+            P = P0 - o
+            cyl = np.sqrt(P[:, 0] ** 2 + P[:, 1] ** 2)
+            z_s = float(np.std(P[:, 2])) + 1e-9
+            w = np.exp(-((P[:, 2] / z_s) ** 2))
+            R_w = (
+                float(np.average(cyl, weights=w))
+                if float(w.sum()) > 0
+                else float(np.median(cyl))
+            )
+            R_med = float(np.median(cyl))
+            for R in (R_w, R_med, 0.5 * (R_w + R_med)):
+                if not (R > 1e-9):
+                    continue
+                d_xy, d_yz = _tube_residuals_hopf_xy_yz(P, R)
+                labels = (d_yz < d_xy).astype(int)
+                n0 = int(np.sum(labels == 0))
+                n1 = int(np.sum(labels == 1))
+                if n0 < threshold or n1 < threshold:
+                    continue
+                sep = float(np.mean(np.abs(d_xy - d_yz)))
+                if sep / (R + 1e-12) < float(min_residual_ratio):
+                    continue
+                # Plane-thinness + cross-plane contrast: each tube's members
+                # hug its plane, and the two groups must prefer *different*
+                # planes (rejects concentric coplanar shells).
+                z0 = float(np.mean(np.abs(P[labels == 0, 2])))
+                z1 = float(np.mean(np.abs(P[labels == 1, 2])))
+                x0 = float(np.mean(np.abs(P[labels == 0, 0] - R)))
+                x1 = float(np.mean(np.abs(P[labels == 1, 0] - R)))
+                # label0 → xy tube, label1 → yz tube
+                ok = (
+                    z0 <= 0.35 * R
+                    and x1 <= 0.35 * R
+                    and z0 < z1 - 0.05 * R
+                    and x1 < x0 - 0.05 * R
+                )
+                if not ok:
+                    # Swapped polarity.
+                    ok_s = (
+                        z1 <= 0.35 * R
+                        and x0 <= 0.35 * R
+                        and z1 < z0 - 0.05 * R
+                        and x0 < x1 - 0.05 * R
+                    )
+                    if not ok_s:
+                        continue
+                    labels = 1 - labels
+                bal = min(n0, n1) / float(n)
+                score = sep * bal
+                if best is None or score > best[0]:
+                    best = (score, labels.copy(), P.copy(), float(R))
+
+    if best is None:
+        return None
+    _score, labels, _P_best, _R_best = best
+    clusters: list[set[int]] = [
+        set(np.where(labels == cid)[0].tolist()) for cid in (0, 1)
+    ]
+    if min(len(c) for c in clusters) < threshold:
+        return None
+
+    graph_lifted = scaffold.links.neighbour_graph(n)
+    W = compute_edge_weights(scaffold)
+    pq = partition_q_score(clusters, n, W, graph_lifted)
+    if pq <= 0.0:
+        return None
+
+    hits = np.array([node.hit_count for node in scaffold.nodes], dtype=float)
+    exemplars = [int(max(c, key=lambda g: hits[g])) for c in clusters]
+    return ClusterResult(
+        labels=labels,
+        exemplar_indices=np.array(exemplars, dtype=int),
+        n_clusters=2,
+        partition_q_score=float(pq),
+    )
+
+
+def _spectral_gap_partition(
+    scaffold: "Stage1Scaffold",  # noqa: F821
+    *,
+    min_frac: float = 0.2,
+    min_abs: int = 3,
+    knn: int = 8,
+) -> ClusterResult | None:
+    """Return a 2-way Fiedler bipartition of the lifted (or kNN) graph.
+
+    OPEN_ISSUES #44 / A2-T25 spectral / linking cue: take the second-smallest
+    eigenvector of the normalised Laplacian of the lifted neighbour graph
+    (fallback: symmetrised position kNN if the lifted graph is too sparse),
+    threshold at the median, and require balanced sizes plus ``Q>0``.
+    """
+
+    n = len(scaffold.nodes)
+    if n < 2 * max(int(min_abs), 1):
+        return None
+    frac = float(min_frac)
+    if not (0.0 < frac <= 0.5):
+        frac = 0.2
+    threshold = max(int(min_abs), int(np.ceil(n * frac)))
+    if 2 * threshold > n:
+        return None
+
+    # Dense adjacency from lifted neighbour lists.
+    adj = np.zeros((n, n), dtype=float)
+    graph = scaffold.links.neighbour_graph(n)
+    for i, nbrs in graph.items():
+        ii = int(i)
+        for j in nbrs:
+            jj = int(j)
+            if 0 <= ii < n and 0 <= jj < n and ii != jj:
+                adj[ii, jj] = 1.0
+                adj[jj, ii] = 1.0
+
+    # Fallback / blend: position kNN if lifted degree is too low.
+    degrees = adj.sum(axis=1)
+    if float(np.median(degrees)) < 2.0:
+        positions = np.asarray(
+            [scaffold.nodes[i].position for i in range(n)], dtype=float,
+        )
+        k = max(2, min(int(knn), n - 1))
+        # Squared distances; exclude self.
+        d2 = ((positions[:, None, :] - positions[None, :, :]) ** 2).sum(axis=2)
+        np.fill_diagonal(d2, np.inf)
+        nn = np.argpartition(d2, kth=k - 1, axis=1)[:, :k]
+        adj_knn = np.zeros_like(adj)
+        rows = np.repeat(np.arange(n), k)
+        adj_knn[rows, nn.ravel()] = 1.0
+        adj_knn = np.maximum(adj_knn, adj_knn.T)
+        adj = np.maximum(adj, adj_knn)
+
+    deg = adj.sum(axis=1)
+    # Isolated nodes: spectral bipartition is undefined.
+    if np.any(deg <= 0.0):
+        return None
+    # Normalised Laplacian L = I - D^{-1/2} A D^{-1/2}.
+    d_inv_sqrt = 1.0 / np.sqrt(deg)
+    d_inv_sqrt[~np.isfinite(d_inv_sqrt)] = 0.0
+    scaled = adj * d_inv_sqrt[:, None] * d_inv_sqrt[None, :]
+    lap = np.eye(n) - scaled
+    try:
+        vals, vecs = np.linalg.eigh(lap)
+    except np.linalg.LinAlgError:
+        return None
+    # Fiedler: second-smallest eigenvector (vals ascending).
+    if vals.shape[0] < 2:
+        return None
+    fiedler = vecs[:, 1]
+    med = float(np.median(fiedler))
+    labels = (fiedler > med).astype(int)
+    # Degenerate median cut (all equal).
+    if len(set(int(x) for x in labels)) < 2:
+        labels = (fiedler >= 0.0).astype(int)
+    if len(set(int(x) for x in labels)) < 2:
+        return None
+
+    clusters: list[set[int]] = [
+        set(np.where(labels == cid)[0].tolist()) for cid in (0, 1)
+    ]
+    if min(len(c) for c in clusters) < threshold:
+        return None
+
+    graph_lifted = scaffold.links.neighbour_graph(n)
+    W = compute_edge_weights(scaffold)
+    pq = partition_q_score(clusters, n, W, graph_lifted)
+    if pq <= 0.0:
+        return None
+
+    hits = np.array([node.hit_count for node in scaffold.nodes], dtype=float)
+    exemplars = [int(max(c, key=lambda g: hits[g])) for c in clusters]
+    return ClusterResult(
+        labels=labels,
+        exemplar_indices=np.array(exemplars, dtype=int),
+        n_clusters=2,
+        partition_q_score=float(pq),
+    )
+
+
 def _geometric_median(points: np.ndarray, *, max_iter: int = 32) -> np.ndarray:
     """Weiszfeld geometric median (kept for experiments; prefer coord median)."""
 
@@ -847,6 +1150,10 @@ def _research_finer_split(
     When ``prefer_signal_density_band_prepass`` is on, knn-density residual
     masking precedes the band gap.  When ``prefer_pca_axis_gap_prepass`` is
     on, a leading-PC 1-D gap is tried (offset / non-radial geometry cue).
+    When ``prefer_tube_major_radius_prepass`` is on, a Hopf-linked tube
+    residual assignment is tried (interlocking rings).  When
+    ``prefer_spectral_gap_prepass`` is on, a Fiedler bipartition of the
+    lifted / kNN graph is tried.
     """
 
     ratio = float(config.finer_tau_cap_ratio)
@@ -978,6 +1285,34 @@ def _research_finer_split(
             ):
                 return result, scaffold, pca_gap
 
+        # #44 / A2-T24: Hopf-linked tube major-radius residual (interlock cue).
+        if config.prefer_tube_major_radius_prepass:
+            tube = _tube_major_radius_partition(
+                scaffold,
+                min_frac=float(config.finer_prepass_min_frac),
+                min_residual_ratio=float(config.finer_tube_min_residual_ratio),
+            )
+            if (
+                tube is not None
+                and tube.n_clusters > 1
+                and tube.partition_q_score > 0.0
+            ):
+                return result, scaffold, tube
+
+        # #44 / A2-T25: spectral Fiedler bipartition (linking / graph cue).
+        if config.prefer_spectral_gap_prepass:
+            spectral = _spectral_gap_partition(
+                scaffold,
+                min_frac=float(config.finer_prepass_min_frac),
+                knn=int(config.finer_spectral_knn),
+            )
+            if (
+                spectral is not None
+                and spectral.n_clusters > 1
+                and spectral.partition_q_score > 0.0
+            ):
+                return result, scaffold, spectral
+
         cluster_result = _cluster_scaffold(scaffold, config)
         if (
             cluster_result.n_clusters > 1
@@ -1088,6 +1423,12 @@ def _descend_into_clusters(
             ),
             finer_signal_density_keep_frac=config.finer_signal_density_keep_frac,
             prefer_pca_axis_gap_prepass=config.prefer_pca_axis_gap_prepass,
+            prefer_tube_major_radius_prepass=(
+                config.prefer_tube_major_radius_prepass
+            ),
+            finer_tube_min_residual_ratio=config.finer_tube_min_residual_ratio,
+            prefer_spectral_gap_prepass=config.prefer_spectral_gap_prepass,
+            finer_spectral_knn=config.finer_spectral_knn,
             seed=config.seed + region_id + label,
         )
 

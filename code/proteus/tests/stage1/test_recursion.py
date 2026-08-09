@@ -289,6 +289,10 @@ def test_finer_research_flag_defaults_off() -> None:
     assert cfg.prefer_signal_density_band_prepass is False
     assert 0.0 < cfg.finer_signal_density_keep_frac <= 1.0
     assert cfg.prefer_pca_axis_gap_prepass is False
+    assert cfg.prefer_tube_major_radius_prepass is False
+    assert cfg.finer_tube_min_residual_ratio > 0.0
+    assert cfg.prefer_spectral_gap_prepass is False
+    assert cfg.finer_spectral_knn >= 2
 
 
 def test_major_lifted_component_partition_requires_two_majors() -> None:
@@ -772,6 +776,182 @@ def test_pca_axis_gap_recovers_offset_rings() -> None:
     assert rad.n_clusters == 2
 
 
+def test_tube_major_radius_recovers_interlocking_rings() -> None:
+    """#44 / A2-T24: tube residual splits Hopf-linked rings (interlock cue).
+
+    Linked major circles in the synthetic linked_tori pose (xy circle about
+    the origin + yz circle translated by R) separate by nearer-tube
+    assignment.  Concentric coplanar rings are the wrong cue and must miss.
+    """
+
+    from proteus.stage1.recursion import (
+        _pca_axis_gap_partition,
+        _tube_major_radius_partition,
+    )
+    from proteus.types import Link
+
+    class _Links:
+        def __init__(self, edges: list[tuple[int, int]]):
+            self._edges = edges
+
+        def neighbour_graph(self, n: int) -> dict[int, list[int]]:
+            g = {i: [] for i in range(n)}
+            for i, j in self._edges:
+                g[i].append(j)
+                g[j].append(i)
+            return g
+
+        def lifted_links(self):
+            return [
+                Link(i=i, j=j, count_ij=1.0, count_ji=1.0, lifted=True)
+                for i, j in self._edges
+            ]
+
+    class _Node:
+        def __init__(self, pos, hits=1.0):
+            self.position = np.asarray(pos, dtype=float)
+            self.hit_count = hits
+            self.d_final = 1
+
+    class _Scaf:
+        def __init__(self, nodes, edges):
+            self.nodes = nodes
+            self.links = _Links(edges)
+            self.tau = 0.1
+
+    R = 2.0
+    n_ring = 16
+    angs = np.linspace(0.0, 2.0 * np.pi, n_ring, endpoint=False)
+    ring_xy = [
+        _Node([R * np.cos(a), R * np.sin(a), 0.0]) for a in angs
+    ]
+    ring_yz = [
+        _Node([R, R * np.sin(a), R * np.cos(a)]) for a in angs
+    ]
+    nodes = ring_xy + ring_yz
+    edges = (
+        [(i, j) for i in range(n_ring) for j in range(i + 1, n_ring)]
+        + [
+            (n_ring + i, n_ring + j)
+            for i in range(n_ring) for j in range(i + 1, n_ring)
+        ]
+        + [(0, n_ring)]  # weak bridge — lifted-connected
+    )
+    scaf = _Scaf(nodes, edges)
+    pre = _tube_major_radius_partition(
+        scaf, min_frac=0.2, min_abs=3, min_residual_ratio=0.15,
+    )
+    assert pre is not None
+    assert pre.n_clusters == 2
+    assert pre.partition_q_score > 0.0
+    assert len(set(int(x) for x in pre.labels[:n_ring])) == 1
+    assert len(set(int(x) for x in pre.labels[n_ring:])) == 1
+    assert int(pre.labels[0]) != int(pre.labels[n_ring])
+
+    # Concentric control: Hopf tube template should not recover shells.
+    inner = [
+        _Node([1.0 * np.cos(a), 1.0 * np.sin(a), 0.0]) for a in angs
+    ]
+    outer = [
+        _Node([3.0 * np.cos(a), 3.0 * np.sin(a), 0.0]) for a in angs
+    ]
+    conc = _Scaf(
+        inner + outer,
+        (
+            [(i, j) for i in range(n_ring) for j in range(i + 1, n_ring)]
+            + [
+                (n_ring + i, n_ring + j)
+                for i in range(n_ring) for j in range(i + 1, n_ring)
+            ]
+            + [(0, n_ring)]
+        ),
+    )
+    assert _tube_major_radius_partition(
+        conc, min_frac=0.2, min_abs=3, min_residual_ratio=0.15,
+    ) is None
+    # Offset (non-linked) rings: PCA remains the right cue; tube may miss.
+    left = [
+        _Node([np.cos(a), np.sin(a), 0.0]) for a in angs
+    ]
+    right = [
+        _Node([3.5 + np.cos(a), np.sin(a), 0.0]) for a in angs
+    ]
+    offset = _Scaf(
+        left + right,
+        (
+            [(i, j) for i in range(n_ring) for j in range(i + 1, n_ring)]
+            + [
+                (n_ring + i, n_ring + j)
+                for i in range(n_ring) for j in range(i + 1, n_ring)
+            ]
+            + [(0, n_ring)]
+        ),
+    )
+    pca = _pca_axis_gap_partition(
+        offset, min_frac=0.2, min_abs=3, min_gap_ratio=0.25,
+    )
+    assert pca is not None
+    assert pca.n_clusters == 2
+
+
+def test_spectral_gap_bipartitions_offset_rings() -> None:
+    """#44 / A2-T25: Fiedler bipartition splits well-separated ring pair."""
+
+    from proteus.stage1.recursion import _spectral_gap_partition
+    from proteus.types import Link
+
+    class _Links:
+        def __init__(self, edges: list[tuple[int, int]]):
+            self._edges = edges
+
+        def neighbour_graph(self, n: int) -> dict[int, list[int]]:
+            g = {i: [] for i in range(n)}
+            for i, j in self._edges:
+                g[i].append(j)
+                g[j].append(i)
+            return g
+
+        def lifted_links(self):
+            return [
+                Link(i=i, j=j, count_ij=1.0, count_ji=1.0, lifted=True)
+                for i, j in self._edges
+            ]
+
+    class _Node:
+        def __init__(self, pos, hits=1.0):
+            self.position = np.asarray(pos, dtype=float)
+            self.hit_count = hits
+            self.d_final = 1
+
+    class _Scaf:
+        def __init__(self, nodes, edges):
+            self.nodes = nodes
+            self.links = _Links(edges)
+            self.tau = 0.1
+
+    n_ring = 16
+    angs = np.linspace(0.0, 2.0 * np.pi, n_ring, endpoint=False)
+    left = [_Node([np.cos(a), np.sin(a), 0.0]) for a in angs]
+    right = [_Node([3.5 + np.cos(a), np.sin(a), 0.0]) for a in angs]
+    # Dense intra-ring; single weak bridge.
+    edges = (
+        [(i, j) for i in range(n_ring) for j in range(i + 1, n_ring)]
+        + [
+            (n_ring + i, n_ring + j)
+            for i in range(n_ring) for j in range(i + 1, n_ring)
+        ]
+        + [(0, n_ring)]
+    )
+    scaf = _Scaf(left + right, edges)
+    pre = _spectral_gap_partition(scaf, min_frac=0.2, min_abs=3, knn=8)
+    assert pre is not None
+    assert pre.n_clusters == 2
+    assert pre.partition_q_score > 0.0
+    assert len(set(int(x) for x in pre.labels[:n_ring])) == 1
+    assert len(set(int(x) for x in pre.labels[n_ring:])) == 1
+    assert int(pre.labels[0]) != int(pre.labels[n_ring])
+
+
 def test_research_finer_split_rejects_invalid_cap() -> None:
     """#44: finer re-search is a no-op when the cap is not strictly inside (tau_min, tau*)."""
 
@@ -901,6 +1081,11 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     A2-T21: ``prefer_pca_axis_gap_prepass`` recovers offset (non-linked) rings
     on unit scaffolds; interlocking linked_tori e2e still unrecovered — hold
     awaiting.
+
+    A2-T24/T25: ``prefer_tube_major_radius_prepass`` recovers interlocking
+    thin rings on unit scaffolds (Hopf tube residual); spectral Fiedler is an
+    alternate graph cue.  E2e linked_tori under persist+sd+pca+tube still not
+    asserted here — hold awaiting.
     """
 
     from tests.datasets.synthetic.nested_spheres import make_nested_spheres
@@ -947,6 +1132,8 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
         prefer_noncentroid_radial_band_prepass=True,
         prefer_signal_density_band_prepass=True,
         prefer_pca_axis_gap_prepass=True,
+        prefer_tube_major_radius_prepass=True,
+        prefer_spectral_gap_prepass=True,
         require_dm_split=True,
         finer_tau_cap_ratio=0.5,
         max_finer_scale_steps=12,
@@ -959,4 +1146,82 @@ def test_finer_research_nested_spheres_aspiration_sketch() -> None:
     assert _aspirational.prefer_noncentroid_radial_band_prepass is True
     assert _aspirational.prefer_signal_density_band_prepass is True
     assert _aspirational.prefer_pca_axis_gap_prepass is True
+    assert _aspirational.prefer_tube_major_radius_prepass is True
+    assert _aspirational.prefer_spectral_gap_prepass is True
     assert _aspirational.max_finer_scale_steps == 12
+
+
+def test_finer_research_persist_sd_pca_regression_harness() -> None:
+    """#44 / A2-T26: persist+sd+pca(+tube) leaf-count regression harness.
+
+    Guards uniforms under the recommended pairing; documents nested / tori
+    leaf counts without flipping awaiting component tests.
+    """
+
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+    from tests.datasets.synthetic.swiss_roll import make_swiss_roll
+
+    def _lean_scale(tau_lo: float, tau_hi: float, *, seed: int) -> ScaleSearchConfig:
+        return ScaleSearchConfig(
+            tau_min=tau_lo,
+            tau_max=tau_hi,
+            max_grid_points=6,
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2,
+                max_epochs=6,
+            ),
+            seed=seed,
+        )
+
+    def _run(dataset, *, steps: int, min_samples: int, **flags) -> int:
+        gt = dataset.ground_truth
+        tau_lo, tau_hi = gt.tau_grid_hint
+        cfg = RecursionConfig(
+            scale_search=_lean_scale(tau_lo, tau_hi, seed=11),
+            min_samples=min_samples,
+            max_depth=3,
+            allow_finer_research=True,
+            require_persistent_split=True,
+            max_finer_scale_steps=steps,
+            prefer_signal_density_band_prepass=True,
+            finer_signal_density_keep_frac=0.55,
+            prefer_pca_axis_gap_prepass=True,
+            prefer_tube_major_radius_prepass=bool(
+                flags.get("tube", False),
+            ),
+            prefer_spectral_gap_prepass=bool(
+                flags.get("spectral", False),
+            ),
+            seed=11,
+        )
+        tree = run_recursive_discovery(
+            dataset.points, dim=gt.ambient_dim, config=cfg,
+        )
+        return len(tree.leaves)
+
+    circle = make_circle(
+        n_samples=600, radius=1.0, noise=0.02, extrusion_dim=2, seed=21,
+    )
+    swiss = make_swiss_roll(n_samples=600, noise=0.02, seed=7)
+    # Uniform guards: persist+sd+pca at steps<=4 must stay single-leaf.
+    assert _run(circle, steps=4, min_samples=80) == 1
+    assert _run(swiss, steps=4, min_samples=80) == 1
+
+    nested = make_nested_spheres(n_per_sphere=64, extrusion_dim=1, seed=0)
+    tori = make_linked_tori(
+        n_per_torus=80, extrusion_dim=1, tissue_fraction=0.0, seed=0,
+    )
+    # Measurement only — do not assert recovery / flip awaiting.
+    nested_leaves = _run(nested, steps=8, min_samples=20)
+    tori_pca = _run(tori, steps=8, min_samples=40)
+    tori_tube = _run(tori, steps=8, min_samples=40, tube=True)
+    # Trees must be well-formed; tori e2e recovery still not claimed.
+    assert nested_leaves >= 1
+    assert tori_pca >= 1
+    assert tori_tube >= 1
+    # PCA path: interlocking linked_tori still unrecovered (known failure).
+    assert tori_pca == 1
