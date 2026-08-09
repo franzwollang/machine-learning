@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T14:40-05:00",
+  "updated_at": "2026-08-09T14:45-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -14,19 +14,19 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T28",
+          "id": "A1-T31",
           "status": "ready",
-          "summary": "Watch A2-T13..T15 / A4-T9..T11; scoop when tips ahead of integration"
+          "summary": "Watch A2-T14..T15 e2e / signal mask; scoop when tips land"
         },
         {
-          "id": "A1-T29",
+          "id": "A1-T32",
           "status": "ready",
-          "summary": "If A2 posts nested recovery ARI>0.5, update #44 / consider A3 SI A+C"
+          "summary": "Scoop A4-T9..T11 when lifetime-calib tips land"
         },
         {
-          "id": "A1-T30",
+          "id": "A1-T33",
           "status": "ready",
-          "summary": "Watch dual_flow landing; re-point A5 wiring CLAIM when present"
+          "summary": "Optional: assign A3 SI resolve_within_interval prose (#28) when ready; else keep holds"
         }
       ]
     },
@@ -45,13 +45,13 @@
           "id": "A2-T13",
           "status": "ready",
           "issue": 44,
-          "summary": "Strengthen trough/bimodality gate or non-centroid radial feature (flag-gated default off); NOTE; no awaiting flips"
+          "summary": "Finish T13: DONE/REQUEST_TRACKER for prefer_noncentroid_radial_band_prepass (code scooped; unit fixture integrator-tightened)"
         },
         {
           "id": "A2-T14",
           "status": "ready",
           "issue": 44,
-          "summary": "Optional: signal-density residual mask on top of prefer_radial_band_prepass; thin prototype or NOTE"
+          "summary": "Optional: signal-density residual mask on top of band/noncentroid; thin prototype or NOTE"
         },
         {
           "id": "A2-T15",
@@ -70,22 +70,22 @@
       ],
       "queue": [
         {
-          "id": "A3-T22",
+          "id": "A3-T25",
           "status": "ready",
           "issue": 44,
-          "summary": "Idle hold: #44 SI A+C paragraph \u2014 wait for A1 assign after tissue/signal radial recovery evidence"
+          "summary": "Idle hold: #44 SI A+C \u2014 wait for A1 assign after A2 radial recovery evidence"
         },
         {
-          "id": "A3-T23",
+          "id": "A3-T26",
           "status": "ready",
           "issue": 28,
-          "summary": "Idle: optional SI note for PersistenceConfig.resolve_within_interval only if A1 assigns; else hold (default none; diagnose closed)"
+          "summary": "Idle: optional SI note for resolve_within_interval only if A1 assigns; else hold"
         },
         {
-          "id": "A3-T24",
+          "id": "A3-T27",
           "status": "ready",
           "issue": 41,
-          "summary": "Idle: no further SI #41 edit unless A1 assigns after fitted-region recovery evidence; hold only"
+          "summary": "Idle: no further #41 SI unless A1 assigns after fitted-region recovery; hold only"
         }
       ]
     },
@@ -133,19 +133,19 @@
       ],
       "queue": [
         {
-          "id": "A5-T22",
+          "id": "A5-T25",
           "status": "ready",
           "issue": 43,
           "summary": "Re-check integration each turn for stage2/dual_flow; if present, CLAIM wiring into affected_dual_subgraph_connected"
         },
         {
-          "id": "A5-T23",
+          "id": "A5-T26",
           "status": "ready",
           "issue": 43,
           "summary": "REPORT via NOTE if still blocked on S6; keep queue warm without drive-by Stage-1 edits"
         },
         {
-          "id": "A5-T24",
+          "id": "A5-T27",
           "status": "ready",
           "issue": 43,
           "summary": "Optional: confirm DualAdjacency SI anchors still accurate after any gate.py churn; NOTE only"
@@ -166,25 +166,25 @@
       ],
       "queue": [
         {
-          "id": "A6-T19",
-          "status": "ready",
-          "issue": 28,
-          "summary": "Confirm paper L=1/coarse-end sync + hierarchy hybrid lock are on tip; DONE/REQUEST_TRACKER if not already filed"
-        },
-        {
-          "id": "A6-T20",
+          "id": "A6-T22",
           "status": "ready",
           "issue": 28,
           "summary": "Idle hold: no resolve_within_interval default flip; NOTE only if new SI-justified within-interval signal appears"
         },
         {
-          "id": "A6-T21",
+          "id": "A6-T23",
           "status": "ready",
           "issue": 28,
-          "summary": "Optional: draft one-line REQUEST_TRACKER for A3 SI flag prose if A1 wants; else hold"
+          "summary": "Optional: if A1 assigns A3 SI flag prose, stay hands-off (A3 owns SI.tex); else hold"
+        },
+        {
+          "id": "A6-T24",
+          "status": "ready",
+          "issue": 28,
+          "summary": "Idle: confirm hybrid lock + paper L=1 still green after any integration scoop; NOTE only"
         }
       ]
     }
   },
-  "notes": "2026-08-09T14:40: heartbeat \u2014 no new tips; workers behind integration; queues 3-deep ready for next worker turns."
+  "notes": "2026-08-09T14:45: scooped A2 noncentroid T13 code + A3/A5 drains + A6-T19..T21; integrator fixed skew fixture (mean-fail/median-recover); refilled A3/A5/A6; A2 still mid T13\u2013T15."
 }

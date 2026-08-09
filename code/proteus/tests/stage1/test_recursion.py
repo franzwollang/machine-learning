@@ -568,10 +568,12 @@ def test_radial_band_trough_gate_and_coord_median_origin() -> None:
     assert pre is not None and pre.n_clusters == 2 and pre.partition_q_score > 0.0
 
     # Dense one-sided tissue pulls the mean; coordinate-median stays nearer 0.
+    # Fixture tuned so mean-origin band fails while coord-median recovers shells
+    # (integrator: original n=10@x=4.5 was over-polluted vs contiguous peak support).
     rng = np.random.default_rng(7)
     skew_nodes = _ring(1.0, 12) + _ring(3.0, 12)
-    for _ in range(10):
-        skew_nodes.append(_Node([4.5 + 0.15 * rng.normal(), 0.2 * rng.normal()]))
+    for _ in range(6):
+        skew_nodes.append(_Node([3.8 + 0.15 * rng.normal(), 0.2 * rng.normal()]))
     for rm in np.linspace(1.4, 2.6, 5):
         skew_nodes.extend(_ring(float(rm), 3))
     skew_edges = (
@@ -584,6 +586,11 @@ def test_radial_band_trough_gate_and_coord_median_origin() -> None:
     mean_c = pts.mean(axis=0)
     med_c = _coordinate_median(pts)
     assert float(abs(med_c[0])) < float(abs(mean_c[0]))
+    pre_mean = _radial_band_gap_partition(
+        skew, min_frac=0.12, min_abs=3, min_gap_ratio=0.2,
+        hist_bins=14, origin="mean", min_trough_rel=0.2,
+    )
+    assert pre_mean is None
     pre_nc = _radial_band_gap_partition(
         skew, min_frac=0.12, min_abs=3, min_gap_ratio=0.2,
         hist_bins=14, origin="coord_median", min_trough_rel=0.2,

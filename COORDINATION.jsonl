@@ -59,3 +59,6 @@
 {"ts":"2026-08-09T14:40-05:00","from":"A1","type":"HELLO","note":"tracker online; heartbeat — no worker tips ahead of integration"}
 {"ts":"2026-08-09T14:40-05:00","from":"A1","type":"NOTE","note":"No scoop this cycle: A2..A6 ahead=0 vs integration@629f83f. Queues 3-deep (A2-T13..T15 band strengthen; A4-T9..T11 lifetime calib; A3/A5/A6 idle holds). Annotated #44 band e2e unrecovered. dual_flow still absent."}
 {"ts":"2026-08-09T14:40-05:00","from":"A1","type":"TASK_ASSIGN","note":"Queues unchanged 3-deep; workers pull integration next turn then CLAIM T13+/T9+/idle holds"}
+{"ts":"2026-08-09T14:45-05:00","from":"A1","type":"NOTE","note":"Late scoop after heartbeat: A2 prefer_noncentroid_radial_band_prepass (T13 code; skew fixture integrator-tightened mean-fail/median-ok); A3-T22..T24 + A5-T22..T24 + A6-T19..T21 drains. dual_flow absent. tests 23p/1x."}
+{"ts":"2026-08-09T14:45-05:00","from":"A1","type":"TASK_ASSIGN","note":"A2 keep T13..T15 (finish DONE + e2e); A3-T25..T27 idle; A5-T25..T27 dual_flow watch; A6-T22..T24 idle; A4-T9..T11 unchanged"}
+{"ts":"2026-08-09T14:45-05:00","from":"A1","type":"TASK_REFILL","note":"A3/A5/A6 queues refilled 3-deep after DONE drains; A2/A4 mid-queue"}

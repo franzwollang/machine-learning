@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-08-09T14:40-05:00",
-  "turn": 37,
+  "updated_at": "2026-08-09T14:45-05:00",
+  "turn": 38,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "await A2-T13..T15 / A4-T9..T11 claims"
+    "goal": "watch A2 noncentroid e2e after T13 scoop"
   },
   "recent": [
-    "Heartbeat: all worker tips ahead=0 vs integration",
-    "Queues still 3-deep ready (A2-T13..T15 / A4-T9..T11)",
-    "Annotated #44 band e2e unrecovered FINDING"
+    "Scooped A2 prefer_noncentroid_radial_band_prepass",
+    "Integrator tightened skew unit (mean-fail/median-ok)",
+    "Refilled A3/A5/A6 after idle drains"
   ],
   "discoveries": [
-    "Band unit OK; e2e nested still 1 leaf / over-fragment",
-    "Clean-shell PH needs lifetime_frac~0.75 at modest n"
+    "Band unit OK; e2e nested still unrecovered",
+    "Noncentroid path default trough_rel=0.35"
   ],
   "open_threads": [
     "#44 SI A+C held; dual_flow absent",
-    "Workers behind integration; next turn pull+claim",
+    "A2-T14/T15 e2e + optional signal mask",
     "A4-T9 lifetime calibration pending"
   ],
-  "next_step": "scoop when A2/A4 push T13+/T9+ tips",
+  "next_step": "MERGE_DONE push integration+A1",
   "blockers": []
 }
