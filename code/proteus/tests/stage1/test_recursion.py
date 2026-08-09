@@ -449,16 +449,25 @@ def test_radial_band_gap_partition_ignores_midband_bridges() -> None:
             self.links = _Links(edges)
             self.tau = 0.1
 
-    angles = np.linspace(0.0, 2.0 * np.pi, 8, endpoint=False)
-    inner = [_Node([np.cos(a), np.sin(a)]) for a in angles]
-    outer = [_Node([3.0 * np.cos(a), 3.0 * np.sin(a)]) for a in angles]
-    # Mid-band fillers dilute the plain radial gap below min_gap_ratio.
-    mid = [_Node([2.0 * np.cos(a), 2.0 * np.sin(a)]) for a in angles[:4]]
+    # Concentric shells at r=1 and r=3 with a dense mid-radius continuum
+    # that dilutes plain radial gaps; mid nodes stay unlinked so Q reflects
+    # the shell cut (e2e scaffolds carry Hebbian weights instead).
+    def _ring(radius: float, count: int) -> list:
+        angs = np.linspace(0.0, 2.0 * np.pi, count, endpoint=False)
+        return [
+            _Node([radius * np.cos(a), radius * np.sin(a)]) for a in angs
+        ]
+
+    inner = _ring(1.0, 12)
+    outer = _ring(3.0, 12)
+    mid: list = []
+    for rm in np.linspace(1.4, 2.6, 7):
+        mid.extend(_ring(float(rm), 4))
     nodes = inner + outer + mid
     edges = (
-        [(i, (i + 1) % 8) for i in range(8)]
-        + [(8 + i, 8 + ((i + 1) % 8)) for i in range(8)]
-        + [(0, 8), (0, 16), (8, 16)]  # bridges → one lifted CC
+        [(i, j) for i in range(12) for j in range(i + 1, 12)]
+        + [(12 + i, 12 + j) for i in range(12) for j in range(i + 1, 12)]
+        + [(0, 12)]  # one shell bridge → single lifted CC
     )
     scaf = _Scaf(nodes, edges)
     # Plain radial gap fails (continuum) at the default ratio.
@@ -471,9 +480,10 @@ def test_radial_band_gap_partition_ignores_midband_bridges() -> None:
     assert pre is not None
     assert pre.n_clusters == 2
     assert pre.partition_q_score > 0.0
-    # Inner ring (0..7) must be a single label, distinct from outer (8..15).
-    assert len(set(int(x) for x in pre.labels[:8])) == 1
-    assert int(pre.labels[0]) != int(pre.labels[8])
+    # Inner ring (0..11) single label, distinct from outer (12..23).
+    assert len(set(int(x) for x in pre.labels[:12])) == 1
+    assert len(set(int(x) for x in pre.labels[12:24])) == 1
+    assert int(pre.labels[0]) != int(pre.labels[12])
 
 
 def test_research_finer_split_rejects_invalid_cap() -> None:
