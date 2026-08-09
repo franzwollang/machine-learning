@@ -1297,8 +1297,10 @@ Module \texttt{proteus.stage1.edge\_evidence} exposes
 \texttt{RecursionConfig.prefer\_hollow\_edge\_prepass} (default off; S14.3)
 together with operational knobs
 \texttt{hollow\_mid\_radius\_frac}, \texttt{hollow\_h0},
-\texttt{hollow\_min\_end\_count}, \texttt{hollow\_gabriel\_fallback}, and
-\texttt{hollow\_require\_gabriel\_and\_h} (conjunction; default off; A2-T31).
+\texttt{hollow\_min\_end\_count}, \texttt{hollow\_gabriel\_fallback},
+\texttt{hollow\_require\_gabriel\_and\_h} (conjunction; default off; A2-T31),
+\texttt{hollow\_use\_a4\_primary} (A4 primary preset; default off; A2-T33), and
+\texttt{hollow\_mst\_critical\_only} (MST$\cap$hollow; default off; A2-T34).
 When the prepass fires, Q is scored on the \emph{pruned} edge set. Protocol
 status (do \emph{not} flip awaiting):
 \begin{itemize}[leftmargin=1.5em]
