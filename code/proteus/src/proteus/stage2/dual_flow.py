@@ -10,19 +10,21 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
 
 * **S6.1** online face-pressure tallies — fractional residual → facet normals
   land behind ``enable_face_tallies`` (proposed; default off). Dry-run can
-  demo-wire tallies via ``dry_run_dual_from_edit(..., samples=...)``; live
-  sample routing is still unwired.
+  demo-wire tallies via ``dry_run_dual_from_edit(..., samples=...)``. Live
+  BMU routing harness lands behind ``enable_live_bmu_tally`` (proposed;
+  default off; A5-T43) — still not acceptance-path Stage-1 wiring.
 * **S6.2** loopy Gaussian BP conservative reconstruction (real factor-graph
-  solve; this module only sketches an identity / damped copy behind
-  ``enable_conservative_bp``). Remaining real-BP gaps: build ``A_S`` from
-  facet areas × outward normals; whitened ``λ_f`` data term; ``μ_S``
-  conservation weights (eq. si-dual-flow-weight); loopy Gaussian BP with
-  damping / spectrum conditioning; nonzero ``r_cons`` / ``ε_flux``; online
-  tallies → offline solve schedule; true-manifold flux zeroing (S6.3).
+  solve; this module sketches an identity / damped copy behind
+  ``enable_conservative_bp`` and an ``A_S`` residual / soft message-pass
+  behind ``enable_as_message_pass``). Remaining real-BP gaps: whitened
+  ``λ_f`` data term; ``μ_S`` conservation weights (eq. si-dual-flow-weight);
+  full loopy Gaussian BP with spectrum conditioning; global ``ε_flux``;
+  online tallies → offline solve schedule; true-manifold flux zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
   seams land behind ``enable_boundary_taxonomy`` (proposed; default off).
-  Heuristic single-owner → true-manifold; hint sets override. Ghost-reservoir
-  / seam pressure stitching still missing.
+  Heuristic single-owner → true-manifold; hint sets override. Seam stitch /
+  ghost-reservoir sketches land behind ``enable_seam_ghost`` (A5-T45;
+  default off) — not full Stage-2 face registry.
 * **S6.4** simplex-local PL density — sketch behind ``enable_simplex_density``
   (proposed; default off). Does **not** flip density ``@awaiting`` tests.
 
@@ -42,8 +44,15 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
   identity/damped sketch (``p ≈ hat p``), **not** the SI quadratic BP solve.
 * ``DualFlowConfig.enable_face_tallies`` — when off,
   :func:`accumulate_face_pressure_tally` / dry-run tally field return ``None``.
+* ``DualFlowConfig.enable_live_bmu_tally`` — when off,
+  :func:`route_live_bmu_face_tallies` returns ``None`` (A5-T43 harness).
+* ``DualFlowConfig.enable_as_message_pass`` — when off,
+  :func:`solve_as_message_pass` returns ``None``; when on, soft ``A_S``
+  residual nudge (not full loopy BP).
 * ``DualFlowConfig.enable_boundary_taxonomy`` — when off,
   :func:`classify_boundary_facets` returns ``None``.
+* ``DualFlowConfig.enable_seam_ghost`` — when off, seam stitch / ghost
+  reservoir helpers return ``None`` (A5-T45).
 * ``DualFlowConfig.enable_simplex_density`` — when off,
   :func:`simplex_local_density` returns ``None``.
 * Call sites that opt in (tests / experimental dry-runs) pass flags ``True``
@@ -93,13 +102,23 @@ __all__ = [
     "ConservativeBPResult",
     "FaceTallyResult",
     "SimplexDensityResult",
+    "LiveBmuTallyResult",
+    "SeamStitchResult",
+    "GhostReservoirResult",
     "build_dual_adjacency",
     "build_dual_adjacency_from_complex",
     "dry_run_dual_from_edit",
     "solve_conservative_pressures",
     "simplex_outward_normals",
     "accumulate_face_pressure_tally",
+    "locate_bmu_simplex",
+    "route_live_bmu_face_tallies",
+    "build_divergence_stencil",
+    "conservation_residual_r_cons",
+    "solve_as_message_pass",
     "classify_boundary_facets",
+    "stitch_orientation_seam_pressures",
+    "apply_ghost_reservoir",
     "barycentric_coordinates",
     "vertex_weights_from_facet_pressures",
     "simplex_local_density",
@@ -133,13 +152,27 @@ class DualFlowConfig:
     enable_face_tallies:
         When ``False`` (default), :func:`accumulate_face_pressure_tally`
         returns ``None``. When ``True``, applies SI S6.1
-        ``Δp̂_f ∝ max{0,(x-w̄_S)^T n_f}`` increments (proposal-path helper;
-        not wired into live routing).
+        ``Δp̂_f ∝ max{0,(x-w̄_S)^T n_f}`` increments (proposal-path helper).
+    enable_live_bmu_tally:
+        When ``False`` (default), :func:`route_live_bmu_face_tallies` returns
+        ``None``. When ``True``, experimental harness routes each sample to a
+        winning simplex (containment, else nearest barycenter) and accumulates
+        S6.1 tallies on that BMU only (A5-T43). Does **not** wire Stage-1
+        routing; does not flip mass/density ``@awaiting``.
+    enable_as_message_pass:
+        When ``False`` (default), :func:`solve_as_message_pass` returns
+        ``None``. When ``True``, soft-projects pressures toward ``ker(A_S)``
+        while anchoring empirical tallies and reports nonzero ``r_cons``
+        (A5-T44 sketch — **not** loopy Gaussian BP).
     enable_boundary_taxonomy:
         When ``False`` (default), :func:`classify_boundary_facets` returns
         ``None``. When ``True``, labels single-owner facets via SI S6.3
         taxonomy (heuristic true-manifold + optional computational /
         orientation-seam hint sets).
+    enable_seam_ghost:
+        When ``False`` (default), :func:`stitch_orientation_seam_pressures`
+        / :func:`apply_ghost_reservoir` return ``None``. When ``True``,
+        applies SI S6.3 seam antisymmetry / weak ghost leak sketches (A5-T45).
     enable_simplex_density:
         When ``False`` (default), :func:`simplex_local_density` returns
         ``None``. When ``True``, evaluates the SI S6.4 PL profile sketch
@@ -155,17 +188,32 @@ class DualFlowConfig:
     volume_floor:
         Arithmetic safeguard on ``|S|_d`` for S6.4 (default ``1e-12``).
         Operational; not a shape diagnostic (SI S6.4).
+    as_eps:
+        ``ε_A`` arithmetic floor for ``‖A_S‖_F^2`` (SI S6.2; default
+        ``1e-8``). Operational / numerical.
+    as_step:
+        Soft conservation gradient step for :func:`solve_as_message_pass`
+        (default ``0.25``). Operational proposal-path only.
+    ghost_coupling:
+        Weak leak fraction in ``[0, 1]`` from computational-boundary
+        pressures into the ghost reservoir (default ``0.1``). Operational.
     """
 
     enable_dual_adjacency: bool = False
     enable_conservative_bp: bool = False
     enable_face_tallies: bool = False
+    enable_live_bmu_tally: bool = False
+    enable_as_message_pass: bool = False
     enable_boundary_taxonomy: bool = False
+    enable_seam_ghost: bool = False
     enable_simplex_density: bool = False
     bp_damping: float = 0.5
     bp_max_iters: int = 1
     tally_scale: float = 1.0
     volume_floor: float = 1e-12
+    as_eps: float = 1e-8
+    as_step: float = 0.25
+    ghost_coupling: float = 0.1
 
 
 @dataclass(frozen=True)
@@ -252,6 +300,52 @@ class SimplexDensityResult:
     note: str = (
         "sketch only: SI S6.4 PL profile; not wired to live density path; "
         "do not flip @awaiting(stage2.density / stage2.dual_flow)"
+    )
+
+
+@dataclass(frozen=True)
+class LiveBmuTallyResult:
+    """Harness output for live BMU face-tally routing (SI S6.1; A5-T43).
+
+    ``tallies_by_simplex`` maps winning-simplex id → cumulative
+    :class:`FaceTallyResult` after the sample pass. ``assignments`` lists the
+    BMU id chosen for each input sample (same length as the sample sequence).
+    """
+
+    tallies_by_simplex: Mapping[Hashable, FaceTallyResult]
+    assignments: tuple[Hashable, ...]
+    note: str = (
+        "sketch only: experimental BMU harness; not Stage-1 live wiring; "
+        "do not flip @awaiting(stage2.dual_flow)"
+    )
+
+
+@dataclass(frozen=True)
+class SeamStitchResult:
+    """SI S6.3 orientation-seam pressure stitch sketch (A5-T45).
+
+    After normal alignment, shared seam pressures obey ``p_a = -p_b``.
+    """
+
+    pressure_a: float
+    pressure_b: float
+    note: str = (
+        "sketch only: antisymmetric average; no face-registry / patch graph"
+    )
+
+
+@dataclass(frozen=True)
+class GhostReservoirResult:
+    """SI S6.3 computational-boundary ghost reservoir sketch (A5-T45).
+
+    ``adjusted`` is the interior-visible pressure vector after a weak leak
+    ``γ`` into the ghost; ``ghost_load`` accumulates the leaked mass.
+    """
+
+    adjusted: np.ndarray
+    ghost_load: float
+    note: str = (
+        "sketch only: weak leak on computational facets; not a full reservoir"
     )
 
 
@@ -624,6 +718,271 @@ def accumulate_face_pressure_tally(
     )
 
 
+def locate_bmu_simplex(
+    sample: np.ndarray,
+    simplex_vertex_positions: Sequence[np.ndarray]
+    | Mapping[Hashable, np.ndarray],
+    *,
+    eps: float = 1e-9,
+) -> Hashable:
+    """Winning simplex for a sample (experimental BMU locator; SI S6.1 / S7.5).
+
+    Preference order:
+
+    1. Simplices that contain ``sample`` (all barycentric coords ``>= -eps``),
+       breaking ties by nearest barycenter.
+    2. Otherwise the simplex whose barycenter is nearest to ``sample``.
+
+    Ungated geometry helper used by :func:`route_live_bmu_face_tallies`.
+    """
+
+    if isinstance(simplex_vertex_positions, Mapping):
+        items: list[tuple[Hashable, np.ndarray]] = [
+            (sid, np.asarray(P, dtype=float))
+            for sid, P in simplex_vertex_positions.items()
+        ]
+    else:
+        items = [
+            (i, np.asarray(P, dtype=float))
+            for i, P in enumerate(simplex_vertex_positions)
+        ]
+    if not items:
+        raise ValueError("simplex_vertex_positions must be non-empty")
+
+    x = np.asarray(sample, dtype=float).reshape(-1)
+    contained: list[tuple[float, Hashable]] = []
+    nearest: list[tuple[float, Hashable]] = []
+    for sid, P in items:
+        if P.ndim != 2:
+            raise ValueError("each simplex positions array must be 2-D")
+        bary = P.mean(axis=0)
+        dist = float(np.linalg.norm(x - bary))
+        nearest.append((dist, sid))
+        beta = barycentric_coordinates(x, P)
+        if float(np.min(beta)) >= -eps:
+            contained.append((dist, sid))
+    pool = contained if contained else nearest
+    pool.sort(key=lambda t: (t[0], repr(t[1])))
+    return pool[0][1]
+
+
+def route_live_bmu_face_tallies(
+    samples: Sequence[np.ndarray],
+    simplex_vertex_positions: Sequence[np.ndarray]
+    | Mapping[Hashable, np.ndarray],
+    *,
+    prior_tallies: Mapping[Hashable, np.ndarray] | None = None,
+    config: DualFlowConfig | None = None,
+) -> LiveBmuTallyResult | None:
+    """Live BMU face-tally routing harness (SI S6.1; proposal-path; A5-T43).
+
+    When ``enable_live_bmu_tally`` is off, returns ``None``. When on, each
+    sample is assigned to a winning simplex via :func:`locate_bmu_simplex` and
+    :func:`accumulate_face_pressure_tally` runs **only** on that BMU (true
+    winner-takes-routing, fractional face increments inside the winner).
+
+    Requires face-tally math; internally forces tally accumulation even if
+    ``enable_face_tallies`` is off so the live flag is self-contained.
+
+    Does **not** flip mass/density ``@awaiting`` tests and does **not** replace
+    Stage-1 sample routing.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_live_bmu_tally:
+        return None
+
+    if isinstance(simplex_vertex_positions, Mapping):
+        pos_map: dict[Hashable, np.ndarray] = {
+            sid: np.asarray(P, dtype=float)
+            for sid, P in simplex_vertex_positions.items()
+        }
+    else:
+        pos_map = {
+            i: np.asarray(P, dtype=float)
+            for i, P in enumerate(simplex_vertex_positions)
+        }
+    if not pos_map:
+        raise ValueError("simplex_vertex_positions must be non-empty")
+
+    tally_cfg = DualFlowConfig(
+        enable_face_tallies=True,
+        tally_scale=cfg.tally_scale,
+        volume_floor=cfg.volume_floor,
+    )
+    priors: dict[Hashable, np.ndarray] = {}
+    if prior_tallies is not None:
+        priors = {k: np.asarray(v, dtype=float) for k, v in prior_tallies.items()}
+
+    last_by_sid: dict[Hashable, FaceTallyResult] = {}
+    assignments: list[Hashable] = []
+    for raw in samples:
+        sid = locate_bmu_simplex(raw, pos_map)
+        assignments.append(sid)
+        prior = priors.get(sid)
+        result = accumulate_face_pressure_tally(
+            raw, pos_map[sid], prior_tallies=prior, config=tally_cfg
+        )
+        if result is None:
+            raise RuntimeError("tally accumulation unexpectedly disabled")
+        priors[sid] = result.tallies
+        last_by_sid[sid] = result
+
+    return LiveBmuTallyResult(
+        tallies_by_simplex=last_by_sid,
+        assignments=tuple(assignments),
+    )
+
+
+def _intrinsic_basis(vertex_positions: np.ndarray, *, eps: float = 1e-12) -> np.ndarray:
+    """Orthonormal basis rows spanning the affine hull of ``P`` (shape ``(d, D)``)."""
+
+    P = np.asarray(vertex_positions, dtype=float)
+    n, D = P.shape
+    d = n - 1
+    if d <= 0:
+        return np.zeros((0, D))
+    edges = P[1:] - P[0]  # (d, D)
+    # QR on edges^T → columns span the edge space; take first rank columns.
+    q, _r = np.linalg.qr(edges.T, mode="reduced")  # (D, d)
+    # Drop near-zero columns if degenerate.
+    kept: list[np.ndarray] = []
+    for j in range(q.shape[1]):
+        col = q[:, j]
+        if float(np.linalg.norm(col)) >= eps:
+            kept.append(col)
+    if not kept:
+        return np.zeros((0, D))
+    B = np.column_stack(kept)  # (D, rank)
+    return B.T  # (rank, D)
+
+
+def build_divergence_stencil(
+    vertex_positions: np.ndarray,
+    *,
+    eps: float = 1e-12,
+) -> np.ndarray:
+    """Build SI S6.2 divergence stencil ``A_S`` (ungated geometry helper).
+
+    Columns are ``A_f n_f`` with facet ``(d-1)``-volumes ``A_f`` and outward
+    unit normals projected into the simplex's intrinsic affine span, so
+    ``A_S`` has shape ``(d, d+1)`` when the simplex is full-dimensional
+    (``d = n_vertices - 1``). Degenerate simplices may yield fewer rows.
+    """
+
+    P = np.asarray(vertex_positions, dtype=float)
+    if P.ndim != 2:
+        raise ValueError("vertex_positions must be 2-D")
+    n, _D = P.shape
+    if n < 2:
+        raise ValueError("simplex needs at least 2 vertices")
+    nrm_amb = simplex_outward_normals(P, eps=eps)
+    areas = np.array(
+        [simplex_volume(np.delete(P, i, axis=0)) for i in range(n)],
+        dtype=float,
+    )
+    basis = _intrinsic_basis(P, eps=eps)  # (d, D)
+    d = basis.shape[0]
+    A_S = np.zeros((d, n), dtype=float)
+    for i in range(n):
+        n_intr = basis @ nrm_amb[i]  # (d,)
+        n_norm = float(np.linalg.norm(n_intr))
+        if n_norm < eps:
+            continue
+        n_intr = n_intr / n_norm
+        A_S[:, i] = areas[i] * n_intr
+    return A_S
+
+
+def conservation_residual_r_cons(
+    divergence_stencil: np.ndarray,
+    pressures: np.ndarray,
+    *,
+    eps_A: float = 1e-8,
+    eps: float = 1e-12,
+) -> float:
+    """Single-simplex SI S6.2 ``r_cons`` contribution shape (eq. si-dual-flow-residuals).
+
+    ``‖A_S p_S‖₂² / (‖A_S‖_F² + ε_A)`` normalized by ``‖p‖₂² + ε``.
+    """
+
+    A_S = np.asarray(divergence_stencil, dtype=float)
+    p = np.asarray(pressures, dtype=float).reshape(-1)
+    if A_S.ndim != 2 or A_S.shape[1] != p.shape[0]:
+        raise ValueError(
+            f"A_S shape {A_S.shape} incompatible with pressures length {p.shape[0]}"
+        )
+    flux = A_S @ p
+    num = float(np.dot(flux, flux)) / (float(np.sum(A_S * A_S)) + float(eps_A))
+    den = float(np.dot(p, p)) + float(eps)
+    return num / den
+
+
+def solve_as_message_pass(
+    empirical_pressures: np.ndarray,
+    divergence_stencil: np.ndarray,
+    *,
+    config: DualFlowConfig | None = None,
+) -> ConservativeBPResult | None:
+    """Soft ``A_S`` residual / message-pass sketch (SI S6.2; A5-T44).
+
+    When ``enable_as_message_pass`` is off, returns ``None``. When on:
+
+    * anchors ``p`` to empirical tallies with ``bp_damping``;
+    * takes gradient steps on ``‖A_S p‖₂²`` (soft projection toward
+      conservation);
+    * reports ``r_data`` and nonzero ``r_cons`` via
+      :func:`conservation_residual_r_cons`.
+
+    **Not** loopy Gaussian BP on the face/factor graph. Do **not** flip
+    ``@awaiting("stage2.dual_flow")`` on this sketch.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_as_message_pass:
+        return None
+
+    hat = np.asarray(empirical_pressures, dtype=float).reshape(-1)
+    A_S = np.asarray(divergence_stencil, dtype=float)
+    if A_S.ndim != 2 or A_S.shape[1] != hat.shape[0]:
+        raise ValueError(
+            f"divergence_stencil shape {A_S.shape} incompatible with "
+            f"pressures length {hat.shape[0]}"
+        )
+    damp = float(cfg.bp_damping)
+    if not 0.0 <= damp <= 1.0:
+        raise ValueError("bp_damping must be in [0, 1]")
+    iters = int(cfg.bp_max_iters)
+    if iters < 1:
+        raise ValueError("bp_max_iters must be >= 1")
+    step = float(cfg.as_step)
+    if step < 0.0:
+        raise ValueError("as_step must be >= 0")
+
+    p = hat.copy()
+    for _ in range(iters):
+        p = (1.0 - damp) * hat + damp * p
+        grad = A_S.T @ (A_S @ p)
+        p = p - step * grad
+
+    eps = 1e-12
+    r_data = float(np.sum((p - hat) ** 2) / (np.sum(hat**2) + eps))
+    r_cons = conservation_residual_r_cons(
+        A_S, p, eps_A=float(cfg.as_eps), eps=eps
+    )
+    return ConservativeBPResult(
+        empirical=hat,
+        pressures=p,
+        r_data=r_data,
+        r_cons=r_cons,
+        iters=iters,
+        note=(
+            "sketch only: soft A_S message-pass; full loopy Gaussian BP "
+            "(SI S6.2) not implemented"
+        ),
+    )
+
+
 def classify_boundary_facets(
     simplices: Sequence[Sequence[Hashable]] | Mapping[Hashable, Sequence[Hashable]],
     *,
@@ -687,6 +1046,65 @@ def classify_boundary_facets(
             BoundaryClassification(facet_id=len(out), boundary_type=btype)
         )
     return out
+
+
+def stitch_orientation_seam_pressures(
+    pressure_a: float,
+    pressure_b: float,
+    *,
+    config: DualFlowConfig | None = None,
+) -> SeamStitchResult | None:
+    """SI S6.3 orientation-seam stitch sketch (proposal-path; A5-T45).
+
+    When ``enable_seam_ghost`` is off, returns ``None``. When on, enforces
+    antisymmetry after normal alignment: ``p_a' = (p_a - p_b) / 2``,
+    ``p_b' = -p_a'`` so ``p_a' = -p_b'``. Does not maintain a face registry or
+    patch graph — scalar sketch only.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_seam_ghost:
+        return None
+    p_a = float(pressure_a)
+    p_b = float(pressure_b)
+    stitched_a = 0.5 * (p_a - p_b)
+    stitched_b = -stitched_a
+    return SeamStitchResult(pressure_a=stitched_a, pressure_b=stitched_b)
+
+
+def apply_ghost_reservoir(
+    facet_pressures: np.ndarray,
+    *,
+    computational_mask: Sequence[bool] | np.ndarray,
+    config: DualFlowConfig | None = None,
+) -> GhostReservoirResult | None:
+    """SI S6.3 computational-boundary ghost reservoir sketch (A5-T45).
+
+    When ``enable_seam_ghost`` is off, returns ``None``. When on, leaks a
+    fraction ``ghost_coupling`` of each computational-facet pressure into a
+    scalar ghost load: ``p'_f = (1-γ) p_f`` on masked facets (true-manifold /
+    seam facets unchanged). Weak coupling only — not a full exterior solve.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_seam_ghost:
+        return None
+    p = np.asarray(facet_pressures, dtype=float).reshape(-1)
+    mask = np.asarray(computational_mask, dtype=bool).reshape(-1)
+    if mask.shape != p.shape:
+        raise ValueError(
+            f"computational_mask length {mask.shape[0]} != pressures {p.shape[0]}"
+        )
+    gamma = float(cfg.ghost_coupling)
+    if not 0.0 <= gamma <= 1.0:
+        raise ValueError("ghost_coupling must be in [0, 1]")
+    adjusted = p.copy()
+    leaked = p[mask] * gamma
+    adjusted[mask] = p[mask] * (1.0 - gamma)
+    return GhostReservoirResult(
+        adjusted=adjusted,
+        ghost_load=float(np.sum(leaked)),
+    )
 
 
 def barycentric_coordinates(
