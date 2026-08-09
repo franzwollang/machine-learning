@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-09T18:40-05:00",
+  "updated_at": "2026-08-09T18:46-05:00",
   "turn": 50,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "soft×youden_h0 / denser×proposed_h0 toward sample-ARI"
+    "goal": "soft\u00d7youden_h0 / denser\u00d7proposed_h0 toward sample-ARI"
   },
   "recent": [
-    "Scoop A2 Youden≈0.73 + soft×conj collapse",
+    "Scoop A2 Youden\u22480.73 + soft\u00d7conj collapse",
     "A4 denser fitted tori partial (1,2,0) first b1=2",
     "A5 face-solve + live density + dry_run stage1_route"
   ],
   "discoveries": [
-    "Youden h0≈0.73 / poisson_lr≈0.76 proposed; A4=0.7; still ≠ARI",
+    "Youden h0\u22480.73 / poisson_lr\u22480.76 proposed; A4=0.7; still \u2260ARI",
     "Fitted interlocking torus0 partial b1=2 at n=500/max_nodes=256",
-    "schedule×lifetime needs frac≥4 for both nested shells"
+    "schedule\u00d7lifetime needs frac\u22654 for both nested shells"
   ],
   "open_threads": [
-    "A2-T44 soft×youden hollow ARI",
+    "A2-T44 soft\u00d7youden hollow ARI",
     "A4-T40 denser 384/512 full (1,2,1) hunt",
     "#45 open-loop after #44 ARI"
   ],
-  "next_step": "MERGE_DONE push; watch soft×youden + denser tori",
+  "next_step": "Workers pull MERGE_DONE; watch soft\u00d7youden + denser tori",
   "blockers": []
 }

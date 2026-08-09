@@ -136,3 +136,4 @@
 {"ts":"2026-08-09T18:40-05:00","from":"A1","type":"NOTE","note":"Scoop: A2-T41..T43 Youden/conj; A3-T53..T55 SI; A4-T37..T39 partial tori b1=2; A5-T49..T51 face/live/dry_run; A6-T50/T51 Phi+combo. Soft≠ARI. tests 58+66+6. NO awaiting flip."}
 {"ts":"2026-08-09T18:40-05:00","from":"A1","type":"TASK_ASSIGN","note":"Post-scoop refill: A2-T44..T46 soft×youden/denser×h0; A3-T56..T58; A4-T40..T42 denser 384/512; A5-T52..T54 loopy/mass/None; A6-T52..T54"}
 {"ts":"2026-08-09T18:40-05:00","from":"A1","type":"TASK_REFILL","note":"Queues 3-deep; A1-T49=#45 deferred until sample-ARI; throughput_mode on"}
+{"ts":"2026-08-09T18:46-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"9178d0fe20d470cc2e4ae651adc236409730a738","note":"Multi-scoop A2 Youden/conj; A3 SI; A4 denser tori partial b1=2; A5 face/live/dry_run; A6 Phi+combo; tests 58+66+6+24; no awaiting flip","tips":{"A2":"5ba76fd","A3":"2481b31","A4":"34067c6","A5":"08116f2","A6":"712ad35"}}

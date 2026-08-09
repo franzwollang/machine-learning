@@ -27,7 +27,7 @@
         {
           "id": "A1-T55",
           "status": "ready",
-          "summary": "Watch soft×youden_h0 / denser max_nodes tori (1,2,1) hunt; hold #45 until sample-ARI"
+          "summary": "Watch soft\u00d7youden_h0 / denser max_nodes tori (1,2,1) hunt; hold #45 until sample-ARI"
         }
       ]
     },
@@ -48,19 +48,19 @@
           "id": "A2-T44",
           "status": "ready",
           "issue": 44,
-          "summary": "EXPERIMENT soft_capacity × proposed Youden h0≈0.73 sample-ARI nested/tori (flags off); NO awaiting flip"
+          "summary": "EXPERIMENT soft_capacity \u00d7 proposed Youden h0\u22480.73 sample-ARI nested/tori (flags off); NO awaiting flip"
         },
         {
           "id": "A2-T45",
           "status": "ready",
           "issue": 44,
-          "summary": "EXPERIMENT denser-scaffold × proposed_h0_calibrated_config ARI table (flags off); REQUEST_TRACKER"
+          "summary": "EXPERIMENT denser-scaffold \u00d7 proposed_h0_calibrated_config ARI table (flags off); REQUEST_TRACKER"
         },
         {
           "id": "A2-T46",
           "status": "ready",
           "issue": 44,
-          "summary": "EXPERIMENT soft×poisson_lr h0=0.76 vs Youden vs A4=0.7 majors+ARI contrast; flags off"
+          "summary": "EXPERIMENT soft\u00d7poisson_lr h0=0.76 vs Youden vs A4=0.7 majors+ARI contrast; flags off"
         }
       ]
     },
@@ -80,7 +80,7 @@
           "id": "A3-T56",
           "status": "ready",
           "issue": 44,
-          "summary": "SI S2.6.2/S14.3 proposed Youden/Poisson-LR h0 + soft×gabriel conj + multi-seed soft_frac (cite A2-T41..T43; no awaiting flip)"
+          "summary": "SI S2.6.2/S14.3 proposed Youden/Poisson-LR h0 + soft\u00d7gabriel conj + multi-seed soft_frac (cite A2-T41..T43; no awaiting flip)"
         },
         {
           "id": "A3-T57",
@@ -92,7 +92,7 @@
           "id": "A3-T58",
           "status": "ready",
           "issue": 41,
-          "summary": "SI S14.2 note denser fitted tori partial (1,2,0) + schedule×lifetime frac≥4 (cite A4-T37..T39; stay @awaiting)"
+          "summary": "SI S14.2 note denser fitted tori partial (1,2,0) + schedule\u00d7lifetime frac\u22654 (cite A4-T37..T39; stay @awaiting)"
         }
       ]
     },
@@ -179,7 +179,7 @@
           "id": "A6-T52",
           "status": "ready",
           "issue": 28,
-          "summary": "Paper.tex: pin multi-seed Phi export + load_weighted×dense combo findings; REQUEST_TRACKER"
+          "summary": "Paper.tex: pin multi-seed Phi export + load_weighted\u00d7dense combo findings; REQUEST_TRACKER"
         },
         {
           "id": "A6-T53",
@@ -196,5 +196,5 @@
       ]
     }
   },
-  "notes": "2026-08-09T18:40: Scoop A2-T41..T43 Youden/conj; A3-T53..T55 SI; A4-T37..T39 partial tori b1=2; A5-T49..T51 face/live/dry_run; A6-T50/T51 Phi+combo. No awaiting flips. tests 58+66+6 (+scale pending)."
+  "notes": "2026-08-09T18:46: Scoop A2-T41..T43 Youden/conj; A3-T53..T55 SI; A4-T37..T39 partial tori b1=2; A5-T49..T51 face/live/dry_run; A6-T50/T51 Phi+combo. No awaiting flips. tests 58+66+6+24."
 }
