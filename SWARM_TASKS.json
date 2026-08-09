@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T11:42-05:00",
+  "updated_at": "2026-08-09T12:00-05:00",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -14,19 +14,19 @@
       "role": "tracker",
       "queue": [
         {
-          "id": "A1-T1",
-          "status": "ready",
-          "summary": "Seed HELLO; verify all worker HELLO lines; announce first TASK_ASSIGN snapshot"
-        },
-        {
           "id": "A1-T2",
           "status": "ready",
-          "summary": "After workers claim, merge current tips into coord/integration (best-effort snapshot), run tests, append MERGE_DONE with integration_sha, refill queues \u2014 no MERGE_START / no worker pause"
+          "summary": "After workers claim, merge current tips into coord/integration (best-effort snapshot), run tests, append MERGE_DONE with integration_sha, refill queues — no MERGE_START / no worker pause"
         },
         {
           "id": "A1-T3",
           "status": "ready",
-          "summary": "Apply REQUEST_TRACKER edits to OPEN_ISSUES/PLANNING/logs; keep queues 2\u20133 deep"
+          "summary": "Apply REQUEST_TRACKER edits to OPEN_ISSUES/PLANNING/logs; keep queues 2–3 deep"
+        },
+        {
+          "id": "A1-T4",
+          "status": "ready",
+          "summary": "Next cadence: re-read worker mailboxes; if CLAIM/DONE present, run merge heartbeat A2→A6; else NOTE idle and keep queues topped"
         }
       ]
     },
@@ -186,5 +186,5 @@
       ]
     }
   },
-  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only: workers merge origin/coord/integration at turn start if behind; A1 publishes MERGE_DONE after merges (no mid-turn pause). A1 keeps queues 2\u20133 deep and may reassign owns_issues/owns_files over time."
+  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only: workers merge origin/coord/integration at turn start if behind; A1 publishes MERGE_DONE after merges (no mid-turn pause). A1 keeps queues 2–3 deep and may reassign owns_issues/owns_files over time. 2026-08-09T12:00: all worker HELLO verified; first TASK_ASSIGN announced; no CLAIM/DONE yet — merge heartbeat deferred."
 }

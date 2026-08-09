@@ -1,1 +1,4 @@
 {"ts":"2026-08-09T11:40:00-05:00","from":"A1","type":"HELLO","note":"tracker/planner/integrator on durable branch coord/A1; assignments live in SWARM_TASKS.json"}
+{"ts":"2026-08-09T12:00:49-05:00","from":"A1","type":"NOTE","note":"A1-T1: verified HELLO on origin/coord/A2..A6; mailbox-only tip divergence vs integration; no CLAIM/DONE yet"}
+{"ts":"2026-08-09T12:00:50-05:00","from":"A1","type":"TASK_ASSIGN","note":"First snapshot live in SWARM_TASKS.json: A2=#44 recursion descent; A3=#42 star_matrix/SI; A4=#41 PH topology; A5=#43 dual connectivity; A6=#28 load-band cleanup/paper pointer. Queues 3-deep. Claim A*-T1 and push."}
+{"ts":"2026-08-09T12:00:51-05:00","from":"A1","type":"NOTE","note":"Merge heartbeat skipped this turn (A1-T2 waits on claims). Will scoop tips next cycle."}

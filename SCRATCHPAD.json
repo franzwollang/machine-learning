@@ -1,22 +1,25 @@
 {
-  "updated_at": "2026-08-09T11:05-05:00",
-  "turn": 27,
-  "focus": { "milestone": "M1", "issue": 44, "goal": "fuller-suite blocker reframed: recursion won't descend into a single coarse feature to find finer sub-structure (the other half of #27's gate)" },
+  "updated_at": "2026-08-09T12:00-05:00",
+  "turn": 28,
+  "focus": {
+    "milestone": "M1",
+    "issue": 44,
+    "goal": "swarm burn: A1 tracking live; workers on #44/#42/#41/#43/#28"
+  },
   "recent": [
-    "User corrected #44 framing: coarse tau* unifying disconnected components is CORRECT; bug is K=1-at-tau* termination never re-searching finer scales.",
-    "Reframed #44 as dual of #27: acceptance gate should OWN stop/descent, not K>=2-at-tau* heuristic.",
-    "TEMP OVERRIDE (user): subagent models restricted to composer-2.5-fast + cursor-grok-4.5-high only (credit burn); historical defaults table superseded until lifted."
+    "Verified A2–A6 HELLO on durable coord/A*; tips ahead of integration by mailbox-only commits",
+    "Announced first TASK_ASSIGN; A1-T1 done; queues still 3-deep per worker",
+    "No CLAIM/DONE yet — skipped A2→A6 merge this cadence"
   ],
   "discoveries": [
     "Fuller-suite failure is UPSTREAM of the acceptance gate: at tau* the disconnected scene is K=1; separation needs ~80x finer tau — but descent never looks there.",
-    "dm-alone over-fragments (66-76 leaves) on fuller scenes; persist+dm still validated on canonical suite (c1/h6/s1).",
-    "Even at expected_tau, single-scale connectivity returns K=1 for shells/tori."
+    "Worker tips vs integration differ only in COORDINATION.jsonl (agent-owned mailboxes)."
   ],
   "open_threads": [
     "#44 design Qs: finer re-search window; stop guarantee; cheap disconnected-component pre-pass.",
     "#27 stand-in deletion BLOCKED on #44; persist+dm validated on canonical suite.",
-    "Subagent model override active: only composer-2.5-fast / cursor-grok-4.5-high until user lifts."
+    "Await worker CLAIMs before first substantive MERGE_DONE"
   ],
-  "next_step": "Prototype #44: recurse into K=1 regions at finer-than-parent tau*, gated by DM/persistence; confirm spheres/tori cc=2 without shattering circle/swiss.",
+  "next_step": "On next turn: if CLAIM/DONE, merge A2→A6 into coord/integration; else idle NOTE",
   "blockers": []
 }
