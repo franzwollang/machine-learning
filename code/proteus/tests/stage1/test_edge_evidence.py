@@ -2203,3 +2203,101 @@ def test_denser_soft_keep_band_x_gabriel_x_persist_majors_pin_multiseed_table() 
         DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_MULTISEED_SI_NOTE
     )
 
+
+def test_denser_soft_x_gabriel_majors_seed12_inflate_kill_vs_seed0_keep_table() -> None:
+    """#44 / A2-T73: denser soft×gabriel seed1/2 inflate kill vs seed0 keep."""
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_E2E_TABLE,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_FRACS,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_H0,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_INFLATE_FRAC,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_KEEP_MAX_FRAC,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_MAX_NODES,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_NESTED_N,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_SEEDS,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_SI_NOTE,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_TABLE,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_TORI_N,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_UNIFORMS,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_TABLE,
+        format_denser_soft_x_gabriel_majors_seed12_inflate_kill_vs_seed0_keep_table,
+    )
+
+    assert abs(
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_H0 - 0.73
+    ) < 1e-9
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_SEEDS == (
+        0, 1, 2,
+    )
+    assert (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_NESTED_N
+        == 160
+    )
+    assert (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_TORI_N
+        == 240
+    )
+    assert (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_MAX_NODES
+        == 128
+    )
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_FRACS == (
+        0.05, 0.12, 0.25,
+    )
+    assert (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_KEEP_MAX_FRAC
+        == 0.12
+    )
+    assert (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_INFLATE_FRAC
+        == 0.25
+    )
+    # baseline T63 seed1 soft inflate contrast
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_TABLE[1]["soft"][0] == 2
+    # denser kills seed1/2 soft inflate at classic 0.25
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_TABLE[
+        1
+    ]["soft_0.25"][0] <= 1
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_TABLE[
+        2
+    ]["soft_0.25"][0] <= 1
+    # seed0 keep window vs inflate collapse
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_TABLE[
+        0
+    ]["soft_0.12"][2] == 2
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_TABLE[
+        0
+    ]["soft_x_conj_0.12"][2] <= 1
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_TABLE[
+        0
+    ]["soft_0.25"][2] <= 1
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_E2E_TABLE[
+        0
+    ]["youden"][0] == 2
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_E2E_TABLE[
+        1
+    ]["soft_0.25"][0] <= 1
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_UNIFORMS[
+        "circle"
+    ]["youden"] == 1
+    tsv = (
+        format_denser_soft_x_gabriel_majors_seed12_inflate_kill_vs_seed0_keep_table()
+    )
+    assert "inflate kill" in tsv and "soft_0.25" in tsv and "majors" in tsv
+    assert "inflate kill" in (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_SI_NOTE
+    )
+    assert "T63" in (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_SI_NOTE
+    )
+    assert "sample-ARI" in (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_SI_NOTE
+    )
+    assert "defaults off" in (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_SI_NOTE
+    )
+    assert "awaiting" in (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_SI_NOTE
+    )
+
