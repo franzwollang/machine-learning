@@ -7357,6 +7357,269 @@ def test_lc_straddle_endpoint_vs_half_life_margins_thr030_dense() -> None:
     assert ScaleSearchConfig().halve_grid_steps is False
 
 
+def test_phi_half_life_x_first_stab_after_proximity_thr030_dense() -> None:
+    # EXPERIMENT (A6-T112): thr=0.30 densified seeds0..4 — Phi half-life index
+    # proximity to first-stab-after-peak (T81 fsa) vs mid. Pins that mid remains
+    # closer on seeds 0/1/3/4; only the seed2 peak-unstabilized singleton has
+    # d(half,fsa) < d(half,mid). Half-life proximity does not favor
+    # first-stab-after as a general landing. Defaults stay off.
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+    assert _WITHIN_INTERVAL_LOAD_SCREEN_MIN == 0.5
+
+    by: dict[int, dict[str, object]] = {}
+    print("\nA6-T112 thr0.30 densified Phi half-life × first-stab-after")
+    header = (
+        f"{'seed':>4s} {'peak':>4s} {'half':>4s} {'fsa':>3s} {'mid':>3s} "
+        f"{'d_f':>3s} {'d_mid':>5s} {'stabP':>5s}"
+    )
+    print(header)
+    print("-" * len(header))
+    for seed in range(5):
+        dataset = make_hierarchical_gaussian(
+            children_per_coarse=2, n_samples=600, ambient_dim=4, seed=seed,
+        )
+        gt = dataset.ground_truth
+        assert gt.expected_tau is not None
+        tau_lo, tau_hi = gt.tau_grid_hint
+        result = run_scale_search(
+            dataset.points,
+            dim=gt.ambient_dim,
+            config=ScaleSearchConfig(
+                tau_min=tau_lo,
+                tau_max=tau_hi,
+                max_grid_points=8,
+                k=8,
+                n_seeds=12,
+                min_nodes=8,
+                max_nodes=128,
+                ann_backend="naive",
+                selector="persistence",
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2, max_epochs=12
+                ),
+                seed=seed,
+                halve_grid_steps=True,
+                persistence=PersistenceConfig(
+                    resolve_within_interval="none",
+                    densify_overlap_recover="lower_threshold",
+                    densify_overlap_recover_threshold=0.30,
+                ),
+            ),
+        )
+        assert result.persistence_result is not None
+        pr = result.persistence_result
+        assert pr.tau_star_index == 0
+        assert int(pr.run_lengths[0]) == 16
+        phi = np.asarray(result.phi_trace, dtype=float)
+        stab = list(result.stabilized_flags)
+        i_lo, i_hi = 0, 15
+        finite = [
+            idx for idx in range(i_lo, i_hi + 1) if np.isfinite(float(phi[idx]))
+        ]
+        peak = max(finite, key=lambda i: float(phi[i]))
+        phi_p = float(phi[peak])
+        half_idx: int | None = None
+        for off in range(1, i_hi - peak + 1):
+            r = float(phi[peak + off]) / phi_p
+            if r <= 0.5:
+                half_idx = peak + off
+                break
+        assert half_idx is not None
+        fsa_idx = next(
+            (idx for idx in range(peak + 1, i_hi + 1) if stab[idx]),
+            None,
+        )
+        assert fsa_idx is not None
+        mid = int(_mid_interval_index(i_lo, i_hi))
+        d_f = abs(int(half_idx) - int(fsa_idx))
+        d_mid = abs(int(half_idx) - mid)
+        by[seed] = {
+            "peak": int(peak),
+            "half": int(half_idx),
+            "fsa": int(fsa_idx),
+            "mid": mid,
+            "d_f": d_f,
+            "d_mid": d_mid,
+            "stab_peak": bool(stab[peak]),
+        }
+        print(
+            f"{seed:4d} {peak:4d} {half_idx:4d} {fsa_idx:3d} {mid:3d} "
+            f"{d_f:3d} {d_mid:5d} {str(bool(stab[peak])):5s}"
+        )
+
+    expect_half = {0: 5, 1: 5, 2: 4, 3: 6, 4: 5}
+    expect_d_f = {0: 3, 1: 3, 2: 2, 3: 4, 4: 3}
+    expect_d_mid = {0: 2, 1: 2, 2: 3, 3: 1, 4: 2}
+    for seed in range(5):
+        assert int(by[seed]["peak"]) == 1
+        assert int(by[seed]["half"]) == expect_half[seed]
+        assert int(by[seed]["fsa"]) == 2
+        assert int(by[seed]["mid"]) == 7
+        assert int(by[seed]["d_f"]) == expect_d_f[seed]
+        assert int(by[seed]["d_mid"]) == expect_d_mid[seed]
+
+    # Seeds 0/1/3/4: peak stabilized ⇒ fsa is merely peak+1; mid closer.
+    for seed in (0, 1, 3, 4):
+        assert bool(by[seed]["stab_peak"]) is True
+        assert int(by[seed]["d_mid"]) < int(by[seed]["d_f"])
+
+    # Seed2 singleton: peak unstabilized ⇒ fsa=2; only cell where fsa
+    # beats mid on half-life proximity.
+    assert bool(by[2]["stab_peak"]) is False
+    assert int(by[2]["fsa"]) == 2
+    assert int(by[2]["d_f"]) < int(by[2]["d_mid"])
+
+    # Universal negative: first-stab-after is not closer than mid on the
+    # majority of densified thr0.30 accepts.
+    assert sum(int(by[s]["d_f"]) < int(by[s]["d_mid"]) for s in range(5)) == 1
+
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
+def test_phi_half_life_x_fsa_vs_sarg_margins_thr030_dense() -> None:
+    # EXPERIMENT (A6-T113): thr=0.30 densified seeds0..4 — half-life proximity
+    # margins of first-stab-after (T81/T112) vs stab-only Phi-argmax (T82/T109).
+    # Pins that when the peak is stabilized, fsa is one grid step closer to
+    # half-life than sArg≡peak, yet both still lose to mid except on the
+    # seed2 peak-unstabilized singleton where fsa≡sArg. Defaults stay off.
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+    assert _WITHIN_INTERVAL_LOAD_SCREEN_MIN == 0.5
+
+    by: dict[int, dict[str, object]] = {}
+    print("\nA6-T113 thr0.30 densified half-life × fsa vs sArg margins")
+    header = (
+        f"{'seed':>4s} {'half':>4s} {'fsa':>3s} {'sArg':>4s} {'mid':>3s} "
+        f"{'d_f':>3s} {'d_s':>3s} {'d_mid':>5s}"
+    )
+    print(header)
+    print("-" * len(header))
+    for seed in range(5):
+        dataset = make_hierarchical_gaussian(
+            children_per_coarse=2, n_samples=600, ambient_dim=4, seed=seed,
+        )
+        gt = dataset.ground_truth
+        assert gt.expected_tau is not None
+        tau_lo, tau_hi = gt.tau_grid_hint
+        result = run_scale_search(
+            dataset.points,
+            dim=gt.ambient_dim,
+            config=ScaleSearchConfig(
+                tau_min=tau_lo,
+                tau_max=tau_hi,
+                max_grid_points=8,
+                k=8,
+                n_seeds=12,
+                min_nodes=8,
+                max_nodes=128,
+                ann_backend="naive",
+                selector="persistence",
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2, max_epochs=12
+                ),
+                seed=seed,
+                halve_grid_steps=True,
+                persistence=PersistenceConfig(
+                    resolve_within_interval="none",
+                    densify_overlap_recover="lower_threshold",
+                    densify_overlap_recover_threshold=0.30,
+                ),
+            ),
+        )
+        assert result.persistence_result is not None
+        pr = result.persistence_result
+        assert pr.tau_star_index == 0
+        assert int(pr.run_lengths[0]) == 16
+        phi = np.asarray(result.phi_trace, dtype=float)
+        stab = list(result.stabilized_flags)
+        i_lo, i_hi = 0, 15
+        finite = [
+            idx for idx in range(i_lo, i_hi + 1) if np.isfinite(float(phi[idx]))
+        ]
+        peak = max(finite, key=lambda i: float(phi[i]))
+        phi_p = float(phi[peak])
+        half_idx: int | None = None
+        for off in range(1, i_hi - peak + 1):
+            r = float(phi[peak + off]) / phi_p
+            if r <= 0.5:
+                half_idx = peak + off
+                break
+        assert half_idx is not None
+        fsa_idx = next(
+            (idx for idx in range(peak + 1, i_hi + 1) if stab[idx]),
+            None,
+        )
+        assert fsa_idx is not None
+        stab_only = [idx for idx in finite if stab[idx]]
+        assert len(stab_only) >= 1
+        sarg = max(stab_only, key=lambda i: float(phi[i]))
+        mid = int(_mid_interval_index(i_lo, i_hi))
+        d_f = abs(int(half_idx) - int(fsa_idx))
+        d_s = abs(int(half_idx) - int(sarg))
+        d_mid = abs(int(half_idx) - mid)
+        by[seed] = {
+            "peak": int(peak),
+            "half": int(half_idx),
+            "fsa": int(fsa_idx),
+            "sarg": int(sarg),
+            "mid": mid,
+            "d_f": d_f,
+            "d_s": d_s,
+            "d_mid": d_mid,
+            "stab_peak": bool(stab[peak]),
+        }
+        print(
+            f"{seed:4d} {half_idx:4d} {fsa_idx:3d} {sarg:4d} {mid:3d} "
+            f"{d_f:3d} {d_s:3d} {d_mid:5d}"
+        )
+
+    expect_half = {0: 5, 1: 5, 2: 4, 3: 6, 4: 5}
+    expect_sarg = {0: 1, 1: 1, 2: 2, 3: 1, 4: 1}
+    expect_d_f = {0: 3, 1: 3, 2: 2, 3: 4, 4: 3}
+    expect_d_s = {0: 4, 1: 4, 2: 2, 3: 5, 4: 4}
+    expect_d_mid = {0: 2, 1: 2, 2: 3, 3: 1, 4: 2}
+    for seed in range(5):
+        assert int(by[seed]["peak"]) == 1
+        assert int(by[seed]["half"]) == expect_half[seed]
+        assert int(by[seed]["fsa"]) == 2
+        assert int(by[seed]["sarg"]) == expect_sarg[seed]
+        assert int(by[seed]["mid"]) == 7
+        assert int(by[seed]["d_f"]) == expect_d_f[seed]
+        assert int(by[seed]["d_s"]) == expect_d_s[seed]
+        assert int(by[seed]["d_mid"]) == expect_d_mid[seed]
+
+    # Stabilized-peak majority: sArg≡peak, fsa=peak+1 ⇒ fsa one step closer
+    # to half-life than sArg, but mid still wins.
+    for seed in (0, 1, 3, 4):
+        assert bool(by[seed]["stab_peak"]) is True
+        assert int(by[seed]["sarg"]) == int(by[seed]["peak"])
+        assert int(by[seed]["d_f"]) == int(by[seed]["d_s"]) - 1
+        assert int(by[seed]["d_mid"]) < int(by[seed]["d_f"]) < int(by[seed]["d_s"])
+
+    # Seed2: fsa≡sArg≡2; both beat mid; fsa does not improve on sArg.
+    assert bool(by[2]["stab_peak"]) is False
+    assert int(by[2]["fsa"]) == int(by[2]["sarg"]) == 2
+    assert int(by[2]["d_f"]) == int(by[2]["d_s"]) == 2
+    assert int(by[2]["d_f"]) < int(by[2]["d_mid"])
+
+    # Neither fsa nor sArg beats mid on the majority of accepts.
+    assert sum(int(by[s]["d_f"]) < int(by[s]["d_mid"]) for s in range(5)) == 1
+    assert sum(int(by[s]["d_s"]) < int(by[s]["d_mid"]) for s in range(5)) == 1
+
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
 def test_default_selector_is_load_crossover() -> None:
     # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
     assert ScaleSearchConfig().selector == "load_crossover"
