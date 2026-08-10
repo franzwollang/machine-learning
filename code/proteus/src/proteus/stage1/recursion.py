@@ -289,6 +289,15 @@ class RecursionConfig:
     majors pin — seed0 denser majors soft≤0.12 → tori K=2 (gabriel
     kills; soft≥0.15 collapses); soft×persist e2e all ≤1 (majors-only
     under persist compose); defaults off.
+    A2-T70: denser soft keep×gabriel×persist seed0 youden-only frac pin
+    — denser mid-band soft fracs {0.03,0.08,0.1,0.12,0.18,0.25}: bare
+    youden alone nested K=2≈0.01; conj/persist/soft×persist all ≤1;
+    defaults off.
+    A2-T71: denser soft×gabriel majors seed-stable window (non-persist)
+    — denser mid-band soft fracs across seeds 0..2: seed0 soft≤0.12 →
+    tori K=2 (gabriel kills; soft≥0.18 collapses); seeds 1–2 all ≤1 —
+    keep window NOT seed-stable; e2e only seed0 youden nested K=2≈0.01;
+    defaults off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
