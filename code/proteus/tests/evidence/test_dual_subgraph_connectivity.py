@@ -2251,10 +2251,11 @@ def test_fail_closed_score_edit_matrix_matches_score_edit():
     """Each matrix cell's expect_accept matches live score_edit (good stars)."""
 
     keep, edit, proposal, good_stars = _good_split_fixture()
+    # Induced on {"S0","S2"} stays connected via a direct S0—S2 edge.
     connected = {
-        "S0": ("S1",),
+        "S0": ("S1", "S2"),
         "S1": ("S0", "S2"),
-        "S2": ("S1",),
+        "S2": ("S0", "S1"),
     }
     disconnect = {
         "S0": ("S1",),
