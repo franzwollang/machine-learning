@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-10T05:12:00Z",
-  "turn": 60,
+  "updated_at": "2026-08-10T05:50:00Z",
+  "turn": 61,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "post-MERGE_DONE; workers pull densify288/Phi half-life queues"
+    "goal": "MERGE_DONE triple-scoop; queues T72+/T89+/T95+/T94+/T96+"
   },
   "recent": [
-    "Pushed MERGE_DONE integ=b6721b9; queues T70+/T86+/T89+",
-    "densify288 win / cliff@320; cal4 pin through noise0.20",
-    "Phi half-life ~3\u20134; patience\u00d7cap(+fail_closed) landed"
+    "Triple-scoop A2-T70/T71 + A3 SI + A4-T89..T94 + A5-T88..T93 + A6-T90..T95",
+    "densify cliff NON-MONOTONIC 296/300/308/312",
+    "half-life thr-invariant; LW |log L| seed2-only"
   ],
   "discoveries": [
-    "schedule hollow cliff onset after densify288",
-    "cal4\u00d7frac3 pin survives tissue noise\u22640.20 (proposal)",
-    "Phi half-life~3\u20134; |L0-1|\u226a|Lfsa-1|; LC\u2261coarse"
+    "youden denser mid-band singleton; majors keep NOT seed-stable",
+    "densify308 recovers after 300 mild; cliff non-mono",
+    "near-peak stab-skip\equiv seed2\equiv fastest Phi half-life"
   ],
   "open_threads": [
-    "A2-T70 youden pin; A3 SI T86..T88; A4 densify296",
-    "A5 T88 fail_closed matrix; A6 half-life\u00d7thr",
+    "A2-T72 majors multi-seed; A3 SI T89..T91",
+    "A4 densify304; A5 T94 bridges; A6 half-life\times thr",
     "#45 deferred until #44 sample-ARI"
   ],
-  "next_step": "Workers pull integration; next turn scoop T70+/T89+/T88+/T90+",
+  "next_step": "Push MERGE_DONE; workers pull; next turn scoop T72+/T95+",
   "blockers": []
 }

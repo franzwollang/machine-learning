@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-10T05:10:00Z",
+  "updated_at": "2026-08-10T05:50:00Z",
   "integration_branch": "coord/integration",
   "throughput_mode": true,
   "merge_order": [
@@ -25,9 +25,9 @@
           "summary": "Scoop aggressively; keep queues 3-deep; no awaiting flip without green evidence + sample-ARI"
         },
         {
-          "id": "A1-T66",
+          "id": "A1-T67",
           "status": "ready",
-          "summary": "Watch A2-T70+ youden pin; A3 SI T86..; A4 densify288–304 fine-pin; A5 T88 fail_closed matrix; A6 half-life follow-ons; hold #45"
+          "summary": "Watch A2-T72+ majors multi-seed; A3 SI T89..; A4 densify304 non-mono; A5 T94 bridges; A6 half-life×halve follow-ons; hold #45"
         }
       ]
     },
@@ -45,22 +45,22 @@
       ],
       "queue": [
         {
-          "id": "A2-T70",
-          "status": "ready",
-          "issue": 44,
-          "summary": "EXPERIMENT denser soft keep×gabriel×persist seed0 youden-only frac pin; flags off; NO awaiting flip"
-        },
-        {
-          "id": "A2-T71",
-          "status": "ready",
-          "issue": 44,
-          "summary": "EXPERIMENT denser soft×gabriel majors seed-stable window (non-persist); flags off; REQUEST_TRACKER"
-        },
-        {
           "id": "A2-T72",
           "status": "ready",
           "issue": 44,
           "summary": "EXPERIMENT denser soft keep×gabriel×persist majors-pin multi-seed confirm; flags off; REQUEST_TRACKER"
+        },
+        {
+          "id": "A2-T73",
+          "status": "ready",
+          "issue": 44,
+          "summary": "EXPERIMENT denser soft×gabriel majors seed1/2 inflate kill vs seed0 keep window; flags off; NO awaiting flip"
+        },
+        {
+          "id": "A2-T74",
+          "status": "ready",
+          "issue": 44,
+          "summary": "EXPERIMENT denser soft keep×gabriel×persist youden×majors compose seed0; flags off; REQUEST_TRACKER"
         }
       ]
     },
@@ -77,22 +77,22 @@
       ],
       "queue": [
         {
-          "id": "A3-T86",
+          "id": "A3-T89",
           "status": "ready",
           "issue": 44,
-          "summary": "SI S2.6.2 denser soft keep×gabriel×persist majors-pin (A2-T69); no awaiting flip"
+          "summary": "SI S2.6.2 denser soft×gabriel majors seed-stable window NOT seed-stable (A2-T71); no awaiting flip"
         },
         {
-          "id": "A3-T87",
+          "id": "A3-T90",
           "status": "ready",
           "issue": 41,
-          "summary": "SI S14.2 densify288 win / 304 transitional / cliff@320 + cal4×noise≤0.20 pin (A4-T86..T88); keep awaiting"
+          "summary": "SI S14.2 densify cliff NON-MONOTONIC 296/300/308/312 + tissue0.12 cal4 + erase×mst/softcap (A4-T92..T94); keep awaiting"
         },
         {
-          "id": "A3-T88",
+          "id": "A3-T91",
           "status": "ready",
           "issue": 28,
-          "summary": "SI S2.6.2/S14.3 Phi half-life + |L0-1|≪|Lfsa-1| + A5 patience×cap×fail_closed (A6-T87/T88, A5-T86/T87); keep awaiting"
+          "summary": "SI S2.6.2/S14.3 half-life×halve_grid + stab-skip≡seed2≡fastest + A5 T91..T93 patience×cap traj (A6-T93/T94, A5); keep awaiting"
         }
       ]
     },
@@ -109,22 +109,22 @@
       ],
       "queue": [
         {
-          "id": "A4-T89",
+          "id": "A4-T95",
           "status": "ready",
           "issue": 41,
-          "summary": "EXPERIMENT densify296/312 schedule fine-pin between 288 win and 320 fail; stay @awaiting"
+          "summary": "EXPERIMENT densify304 schedule probe in non-mono cliff (300 mild / 308 win); stay @awaiting"
         },
         {
-          "id": "A4-T90",
+          "id": "A4-T96",
           "status": "ready",
           "issue": 41,
-          "summary": "EXPERIMENT circle tissue0.08 cal4×noise>0.20 collapse vs T87 pin through 0.20; stay @awaiting; REQUEST_TRACKER"
+          "summary": "EXPERIMENT tissue0.12×mult3×noise≥0.25 collapse vs T93 residual@0.22; stay @awaiting; REQUEST_TRACKER"
         },
         {
-          "id": "A4-T91",
+          "id": "A4-T97",
           "status": "ready",
           "issue": 41,
-          "summary": "EXPERIMENT seed7 erase×lifetime soft after gabriel dirty reintro; stay @awaiting"
+          "summary": "EXPERIMENT seed7 erase×hollow mid/h0 retune after mst dirty reintro; stay @awaiting"
         }
       ]
     },
@@ -143,22 +143,22 @@
       ],
       "queue": [
         {
-          "id": "A5-T88",
+          "id": "A5-T94",
           "status": "ready",
           "issue": 43,
-          "summary": "EXPERIMENT spectrum×policy×mass×patience×cap × fail_closed EvidenceGate matrix (flag off); do not flip awaiting"
+          "summary": "EXPERIMENT residual×mass×policy patience×cap×traj×fail_closed dry_run reconnect (flag off); do not flip awaiting"
         },
         {
-          "id": "A5-T89",
+          "id": "A5-T95",
           "status": "ready",
           "issue": 43,
-          "summary": "EXPERIMENT residual×mass×policy patience×cap×traj × fail_closed bridge (flag off); REQUEST_TRACKER"
+          "summary": "EXPERIMENT spectrum×policy×mass patience×cap×traj × EvidenceGate matrix (flag off); REQUEST_TRACKER"
         },
         {
-          "id": "A5-T90",
+          "id": "A5-T96",
           "status": "ready",
           "issue": 43,
-          "summary": "EXPERIMENT spectrum×policy×mass patience×cap×fail_closed dry_run reconnect (flag off); keep awaiting"
+          "summary": "EXPERIMENT residual patience×cap×fail_closed × dry_run EvidenceGate (flag off); keep awaiting"
         }
       ]
     },
@@ -176,25 +176,25 @@
       ],
       "queue": [
         {
-          "id": "A6-T90",
+          "id": "A6-T96",
           "status": "ready",
           "issue": 28,
-          "summary": "EXPERIMENT Phi half-life × thr 0.30/0.35/0.40 densify multi-seed; flags off; REQUEST_TRACKER"
+          "summary": "EXPERIMENT half-life×halve_grid × thr floors densify; flags off; REQUEST_TRACKER"
         },
         {
-          "id": "A6-T91",
+          "id": "A6-T97",
           "status": "ready",
           "issue": 28,
-          "summary": "EXPERIMENT |Lpeak-1| vs |L0-1| LW≠coarse mechanism export thr0.30; flags off"
+          "summary": "EXPERIMENT stab-skip near-peak × |log L| seed2 joint table thr0.30 densify; flags off"
         },
         {
-          "id": "A6-T92",
+          "id": "A6-T98",
           "status": "ready",
           "issue": 28,
-          "summary": "Paper.tex pin T87 half-life + T88 load-straddle margins; default none"
+          "summary": "Paper.tex pin T93/T94 half-life×halve + stab-skip≡fastest; default none"
         }
       ]
     }
   },
-  "notes": "2026-08-10T05:10: Quad-scoop A2-T67..T69 denser seed0 pin path; A3 EXP-si96..si106 SI; A4-T80..T88 densify288 win/cliff@320 + cal4 noise≤0.20; A5-T81..T87 patience×cap(+fail_closed); A6-T81..T89 stab/Phi decay/half-life. NO awaiting flip."
+  "notes": "2026-08-10T05:50: Triple-scoop A2-T70/T71 youden+majors window; A3 T86..+EXP-si107..si110; A4-T89..T94 densify non-mono cliff + tissue0.12; A5-T88..T93 patience×cap bridges; A6-T90..T95 half-life×thr/halve. NO awaiting flip."
 }

@@ -191,6 +191,13 @@ Remaining work:
   idx 5/5/4/6/5 (frac~3.91/3.49/2.77/4.04/3.72; seed2 fastest);
   `|L0−1|≪|Lfsa−1|` all accepts (LC≡coarse); paper pins. Keep
   `densify_overlap_recover` default none. Do **not** flip default.
+- **Landed (A6-T90..T95):** half-life thr-invariant across
+  `0.30/0.35/0.40` on shared accepts (floor=Jaccard gate only);
+  `|Lpeak−1|>|L0−1|` all seeds; only seed2 `|log Lpeak|<|log L0|`
+  ⇒ sole LW≠coarse. half-life×`halve_grid`: std collapses to peak+1
+  (frac≲1, `tau_r≈0.55`; seed2 reject) vs densify multi-step T87
+  pins + deeper `tau_r`. Near-peak stab-skip ≡ seed2 ≡ fastest
+  half-life. Paper pins. Keep default none. Do **not** flip default.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -389,8 +396,13 @@ re-searched *finer* scales inside a single feature.
   seed0 youden nested K=2≈0.01; denser seed0 keep×gabriel × soft×persist
   = **majors-only pin** (soft≤0.12→tori K=2; gabriel kills; e2e soft×
   persist all≤1). Soft ≠ sample-ARI. **Do not flip awaiting.**
-- **Remaining:** denser soft keep×gabriel×persist seed0 youden/majors
-  follow-ons; fuller suite green with **sample-ARI** → retire
+- **FINDING (A2-T70..T71):** denser mid-band soft fracs
+  `{0.03,0.08,0.1,0.12,0.18,0.25}` — bare youden alone nested K=2≈0.01
+  (conj/persist/soft×persist ≤1); soft×gabriel majors keep window is
+  **NOT seed-stable** (seed0-only soft≤0.12→tori K=2; seeds1–2 ≤1). Soft
+  ≠ sample-ARI. **Do not flip awaiting.**
+- **Remaining:** denser soft keep×gabriel×persist majors multi-seed /
+  youden×majors compose; fuller suite green with **sample-ARI** → retire
   radial/PCA family + awaiting-flip review (A1 sign-off). Distinct from
   #28. Post-track: open #45 open-loop / `max_nodes`
   (`reference/open_loop_growth_and_node_cap.md`) into M4.
@@ -537,10 +549,15 @@ circle `b1 = 1` target of #25.
   cal4×frac3 pin survives noise through **0.20** (26/27; proposal-path
   ONLY). seed7 erase×cal/sigma/gabriel: void or dirty-b2 reintro — never
   clean `(1,2,1)`. Keep `@awaiting`.
-- **Remaining before flipping recovery tests:** densify mid-ladder
-  fine-pin between 288–304; circle cal4×noise>0.20 collapse; seed7
-  erase recovery path; keep recovery `@awaiting` until SI-default
-  fitted evidence is green.
+- **FINDING (A4-T89..T94):** densify cliff **NON-MONOTONIC** — 296 full
+  recover; 300 mild-only; 308 full recover; 312 hard-fail. tissue0.08
+  cal4×frac3 pin collapses for all noise>0.20; tissue0.12 preserves
+  cal4≤0.20 + mult3@0.22 residual (proposal-path ONLY). seed7
+  erase×lifetime soft / mst / soft_capacity: dirty-b2 only — never
+  clean `(1,2,1)`. Keep `@awaiting`.
+- **Remaining before flipping recovery tests:** densify304 non-mono
+  probe; tissue0.12×mult3×noise≥0.25; seed7 erase recovery path; keep
+  recovery `@awaiting` until SI-default fitted evidence is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -637,8 +654,12 @@ circle `b1 = 1` target of #25.
 - **Landed (A5-T81..T87):** spectrum/residual patience(+cap) compose
   probes + traj×fail_closed + patience×cap grids +
   patience×cap×fail_closed bridge + residual patience×cap×traj
-  (`enable_*` / `probe_*`; flags off). Gaps remain: patience×cap×
-  fail_closed EvidenceGate matrix; fail-closed acceptance flip.
-  Mass/density/benchmark stay `@awaiting`. **Do not close #43** until
-  acceptance-path default replaces the conservative open default /
-  fuller S6.
+  (`enable_*` / `probe_*`; flags off).
+- **Landed (A5-T88..T93):** patience×cap×fail_closed EvidenceGate
+  matrix + residual traj×fail_closed bridge + spectrum dry_run×EG +
+  spectrum patience×cap traj + residual patience×cap×fail_closed
+  matrix + spectrum traj×fail_closed reconnect (`enable_*` /
+  `probe_*`; flags off; dual 147p). Gaps remain: fail-closed
+  acceptance flip. Mass/density/benchmark stay `@awaiting`. **Do not
+  close #43** until acceptance-path default replaces the conservative
+  open default / fuller S6.
