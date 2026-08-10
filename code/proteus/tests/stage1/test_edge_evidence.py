@@ -933,3 +933,117 @@ def test_denser_soft_x_youden_multiseed_export() -> None:
     assert "sample-ARI" in DENSER_SOFT_X_YOUDEN_MULTISEED_SI_NOTE
     assert "defaults off" in DENSER_SOFT_X_YOUDEN_MULTISEED_SI_NOTE
     assert "awaiting" in DENSER_SOFT_X_YOUDEN_MULTISEED_SI_NOTE
+
+
+def test_denser_soft_frac_x_youden_seed_inflate_export() -> None:
+    """#44 / A2-T50: denser soft_frac×Youden seed1 inflate window export.
+
+    Denser kills baseline seed1 frac-window; seed0 soft_0.1 keeps tori
+    chance-ARI K=2. Defaults off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_FRACS,
+        DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_H0,
+        DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_MAX_NODES,
+        DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_NESTED_N,
+        DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SEEDS,
+        DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SI_NOTE,
+        DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TABLE,
+        DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TORI_N,
+        format_denser_soft_frac_x_youden_seed_inflate_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert abs(DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_H0 - 0.73) < 1e-9
+    assert DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_NESTED_N == 160
+    assert DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TORI_N == 240
+    assert DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_MAX_NODES == 128
+    assert DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SEEDS == (0, 1, 2)
+    assert DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_FRACS == (
+        0.1, 0.25, 0.5, 0.75, 0.9,
+    )
+    # denser seed1 never inflates across frac window
+    for frac in DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_FRACS:
+        assert DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TABLE[1][
+            f"soft_{frac:g}"
+        ][0] <= 1
+        assert DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TABLE[1][
+            f"soft_{frac:g}"
+        ][2] <= 1
+    assert DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TABLE[0]["soft_0.1"][2] == 2
+    assert DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TABLE[0]["soft_0.25"][2] <= 1
+    tsv = format_denser_soft_frac_x_youden_seed_inflate_table()
+    assert "denser soft_frac" in tsv and "soft_0.1" in tsv
+    assert "kills the baseline" in DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SI_NOTE
+    assert "sample-ARI" in DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SI_NOTE
+    assert "defaults off" in DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SI_NOTE
+    assert "awaiting" in DENSER_SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SI_NOTE
+
+
+def test_bridge_mass_x_youden_seed_inflate_export() -> None:
+    """#44 / A2-T51: bridge_mass vs betweenness seed1 inflate export.
+
+    Betweenness seed1 inflate is method-specific; bridge_mass never
+    inflates. Defaults off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        BRIDGE_MASS_X_YOUDEN_SEED1_FRAC_TABLE,
+        BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_FRACS,
+        BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_H0,
+        BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SEEDS,
+        BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SI_NOTE,
+        BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TABLE,
+        format_bridge_mass_x_youden_seed_inflate_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_method == "betweenness"
+    assert abs(BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_H0 - 0.73) < 1e-9
+    assert BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SEEDS == (0, 1, 2)
+    assert BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TABLE[1]["soft_betweenness"][0] == 2
+    assert BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TABLE[1]["soft_bridge_mass"][0] <= 1
+    for frac in BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_FRACS:
+        assert BRIDGE_MASS_X_YOUDEN_SEED1_FRAC_TABLE["bridge_mass"][frac][0] <= 1
+    for frac in (0.1, 0.25, 0.5):
+        assert BRIDGE_MASS_X_YOUDEN_SEED1_FRAC_TABLE["betweenness"][frac][0] == 2
+    tsv = format_bridge_mass_x_youden_seed_inflate_table()
+    assert "bridge_mass" in tsv and "betweenness" in tsv
+    assert "method-specific" in BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SI_NOTE
+    assert "sample-ARI" in BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SI_NOTE
+    assert "defaults off" in BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SI_NOTE
+    assert "awaiting" in BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SI_NOTE
+
+
+def test_soft_x_youden_tau_star_export() -> None:
+    """#44 / A2-T52: soft×Youden at operational tau* export.
+
+    Seed1 probe inflate absent at tau*; seed0 tori chance-ARI K≥2.
+    Defaults off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_X_YOUDEN_TAU_STAR_H0,
+        SOFT_X_YOUDEN_TAU_STAR_MAX_GRID_POINTS,
+        SOFT_X_YOUDEN_TAU_STAR_SEEDS,
+        SOFT_X_YOUDEN_TAU_STAR_SI_NOTE,
+        SOFT_X_YOUDEN_TAU_STAR_TABLE,
+        SOFT_X_YOUDEN_TAU_STAR_VALUES,
+        format_soft_x_youden_tau_star_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert abs(SOFT_X_YOUDEN_TAU_STAR_H0 - 0.73) < 1e-9
+    assert SOFT_X_YOUDEN_TAU_STAR_SEEDS == (0, 1, 2)
+    assert SOFT_X_YOUDEN_TAU_STAR_MAX_GRID_POINTS == 12
+    assert SOFT_X_YOUDEN_TAU_STAR_TABLE[1]["soft_x_youden"][0] <= 1
+    assert SOFT_X_YOUDEN_TAU_STAR_TABLE[1]["soft_x_youden"][2] <= 1
+    assert SOFT_X_YOUDEN_TAU_STAR_TABLE[0]["youden"][2] >= 2
+    assert SOFT_X_YOUDEN_TAU_STAR_TABLE[0]["soft_x_youden"][2] >= 2
+    assert 0 in SOFT_X_YOUDEN_TAU_STAR_VALUES
+    tsv = format_soft_x_youden_tau_star_table()
+    assert "tau_star" in tsv and "soft_x_youden" in tsv
+    assert "absent" in SOFT_X_YOUDEN_TAU_STAR_SI_NOTE
+    assert "sample-ARI" in SOFT_X_YOUDEN_TAU_STAR_SI_NOTE
+    assert "defaults off" in SOFT_X_YOUDEN_TAU_STAR_SI_NOTE
+    assert "awaiting" in SOFT_X_YOUDEN_TAU_STAR_SI_NOTE
