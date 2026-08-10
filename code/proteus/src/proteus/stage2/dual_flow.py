@@ -49,10 +49,14 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   convergence *probe* lands behind ``enable_loopy_bp_convergence_probe``
   (A5-T62). A *certified residual-stop policy sketch* lands behind
   ``enable_loopy_bp_residual_stop`` (A5-T64; proposal-path — **not** a
-  production certificate). A mass-normalization × loopy-compose *probe*
+  production certificate). The same flag also wires residual-stop
+  *early-exit* into :func:`solve_loopy_bp_schedule` (A5-T67). A
+  spectrum-safe residual-stop *certificate harness* lands behind
+  ``enable_loopy_bp_spectrum_safe_cert`` (A5-T68; still a harness claim,
+  not production). A mass-normalization × loopy-compose *probe*
   lands behind ``enable_mass_loopy_compose_probe`` (A5-T66). Remaining
-  real-BP gaps: spectrum-safe production loopy BP certificate; true-
-  manifold flux zeroing (S6.3).
+  real-BP gaps: true spectrum-safe production loopy BP certificate;
+  true-manifold flux zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
   seams land behind ``enable_boundary_taxonomy`` (proposed; default off).
   Heuristic single-owner → true-manifold; hint sets override. Seam stitch /
@@ -142,9 +146,16 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
   :func:`probe_loopy_bp_convergence` returns ``None``; when on, records
   residual trajectories over increasing iters (A5-T62).
 * ``DualFlowConfig.enable_loopy_bp_residual_stop`` — when off,
-  :func:`propose_loopy_bp_residual_stop` returns ``None``; when on,
-  sketches a residual plateau / tolerance stop rule (A5-T64; **not**
-  certified production stop).
+  :func:`propose_loopy_bp_residual_stop` returns ``None`` and
+  :func:`solve_loopy_bp_schedule` runs all ``bp_max_iters``; when on,
+  sketches a residual plateau / tolerance stop rule (A5-T64) **and**
+  early-exits the loopy schedule when residuals plateau / hit tol
+  (A5-T67; **not** certified production stop).
+* ``DualFlowConfig.enable_loopy_bp_spectrum_safe_cert`` — when off,
+  :func:`probe_loopy_bp_spectrum_safe_cert` returns ``None``; when on,
+  runs loopy BP with residual-stop early-exit and reports a harness
+  ``spectrum_safe_sketch_ok`` claim (A5-T68; **not** a production
+  certificate).
 * ``DualFlowConfig.enable_mass_loopy_compose_probe`` — when off,
   :func:`probe_mass_loopy_compose` returns ``None``; when on, runs
   mass-normalization together with online→offline loopy compose
@@ -231,6 +242,7 @@ __all__ = [
     "FailClosedGateSwitchProbe",
     "LoopyBPConvergenceProbe",
     "LoopyBPResidualStopPolicy",
+    "LoopyBPSpectrumSafeCertProbe",
     "MassLoopyComposeProbe",
     "SharedFacePair",
     "build_dual_adjacency",
@@ -277,6 +289,7 @@ __all__ = [
     "run_online_offline_loopy_compose",
     "probe_loopy_bp_convergence",
     "propose_loopy_bp_residual_stop",
+    "probe_loopy_bp_spectrum_safe_cert",
     "probe_mass_loopy_compose",
     "probe_fail_closed_dual_adjacency_plan",
     "probe_gate_fail_closed_switch",
@@ -425,9 +438,16 @@ class DualFlowConfig:
         proposal-path harness — not a production certificate).
     enable_loopy_bp_residual_stop:
         When ``False`` (default), :func:`propose_loopy_bp_residual_stop`
-        returns ``None``. When ``True``, sketches a residual-plateau /
-        tolerance stop rule over increasing loopy iters (A5-T64;
+        returns ``None`` and :func:`solve_loopy_bp_schedule` runs the
+        full ``bp_max_iters``. When ``True``, sketches a residual-plateau
+        / tolerance stop rule over increasing loopy iters (A5-T64) and
+        early-exits the in-solver schedule on the same rule (A5-T67;
         proposal-path — **not** a production certificate).
+    enable_loopy_bp_spectrum_safe_cert:
+        When ``False`` (default), :func:`probe_loopy_bp_spectrum_safe_cert`
+        returns ``None``. When ``True``, runs loopy BP with residual-stop
+        early-exit and reports a harness ``spectrum_safe_sketch_ok``
+        claim (A5-T68; proposal-path — **not** a production certificate).
     enable_mass_loopy_compose_probe:
         When ``False`` (default), :func:`probe_mass_loopy_compose`
         returns ``None``. When ``True``, runs mass normalization together
@@ -435,8 +455,8 @@ class DualFlowConfig:
         not flip mass/density ``@awaiting``).
     bp_residual_stop_tol:
         Absolute plateau tolerance on ``|Δr_data|`` / ``|Δr_cons|`` for
-        the residual-stop sketch (default ``1e-3``). Operational
-        proposal-path only (SI S14.3).
+        the residual-stop sketch / early-exit (default ``1e-3``).
+        Operational proposal-path only (SI S14.3).
     bp_residual_stop_patience:
         Consecutive plateau steps required before stopping (default
         ``2``). Operational proposal-path only.
@@ -504,6 +524,7 @@ class DualFlowConfig:
     enable_bp_policy_in_loopy: bool = False
     enable_loopy_bp_convergence_probe: bool = False
     enable_loopy_bp_residual_stop: bool = False
+    enable_loopy_bp_spectrum_safe_cert: bool = False
     enable_mass_loopy_compose_probe: bool = False
     bp_residual_stop_tol: float = 1e-3
     bp_residual_stop_patience: int = 2
@@ -2478,6 +2499,8 @@ class LoopyBPScheduleResult:
     spectrum_ridge_applied: bool = False
     policy_applied: bool = False
     max_policy_damping: float = 0.0
+    residual_stop_enabled: bool = False
+    residual_stop_reason: str | None = None
     note: str = (
         "sketch only: loopy Gaussian BP message schedule on face/factor "
         "graph; not production BP; do not flip @awaiting(stage2.dual_flow)"
@@ -2735,7 +2758,10 @@ def solve_loopy_bp_schedule(
       (precision / information) with damping; beliefs = unary ⊕ messages.
 
     Proposal-path sketch (A5-EXP-loopy-bp) — **not** production BP with
-    certified convergence. Do **not** flip ``@awaiting("stage2.dual_flow")``.
+    certified convergence. When ``enable_loopy_bp_residual_stop`` is also
+    on, early-exits on residual plateau / absolute tolerance (A5-T67;
+    still not a production certificate). Do **not** flip
+    ``@awaiting("stage2.dual_flow")``.
     """
 
     cfg = config or DualFlowConfig()
@@ -2888,11 +2914,57 @@ def solve_loopy_bp_schedule(
     spectrum_ridge_applied = False
     policy_applied = False
     max_policy_damping = 0.0
+    residual_stop_enabled = bool(cfg.enable_loopy_bp_residual_stop)
+    residual_stop_reason: str | None = None
+    stop_tol = float(cfg.bp_residual_stop_tol)
+    stop_patience = int(cfg.bp_residual_stop_patience)
+    if residual_stop_enabled:
+        if stop_tol < 0.0:
+            raise ValueError("bp_residual_stop_tol must be >= 0")
+        if stop_patience < 1:
+            raise ValueError("bp_residual_stop_patience must be >= 1")
+    prev_r_data: float | None = None
+    prev_r_cons: float | None = None
+    plateau = 0
+    iters_executed = 0
     policy_cfg = DualFlowConfig(
         enable_bp_damping_policy=True,
         bp_damping=float(cfg.bp_damping),
         spectrum_cond_cap=float(cfg.spectrum_cond_cap),
     )
+
+    def _current_residuals() -> tuple[float, float]:
+        P_b_loc = P_u.copy()
+        i_b_loc = i_u.copy()
+        for sid_r, n_r in zip(ids, block_sizes, strict=True):
+            for li_r, g_r in enumerate(factor_faces[sid_r]):
+                P_b_loc[g_r] += float(msg_P[sid_r][li_r])
+                i_b_loc[g_r] += float(msg_i[sid_r][li_r])
+        p_w_loc = np.zeros(n_g, dtype=float)
+        for g_r in range(n_g):
+            if P_b_loc[g_r] > 0.0 and np.isfinite(P_b_loc[g_r]):
+                p_w_loc[g_r] = float(i_b_loc[g_r]) / float(P_b_loc[g_r])
+            else:
+                p_w_loc[g_r] = float(hat_w[g_r])
+        p_g_loc = p_w_loc * std
+        p_loc_r = M @ p_g_loc
+        eps_r = 1e-12
+        rd = float(
+            np.sum((p_loc_r - hat_local) ** 2)
+            / (np.sum(hat_local**2) + eps_r)
+        )
+        cons_num_r = 0.0
+        for sid_r, A_S_r, n_r in zip(ids, blocks_A, block_sizes, strict=True):
+            off_r = offsets[sid_r]
+            p_S_r = p_loc_r[off_r : off_r + n_r]
+            Ap_r = A_S_r @ p_S_r
+            f2_r = float(np.dot(Ap_r, Ap_r))
+            fro2_r = float(np.sum(A_S_r * A_S_r))
+            cons_num_r += f2_r / (fro2_r + float(cfg.as_eps))
+        denom_r = float(np.sum(p_g_loc * p_g_loc)) + eps_r
+        rc = cons_num_r / denom_r
+        return rd, rc
+
     for _ in range(iters):
         for sid, A_S, n in zip(ids, blocks_A, block_sizes, strict=True):
             g_ids = factor_faces[sid]
@@ -2979,6 +3051,29 @@ def solve_loopy_bp_schedule(
                 )
                 message_updates += 1
 
+        iters_executed += 1
+        # A5-T67: residual-stop early-exit when flag on.
+        if residual_stop_enabled:
+            rd_now, rc_now = _current_residuals()
+            if rd_now <= stop_tol and rc_now <= stop_tol:
+                residual_stop_reason = "abs_tol"
+                break
+            if prev_r_data is not None and prev_r_cons is not None:
+                d_rd = abs(rd_now - prev_r_data)
+                d_rc = abs(rc_now - prev_r_cons)
+                if d_rd <= stop_tol and d_rc <= stop_tol:
+                    plateau += 1
+                else:
+                    plateau = 0
+                if plateau >= stop_patience:
+                    residual_stop_reason = "plateau"
+                    break
+            prev_r_data = rd_now
+            prev_r_cons = rc_now
+
+    if residual_stop_enabled and residual_stop_reason is None:
+        residual_stop_reason = "max_iters"
+
     # Final beliefs → whitened means; unwhiten to physical pressures.
     P_b = P_u.copy()
     i_b = i_u.copy()
@@ -3024,7 +3119,7 @@ def solve_loopy_bp_schedule(
         r_data=r_data,
         r_cons=r_cons,
         epsilon_flux=e_flux,
-        iters=iters,
+        iters=int(iters_executed),
         block_sizes=tuple(block_sizes),
         simplex_ids=ids,
         n_faces=n_g,
@@ -3035,6 +3130,8 @@ def solve_loopy_bp_schedule(
         spectrum_ridge_applied=bool(spectrum_ridge_applied),
         policy_applied=bool(policy_applied),
         max_policy_damping=float(max_policy_damping),
+        residual_stop_enabled=bool(residual_stop_enabled),
+        residual_stop_reason=residual_stop_reason,
     )
 
 
@@ -4075,6 +4172,102 @@ def propose_loopy_bp_residual_stop(
         patience=patience,
         sketch_certificate_ok=sketch_ok,
         policy_in_loopy_used=bool(policy_used),
+    )
+
+
+@dataclass(frozen=True)
+class LoopyBPSpectrumSafeCertProbe:
+    """Spectrum-safe residual-stop certificate *harness* (SI S6.2; A5-T68).
+
+    Combines residual-stop early-exit with a no-ridge spectrum check.
+    ``spectrum_safe_sketch_ok`` is a *harness claim* only — **not** a
+    production certificate. Do **not** flip ``@awaiting``.
+    """
+
+    probe_flag_default_off: bool
+    residual_stop_reason: str | None
+    iters_executed: int
+    max_iters: int
+    r_data: float
+    r_cons: float
+    spectrum_ridge_applied: bool
+    spectrum_safe_sketch_ok: bool
+    note: str = (
+        "harness only: residual-stop early-exit + no-ridge spectrum check; "
+        "NOT a certified production convergence proof; do not flip @awaiting"
+    )
+
+
+def probe_loopy_bp_spectrum_safe_cert(
+    empirical_by_simplex: Mapping[Hashable, np.ndarray],
+    stencils_by_simplex: Mapping[Hashable, np.ndarray],
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]],
+    *,
+    config: DualFlowConfig | None = None,
+) -> LoopyBPSpectrumSafeCertProbe | None:
+    """Harness: residual-stop early-exit + no-ridge spectrum claim (A5-T68).
+
+    When ``enable_loopy_bp_spectrum_safe_cert`` is off, returns ``None``.
+    When on, runs :func:`solve_loopy_bp_schedule` with residual-stop
+    early-exit enabled and reports ``spectrum_safe_sketch_ok`` iff:
+
+    * ``residual_stop_reason`` is ``abs_tol`` or ``plateau``,
+    * ``spectrum_ridge_applied`` is ``False``,
+    * residuals are finite and non-negative.
+
+    Still **not** a production certificate. Does **not** flip
+    mass/density ``@awaiting``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_loopy_bp_spectrum_safe_cert:
+        return None
+    max_iters = max(int(cfg.bp_max_iters), 2)
+    run_cfg = DualFlowConfig(
+        enable_loopy_bp_schedule=True,
+        enable_loopy_bp_residual_stop=True,
+        enable_bp_policy_in_loopy=bool(cfg.enable_bp_policy_in_loopy),
+        bp_damping=float(cfg.bp_damping),
+        bp_max_iters=max_iters,
+        bp_residual_stop_tol=float(cfg.bp_residual_stop_tol),
+        bp_residual_stop_patience=int(cfg.bp_residual_stop_patience),
+        mu_scale=float(cfg.mu_scale),
+        as_eps=float(cfg.as_eps),
+        whiten_floor=float(cfg.whiten_floor),
+        spectrum_cond_cap=float(cfg.spectrum_cond_cap),
+        enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+    )
+    out = solve_loopy_bp_schedule(
+        empirical_by_simplex,
+        stencils_by_simplex,
+        simplices,
+        config=run_cfg,
+    )
+    if out is None:
+        raise RuntimeError(
+            "loopy BP unexpectedly None under spectrum-safe cert cfg"
+        )
+    rd = float(out.r_data)
+    rc = float(out.r_cons)
+    reason = out.residual_stop_reason
+    finite_ok = bool(
+        np.isfinite(rd) and np.isfinite(rc) and rd >= 0.0 and rc >= 0.0
+    )
+    sketch_ok = bool(
+        finite_ok
+        and reason in ("abs_tol", "plateau")
+        and not bool(out.spectrum_ridge_applied)
+    )
+    return LoopyBPSpectrumSafeCertProbe(
+        probe_flag_default_off=not DualFlowConfig().enable_loopy_bp_spectrum_safe_cert,
+        residual_stop_reason=reason,
+        iters_executed=int(out.iters),
+        max_iters=max_iters,
+        r_data=rd,
+        r_cons=rc,
+        spectrum_ridge_applied=bool(out.spectrum_ridge_applied),
+        spectrum_safe_sketch_ok=sketch_ok,
     )
 
 

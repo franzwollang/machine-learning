@@ -96,6 +96,7 @@ from proteus.stage2 import (
     probe_fail_closed_dual_adjacency_plan,
     probe_gate_fail_closed_switch,
     probe_loopy_bp_convergence,
+    probe_loopy_bp_spectrum_safe_cert,
     probe_mass_loopy_compose,
     propose_bp_damping_policy,
     propose_loopy_bp_residual_stop,
@@ -2339,3 +2340,141 @@ def test_mass_loopy_compose_probe_runs_mass_and_loopy():
     assert out.loopy_message_updates > 0
     assert out.loopy_r_cons >= 0.0
     assert "mass" in out.note.lower() and "awaiting" in out.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T67: residual-stop early-exit wired into solve_loopy_bp_schedule
+# ---------------------------------------------------------------------------
+
+
+def test_loopy_bp_residual_stop_early_exit_flag_off_runs_full_iters():
+    """Flag off: schedule runs full bp_max_iters; residual_stop_reason None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    hats = {
+        0: np.array([1.0, -1.0, 0.5]),
+        1: np.array([-1.0, 0.5, 0.25]),
+    }
+    stencils = {
+        0: build_divergence_stencil(left),
+        1: build_divergence_stencil(right),
+    }
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    out = solve_loopy_bp_schedule(
+        hats,
+        stencils,
+        simplices,
+        config=DualFlowConfig(
+            enable_loopy_bp_schedule=True,
+            enable_loopy_bp_residual_stop=False,
+            bp_max_iters=4,
+            bp_damping=0.5,
+        ),
+    )
+    assert out is not None
+    assert out.residual_stop_enabled is False
+    assert out.residual_stop_reason is None
+    assert out.iters == 4
+    assert DualFlowConfig().enable_loopy_bp_residual_stop is False
+
+
+def test_loopy_bp_residual_stop_early_exit_can_stop_before_max():
+    """Flag on: early-exit records stop reason; iters <= bp_max_iters."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    hats = {
+        0: np.array([1.0, -1.0, 0.5]),
+        1: np.array([-1.0, 0.5, 0.25]),
+    }
+    stencils = {
+        0: build_divergence_stencil(left),
+        1: build_divergence_stencil(right),
+    }
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    out = solve_loopy_bp_schedule(
+        hats,
+        stencils,
+        simplices,
+        config=DualFlowConfig(
+            enable_loopy_bp_schedule=True,
+            enable_loopy_bp_residual_stop=True,
+            bp_max_iters=8,
+            bp_residual_stop_tol=1e-3,
+            bp_residual_stop_patience=2,
+            bp_damping=0.5,
+        ),
+    )
+    assert out is not None
+    assert out.residual_stop_enabled is True
+    assert out.residual_stop_reason in ("abs_tol", "plateau", "max_iters")
+    assert 1 <= out.iters <= 8
+    if out.residual_stop_reason in ("abs_tol", "plateau"):
+        assert out.iters < 8
+    assert DualFlowConfig().enable_loopy_bp_residual_stop is False
+
+
+# ---------------------------------------------------------------------------
+# A5-T68: spectrum-safe residual-stop certificate harness (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_loopy_bp_spectrum_safe_cert_flag_off_returns_none():
+    """enable_loopy_bp_spectrum_safe_cert=False ⇒ probe is None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    hats = {0: np.array([0.1, -0.2, 0.05])}
+    stencils = {0: build_divergence_stencil(left)}
+    assert (
+        probe_loopy_bp_spectrum_safe_cert(
+            hats, stencils, {0: (0, 1, 2)}, config=DualFlowConfig()
+        )
+        is None
+    )
+
+
+def test_loopy_bp_spectrum_safe_cert_harness_reports_sketch_claim():
+    """Flag on: harness returns spectrum_safe_sketch_ok; default stays off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    hats = {
+        0: np.array([1.0, -1.0, 0.5]),
+        1: np.array([-1.0, 0.5, 0.25]),
+    }
+    stencils = {
+        0: build_divergence_stencil(left),
+        1: build_divergence_stencil(right),
+    }
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    probe = probe_loopy_bp_spectrum_safe_cert(
+        hats,
+        stencils,
+        simplices,
+        config=DualFlowConfig(
+            enable_loopy_bp_spectrum_safe_cert=True,
+            bp_max_iters=6,
+            bp_residual_stop_tol=1e-3,
+            bp_residual_stop_patience=2,
+            bp_damping=0.5,
+            spectrum_cond_cap=1e12,
+        ),
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert DualFlowConfig().enable_loopy_bp_spectrum_safe_cert is False
+    assert probe.residual_stop_reason in ("abs_tol", "plateau", "max_iters")
+    assert 1 <= probe.iters_executed <= probe.max_iters
+    assert probe.r_data >= 0.0 and probe.r_cons >= 0.0
+    assert isinstance(probe.spectrum_ridge_applied, bool)
+    assert isinstance(probe.spectrum_safe_sketch_ok, bool)
+    if (
+        probe.residual_stop_reason in ("abs_tol", "plateau")
+        and not probe.spectrum_ridge_applied
+    ):
+        assert probe.spectrum_safe_sketch_ok is True
+    else:
+        assert probe.spectrum_safe_sketch_ok is False
+    assert "harness" in probe.note.lower() or "not" in probe.note.lower()
+    assert "awaiting" in probe.note.lower() or "certificate" in probe.note.lower()
