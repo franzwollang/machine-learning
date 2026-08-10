@@ -1807,7 +1807,7 @@ def test_bp_spectrum_damping_probe_flag_off_returns_none():
 
 
 def test_bp_spectrum_damping_probe_fires_mu_and_loopy_ridge():
-    """Flag on + spectrum_cond_cap=0 ⇒ μ spectrum_damped + loopy ridge."""
+    """Flag on + tiny spectrum_cond_cap ⇒ μ spectrum_damped + loopy ridge."""
 
     cfg = DualFlowConfig(enable_bp_spectrum_damping_probe=True)
     probe = probe_bp_spectrum_damping(config=cfg)
