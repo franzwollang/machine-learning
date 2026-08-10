@@ -173,10 +173,10 @@ def linked_tori_seed2_densify256_hollow_cal_mult_bundle() -> (
         include_labels=[0, 1],
         max_dim=2,
         expected_betti=EXPECTED_TORI,
-        b1_target=2,
     )
     signal_fixed_betti = {
-        int(r.region_id): tuple(int(x) for x in r.betti) for r in signal_fixed.rows
+        int(r.region_id): tuple(int(x) for x in r.betti)
+        for r in signal_fixed.reports
     }
     signal_max_b1 = max(
         (int(b[1]) if len(b) > 1 else 0) for b in signal_fixed_betti.values()
@@ -218,10 +218,10 @@ def linked_tori_seed2_densify256_hollow_cal_mult_bundle() -> (
         include_labels=[0, 1],
         max_dim=2,
         expected_betti=EXPECTED_TORI,
-        b1_target=2,
     )
     hollow_fixed_betti = {
-        int(r.region_id): tuple(int(x) for x in r.betti) for r in hollow_fixed.rows
+        int(r.region_id): tuple(int(x) for x in r.betti)
+        for r in hollow_fixed.reports
     }
 
     grid = sweep_lifetime_mult_grid_per_region(
