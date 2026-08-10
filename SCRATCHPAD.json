@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-10T04:20:00Z",
-  "turn": 58,
+  "updated_at": "2026-08-10T05:05:00Z",
+  "turn": 59,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "quad-scoop denser keep seed0-only + densify cliff + Phi multi-seed"
+    "goal": "triple-scoop denser seed0-only + densify@320 cliff + Phi decay"
   },
   "recent": [
-    "Quad-scoop A2-T65..T66 denser keep≠e2e + seed0-only multi-seed",
-    "A4-T74..T79 densify256 schedule win; cliff@512; tissue cal4 clean",
-    "A5-T78..T80 traj/patience/fail_closed bridge; A6-T78..T80 Phi"
+    "Triple-scoop A2-T67..T68 denser seed1 inflate kill + multi-seed e2e",
+    "A4-T80..T85 densify cliff onset@320; cal4 pin through noise0.12",
+    "A5-T81..T85 patience×cap; A6-T81..T86 stab/Phi decay"
   ],
   "discoveries": [
-    "denser keep soft≤0.12 is seed0-only; seeds1–2 no majors keep",
-    "schedule hollow wins at densify128/256; regression cliff densify512",
-    "Phi-peak=idx1 all thr0.30 accepts; LW≡peak only seed2"
+    "denser soft×gabriel×persist multi-seed e2e = seed0 youden only",
+    "schedule hollow cliff onset by densify320 (not just 384/512)",
+    "stab Phi-argmax≠LW; Phi decay monotonic; skip thr-invariant"
   ],
   "open_threads": [
-    "A2-T67 compose seed1; T68 multi-seed persist; A3 SI T80..T82",
-    "A4 densify384 cliff; A5 spectrum×patience; A6 stab-after-peak",
+    "A2-T69 seed0 pin; A3 SI T83..T85 / EXP-si103..si106",
+    "A4 densify288/304; A5 patience×cap×fail_closed; A6 half-life",
     "#45 deferred until #44 sample-ARI"
   ],
-  "next_step": "Push MERGE_DONE; workers pull T67+/T80+/T80+/T81+/T81+",
+  "next_step": "Push MERGE_DONE; workers pull T69+/T83+/T86+/T86+/T87+",
   "blockers": []
 }
