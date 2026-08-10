@@ -57,6 +57,8 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   lands behind ``enable_mass_loopy_compose_probe`` (A5-T66). A
   policy × residual-stop compose *multi-iter residual pin* lands
   behind ``enable_policy_residual_compose_probe`` (A5-T69; proposal-path
+  only). A spectrum-safe × policy_in_loopy *multi-cond pin* lands
+  behind ``enable_spectrum_safe_policy_pin_probe`` (A5-T70; harness
   only). Remaining real-BP gaps: true spectrum-safe production loopy
   BP certificate; true-manifold flux zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
@@ -162,6 +164,15 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
   :func:`probe_mass_loopy_compose` returns ``None``; when on, runs
   mass-normalization together with online→offline loopy compose
   (A5-T66; proposal-path; does not flip ``@awaiting``).
+* ``DualFlowConfig.enable_policy_residual_compose_probe`` — when off,
+  :func:`probe_policy_residual_compose` returns ``None``; when on,
+  pins multi-iter residuals under policy-in-loopy then compose with
+  residual-stop (A5-T69; proposal-path).
+* ``DualFlowConfig.enable_spectrum_safe_policy_pin_probe`` — when off,
+  :func:`probe_spectrum_safe_policy_pin` returns ``None``; when on,
+  pins spectrum-safe residual-stop harness outcomes across a
+  ``spectrum_cond_cap`` grid with policy-in-loopy on (A5-T70; harness
+  only — **not** a production certificate).
 * Call sites that opt in (tests / experimental dry-runs) pass flags ``True``
   and feed results into the gate or diagnostics.
 
@@ -247,6 +258,8 @@ __all__ = [
     "LoopyBPSpectrumSafeCertProbe",
     "MassLoopyComposeProbe",
     "PolicyResidualComposeProbe",
+    "SpectrumSafePolicyPinCase",
+    "SpectrumSafePolicyPinProbe",
     "SharedFacePair",
     "build_dual_adjacency",
     "build_dual_adjacency_from_complex",
@@ -295,6 +308,7 @@ __all__ = [
     "probe_loopy_bp_spectrum_safe_cert",
     "probe_mass_loopy_compose",
     "probe_policy_residual_compose",
+    "probe_spectrum_safe_policy_pin",
     "probe_fail_closed_dual_adjacency_plan",
     "probe_gate_fail_closed_switch",
 ]
@@ -463,6 +477,12 @@ class DualFlowConfig:
         ``enable_bp_policy_in_loopy`` and runs online→offline loopy
         compose with residual-stop early-exit (A5-T69; proposal-path;
         does not flip mass/density ``@awaiting``).
+    enable_spectrum_safe_policy_pin_probe:
+        When ``False`` (default), :func:`probe_spectrum_safe_policy_pin`
+        returns ``None``. When ``True``, pins spectrum-safe residual-stop
+        harness outcomes across a ``spectrum_cond_cap`` grid with
+        ``enable_bp_policy_in_loopy`` on (A5-T70; harness only — **not**
+        a production certificate; does not flip ``@awaiting``).
     bp_residual_stop_tol:
         Absolute plateau tolerance on ``|Δr_data|`` / ``|Δr_cons|`` for
         the residual-stop sketch / early-exit (default ``1e-3``).
@@ -537,6 +557,7 @@ class DualFlowConfig:
     enable_loopy_bp_spectrum_safe_cert: bool = False
     enable_mass_loopy_compose_probe: bool = False
     enable_policy_residual_compose_probe: bool = False
+    enable_spectrum_safe_policy_pin_probe: bool = False
     bp_residual_stop_tol: float = 1e-3
     bp_residual_stop_patience: int = 2
     bp_damping: float = 0.5
@@ -4566,4 +4587,141 @@ def probe_policy_residual_compose(
         compose_residual_stop_reason=compose.loopy_residual_stop_reason,
         compose_loopy_iters=int(compose.loopy_iters),
         compose_max_iters=compose_max,
+    )
+
+
+@dataclass(frozen=True)
+class SpectrumSafePolicyPinCase:
+    """One ``spectrum_cond_cap`` cell of the spectrum-safe×policy pin (A5-T70)."""
+
+    spectrum_cond_cap: float
+    residual_stop_reason: str | None
+    iters_executed: int
+    max_iters: int
+    r_data: float
+    r_cons: float
+    spectrum_ridge_applied: bool
+    policy_applied: bool
+    max_policy_damping: float
+    spectrum_safe_sketch_ok: bool
+
+
+@dataclass(frozen=True)
+class SpectrumSafePolicyPinProbe:
+    """Spectrum-safe × policy_in_loopy multi-cond pin (SI S6.2; A5-T70).
+
+    Pins residual-stop + no-ridge harness outcomes across a
+    ``spectrum_cond_cap`` grid with ``enable_bp_policy_in_loopy`` on.
+    ``spectrum_safe_sketch_ok`` remains a *harness claim* only — **not** a
+    production certificate. Do **not** flip mass/density ``@awaiting``.
+    """
+
+    probe_flag_default_off: bool
+    caps: tuple[float, ...]
+    cases: tuple[SpectrumSafePolicyPinCase, ...]
+    note: str = (
+        "harness only: spectrum-safe residual-stop × policy-in-loopy "
+        "multi-cond pin; NOT a certified production convergence proof; "
+        "do not flip mass/density @awaiting"
+    )
+
+
+def probe_spectrum_safe_policy_pin(
+    empirical_by_simplex: Mapping[Hashable, np.ndarray],
+    stencils_by_simplex: Mapping[Hashable, np.ndarray],
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]],
+    *,
+    spectrum_cond_caps: Sequence[float] | None = None,
+    config: DualFlowConfig | None = None,
+) -> SpectrumSafePolicyPinProbe | None:
+    """Pin spectrum-safe harness across ``spectrum_cond_cap`` values (A5-T70).
+
+    When ``enable_spectrum_safe_policy_pin_probe`` is off, returns ``None``.
+    When on, for each cap in ``spectrum_cond_caps`` (default
+    ``(1e-12, 1.0, 1e6, 1e12)``) runs :func:`solve_loopy_bp_schedule` with:
+
+    * ``enable_loopy_bp_schedule`` / residual-stop early-exit on,
+    * ``enable_bp_policy_in_loopy`` on,
+    * that cell's ``spectrum_cond_cap``,
+
+    and reports the same harness ``spectrum_safe_sketch_ok`` rule as
+    :func:`probe_loopy_bp_spectrum_safe_cert` (abs_tol/plateau + no ridge
+    + finite non-neg residuals). Still **not** a production certificate.
+    Does **not** flip mass/density ``@awaiting``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_spectrum_safe_policy_pin_probe:
+        return None
+    caps = tuple(
+        float(c)
+        for c in (
+            spectrum_cond_caps
+            if spectrum_cond_caps is not None
+            else (1e-12, 1.0, 1e6, 1e12)
+        )
+    )
+    if not caps:
+        raise ValueError("spectrum_cond_caps must be non-empty")
+    if any(not np.isfinite(c) or c <= 0.0 for c in caps):
+        raise ValueError("spectrum_cond_caps must be finite and > 0")
+
+    max_iters = max(int(cfg.bp_max_iters), 2)
+    cases: list[SpectrumSafePolicyPinCase] = []
+    for cap in caps:
+        run_cfg = DualFlowConfig(
+            enable_loopy_bp_schedule=True,
+            enable_loopy_bp_residual_stop=True,
+            enable_bp_policy_in_loopy=True,
+            bp_damping=float(cfg.bp_damping),
+            bp_max_iters=max_iters,
+            bp_residual_stop_tol=float(cfg.bp_residual_stop_tol),
+            bp_residual_stop_patience=int(cfg.bp_residual_stop_patience),
+            mu_scale=float(cfg.mu_scale),
+            as_eps=float(cfg.as_eps),
+            whiten_floor=float(cfg.whiten_floor),
+            spectrum_cond_cap=float(cap),
+            enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+        )
+        out = solve_loopy_bp_schedule(
+            empirical_by_simplex,
+            stencils_by_simplex,
+            simplices,
+            config=run_cfg,
+        )
+        if out is None:
+            raise RuntimeError(
+                "loopy BP unexpectedly None under spectrum-safe×policy pin cfg"
+            )
+        rd = float(out.r_data)
+        rc = float(out.r_cons)
+        reason = out.residual_stop_reason
+        finite_ok = bool(
+            np.isfinite(rd) and np.isfinite(rc) and rd >= 0.0 and rc >= 0.0
+        )
+        sketch_ok = bool(
+            finite_ok
+            and reason in ("abs_tol", "plateau")
+            and not bool(out.spectrum_ridge_applied)
+        )
+        cases.append(
+            SpectrumSafePolicyPinCase(
+                spectrum_cond_cap=float(cap),
+                residual_stop_reason=reason,
+                iters_executed=int(out.iters),
+                max_iters=max_iters,
+                r_data=rd,
+                r_cons=rc,
+                spectrum_ridge_applied=bool(out.spectrum_ridge_applied),
+                policy_applied=bool(out.policy_applied),
+                max_policy_damping=float(out.max_policy_damping),
+                spectrum_safe_sketch_ok=sketch_ok,
+            )
+        )
+
+    return SpectrumSafePolicyPinProbe(
+        probe_flag_default_off=not DualFlowConfig().enable_spectrum_safe_policy_pin_probe,
+        caps=caps,
+        cases=tuple(cases),
     )

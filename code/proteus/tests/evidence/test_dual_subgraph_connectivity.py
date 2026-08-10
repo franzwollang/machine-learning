@@ -65,6 +65,7 @@ from proteus.evidence import (
     GateConfig,
     affected_dual_subgraph_connected,
     bdeu_alpha,
+    probe_fail_closed_evidence_gate_matrix,
     probe_fail_closed_score_edit_matrix,
     score_edit,
     star_incidence_matrix,
@@ -99,6 +100,7 @@ from proteus.stage2 import (
     probe_loopy_bp_spectrum_safe_cert,
     probe_mass_loopy_compose,
     probe_policy_residual_compose,
+    probe_spectrum_safe_policy_pin,
     propose_bp_damping_policy,
     propose_loopy_bp_residual_stop,
     query_stage1_ann_bmus,
@@ -2573,3 +2575,122 @@ def test_online_offline_loopy_compose_forwards_residual_stop():
     assert out.loopy_residual_stop_reason in ("abs_tol", "plateau", "max_iters")
     assert 1 <= out.loopy_iters <= 8
     assert DualFlowConfig().enable_loopy_bp_residual_stop is False
+
+
+# ---------------------------------------------------------------------------
+# A5-T70: spectrum-safe × policy_in_loopy multi-cond pin (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_spectrum_safe_policy_pin_flag_off_returns_none():
+    """enable_spectrum_safe_policy_pin_probe=False ⇒ probe is None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    hats = {0: np.array([0.1, -0.2, 0.05])}
+    stencils = {0: build_divergence_stencil(left)}
+    assert (
+        probe_spectrum_safe_policy_pin(
+            hats, stencils, {0: (0, 1, 2)}, config=DualFlowConfig()
+        )
+        is None
+    )
+
+
+def test_spectrum_safe_policy_pin_multi_cond_grid():
+    """Flag on: pin spectrum-safe harness across cond caps; defaults stay off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    hats = {
+        0: np.array([1.0, -1.0, 0.5]),
+        1: np.array([-1.0, 0.5, 0.25]),
+    }
+    stencils = {
+        0: build_divergence_stencil(left),
+        1: build_divergence_stencil(right),
+    }
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    caps = (1e-12, 1.0, 1e6, 1e12)
+    probe = probe_spectrum_safe_policy_pin(
+        hats,
+        stencils,
+        simplices,
+        spectrum_cond_caps=caps,
+        config=DualFlowConfig(
+            enable_spectrum_safe_policy_pin_probe=True,
+            bp_max_iters=6,
+            bp_residual_stop_tol=1e-3,
+            bp_residual_stop_patience=2,
+            bp_damping=0.5,
+        ),
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert DualFlowConfig().enable_spectrum_safe_policy_pin_probe is False
+    assert DualFlowConfig().enable_bp_policy_in_loopy is False
+    assert DualFlowConfig().enable_loopy_bp_spectrum_safe_cert is False
+    assert probe.caps == caps
+    assert len(probe.cases) == len(caps)
+    # Tight cap should engage the damping-policy path on this fixture.
+    assert probe.cases[0].policy_applied is True
+    for case in probe.cases:
+        assert case.spectrum_cond_cap in caps
+        assert case.residual_stop_reason in ("abs_tol", "plateau", "max_iters")
+        assert 1 <= case.iters_executed <= case.max_iters
+        assert case.r_data >= 0.0 and case.r_cons >= 0.0
+        assert isinstance(case.spectrum_ridge_applied, bool)
+        assert isinstance(case.policy_applied, bool)
+        assert case.max_policy_damping >= 0.0
+        if (
+            case.residual_stop_reason in ("abs_tol", "plateau")
+            and not case.spectrum_ridge_applied
+        ):
+            assert case.spectrum_safe_sketch_ok is True
+        else:
+            assert case.spectrum_safe_sketch_ok is False
+    assert "harness" in probe.note.lower() or "not" in probe.note.lower()
+    assert "awaiting" in probe.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T71: fail_closed live EvidenceGate.evaluate matrix vs score_edit
+# ---------------------------------------------------------------------------
+
+
+def test_fail_closed_evidence_gate_matrix_defaults_and_parity():
+    """A5-T71: live EvidenceGate.evaluate matches score_edit matrix; defaults off."""
+
+    keep, edit, proposal, good_stars = _good_split_fixture()
+    connected = {
+        "S0": ("S1", "S2"),
+        "S1": ("S0", "S2"),
+        "S2": ("S0", "S1"),
+    }
+    disconnect = {
+        "S0": ("S1",),
+        "S1": ("S0",),
+        "S2": (),
+    }
+    probe = probe_fail_closed_evidence_gate_matrix(
+        keep,
+        edit,
+        proposal,
+        edit_stars=good_stars,
+        keep_stars=good_stars,
+        connected_adj=connected,
+        disconnect_adj=disconnect,
+        affected_simplices=["S0", "S2"],
+    )
+    assert probe.defaults_unchanged is True
+    assert probe.apply_dual_default is False
+    assert probe.fail_closed_default is False
+    assert GateConfig().apply_dual_adjacency is False
+    assert GateConfig().fail_closed_dual_adjacency is False
+    assert probe.n_cases >= 8
+    assert probe.n_matched == probe.n_cases
+    assert probe.all_matched is True
+    for case in probe.cases:
+        assert case.match is True
+        assert case.score_edit_accepted is case.expect_accept
+        assert case.evidence_gate_accepted is case.expect_accept
+    assert "awaiting" in probe.note.lower() or "default" in probe.note.lower()
