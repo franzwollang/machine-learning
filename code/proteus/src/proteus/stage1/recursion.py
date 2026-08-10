@@ -319,6 +319,11 @@ class RecursionConfig:
     non-persist matches T73 (youden nested K=2≈0.01; soft all ≤1);
     soft×persist e2e also ≤1 — persist does not rescue T73 soft e2e
     collapse; defaults off.
+    A2-T76: denser soft keep×gabriel×persist majors-pin seed0-only ARI
+    probe — fine T55 soft_frac grid under T69 compose: soft≤0.12 → tori
+    K=2 chance-ARI≈0.16–0.18 (gabriel kills; soft≥0.15 collapses);
+    soft×persist e2e all ≤1 across fine grid; only seed0 youden nested
+    K=2≈0.01; defaults off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
