@@ -162,6 +162,11 @@ class HollowEdgeConfig:
     denser scaffolds: soft_frac≤0.12 keeps tori K=2 chance-ARI≈0.16–0.18;
     soft≥0.15 collapses to 1 (tighter than T50's soft≥0.25 coarse grid).
     Nested stays ≤1. Still not sample-ARI recovery; defaults off.
+
+    A2-T56: denser soft seed0 tori window × bridge_mass — see
+    :data:`DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_*`. Betweenness keep band
+    (soft≤0.12) is **method-specific**: bridge_mass collapses tori to 1
+    across soft_frac∈{0.05..0.25}. Defaults off.
     """
 
     mid_radius_frac: float = 0.35
@@ -1541,6 +1546,93 @@ def format_denser_soft_seed0_tori_ari_window_table() -> str:
             f"{tm}\t{ta_s}"
         )
     lines.append(f"# {DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Denser soft seed0 tori window × bridge_mass (A2-T56 → A3 SI)
+# ---------------------------------------------------------------------------
+# Same denser seed0 grid as T55. Betweenness keep band (soft≤0.12 → tori
+# K=2) does **not** reproduce under soft_capacity_method=bridge_mass:
+# soft_frac∈{0.05..0.25} → tori+nested ≤1. Keep band is method-specific.
+
+DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_SEED: int = 0
+DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_FRACS: tuple[float, ...] = (
+    DENSER_SOFT_SEED0_TORI_ARI_WINDOW_FRACS
+)
+DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_NESTED_N: int = (
+    DENSER_SOFT_SEED0_TORI_ARI_WINDOW_NESTED_N
+)
+DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_TORI_N: int = (
+    DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TORI_N
+)
+DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_MAX_NODES: int = (
+    DENSER_SOFT_SEED0_TORI_ARI_WINDOW_MAX_NODES
+)
+DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_NESTED_TAU: float = (
+    DENSER_SOFT_SEED0_TORI_ARI_WINDOW_NESTED_TAU
+)
+DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_TORI_TAU: float = (
+    DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TORI_TAU
+)
+DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_H0: float = PROPOSED_H0_YOUDEN
+DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_METHOD: str = "bridge_mass"
+
+# mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_TABLE: dict[
+    str, tuple[int, float | None, int, float | None]
+] = {
+    "youden": (1, None, 2, 0.14),
+    "soft_0.05": (1, None, 1, None),
+    "soft_0.08": (1, None, 1, None),
+    "soft_0.1": (1, None, 1, None),
+    "soft_0.12": (1, None, 1, None),
+    "soft_0.15": (1, None, 1, None),
+    "soft_0.18": (1, None, 1, None),
+    "soft_0.2": (1, None, 1, None),
+    "soft_0.25": (1, None, 1, None),
+}
+
+DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_SI_NOTE: str = (
+    "A2-T56 denser soft seed0 tori ARI window × bridge_mass "
+    "(n=160/240, max_nodes=128, mid=0.5 gabriel=False): T55 betweenness "
+    "keep band soft_frac≤0.12 (tori K=2 chance-ARI) is method-specific — "
+    "bridge_mass collapses tori to 1 across soft_frac∈{0.05..0.25}. "
+    "Nested ≤1. Soft≠sample-ARI recovery; defaults off; no awaiting flip."
+)
+
+
+def format_denser_soft_seed0_bridge_mass_window_table() -> str:
+    """TSV export of denser soft seed0 window × bridge_mass (A2-T56)."""
+
+    lines = [
+        "# denser soft seed0 tori ARI window × bridge_mass",
+        f"# nested_n={DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_NESTED_N} "
+        f"tori_n={DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_TORI_N} "
+        f"max_nodes={DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_MAX_NODES} "
+        f"h0={DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_H0:g} "
+        f"method={DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_METHOD} "
+        f"seed={DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_SEED} "
+        f"fracs={list(DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_FRACS)}",
+        "seed\tmode\tdataset\ttau\tmajors\tsample_ari",
+    ]
+    seed = DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_SEED
+    for mode, (nm, na, tm, ta) in (
+        DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_TABLE.items()
+    ):
+        na_s = "" if na is None else f"{na:.2f}"
+        ta_s = "" if ta is None else f"{ta:.2f}"
+        lines.append(
+            f"{seed}\t{mode}\tnested\t"
+            f"{DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_NESTED_TAU:g}\t"
+            f"{nm}\t{na_s}"
+        )
+        lines.append(
+            f"{seed}\t{mode}\ttori\t"
+            f"{DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_TORI_TAU:g}\t"
+            f"{tm}\t{ta_s}"
+        )
+    lines.append(f"# {DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_SI_NOTE}")
     return "\n".join(lines)
 
 

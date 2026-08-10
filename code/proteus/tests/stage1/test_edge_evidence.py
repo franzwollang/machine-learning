@@ -1173,3 +1173,38 @@ def test_denser_soft_seed0_tori_ari_window_export() -> None:
     assert "sample-ARI" in DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SI_NOTE
     assert "defaults off" in DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SI_NOTE
     assert "awaiting" in DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SI_NOTE
+
+
+def test_denser_soft_seed0_bridge_mass_window_export() -> None:
+    """#44 / A2-T56: denser soft seed0 window × bridge_mass export.
+
+    T55 betweenness keep band is method-specific; bridge_mass collapses
+    soft∈{0.05..0.25}. Defaults off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_FRACS,
+        DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_H0,
+        DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_METHOD,
+        DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_SEED,
+        DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_SI_NOTE,
+        DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_TABLE,
+        format_denser_soft_seed0_bridge_mass_window_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_method == "betweenness"
+    assert abs(DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_H0 - 0.73) < 1e-9
+    assert DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_SEED == 0
+    assert DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_METHOD == "bridge_mass"
+    assert DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_FRACS[0] == 0.05
+    assert DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_TABLE["youden"][2] == 2
+    for frac in DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_FRACS:
+        assert DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_TABLE[
+            f"soft_{frac:g}"
+        ][2] <= 1
+    tsv = format_denser_soft_seed0_bridge_mass_window_table()
+    assert "bridge_mass" in tsv and "soft_0.05" in tsv
+    assert "method-specific" in DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_SI_NOTE
+    assert "sample-ARI" in DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_SI_NOTE
+    assert "defaults off" in DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_SI_NOTE
+    assert "awaiting" in DENSER_SOFT_SEED0_BRIDGE_MASS_WINDOW_SI_NOTE
