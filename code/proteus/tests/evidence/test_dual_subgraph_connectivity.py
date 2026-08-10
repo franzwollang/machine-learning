@@ -65,6 +65,7 @@ from proteus.evidence import (
     GateConfig,
     affected_dual_subgraph_connected,
     bdeu_alpha,
+    probe_fail_closed_dry_run_evidence_gate,
     probe_fail_closed_evidence_gate_matrix,
     probe_fail_closed_score_edit_matrix,
     score_edit,
@@ -101,6 +102,7 @@ from proteus.stage2 import (
     probe_mass_loopy_compose,
     probe_policy_residual_compose,
     probe_spectrum_safe_policy_pin,
+    probe_spectrum_safe_policy_traj,
     propose_bp_damping_policy,
     propose_loopy_bp_residual_stop,
     query_stage1_ann_bmus,
@@ -2689,6 +2691,130 @@ def test_fail_closed_evidence_gate_matrix_defaults_and_parity():
     assert probe.n_cases >= 8
     assert probe.n_matched == probe.n_cases
     assert probe.all_matched is True
+    for case in probe.cases:
+        assert case.match is True
+        assert case.score_edit_accepted is case.expect_accept
+        assert case.evidence_gate_accepted is case.expect_accept
+    assert "awaiting" in probe.note.lower() or "default" in probe.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T72: spectrum-safe × policy cap-sweep residual traj export (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_spectrum_safe_policy_traj_flag_off_returns_none():
+    """enable_spectrum_safe_policy_traj_probe=False ⇒ probe is None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    hats = {0: np.array([0.1, -0.2, 0.05])}
+    stencils = {0: build_divergence_stencil(left)}
+    assert (
+        probe_spectrum_safe_policy_traj(
+            hats, stencils, {0: (0, 1, 2)}, config=DualFlowConfig()
+        )
+        is None
+    )
+
+
+def test_spectrum_safe_policy_traj_cap_sweep_export():
+    """Flag on: export residual traj across cond caps; defaults stay off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    hats = {
+        0: np.array([1.0, -1.0, 0.5]),
+        1: np.array([-1.0, 0.5, 0.25]),
+    }
+    stencils = {
+        0: build_divergence_stencil(left),
+        1: build_divergence_stencil(right),
+    }
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    caps = (1e-12, 1.0, 1e6, 1e12)
+    probe = probe_spectrum_safe_policy_traj(
+        hats,
+        stencils,
+        simplices,
+        spectrum_cond_caps=caps,
+        max_traj_iters=4,
+        config=DualFlowConfig(
+            enable_spectrum_safe_policy_traj_probe=True,
+            bp_max_iters=4,
+            bp_residual_stop_tol=1e-3,
+            bp_residual_stop_patience=2,
+            bp_damping=0.5,
+        ),
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert DualFlowConfig().enable_spectrum_safe_policy_traj_probe is False
+    assert DualFlowConfig().enable_spectrum_safe_policy_pin_probe is False
+    assert DualFlowConfig().enable_bp_policy_in_loopy is False
+    assert probe.caps == caps
+    assert len(probe.cases) == len(caps)
+    # Tight cap should engage the damping-policy path on this fixture.
+    assert probe.cases[0].policy_applied_any is True
+    for case in probe.cases:
+        assert case.spectrum_cond_cap in caps
+        assert case.iters == (1, 2, 3, 4)
+        assert len(case.r_data_traj) == 4
+        assert len(case.r_cons_traj) == 4
+        assert all(r >= 0.0 for r in case.r_data_traj)
+        assert all(r >= 0.0 for r in case.r_cons_traj)
+        assert case.residual_stop_reason_final in (
+            "abs_tol",
+            "plateau",
+            "max_iters",
+        )
+        assert 1 <= case.iters_executed_final <= case.max_iters
+        assert isinstance(case.spectrum_ridge_applied_final, bool)
+        assert case.max_policy_damping >= 0.0
+        if (
+            case.residual_stop_reason_final in ("abs_tol", "plateau")
+            and not case.spectrum_ridge_applied_final
+        ):
+            assert case.spectrum_safe_sketch_ok is True
+        else:
+            assert case.spectrum_safe_sketch_ok is False
+    assert "harness" in probe.note.lower() or "not" in probe.note.lower()
+    assert "awaiting" in probe.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T73: fail_closed × live dry_run_dual_from_edit × EvidenceGate
+# ---------------------------------------------------------------------------
+
+
+def test_fail_closed_dry_run_evidence_gate_matrix():
+    """A5-T73: dry-run dual × fail_closed × EvidenceGate; defaults stay off."""
+
+    keep, edit, proposal, good_stars = _good_split_fixture()
+    probe = probe_fail_closed_dry_run_evidence_gate(
+        keep,
+        edit,
+        proposal,
+        edit_stars=good_stars,
+        keep_stars=good_stars,
+        complex_path=_path_edge_complex(),
+    )
+    assert probe.defaults_unchanged is True
+    assert probe.apply_dual_default is False
+    assert probe.fail_closed_default is False
+    assert probe.dual_adjacency_default is False
+    assert GateConfig().apply_dual_adjacency is False
+    assert GateConfig().fail_closed_dual_adjacency is False
+    assert DualFlowConfig().enable_dual_adjacency is False
+    assert probe.n_cases >= 8
+    assert probe.n_matched == probe.n_cases
+    assert probe.all_matched is True
+    by_name = {c.name: c for c in probe.cases}
+    assert by_name["adj_off_apply_fail_closed_reject"].dry_adj_none is True
+    assert by_name["adj_off_apply_fail_closed_reject"].expect_accept is False
+    assert by_name["adj_on_disconnect_apply_reject"].dry_connected is False
+    assert by_name["adj_on_disconnect_apply_reject"].expect_accept is False
+    assert by_name["adj_on_connected_apply_fail_closed_accept"].dry_connected is True
+    assert by_name["adj_on_connected_apply_fail_closed_accept"].expect_accept is True
     for case in probe.cases:
         assert case.match is True
         assert case.score_edit_accepted is case.expect_accept
