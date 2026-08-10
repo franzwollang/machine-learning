@@ -2782,6 +2782,83 @@ def test_soft_x_proposed_h0_nested_tori_ari() -> None:
     assert recovered == 0
 
 
+def test_soft_x_youden_multiseed_nested_tori_ari() -> None:
+    """#44 / A2-T44: multi-seed soft×Youden h0≈0.73 majors+sample-ARI.
+
+    Soft×youden is seed-fragile across seeds 0..2: seed0 nested≤1 /
+    tori K=2 ARI≈0.26; seed1 soft *inflates* nested K=2 ARI≈0.08 while
+    youden alone ≤1; seed2 soft collapses both. Still **not** sample-ARI
+    recovery. Flags default-off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_X_YOUDEN_MULTISEED_SEEDS,
+        SOFT_X_YOUDEN_MULTISEED_SOFT_FRAC,
+        SOFT_X_YOUDEN_MULTISEED_TABLE,
+        proposed_h0_calibrated_config,
+    )
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().hollow_h0 == 0.35
+    assert RecursionConfig().hollow_soft_capacity_only is False
+
+    recovered = 0
+    for seed in SOFT_X_YOUDEN_MULTISEED_SEEDS:
+        nested = make_nested_spheres(n_per_sphere=80, extrusion_dim=1, seed=seed)
+        tori = make_linked_tori(n_per_torus=120, seed=seed)
+
+        def _adapt(points, tau: float, rng_seed: int = seed):
+            sc = Stage1Scaffold(
+                dim=int(points.shape[1]), tau=float(tau), k=8, max_nodes=64,
+                ann_backend="naive", rng=np.random.default_rng(rng_seed),
+            )
+            sc.init_from(points, n_seeds=8)
+            sc.run_until_stable(
+                points,
+                StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+            )
+            return sc
+
+        sc_n = _adapt(nested.points, 0.27)
+        sc_t = _adapt(tori.points, 0.5)
+        cfgs = {
+            "youden": proposed_h0_calibrated_config("youden"),
+            "soft_x_youden": proposed_h0_calibrated_config(
+                "youden",
+                soft_capacity_only=True,
+                soft_capacity_frac=SOFT_X_YOUDEN_MULTISEED_SOFT_FRAC,
+            ),
+        }
+        for mode, cfg in cfgs.items():
+            nm, na = _hollow_majors_and_sample_ari(
+                sc_n, nested.points, nested.labels, cfg,
+            )
+            tm, ta = _hollow_majors_and_sample_ari(
+                sc_t, tori.points, tori.labels, cfg,
+            )
+            exp_nm, exp_na, exp_tm, exp_ta = SOFT_X_YOUDEN_MULTISEED_TABLE[seed][mode]
+            assert nm == exp_nm
+            assert tm == exp_tm
+            if exp_na is not None:
+                assert na is not None and abs(na - exp_na) < 0.08
+            else:
+                assert na is None or na < 0.5
+            if exp_ta is not None:
+                assert ta is not None and abs(ta - exp_ta) < 0.08
+            else:
+                assert ta is None or ta < 0.5
+            for maj, ari in ((nm, na), (tm, ta)):
+                if maj >= 2 and ari is not None and ari >= 0.5:
+                    recovered += 1
+
+    # seed1 soft inflation is the key contrast vs seed0 collapse
+    assert SOFT_X_YOUDEN_MULTISEED_TABLE[1]["soft_x_youden"][0] == 2
+    assert SOFT_X_YOUDEN_MULTISEED_TABLE[0]["soft_x_youden"][0] <= 1
+    assert recovered == 0
+
+
 def test_denser_proposed_h0_nested_tori_ari() -> None:
     """#44 / A2-T44-followon: denser×proposed h0 majors+sample-ARI.
 

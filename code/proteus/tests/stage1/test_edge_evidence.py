@@ -754,6 +754,43 @@ def test_soft_x_proposed_h0_export() -> None:
     assert "awaiting" in SOFT_X_PROPOSED_H0_SI_NOTE
 
 
+def test_soft_x_youden_multiseed_export() -> None:
+    """#44 / A2-T44: multi-seed soft×Youden h0≈0.73 export.
+
+    Frozen majors+ARI across seeds 0..2. Soft×youden is seed-fragile
+    (seed1 soft inflates nested K=2). Defaults off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_X_YOUDEN_MULTISEED_H0,
+        SOFT_X_YOUDEN_MULTISEED_SEEDS,
+        SOFT_X_YOUDEN_MULTISEED_SI_NOTE,
+        SOFT_X_YOUDEN_MULTISEED_SOFT_FRAC,
+        SOFT_X_YOUDEN_MULTISEED_TABLE,
+        format_soft_x_youden_multiseed_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().h0 == 0.35
+    assert SOFT_X_YOUDEN_MULTISEED_H0 == pytest.approx(0.73)
+    assert SOFT_X_YOUDEN_MULTISEED_SOFT_FRAC == 0.25
+    assert SOFT_X_YOUDEN_MULTISEED_SEEDS == (0, 1, 2)
+    assert SOFT_X_YOUDEN_MULTISEED_TABLE[0]["soft_x_youden"][0] <= 1
+    assert SOFT_X_YOUDEN_MULTISEED_TABLE[0]["soft_x_youden"][2] == 2
+    # seed1: soft inflates nested majors vs youden alone
+    assert SOFT_X_YOUDEN_MULTISEED_TABLE[1]["youden"][0] <= 1
+    assert SOFT_X_YOUDEN_MULTISEED_TABLE[1]["soft_x_youden"][0] == 2
+    assert SOFT_X_YOUDEN_MULTISEED_TABLE[2]["soft_x_youden"][0] <= 1
+    assert SOFT_X_YOUDEN_MULTISEED_TABLE[2]["soft_x_youden"][2] <= 1
+    tsv = format_soft_x_youden_multiseed_table()
+    assert "seed\tmode\tdataset\ttau\tmajors\tsample_ari" in tsv
+    assert "soft_x_youden" in tsv and "youden" in tsv
+    assert "seed-fragile" in SOFT_X_YOUDEN_MULTISEED_SI_NOTE
+    assert "sample-ARI" in SOFT_X_YOUDEN_MULTISEED_SI_NOTE
+    assert "defaults off" in SOFT_X_YOUDEN_MULTISEED_SI_NOTE
+    assert "awaiting" in SOFT_X_YOUDEN_MULTISEED_SI_NOTE
+
+
 def test_denser_proposed_h0_export() -> None:
     """#44 / A2-T44-followon: denser scaffold × proposed h0 export.
 

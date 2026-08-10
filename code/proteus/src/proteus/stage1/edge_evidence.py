@@ -107,6 +107,12 @@ class HollowEdgeConfig:
     :data:`DENSER_PROPOSED_H0_*`. Soft×youden collapses nested like soft
     alone but keeps tori chance-ARI K=2; denser soft×youden collapses
     both to ≤1. Still not sample-ARI recovery; defaults off.
+
+    A2-T44: multi-seed soft×Youden ``h0≈0.73`` (seeds 0..2) — see
+    :data:`SOFT_X_YOUDEN_MULTISEED_*`. Soft×youden is seed-fragile
+    (seed0: nested≤1 / tori K=2; seed1: soft *inflates* nested K=2
+    ARI≈0.08 while youden alone ≤1; seed2: both soft collapses). Still
+    not sample-ARI recovery; defaults off.
     """
 
     mid_radius_frac: float = 0.35
@@ -549,7 +555,77 @@ def format_soft_x_proposed_h0_table() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Denser scaffold × proposed h0 (A2-T44-followon → A3 SI)
+# Multi-seed soft × Youden h0 (A2-T44 → A3 SI)
+# ---------------------------------------------------------------------------
+# Extends seed-0 soft×youden across dataset seeds 0..2 (scaffold RNG matched).
+# Soft×youden is seed-fragile: seed0 collapses nested / keeps tori chance-ARI
+# K=2; seed1 soft *inflates* nested spurious K=2 (ARI≈0.08) while youden alone
+# was ≤1; seed2 soft collapses both.  No sample-ARI recovery.
+
+SOFT_X_YOUDEN_MULTISEED_SEEDS: tuple[int, ...] = (0, 1, 2)
+SOFT_X_YOUDEN_MULTISEED_NESTED_TAU: float = 0.27
+SOFT_X_YOUDEN_MULTISEED_TORI_TAU: float = 0.5
+SOFT_X_YOUDEN_MULTISEED_SOFT_FRAC: float = 0.25
+SOFT_X_YOUDEN_MULTISEED_SOFT_METHOD: str = "betweenness"
+SOFT_X_YOUDEN_MULTISEED_H0: float = PROPOSED_H0_YOUDEN
+
+# seed → mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+SOFT_X_YOUDEN_MULTISEED_TABLE: dict[
+    int, dict[str, tuple[int, float | None, int, float | None]]
+] = {
+    0: {
+        "youden": (2, 0.12, 2, 0.26),
+        "soft_x_youden": (1, None, 2, 0.26),
+    },
+    1: {
+        "youden": (1, None, 1, None),
+        "soft_x_youden": (2, 0.08, 1, None),
+    },
+    2: {
+        "youden": (1, None, 2, 0.22),
+        "soft_x_youden": (1, None, 1, None),
+    },
+}
+
+SOFT_X_YOUDEN_MULTISEED_SI_NOTE: str = (
+    "A2-T44 multi-seed soft×Youden h0≈0.73 (mid=0.5 gabriel=False + "
+    "betweenness frac=0.25, seeds 0..2): seed0 soft collapses nested≤1 / "
+    "keeps tori K=2 ARI≈0.26; seed1 soft *inflates* nested K=2 ARI≈0.08 "
+    "while youden alone ≤1; seed2 soft collapses both ≤1. Soft×youden "
+    "seed-fragile; calibrated h0 ≠ sample-ARI recovery; defaults off; "
+    "no awaiting flip."
+)
+
+
+def format_soft_x_youden_multiseed_table() -> str:
+    """TSV export of multi-seed soft×Youden h0 majors+ARI (A2-T44)."""
+
+    lines = [
+        "# multi-seed soft × Youden h0≈0.73 (baseline scaffold)",
+        f"# h0={SOFT_X_YOUDEN_MULTISEED_H0:g} "
+        f"soft_frac={SOFT_X_YOUDEN_MULTISEED_SOFT_FRAC:g} "
+        f"method={SOFT_X_YOUDEN_MULTISEED_SOFT_METHOD} "
+        f"seeds={list(SOFT_X_YOUDEN_MULTISEED_SEEDS)}",
+        "seed\tmode\tdataset\ttau\tmajors\tsample_ari",
+    ]
+    for seed in SOFT_X_YOUDEN_MULTISEED_SEEDS:
+        for mode, (nm, na, tm, ta) in SOFT_X_YOUDEN_MULTISEED_TABLE[seed].items():
+            na_s = "" if na is None else f"{na:.2f}"
+            ta_s = "" if ta is None else f"{ta:.2f}"
+            lines.append(
+                f"{seed}\t{mode}\tnested\t"
+                f"{SOFT_X_YOUDEN_MULTISEED_NESTED_TAU:g}\t{nm}\t{na_s}"
+            )
+            lines.append(
+                f"{seed}\t{mode}\ttori\t"
+                f"{SOFT_X_YOUDEN_MULTISEED_TORI_TAU:g}\t{tm}\t{ta_s}"
+            )
+    lines.append(f"# {SOFT_X_YOUDEN_MULTISEED_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Denser scaffold × proposed h0 (A2-T44-followon / A2-T45 → A3 SI)
 # ---------------------------------------------------------------------------
 # denser: n_per_sphere=160 / n_per_torus=240, max_nodes=128, k=8, seed=0.
 # Youden alone collapses nested≤1 but keeps tori chance-ARI K=2 (ARI≈0.14);
