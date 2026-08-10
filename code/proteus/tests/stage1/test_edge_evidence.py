@@ -1250,3 +1250,41 @@ def test_denser_soft_x_persist_tau_star_export() -> None:
     assert "sample-ARI" in DENSER_SOFT_X_PERSIST_TAU_STAR_SI_NOTE
     assert "defaults off" in DENSER_SOFT_X_PERSIST_TAU_STAR_SI_NOTE
     assert "awaiting" in DENSER_SOFT_X_PERSIST_TAU_STAR_SI_NOTE
+
+
+def test_soft_x_gabriel_tau_star_export() -> None:
+    """#44 / A2-T58: soft×gabriel_and_h at operational tau* e2e export.
+
+    Seed1 nested K=2 chance-ARI survives soft×conj (contrast T41
+    fixed-tau majors collapse); uniforms safe under soft/conj. Defaults
+    off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_X_GABRIEL_TAU_STAR_H0,
+        SOFT_X_GABRIEL_TAU_STAR_MAX_GRID_POINTS,
+        SOFT_X_GABRIEL_TAU_STAR_SEEDS,
+        SOFT_X_GABRIEL_TAU_STAR_SI_NOTE,
+        SOFT_X_GABRIEL_TAU_STAR_TABLE,
+        SOFT_X_GABRIEL_TAU_STAR_UNIFORMS,
+        format_soft_x_gabriel_tau_star_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().require_gabriel_and_h is False
+    assert abs(SOFT_X_GABRIEL_TAU_STAR_H0 - 0.73) < 1e-9
+    assert SOFT_X_GABRIEL_TAU_STAR_SEEDS == (0, 1, 2)
+    assert SOFT_X_GABRIEL_TAU_STAR_MAX_GRID_POINTS == 12
+    assert SOFT_X_GABRIEL_TAU_STAR_TABLE[1]["soft_x_conj"][0] == 2
+    assert SOFT_X_GABRIEL_TAU_STAR_TABLE[1]["soft_x_conj"][1] is not None
+    assert abs(SOFT_X_GABRIEL_TAU_STAR_TABLE[1]["soft_x_conj"][1]) < 0.08
+    assert SOFT_X_GABRIEL_TAU_STAR_TABLE[0]["soft_x_conj"][0] <= 1
+    assert SOFT_X_GABRIEL_TAU_STAR_UNIFORMS["circle"]["youden"] == 2
+    assert SOFT_X_GABRIEL_TAU_STAR_UNIFORMS["circle"]["soft_x_conj"] == 1
+    assert SOFT_X_GABRIEL_TAU_STAR_UNIFORMS["swiss"]["soft_x_conj"] == 1
+    tsv = format_soft_x_gabriel_tau_star_table()
+    assert "soft_x_conj" in tsv and "circle" in tsv
+    assert "survives" in SOFT_X_GABRIEL_TAU_STAR_SI_NOTE
+    assert "sample-ARI" in SOFT_X_GABRIEL_TAU_STAR_SI_NOTE
+    assert "defaults off" in SOFT_X_GABRIEL_TAU_STAR_SI_NOTE
+    assert "awaiting" in SOFT_X_GABRIEL_TAU_STAR_SI_NOTE

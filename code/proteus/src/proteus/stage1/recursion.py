@@ -242,6 +242,10 @@ class RecursionConfig:
     A2-T57: denser soft×persist@tau* e2e — denser kills T54 seed1 nested
     inflate; denser-youden seed0 nested K=2 killed by soft/persist;
     defaults off.
+    A2-T58: soft×require_gabriel_and_h at operational tau* e2e — seed1
+    nested K=2 chance-ARI survives soft×conj (contrast T41 fixed-tau
+    majors collapse); circle youden shatters, soft/conj keep uniforms;
+    defaults off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +

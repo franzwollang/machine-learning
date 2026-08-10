@@ -172,6 +172,12 @@ class HollowEdgeConfig:
     :data:`DENSER_SOFT_X_PERSIST_TAU_STAR_*`. Denser kills baseline T54
     seed1 nested e2e inflate; denser-youden seed0 nested K=2 chance-ARI
     is killed by soft/persist; uniforms stay 1. Defaults off.
+
+    A2-T58: soft×``require_gabriel_and_h`` at operational ``tau*`` e2e —
+    see :data:`SOFT_X_GABRIEL_TAU_STAR_*`. Seed1 nested K=2 chance-ARI
+    survives youden/soft/conj/soft×conj (contrast T41 fixed-tau majors
+    collapse under conj); circle youden shatters, soft/conj keep
+    uniforms at 1. Soft≠sample-ARI recovery; defaults off.
     """
 
     mid_radius_frac: float = 0.35
@@ -1742,6 +1748,104 @@ def format_denser_soft_x_persist_tau_star_table() -> str:
         for mode, leaves in mode_table.items():
             lines.append(f"{dataset}\t{mode}\t{leaves}")
     lines.append(f"# {DENSER_SOFT_X_PERSIST_TAU_STAR_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Soft×require_gabriel_and_h at operational tau* e2e leaves (A2-T58 → A3 SI)
+# ---------------------------------------------------------------------------
+# Baseline n=80/120, Youden h0≈0.73, lean max_grid_points=12,
+# scale_seed=42+dataset_seed, soft_frac=0.25 betweenness. Contrast T41
+# (fixed probe tau majors): at operational tau* seed1 nested K=2
+# chance-ARI≈0 survives youden/soft/conj/soft×conj — conj does not kill
+# e2e seed1 inflate. Seeds0/2 + all tori stay 1 leaf. Circle youden
+# alone shatters (2 leaves); soft/conj/soft×conj keep uniforms at 1.
+# Soft≠sample-ARI recovery; defaults off.
+
+SOFT_X_GABRIEL_TAU_STAR_SEEDS: tuple[int, ...] = (0, 1, 2)
+SOFT_X_GABRIEL_TAU_STAR_SOFT_FRAC: float = 0.25
+SOFT_X_GABRIEL_TAU_STAR_SOFT_METHOD: str = "betweenness"
+SOFT_X_GABRIEL_TAU_STAR_H0: float = PROPOSED_H0_YOUDEN
+SOFT_X_GABRIEL_TAU_STAR_MAX_GRID_POINTS: int = 12
+SOFT_X_GABRIEL_TAU_STAR_SCALE_SEED_BASE: int = 42
+
+# seed → mode → (nested_leaves, nested_ari, tori_leaves, tori_ari)
+SOFT_X_GABRIEL_TAU_STAR_TABLE: dict[
+    int, dict[str, tuple[int, float | None, int, float | None]]
+] = {
+    0: {
+        "youden": (1, None, 1, None),
+        "soft": (1, None, 1, None),
+        "conj": (1, None, 1, None),
+        "soft_x_conj": (1, None, 1, None),
+    },
+    1: {
+        "youden": (2, 0.0, 1, None),
+        "soft": (2, 0.0, 1, None),
+        "conj": (2, 0.0, 1, None),
+        "soft_x_conj": (2, 0.0, 1, None),
+    },
+    2: {
+        "youden": (1, None, 1, None),
+        "soft": (1, None, 1, None),
+        "conj": (1, None, 1, None),
+        "soft_x_conj": (1, None, 1, None),
+    },
+}
+
+# Uniform leaf counts under the same lean tau* / Youden knobs (seed=0).
+SOFT_X_GABRIEL_TAU_STAR_UNIFORMS: dict[str, dict[str, int]] = {
+    "circle": {
+        "youden": 2,
+        "soft": 1,
+        "conj": 1,
+        "soft_x_conj": 1,
+    },
+    "swiss": {
+        "youden": 1,
+        "soft": 1,
+        "conj": 1,
+        "soft_x_conj": 1,
+    },
+}
+
+SOFT_X_GABRIEL_TAU_STAR_SI_NOTE: str = (
+    "A2-T58 soft×require_gabriel_and_h at operational scale-search tau* "
+    "e2e (baseline n=80/120, Youden h0≈0.73, mid=0.5 gabriel=False, lean "
+    "max_grid_points=12, scale_seed=42+dataset_seed, soft_frac=0.25 "
+    "betweenness): seed1 nested K=2 chance-ARI≈0 survives "
+    "youden/soft/conj/soft×conj — conj does not kill e2e seed1 inflate "
+    "(contrast T41 fixed-tau majors collapse under conj); seeds0/2 + all "
+    "tori stay 1 leaf. Circle youden alone shatters (2 leaves); "
+    "soft/conj/soft×conj keep uniforms at 1. E2e leaf ≠ sample-ARI "
+    "recovery; defaults off; no awaiting flip."
+)
+
+
+def format_soft_x_gabriel_tau_star_table() -> str:
+    """TSV export of soft×gabriel_and_h at operational tau* e2e (A2-T58)."""
+
+    lines = [
+        "# soft × require_gabriel_and_h at operational scale-search tau* e2e",
+        f"# h0={SOFT_X_GABRIEL_TAU_STAR_H0:g} "
+        f"soft_frac={SOFT_X_GABRIEL_TAU_STAR_SOFT_FRAC:g} "
+        f"method={SOFT_X_GABRIEL_TAU_STAR_SOFT_METHOD} "
+        f"max_grid_points={SOFT_X_GABRIEL_TAU_STAR_MAX_GRID_POINTS} "
+        f"scale_seed_base={SOFT_X_GABRIEL_TAU_STAR_SCALE_SEED_BASE} "
+        f"seeds={list(SOFT_X_GABRIEL_TAU_STAR_SEEDS)}",
+        "seed\tmode\tdataset\tleaves\tsample_ari",
+    ]
+    for seed in SOFT_X_GABRIEL_TAU_STAR_SEEDS:
+        for mode, (nl, na, tl, ta) in SOFT_X_GABRIEL_TAU_STAR_TABLE[seed].items():
+            na_s = "" if na is None else f"{na:.2f}"
+            ta_s = "" if ta is None else f"{ta:.2f}"
+            lines.append(f"{seed}\t{mode}\tnested\t{nl}\t{na_s}")
+            lines.append(f"{seed}\t{mode}\ttori\t{tl}\t{ta_s}")
+    lines.append("dataset\tmode\tleaves")
+    for dataset, mode_table in SOFT_X_GABRIEL_TAU_STAR_UNIFORMS.items():
+        for mode, leaves in mode_table.items():
+            lines.append(f"{dataset}\t{mode}\t{leaves}")
+    lines.append(f"# {SOFT_X_GABRIEL_TAU_STAR_SI_NOTE}")
     return "\n".join(lines)
 
 
