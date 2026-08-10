@@ -772,7 +772,7 @@ def test_soft_x_youden_multiseed_export() -> None:
 
     assert HollowEdgeConfig().soft_capacity_only is False
     assert HollowEdgeConfig().h0 == 0.35
-    assert SOFT_X_YOUDEN_MULTISEED_H0 == pytest.approx(0.73)
+    assert abs(SOFT_X_YOUDEN_MULTISEED_H0 - 0.73) < 1e-9
     assert SOFT_X_YOUDEN_MULTISEED_SOFT_FRAC == 0.25
     assert SOFT_X_YOUDEN_MULTISEED_SEEDS == (0, 1, 2)
     assert SOFT_X_YOUDEN_MULTISEED_TABLE[0]["soft_x_youden"][0] <= 1
@@ -792,7 +792,7 @@ def test_soft_x_youden_multiseed_export() -> None:
 
 
 def test_denser_proposed_h0_export() -> None:
-    """#44 / A2-T44-followon: denser scaffold × proposed h0 export.
+    """#44 / A2-T45: denser scaffold × proposed h0 export.
 
     Frozen majors+ARI under denser n/max_nodes with youden ± soft.
     Defaults remain off; no awaiting flip.

@@ -2860,7 +2860,7 @@ def test_soft_x_youden_multiseed_nested_tori_ari() -> None:
 
 
 def test_denser_proposed_h0_nested_tori_ari() -> None:
-    """#44 / A2-T44-followon: denser×proposed h0 majors+sample-ARI.
+    """#44 / A2-T45: denser×proposed h0 majors+sample-ARI.
 
     Denser scaffolds (n=160/240, max_nodes=128): youden alone collapses
     nested≤1 but keeps tori chance-ARI K=2; soft×youden / soft×poisson_lr

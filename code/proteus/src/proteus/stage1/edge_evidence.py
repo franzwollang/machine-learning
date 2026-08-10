@@ -646,7 +646,7 @@ DENSER_PROPOSED_H0_TABLE: dict[str, tuple[int, float | None, int, float | None]]
 }
 
 DENSER_PROPOSED_H0_SI_NOTE: str = (
-    "A2-T44-followon denser×proposed h0 (n=160/240, max_nodes=128, mid=0.5 "
+    "A2-T45 denser×proposed h0 (n=160/240, max_nodes=128, mid=0.5 "
     "gabriel=False): youden alone nested@0.27→≤1, tori@0.5 K=2 ARI≈0.14; "
     "soft×youden / soft×poisson_lr collapse both ≤1 major. Collapse ≠ "
     "sample-ARI recovery; defaults off; no awaiting flip."
@@ -654,7 +654,7 @@ DENSER_PROPOSED_H0_SI_NOTE: str = (
 
 
 def format_denser_proposed_h0_table() -> str:
-    """TSV export of denser scaffold × proposed h0 (A2-T44-followon)."""
+    """TSV export of denser scaffold × proposed h0 (A2-T45)."""
 
     lines = [
         "# denser scaffold × proposed Youden/Poisson-LR h0",
