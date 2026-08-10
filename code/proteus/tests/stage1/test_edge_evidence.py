@@ -723,3 +723,132 @@ def test_soft_capacity_frac_multiseed_export() -> None:
     assert "seed-fragile" in SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE
     assert "defaults off" in SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE
     assert "awaiting" in SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE
+
+
+def test_soft_x_proposed_h0_export() -> None:
+    """#44 / A2-T44-followon: soft×proposed h0 combo export.
+
+    Frozen majors+ARI under proposed Youden/Poisson-LR h0 ± soft
+    betweenness.  Defaults remain off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_X_PROPOSED_H0_SI_NOTE,
+        SOFT_X_PROPOSED_H0_SOFT_FRAC,
+        SOFT_X_PROPOSED_H0_TABLE,
+        format_soft_x_proposed_h0_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().h0 == 0.35
+    assert SOFT_X_PROPOSED_H0_SOFT_FRAC == 0.25
+    assert SOFT_X_PROPOSED_H0_TABLE["youden"][0] == 2
+    assert SOFT_X_PROPOSED_H0_TABLE["soft_x_youden"][0] <= 1
+    assert SOFT_X_PROPOSED_H0_TABLE["soft_x_youden"][2] == 2
+    assert SOFT_X_PROPOSED_H0_TABLE["soft_x_poisson_lr"][0] <= 1
+    tsv = format_soft_x_proposed_h0_table()
+    assert "mode\tdataset\ttau\tmajors\tsample_ari" in tsv
+    assert "soft_x_youden" in tsv and "poisson_lr" in tsv
+    assert "sample-ARI" in SOFT_X_PROPOSED_H0_SI_NOTE
+    assert "defaults off" in SOFT_X_PROPOSED_H0_SI_NOTE
+    assert "awaiting" in SOFT_X_PROPOSED_H0_SI_NOTE
+
+
+def test_soft_h0_method_contrast_export() -> None:
+    """#44 / A2-T46: soft×poisson_lr vs Youden vs A4 contrast export.
+
+    Under soft, h0 method contrast is near-null (identical majors/ARI).
+    Defaults remain off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_H0_METHOD_CONTRAST_MODES,
+        SOFT_H0_METHOD_CONTRAST_SI_NOTE,
+        SOFT_X_PROPOSED_H0_TABLE,
+        format_soft_h0_method_contrast_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert set(SOFT_H0_METHOD_CONTRAST_MODES) <= set(SOFT_X_PROPOSED_H0_TABLE)
+    # soft×* rows share nested≤1 / tori K=2 pattern
+    for mode in ("soft_x_youden", "soft_x_youden_a4", "soft_x_poisson_lr"):
+        nm, _, tm, ta = SOFT_X_PROPOSED_H0_TABLE[mode]
+        assert nm <= 1
+        assert tm == 2
+        assert ta is not None and abs(ta - 0.26) < 0.08
+    tsv = format_soft_h0_method_contrast_table()
+    assert "mode\th0\tdataset\ttau\tmajors\tsample_ari" in tsv
+    assert "soft_x_poisson_lr" in tsv and "0.76" in tsv
+    assert "0.73" in tsv and "0.7" in tsv
+    assert "near-null" in SOFT_H0_METHOD_CONTRAST_SI_NOTE or "identical" in SOFT_H0_METHOD_CONTRAST_SI_NOTE
+    assert "Defaults off" in SOFT_H0_METHOD_CONTRAST_SI_NOTE or "defaults off" in SOFT_H0_METHOD_CONTRAST_SI_NOTE
+    assert "awaiting" in SOFT_H0_METHOD_CONTRAST_SI_NOTE
+
+
+def test_soft_x_youden_multiseed_export() -> None:
+    """#44 / A2-T44: multi-seed soft×Youden h0≈0.73 export.
+
+    Frozen majors+ARI across seeds 0..2. Soft×youden is seed-fragile
+    (seed1 soft inflates nested K=2). Defaults off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_X_YOUDEN_MULTISEED_H0,
+        SOFT_X_YOUDEN_MULTISEED_SEEDS,
+        SOFT_X_YOUDEN_MULTISEED_SI_NOTE,
+        SOFT_X_YOUDEN_MULTISEED_SOFT_FRAC,
+        SOFT_X_YOUDEN_MULTISEED_TABLE,
+        format_soft_x_youden_multiseed_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().h0 == 0.35
+    assert abs(SOFT_X_YOUDEN_MULTISEED_H0 - 0.73) < 1e-9
+    assert SOFT_X_YOUDEN_MULTISEED_SOFT_FRAC == 0.25
+    assert SOFT_X_YOUDEN_MULTISEED_SEEDS == (0, 1, 2)
+    assert SOFT_X_YOUDEN_MULTISEED_TABLE[0]["soft_x_youden"][0] <= 1
+    assert SOFT_X_YOUDEN_MULTISEED_TABLE[0]["soft_x_youden"][2] == 2
+    # seed1: soft inflates nested majors vs youden alone
+    assert SOFT_X_YOUDEN_MULTISEED_TABLE[1]["youden"][0] <= 1
+    assert SOFT_X_YOUDEN_MULTISEED_TABLE[1]["soft_x_youden"][0] == 2
+    assert SOFT_X_YOUDEN_MULTISEED_TABLE[2]["soft_x_youden"][0] <= 1
+    assert SOFT_X_YOUDEN_MULTISEED_TABLE[2]["soft_x_youden"][2] <= 1
+    tsv = format_soft_x_youden_multiseed_table()
+    assert "seed\tmode\tdataset\ttau\tmajors\tsample_ari" in tsv
+    assert "soft_x_youden" in tsv and "youden" in tsv
+    assert "seed-fragile" in SOFT_X_YOUDEN_MULTISEED_SI_NOTE
+    assert "sample-ARI" in SOFT_X_YOUDEN_MULTISEED_SI_NOTE
+    assert "defaults off" in SOFT_X_YOUDEN_MULTISEED_SI_NOTE
+    assert "awaiting" in SOFT_X_YOUDEN_MULTISEED_SI_NOTE
+
+
+def test_denser_proposed_h0_export() -> None:
+    """#44 / A2-T45: denser scaffold × proposed h0 export.
+
+    Frozen majors+ARI under denser n/max_nodes with youden ± soft.
+    Defaults remain off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_PROPOSED_H0_MAX_NODES,
+        DENSER_PROPOSED_H0_NESTED_N,
+        DENSER_PROPOSED_H0_SI_NOTE,
+        DENSER_PROPOSED_H0_TABLE,
+        DENSER_PROPOSED_H0_TORI_N,
+        format_denser_proposed_h0_table,
+    )
+
+    assert HollowEdgeConfig().h0 == 0.35
+    assert DENSER_PROPOSED_H0_NESTED_N == 160
+    assert DENSER_PROPOSED_H0_TORI_N == 240
+    assert DENSER_PROPOSED_H0_MAX_NODES == 128
+    assert DENSER_PROPOSED_H0_TABLE["youden"][0] <= 1
+    assert DENSER_PROPOSED_H0_TABLE["youden"][2] == 2
+    assert DENSER_PROPOSED_H0_TABLE["soft_x_youden"][0] <= 1
+    assert DENSER_PROPOSED_H0_TABLE["soft_x_youden"][2] <= 1
+    tsv = format_denser_proposed_h0_table()
+    assert "mode\tdataset\ttau\tmajors\tsample_ari" in tsv
+    assert "soft_x_youden" in tsv and "youden" in tsv
+    assert "sample-ARI" in DENSER_PROPOSED_H0_SI_NOTE
+    assert "defaults off" in DENSER_PROPOSED_H0_SI_NOTE
+    assert "awaiting" in DENSER_PROPOSED_H0_SI_NOTE

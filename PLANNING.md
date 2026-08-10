@@ -13,10 +13,10 @@ bodies below stay static descriptions.
 | Milestone | Status |
 |---|---|
 | M0 — Spec/implementation sync pass | done |
-| M1 — Canonical clustering objective | blocked on #44 (soft×conj/Youden h0≈0.73 landed; still sheet-safe≠sample-ARI; nested/tori unrecovered. No awaiting flip.) |
-| M2 — Characteristic-scale selection rebuild | in progress (halve_grid + load_weighted; multi-seed Phi export; densify seed-fragile; load_weighted≡coarse. Do not flip default.) |
+| M1 — Canonical clustering objective | blocked on #44 (soft×youden multi-seed seed-fragile / h0 near-null under soft; denser×proposed collapses; still ≠sample-ARI. No awaiting flip.) |
+| M2 — Characteristic-scale selection rebuild | in progress (halve_grid + load_weighted; multi-seed Phi; circle/swiss densify LC identity; seed4 Jaccard mechanism. Do not flip default.) |
 | M3 — Constant audit & calibration tier | done (c_{d,k} + C_Q(d) calibrated on the shared uniform-d-ball ensemble; S14.3 three-tier audit #37 complete; intrinsic-dim estimator #39 validated vs GT + Levina–Bickel cross-check shipped, SI S1.4.1. Operational estimator-wiring divergence surfaced as #40, deferred to the M5 junction-detection consumer.) |
-| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 face-solve/live-density/dry_run stage1_route flags off; do not close. #41: nested schedule green; tori partial fitted b1=2 at n=500/256. Remaining: loopy BP / #45) |
+| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 loopy-BP/mass-norm/None=>True probe flags off; do not close. #41: denser max_nodes 384/512 regress; multi-seed partial seed-fragile; lifetime≠b2. Remaining: b2 hunt / #45) |
 | M5 — Inference interface & diagnostics | not started |
 | M6 — Evaluation, benchmarks, paper finalization | not started |
 

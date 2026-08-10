@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T18:40-05:00",
+  "updated_at": "2026-08-09T19:20-05:00",
   "integration_branch": "coord/integration",
   "throughput_mode": true,
   "merge_order": [
@@ -25,9 +25,9 @@
           "summary": "Scoop aggressively; keep queues 3-deep; no awaiting flip without green evidence + sample-ARI"
         },
         {
-          "id": "A1-T55",
+          "id": "A1-T56",
           "status": "ready",
-          "summary": "Watch soft\u00d7youden_h0 / denser max_nodes tori (1,2,1) hunt; hold #45 until sample-ARI"
+          "summary": "Watch soft seed1-inflate / denser seed2 b2 hunt; hold #45 until sample-ARI"
         }
       ]
     },
@@ -45,22 +45,22 @@
       ],
       "queue": [
         {
-          "id": "A2-T44",
+          "id": "A2-T47",
           "status": "ready",
           "issue": 44,
-          "summary": "EXPERIMENT soft_capacity \u00d7 proposed Youden h0\u22480.73 sample-ARI nested/tori (flags off); NO awaiting flip"
+          "summary": "EXPERIMENT soft_frac x youden seed1 nested-inflate mechanism (vs seed0/2); flags off; NO awaiting flip"
         },
         {
-          "id": "A2-T45",
+          "id": "A2-T48",
           "status": "ready",
           "issue": 44,
-          "summary": "EXPERIMENT denser-scaffold \u00d7 proposed_h0_calibrated_config ARI table (flags off); REQUEST_TRACKER"
+          "summary": "EXPERIMENT denser-scaffold soft x youden multi-seed ARI seeds0..2 (flags off); REQUEST_TRACKER"
         },
         {
-          "id": "A2-T46",
+          "id": "A2-T49",
           "status": "ready",
           "issue": 44,
-          "summary": "EXPERIMENT soft\u00d7poisson_lr h0=0.76 vs Youden vs A4=0.7 majors+ARI contrast; flags off"
+          "summary": "EXPERIMENT h0-only (no soft) denser multi-seed nested/tori ARI contrast vs soft x *; flags off"
         }
       ]
     },
@@ -77,22 +77,22 @@
       ],
       "queue": [
         {
-          "id": "A3-T56",
+          "id": "A3-T59",
           "status": "ready",
           "issue": 44,
-          "summary": "SI S2.6.2/S14.3 proposed Youden/Poisson-LR h0 + soft\u00d7gabriel conj + multi-seed soft_frac (cite A2-T41..T43; no awaiting flip)"
+          "summary": "SI S2.6.2/S14.3 soft x youden multi-seed + soft x h0 contrast near-null (cite A2-T44..T46; no awaiting flip)"
         },
         {
-          "id": "A3-T57",
-          "status": "ready",
-          "issue": 43,
-          "summary": "SI S6.x/S14.3 enable_global_face_solve + enable_live_density + dry_run stage1_route (cite A5-T49..T51; keep mass/density awaiting)"
-        },
-        {
-          "id": "A3-T58",
+          "id": "A3-T60",
           "status": "ready",
           "issue": 41,
-          "summary": "SI S14.2 note denser fitted tori partial (1,2,0) + schedule\u00d7lifetime frac\u22654 (cite A4-T37..T39; stay @awaiting)"
+          "summary": "SI S14.2 denser max_nodes 384/512 regress + multi-seed seed2 partial + lifetime != b2 (cite A4-T40..T43; stay @awaiting)"
+        },
+        {
+          "id": "A3-T61",
+          "status": "ready",
+          "issue": 43,
+          "summary": "SI S6.x/S14.3 loopy-BP + mass-norm + None=>True open-default probe + A6 seed4 Jaccard mechanism (cite A5-T52..T54 / A6-T54; keep mass/density awaiting)"
         }
       ]
     },
@@ -109,22 +109,22 @@
       ],
       "queue": [
         {
-          "id": "A4-T40",
+          "id": "A4-T44",
           "status": "ready",
           "issue": 41,
-          "summary": "EXPERIMENT denser max_nodes=384/512 fitted tori hunt full (1,2,1); stay @awaiting; REQUEST_TRACKER"
+          "summary": "EXPERIMENT Stage-1 seed sweep denser256 toward full (1,2,1)/b2; stay @awaiting; REQUEST_TRACKER"
         },
         {
-          "id": "A4-T41",
+          "id": "A4-T45",
           "status": "ready",
           "issue": 41,
-          "summary": "EXPERIMENT cal filtration_mult=6 on denser fitted tori (n=500/256 partial base); stay @awaiting"
+          "summary": "EXPERIMENT hollow-signal + lifetime on seed2 denser256 hunt b2; stay @awaiting"
         },
         {
-          "id": "A4-T42",
+          "id": "A4-T46",
           "status": "ready",
           "issue": 41,
-          "summary": "EXPERIMENT multi-seed denser fitted tori partial-b1=2 stability (seeds 0..2); stay @awaiting"
+          "summary": "EXPERIMENT lifetime x cal-mult grid on seed2 denser256; stay @awaiting"
         }
       ]
     },
@@ -143,22 +143,22 @@
       ],
       "queue": [
         {
-          "id": "A5-T52",
+          "id": "A5-T55",
           "status": "ready",
           "issue": 43,
-          "summary": "STUB loopy-BP message schedule sketch behind DualFlowConfig (proposed/default off); unit tests; keep mass/density awaiting"
+          "summary": "EXPERIMENT BP spectrum damping probe behind DualFlowConfig (flag off); keep mass/density awaiting"
         },
         {
-          "id": "A5-T53",
+          "id": "A5-T56",
           "status": "ready",
           "issue": 43,
-          "summary": "EXPERIMENT mass-normalization harness on face tallies (flag off); do not flip awaiting"
+          "summary": "EXPERIMENT online-tallies to offline-solve schedule sketch (flag off); REQUEST_TRACKER"
         },
         {
-          "id": "A5-T54",
+          "id": "A5-T57",
           "status": "ready",
           "issue": 43,
-          "summary": "EXPERIMENT acceptance None=>True probe documenting current open-default; REQUEST_TRACKER; do not flip"
+          "summary": "STUB fail-closed dual-adjacency plan probe documenting path to replace None=>True; do not flip default"
         }
       ]
     },
@@ -176,25 +176,25 @@
       ],
       "queue": [
         {
-          "id": "A6-T52",
+          "id": "A6-T55",
           "status": "ready",
           "issue": 28,
-          "summary": "Paper.tex: pin multi-seed Phi export + load_weighted\u00d7dense combo findings; REQUEST_TRACKER"
+          "summary": "EXPERIMENT seed3 short persist-block mechanism (why mid/2/3/3q~8.83x); default none"
         },
         {
-          "id": "A6-T53",
+          "id": "A6-T56",
           "status": "ready",
           "issue": 28,
-          "summary": "EXPERIMENT circle/swiss under halve_grid_steps (expect no-op / LC fallback); default none"
+          "summary": "EXPORT seed4 Jaccard half-step table for A3 SI (overlap/run_lengths); REQUEST_TRACKER"
         },
         {
-          "id": "A6-T54",
+          "id": "A6-T57",
           "status": "ready",
           "issue": 28,
-          "summary": "EXPERIMENT probe why seed4 dense loses persist split (halve_grid); report; default none"
+          "summary": "EXPERIMENT densify x load_weighted on circle (expect LC identity); default none"
         }
       ]
     }
   },
-  "notes": "2026-08-09T18:46: Scoop A2-T41..T43 Youden/conj; A3-T53..T55 SI; A4-T37..T39 partial tori b1=2; A5-T49..T51 face/live/dry_run; A6-T50/T51 Phi+combo. No awaiting flips. tests 58+66+6+24."
+  "notes": "2026-08-09T19:20: Scoop A2-T44..T46 soft x youden/h0; A3-T56..T58+si63 SI; A4-T40..T43 denser regress+seed2; A5-T52..T54 loopy/mass/None; A6-T53/T54 densify no-op+seed4 Jaccard. No awaiting flips."
 }

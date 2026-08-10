@@ -101,6 +101,25 @@ class HollowEdgeConfig:
     sheet-null export + mid=0.5 adversarial ROC — see
     :data:`PROPOSED_H0_CALIBRATION_*` / :func:`proposed_h0_calibrated_config`.
     Proposed only; never the HollowEdgeConfig / RecursionConfig default.
+
+    A2-T44-followon: soft×proposed ``h0`` combo + denser scaffold under
+    proposed ``h0`` — see :data:`SOFT_X_PROPOSED_H0_*` /
+    :data:`DENSER_PROPOSED_H0_*`. Soft×youden collapses nested like soft
+    alone but keeps tori chance-ARI K=2; denser soft×youden collapses
+    both to ≤1. Still not sample-ARI recovery; defaults off.
+
+    A2-T44: multi-seed soft×Youden ``h0≈0.73`` (seeds 0..2) — see
+    :data:`SOFT_X_YOUDEN_MULTISEED_*`. Soft×youden is seed-fragile
+    (seed0: nested≤1 / tori K=2; seed1: soft *inflates* nested K=2
+    ARI≈0.08 while youden alone ≤1; seed2: both soft collapses). Still
+    not sample-ARI recovery; defaults off.
+
+    A2-T45: denser-scaffold × ``proposed_h0_calibrated_config`` ARI —
+    see :data:`DENSER_PROPOSED_H0_*` (retag of follow-on denser table).
+
+    A2-T46: soft×poisson_lr vs Youden vs A4 majors+ARI contrast — see
+    :data:`SOFT_H0_METHOD_CONTRAST_*` / :func:`format_soft_h0_method_contrast_table`.
+    Under soft, h0∈{0.7,0.73,0.76} is near-null; soft drives the pattern.
     """
 
     mid_radius_frac: float = 0.35
@@ -485,6 +504,237 @@ def format_soft_capacity_frac_multiseed_table() -> str:
                 f"{frac:g}\t{maj}\t{ari_s}"
             )
     lines.append(f"# {SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Soft × proposed h0 combo (A2-T44-followon → A3 SI)
+# ---------------------------------------------------------------------------
+# Proposed Youden/Poisson-LR h0 alone mirrors A4 primary chance-ARI K=2 on
+# baseline nested@0.27 / tori@0.5. Soft×proposed collapses nested spurious
+# K=2 (like soft alone) but retains tori chance-ARI K=2. Soft alone is the
+# collapse driver; calibrated h0 does not unlock sample-ARI recovery.
+
+SOFT_X_PROPOSED_H0_NESTED_TAU: float = 0.27
+SOFT_X_PROPOSED_H0_TORI_TAU: float = 0.5
+SOFT_X_PROPOSED_H0_SOFT_FRAC: float = 0.25
+SOFT_X_PROPOSED_H0_SOFT_METHOD: str = "betweenness"
+
+# mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+SOFT_X_PROPOSED_H0_TABLE: dict[str, tuple[int, float | None, int, float | None]] = {
+    "youden": (2, 0.12, 2, 0.26),
+    "youden_a4": (2, 0.12, 2, 0.26),
+    "poisson_lr": (2, 0.08, 2, 0.26),
+    "soft_x_youden": (1, None, 2, 0.26),
+    "soft_x_youden_a4": (1, None, 2, 0.26),
+    "soft_x_poisson_lr": (1, None, 2, 0.26),
+}
+
+SOFT_X_PROPOSED_H0_SI_NOTE: str = (
+    "A2-T44-followon / A2-T46 soft×proposed h0 (mid=0.5 gabriel=False + "
+    "betweenness frac=0.25): youden/youden_a4/poisson_lr alone keep "
+    "nested+tori chance-ARI K=2 (ARI≈0.12/0.26; poisson nested≈0.08); "
+    "soft×youden / soft×youden_a4 / soft×poisson_lr all collapse nested≤1 "
+    "but retain tori K=2 ARI≈0.26 — h0 method contrast is near-null under "
+    "soft. Soft drives collapse; calibrated h0 ≠ sample-ARI recovery; "
+    "defaults off; no awaiting flip."
+)
+
+# Focused soft×h0 method contrast keys (A2-T46).
+SOFT_H0_METHOD_CONTRAST_MODES: tuple[str, ...] = (
+    "youden",
+    "youden_a4",
+    "poisson_lr",
+    "soft_x_youden",
+    "soft_x_youden_a4",
+    "soft_x_poisson_lr",
+)
+
+SOFT_H0_METHOD_CONTRAST_SI_NOTE: str = (
+    "A2-T46 soft×poisson_lr(h0=0.76) vs Youden(0.73) vs A4(0.7) majors+ARI "
+    "contrast (seed0 baseline): alone all chance-ARI K=2; soft×* identical "
+    "collapse pattern (nested≤1, tori K=2 ARI≈0.26). Soft dominates; h0 "
+    "choice among {0.7,0.73,0.76} does not change majors/ARI under soft. "
+    "Defaults off; no awaiting flip."
+)
+
+
+def format_soft_x_proposed_h0_table() -> str:
+    """TSV export of soft×proposed Youden/Poisson-LR h0 combo (A2-T44-followon)."""
+
+    lines = [
+        "# soft × proposed Youden/Poisson-LR h0 (baseline scaffold)",
+        f"# soft_frac={SOFT_X_PROPOSED_H0_SOFT_FRAC:g} "
+        f"method={SOFT_X_PROPOSED_H0_SOFT_METHOD}",
+        "mode\tdataset\ttau\tmajors\tsample_ari",
+    ]
+    for mode, (nm, na, tm, ta) in SOFT_X_PROPOSED_H0_TABLE.items():
+        na_s = "" if na is None else f"{na:.2f}"
+        ta_s = "" if ta is None else f"{ta:.2f}"
+        lines.append(
+            f"{mode}\tnested\t{SOFT_X_PROPOSED_H0_NESTED_TAU:g}\t{nm}\t{na_s}"
+        )
+        lines.append(
+            f"{mode}\ttori\t{SOFT_X_PROPOSED_H0_TORI_TAU:g}\t{tm}\t{ta_s}"
+        )
+    lines.append(f"# {SOFT_X_PROPOSED_H0_SI_NOTE}")
+    return "\n".join(lines)
+
+
+def format_soft_h0_method_contrast_table() -> str:
+    """TSV export of soft×poisson_lr vs Youden vs A4 contrast (A2-T46)."""
+
+    lines = [
+        "# soft × h0 method contrast (Youden 0.73 / A4 0.7 / poisson_lr 0.76)",
+        f"# soft_frac={SOFT_X_PROPOSED_H0_SOFT_FRAC:g} "
+        f"method={SOFT_X_PROPOSED_H0_SOFT_METHOD}",
+        "mode\th0\tdataset\ttau\tmajors\tsample_ari",
+    ]
+    h0_of = {
+        "youden": PROPOSED_H0_YOUDEN,
+        "youden_a4": PROPOSED_H0_YOUDEN_A4,
+        "poisson_lr": PROPOSED_H0_POISSON_LR,
+        "soft_x_youden": PROPOSED_H0_YOUDEN,
+        "soft_x_youden_a4": PROPOSED_H0_YOUDEN_A4,
+        "soft_x_poisson_lr": PROPOSED_H0_POISSON_LR,
+    }
+    for mode in SOFT_H0_METHOD_CONTRAST_MODES:
+        nm, na, tm, ta = SOFT_X_PROPOSED_H0_TABLE[mode]
+        na_s = "" if na is None else f"{na:.2f}"
+        ta_s = "" if ta is None else f"{ta:.2f}"
+        h0 = h0_of[mode]
+        lines.append(
+            f"{mode}\t{h0:g}\tnested\t{SOFT_X_PROPOSED_H0_NESTED_TAU:g}\t"
+            f"{nm}\t{na_s}"
+        )
+        lines.append(
+            f"{mode}\t{h0:g}\ttori\t{SOFT_X_PROPOSED_H0_TORI_TAU:g}\t"
+            f"{tm}\t{ta_s}"
+        )
+    lines.append(f"# {SOFT_H0_METHOD_CONTRAST_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Multi-seed soft × Youden h0 (A2-T44 → A3 SI)
+# ---------------------------------------------------------------------------
+# Extends seed-0 soft×youden across dataset seeds 0..2 (scaffold RNG matched).
+# Soft×youden is seed-fragile: seed0 collapses nested / keeps tori chance-ARI
+# K=2; seed1 soft *inflates* nested spurious K=2 (ARI≈0.08) while youden alone
+# was ≤1; seed2 soft collapses both.  No sample-ARI recovery.
+
+SOFT_X_YOUDEN_MULTISEED_SEEDS: tuple[int, ...] = (0, 1, 2)
+SOFT_X_YOUDEN_MULTISEED_NESTED_TAU: float = 0.27
+SOFT_X_YOUDEN_MULTISEED_TORI_TAU: float = 0.5
+SOFT_X_YOUDEN_MULTISEED_SOFT_FRAC: float = 0.25
+SOFT_X_YOUDEN_MULTISEED_SOFT_METHOD: str = "betweenness"
+SOFT_X_YOUDEN_MULTISEED_H0: float = PROPOSED_H0_YOUDEN
+
+# seed → mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+SOFT_X_YOUDEN_MULTISEED_TABLE: dict[
+    int, dict[str, tuple[int, float | None, int, float | None]]
+] = {
+    0: {
+        "youden": (2, 0.12, 2, 0.26),
+        "soft_x_youden": (1, None, 2, 0.26),
+    },
+    1: {
+        "youden": (1, None, 1, None),
+        "soft_x_youden": (2, 0.08, 1, None),
+    },
+    2: {
+        "youden": (1, None, 2, 0.22),
+        "soft_x_youden": (1, None, 1, None),
+    },
+}
+
+SOFT_X_YOUDEN_MULTISEED_SI_NOTE: str = (
+    "A2-T44 multi-seed soft×Youden h0≈0.73 (mid=0.5 gabriel=False + "
+    "betweenness frac=0.25, seeds 0..2): seed0 soft collapses nested≤1 / "
+    "keeps tori K=2 ARI≈0.26; seed1 soft *inflates* nested K=2 ARI≈0.08 "
+    "while youden alone ≤1; seed2 soft collapses both ≤1. Soft×youden "
+    "seed-fragile; calibrated h0 ≠ sample-ARI recovery; defaults off; "
+    "no awaiting flip."
+)
+
+
+def format_soft_x_youden_multiseed_table() -> str:
+    """TSV export of multi-seed soft×Youden h0 majors+ARI (A2-T44)."""
+
+    lines = [
+        "# multi-seed soft × Youden h0≈0.73 (baseline scaffold)",
+        f"# h0={SOFT_X_YOUDEN_MULTISEED_H0:g} "
+        f"soft_frac={SOFT_X_YOUDEN_MULTISEED_SOFT_FRAC:g} "
+        f"method={SOFT_X_YOUDEN_MULTISEED_SOFT_METHOD} "
+        f"seeds={list(SOFT_X_YOUDEN_MULTISEED_SEEDS)}",
+        "seed\tmode\tdataset\ttau\tmajors\tsample_ari",
+    ]
+    for seed in SOFT_X_YOUDEN_MULTISEED_SEEDS:
+        for mode, (nm, na, tm, ta) in SOFT_X_YOUDEN_MULTISEED_TABLE[seed].items():
+            na_s = "" if na is None else f"{na:.2f}"
+            ta_s = "" if ta is None else f"{ta:.2f}"
+            lines.append(
+                f"{seed}\t{mode}\tnested\t"
+                f"{SOFT_X_YOUDEN_MULTISEED_NESTED_TAU:g}\t{nm}\t{na_s}"
+            )
+            lines.append(
+                f"{seed}\t{mode}\ttori\t"
+                f"{SOFT_X_YOUDEN_MULTISEED_TORI_TAU:g}\t{tm}\t{ta_s}"
+            )
+    lines.append(f"# {SOFT_X_YOUDEN_MULTISEED_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Denser scaffold × proposed h0 (A2-T44-followon / A2-T45 → A3 SI)
+# ---------------------------------------------------------------------------
+# denser: n_per_sphere=160 / n_per_torus=240, max_nodes=128, k=8, seed=0.
+# Youden alone collapses nested≤1 but keeps tori chance-ARI K=2 (ARI≈0.14);
+# soft×youden / soft×poisson_lr collapse both scaffolds to ≤1 major.
+
+DENSER_PROPOSED_H0_NESTED_N: int = 160
+DENSER_PROPOSED_H0_TORI_N: int = 240
+DENSER_PROPOSED_H0_MAX_NODES: int = 128
+DENSER_PROPOSED_H0_NESTED_TAU: float = 0.27
+DENSER_PROPOSED_H0_TORI_TAU: float = 0.5
+DENSER_PROPOSED_H0_SOFT_FRAC: float = 0.25
+
+# mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+DENSER_PROPOSED_H0_TABLE: dict[str, tuple[int, float | None, int, float | None]] = {
+    "youden": (1, None, 2, 0.14),
+    "soft_x_youden": (1, None, 1, None),
+    "soft_x_poisson_lr": (1, None, 1, None),
+}
+
+DENSER_PROPOSED_H0_SI_NOTE: str = (
+    "A2-T45 denser×proposed h0 (n=160/240, max_nodes=128, mid=0.5 "
+    "gabriel=False): youden alone nested@0.27→≤1, tori@0.5 K=2 ARI≈0.14; "
+    "soft×youden / soft×poisson_lr collapse both ≤1 major. Collapse ≠ "
+    "sample-ARI recovery; defaults off; no awaiting flip."
+)
+
+
+def format_denser_proposed_h0_table() -> str:
+    """TSV export of denser scaffold × proposed h0 (A2-T45)."""
+
+    lines = [
+        "# denser scaffold × proposed Youden/Poisson-LR h0",
+        f"# nested_n={DENSER_PROPOSED_H0_NESTED_N} "
+        f"tori_n={DENSER_PROPOSED_H0_TORI_N} "
+        f"max_nodes={DENSER_PROPOSED_H0_MAX_NODES} "
+        f"soft_frac={DENSER_PROPOSED_H0_SOFT_FRAC:g}",
+        "mode\tdataset\ttau\tmajors\tsample_ari",
+    ]
+    for mode, (nm, na, tm, ta) in DENSER_PROPOSED_H0_TABLE.items():
+        na_s = "" if na is None else f"{na:.2f}"
+        ta_s = "" if ta is None else f"{ta:.2f}"
+        lines.append(
+            f"{mode}\tnested\t{DENSER_PROPOSED_H0_NESTED_TAU:g}\t{nm}\t{na_s}"
+        )
+        lines.append(
+            f"{mode}\ttori\t{DENSER_PROPOSED_H0_TORI_TAU:g}\t{tm}\t{ta_s}"
+        )
+    lines.append(f"# {DENSER_PROPOSED_H0_SI_NOTE}")
     return "\n".join(lines)
 
 

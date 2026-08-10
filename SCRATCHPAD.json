@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-09T18:46-05:00",
-  "turn": 50,
+  "updated_at": "2026-08-09T19:20-05:00",
+  "turn": 51,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "soft\u00d7youden_h0 / denser\u00d7proposed_h0 toward sample-ARI"
+    "goal": "soft seed1-inflate / h0-null under soft; denser seed2 b2 hunt"
   },
   "recent": [
-    "Scoop A2 Youden\u22480.73 + soft\u00d7conj collapse",
-    "A4 denser fitted tori partial (1,2,0) first b1=2",
-    "A5 face-solve + live density + dry_run stage1_route"
+    "Scoop A2-T44..T46 soft x youden multi-seed + h0 near-null",
+    "A4 denser 384/512 regress; seed2 both (1,2,0); lifetime != b2",
+    "A5 loopy-BP + mass-norm + None=>True probe; A6 seed4 Jaccard"
   ],
   "discoveries": [
-    "Youden h0\u22480.73 / poisson_lr\u22480.76 proposed; A4=0.7; still \u2260ARI",
-    "Fitted interlocking torus0 partial b1=2 at n=500/max_nodes=256",
-    "schedule\u00d7lifetime needs frac\u22654 for both nested shells"
+    "Soft seed-fragile (seed1 inflates nested); h0 in {0.7,0.73,0.76} near-null under soft",
+    "Denser max_nodes 384/512 regress; partial b1=2 seed-fragile (seed2 best)",
+    "Seed4 dense reject: first half-step Jaccard 0.39<0.5 under coarse-anchored"
   ],
   "open_threads": [
-    "A2-T44 soft\u00d7youden hollow ARI",
-    "A4-T40 denser 384/512 full (1,2,1) hunt",
+    "A2-T47 seed1 inflate mechanism",
+    "A4-T44 Stage-1 seed sweep denser256 b2",
     "#45 open-loop after #44 ARI"
   ],
-  "next_step": "Workers pull MERGE_DONE; watch soft\u00d7youden + denser tori",
+  "next_step": "Workers pull MERGE_DONE; watch seed1-inflate + denser b2",
   "blockers": []
 }
