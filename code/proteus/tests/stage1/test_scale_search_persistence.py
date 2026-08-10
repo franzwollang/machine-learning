@@ -3862,6 +3862,137 @@ def test_thr030_dense_accept_load_vector_export() -> None:
     assert ScaleSearchConfig().halve_grid_steps is False
 
 
+def test_seed2_thr030_dense_phi_lw_vs_coarse_and_load_screened() -> None:
+    # EXPERIMENT (A6-T76-followon): on thr=0.30 densified seed~2 (the sole
+    # LW≠coarse cell), export Phi_C at coarse-end idx0 vs LW idx1, and contrast
+    # load-screened mid / two-thirds / three-quarter vs their raw landings.
+    # Expect: Phi drops one step finer with LW; load-screened ≡ raw because
+    # loads at fractional indices clear the ≪1 screen (0.5). Defaults stay off.
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+    assert _WITHIN_INTERVAL_LOAD_SCREEN_MIN == 0.5
+
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=2,
+    )
+    gt = dataset.ground_truth
+    assert gt.expected_tau is not None
+    tau_lo, tau_hi = gt.tau_grid_hint
+    result = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=ScaleSearchConfig(
+            tau_min=tau_lo,
+            tau_max=tau_hi,
+            max_grid_points=8,
+            k=8,
+            n_seeds=12,
+            min_nodes=8,
+            max_nodes=128,
+            ann_backend="naive",
+            selector="persistence",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=12
+            ),
+            seed=2,
+            halve_grid_steps=True,
+            persistence=PersistenceConfig(
+                resolve_within_interval="none",
+                densify_overlap_recover="lower_threshold",
+                densify_overlap_recover_threshold=0.30,
+            ),
+        ),
+    )
+    assert result.persistence_result is not None
+    pr = result.persistence_result
+    assert pr.tau_star_index == 0
+    assert int(pr.run_lengths[0]) == 16
+    load = np.asarray(result.load_trace, dtype=float)
+    phi = np.asarray(result.phi_trace, dtype=float)
+
+    modes = (
+        "none",
+        "load_weighted_interval",
+        "mid_interval",
+        "mid_interval_load_screened",
+        "two_thirds_interval",
+        "two_thirds_load_screened",
+        "three_quarter_interval",
+        "three_quarter_load_screened",
+    )
+    rows: dict[str, dict[str, float | int]] = {}
+    print("\nA6-T76 seed2 thr0.30 dense Phi LW vs coarse + load-screened")
+    header = (
+        f"{'mode':28s} {'idx':>3s} {'tau*/E':>8s} {'Phi*':>10s} {'load*':>8s}"
+    )
+    print(header)
+    print("-" * len(header))
+    for mode in modes:
+        idx = _resolve_persistence_tau_index(
+            pr,
+            load,
+            list(result.stabilized_flags),
+            PersistenceConfig(resolve_within_interval=mode),  # type: ignore[arg-type]
+        )
+        ratio = float(result.tau_grid[idx]) / float(gt.expected_tau)
+        phi_star = float(phi[idx])
+        load_star = float(load[idx])
+        rows[mode] = {
+            "idx": int(idx),
+            "ratio": ratio,
+            "phi": phi_star,
+            "load": load_star,
+        }
+        print(
+            f"{mode:28s} {idx:3d} {ratio:8.3f} {phi_star:10.4f} {load_star:8.4f}"
+        )
+
+    # Coarse vs LW one-step: indices / ratios match T70/T73 pins.
+    assert int(rows["none"]["idx"]) == 0
+    assert abs(float(rows["none"]["ratio"]) - 16.0) < 0.05
+    assert int(rows["load_weighted_interval"]["idx"]) == 1
+    assert abs(float(rows["load_weighted_interval"]["ratio"]) - 12.126) < 0.05
+
+    # Phi at LW idx1 is finite and strictly below Phi at coarse idx0
+    # (one-step finer landing on a descending-tau / rising-load grid).
+    phi0 = float(rows["none"]["phi"])
+    phi1 = float(rows["load_weighted_interval"]["phi"])
+    assert np.isfinite(phi0) and np.isfinite(phi1)
+    assert phi1 < phi0
+    # Published magnitude pins (diagnostic; not acceptance-path).
+    assert abs(phi0 - float(phi[0])) < 1e-12
+    assert abs(phi1 - float(phi[1])) < 1e-12
+
+    # Fractional raw landings match densify hierarchy (T73).
+    assert int(rows["mid_interval"]["idx"]) == 7
+    assert int(rows["two_thirds_interval"]["idx"]) == 10
+    assert int(rows["three_quarter_interval"]["idx"]) == 11
+
+    # Load-screened ≡ raw: fractional loads clear ≪1 screen.
+    for raw, screened in (
+        ("mid_interval", "mid_interval_load_screened"),
+        ("two_thirds_interval", "two_thirds_load_screened"),
+        ("three_quarter_interval", "three_quarter_load_screened"),
+    ):
+        assert int(rows[screened]["idx"]) == int(rows[raw]["idx"])
+        assert float(rows[screened]["phi"]) == float(rows[raw]["phi"])
+        assert float(rows[raw]["load"]) >= _WITHIN_INTERVAL_LOAD_SCREEN_MIN
+        assert float(rows[screened]["load"]) >= _WITHIN_INTERVAL_LOAD_SCREEN_MIN
+
+    # Coarse/LW loads also clear the screen (T70 mechanism precondition).
+    assert float(rows["none"]["load"]) >= _WITHIN_INTERVAL_LOAD_SCREEN_MIN
+    assert float(rows["load_weighted_interval"]["load"]) >= _WITHIN_INTERVAL_LOAD_SCREEN_MIN
+    assert abs(float(rows["none"]["load"]) - 0.614) < 0.02
+    assert abs(float(rows["load_weighted_interval"]["load"]) - 1.562) < 0.05
+
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
 def test_default_selector_is_load_crossover() -> None:
     # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
     assert ScaleSearchConfig().selector == "load_crossover"
