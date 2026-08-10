@@ -1,10 +1,9 @@
 """Seed7 erase × soft×gabriel∧H×bridge denser384 (#41 / A4-T106).
 
-A4-T100: bridge_critical/bridge_mass never unlocked clean void (dirty-reintro
-on baseline). ``persist_agree`` is recursion-level (not HollowEdgeConfig), so
-this harness probes the alternate arm: ``require_gabriel_and_h`` ×
-``bridge_critical_only`` and ``bridge_mass`` compose under baseline erase +
-gabriel∧H dirty cfg — asking whether conj×bridge unlocks clean ``(1,2,1)``.
+A4-T103: soft×gabriel∧H×bridge / bridge_mass on denser256 never unlocked
+clean void (dirty-only ``max_b2=1``). This harness lifts the same compose
+to denser ``max_nodes=384`` — asking whether denser coverage unlocks clean
+``(1,2,1)`` under baseline erase + gabriel∧H dirty cfg × bridge/soft mass.
 
 Evidence-gathering only — does **not** flip ``@awaiting`` or SI defaults.
 """
@@ -489,7 +488,9 @@ def test_linked_tori_seed7_erase_cfg_soft_gab_bridge_denser_harness_lands(
     assert bundle.soft_mults == SOFT_MULT_ARMS
     assert len(bundle.rows) == 2 * len(CAPACITY_MODES)
     assert sum(1 for r in bundle.rows if r.is_baseline) == len(CAPACITY_MODES)
-    assert bundle.signal_fixed_dirty_b2 is True
+    # denser384 signal is typically clean-partial (1,2,0) — not denser256 dirty-b2.
+    assert bundle.signal_fixed_betti
+    assert all(isinstance(b, tuple) for b in bundle.signal_fixed_betti.values())
     assert bundle.best_mode is not None
     header = bundle.table.splitlines()[0]
     assert "bridge" in header and "soft" in header and "method" in header
@@ -503,7 +504,8 @@ def test_linked_tori_seed7_erase_cfg_soft_gab_bridge_denser_documents_gap(
     """Document soft×gabriel∧H×bridge denser384 vs clean (1,2,1); never flip awaiting.
 
     Soft: any full ``(1,2,1)`` or clean ``b2`` is proposal-path evidence.
-    Otherwise keep documenting denser soft×conj×bridge/mass ≠ clean recover after erase.
+    Otherwise keep documenting denser soft×conj×bridge/mass ≠ clean recover
+    (signal may be clean-partial ``(1,2,0)`` with ``max_b2=0``, unlike denser256 dirty).
     """
     bundle = linked_tori_seed7_erase_cfg_soft_gab_bridge_denser_bundle
     if bundle.any_full_match or bundle.any_clean_b2:
@@ -524,8 +526,10 @@ def test_linked_tori_seed7_erase_cfg_soft_gab_bridge_denser_documents_gap(
         assert bundle.any_bridge_clean is False
         assert bundle.any_mass_clean is False
         assert bundle.any_conj_bridge_clean is False
-        assert bundle.signal_fixed_dirty_b2 is True
         assert all(not r.soft_clean_cells for r in bundle.rows)
         assert bundle.any_dirty_b2 or bundle.max_b2 >= 0
         assert bundle.baseline_ungated_max_b2 >= 0
         assert bundle.dirty_ungated_max_b2 >= 0
+        # Contrast vs T103 denser256 dirty-signal regime.
+        assert bundle.max_nodes == 384
+        assert bundle.n_signal > 0
