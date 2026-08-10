@@ -166,6 +166,13 @@ Remaining work:
   seed2 `ov0≈0.340` only accepts at thr0.30. seed1 densify×LW stays
   coarse across thr; thr0.40 dense reject `ov0≈0.364`. Paper pins. Keep
   default none. Do **not** flip default.
+- **Landed (A6-T73..T77):** thr0.30 densified load-vector export — only
+  seed2 flips `|log L1|<|log L0|` (LW=1); seeds 0/1/3/4 LW≡coarse.
+  Fractional densify hierarchy mid~2.30 / 2/3~1.00 / 3/4~0.76 / fine~0.25
+  vs LW one-step ~12.1×. Phi at LW idx1 **rises** vs coarse and mid (not
+  Phi-descent); load-screened mid/2/3/3q ≡ raw. In-block argmax Phi lands
+  at unstabilized idx1 ≡ LW; `load_crossover` hybrid stays coarse (stab
+  filter skips idx1). Keep default none. Do **not** flip default.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -345,8 +352,16 @@ re-searched *finer* scales inside a single feature.
   **kills** T58 seed1 nested inflate; denser-youden seed0 nested killed by
   soft/conj; circle youden no shatter. Soft ≠ sample-ARI. **Do not flip
   awaiting.**
-- **Remaining:** soft keep-band×persist majors baseline; denser
-  soft×gabriel×persist compose; fuller suite green with **sample-ARI** →
+- **FINDING (A2-T61..T64):** non-denser soft keep×persist majors:
+  soft≤0.5→tori K=2 chance-ARI≈0.26 (wider than denser T55≤0.12); e2e
+  soft×persist kills band (all≤1). denser soft×gabriel×persist compose
+  does **not** unlock beyond T57/T60 pairwise denser collapse. soft×
+  gabriel×persist majors: seed1 soft inflate killed by conj; e2e seed1
+  nested survives soft×conj×persist (majors≠e2e). denser soft keep×
+  gabriel majors: T55 soft≤0.12 keep **gabriel-fragile** (conj kills);
+  e2e soft/soft×conj≤1. Soft ≠ sample-ARI. **Do not flip awaiting.**
+- **Remaining:** soft keep×gabriel×persist denser e2e frac grid; denser
+  soft keep×gabriel multi-seed; fuller suite green with **sample-ARI** →
   retire radial/PCA family + awaiting-flip review (A1 sign-off). Distinct
   from #28. Post-track: open #45 open-loop / `max_nodes`
   (`reference/open_loop_growth_and_node_cap.md`) into M4.
@@ -474,9 +489,17 @@ circle `b1 = 1` target of #25.
   tissue×lifetime: SI mult never recovers; cal mult=6 recovers only at
   high frac. nested hollow mid-sweep: mid0.35 prunes; mid≥0.5 no-op;
   `any_all_either=false`. Keep `@awaiting`.
-- **Remaining before flipping recovery tests:** densify384×hollow×cal;
-  circle lifetime×noise; nested densify×hollow; keep recovery
-  `@awaiting` until SI-default fitted evidence is green.
+- **FINDING (A4-T65..T73):** densify384×hollow×cal `max_b2=0`. circle
+  lifetime×noise SI dead (cal frac≥2..4). nested densify256/512×hollow
+  no shell unlock (`any_b2` false at 512). seed2 densify256 both-partial
+  ×hollow×cal / high-frac≥4: preserves both-partial, never introduces
+  b2. circle tissue×noise×frac: SI dead; cal clean floors mostly frac≥4
+  (tissue0.08×noise0 never). nested schedule{1:3,2:6}@densify512×hollow
+  fails (densify512 kills T33 schedule recovery). Keep `@awaiting`.
+- **Remaining before flipping recovery tests:** densify128 schedule
+  reconfirm vs 512 regression; circle cal×frac at tissue0.08×noise0;
+  seed7 dirty-b2×densify256×highfrac cal; keep recovery `@awaiting`
+  until SI-default fitted evidence is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -553,9 +576,17 @@ circle `b1 = 1` target of #25.
 - **Landed (A5-T70..T71):** `enable_spectrum_safe_policy_pin_probe` /
   `probe_spectrum_safe_policy_pin` multi-cond grid; 
   `probe_fail_closed_evidence_gate_matrix` live `EvidenceGate.evaluate`
-  parity vs `score_edit`. Flags/defaults unchanged. Gaps remain:
-  spectrum×policy cap-sweep residual traj; fail_closed×live
-  `dry_run_dual_from_edit`; fail-closed acceptance flip.
-  Mass/density/benchmark stay `@awaiting`. **Do not close #43** until
-  acceptance-path default replaces the conservative open default /
-  fuller S6.
+  parity vs `score_edit`. Flags/defaults unchanged.
+- **Landed (A5-T72..T77):** `enable_spectrum_safe_policy_traj_probe` /
+  `probe_spectrum_safe_policy_traj` cap-sweep residual traj;
+  `probe_fail_closed_dry_run_evidence_gate` live dry_run×fail_closed×
+  EvidenceGate; `probe_residual_mass_loopy_compose` early-exit pin;
+  `probe_fail_closed_dry_run_reconnect_bridge` disconnect→reconnect;
+  `enable_spectrum_safe_policy_mass_compose_probe` /
+  `probe_spectrum_safe_policy_mass_compose`; 
+  `enable_residual_mass_patience_sweep_probe` /
+  `probe_residual_mass_patience_sweep`. Flags/defaults unchanged.
+  Gaps remain: spectrum×policy×mass traj export; residual×mass×policy
+  patience; fail-closed acceptance flip. Mass/density/benchmark stay
+  `@awaiting`. **Do not close #43** until acceptance-path default
+  replaces the conservative open default / fuller S6.
