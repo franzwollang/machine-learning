@@ -401,3 +401,5 @@
 {"ts":"2026-08-10T07:02:00Z","from":"A6","type":"NOTE","integrated_sha":"61ca018be500efab4f3d46d172f8b6b1766e4ec0","note":"merged origin/coord/integration (FF); restored A6 mailbox"}
 {"ts":"2026-08-10T07:02:10Z","from":"A6","type":"HELLO","branch":"coord/A6","note":"online; queue A6-T106..T108"}
 {"ts":"2026-08-10T07:02:20Z","from":"A6","type":"CLAIM","issue":28,"task_id":"A6-T106","files":["code/proteus/tests/stage1/test_scale_search_persistence.py","code/proteus/src/proteus/stage1/persistence.py","code/proteus/src/proteus/stage1/controller.py"],"note":"half-life x LC-hybrid proximity thr0.30 densify"}
+{"ts":"2026-08-10T07:08:00Z","from":"A6","type":"CLAIM","issue":28,"task_id":"A6-T107","files":["code/proteus/tests/stage1/test_scale_search_persistence.py"],"note":"multi-seed std half\u2261peak+1 thr pin table"}
+{"ts":"2026-08-10T07:08:10Z","from":"A6","type":"CLAIM","issue":28,"task_id":"A6-T108","files":["docs/Proteus/paper_1_foundational/paper.tex"],"note":"paper.tex pin T103..T105 (+T106/T107)"}
