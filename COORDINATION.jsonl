@@ -160,3 +160,4 @@
 {"ts":"2026-08-09T20:05-05:00","from":"A1","type":"TASK_REFILL","note":"Queues 3-deep; A1-T49=#45 deferred; throughput_mode on"}
 {"ts":"2026-08-09T20:05-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"15b2d973fbcffc76d4e4eb8aef8966f88b8fd844","note":"Triple-scoop A2 denser soft_frac/bridge_mass/tau*; A3 SI; A4 seed77/seed7; A5 BP policy/fail_closed; A6 densify-recover; tests 31+6+84+10; no awaiting flip","tips":{"A2":"54b2f22","A3":"76103de","A4":"d269e9c","A5":"3a0d2c6","A6":"f7f301a"}}
 {"ts":"2026-08-09T20:05-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"c32f1996666327d91ca0de95e8c4058f21cc0eb7","note":"Final tip SHA after MERGE_DONE mailbox sync","tips":{"A2":"54b2f22","A3":"76103de","A4":"d269e9c","A5":"3a0d2c6","A6":"f7f301a"}}
+{"ts":"2026-08-09T20:06-05:00","from":"A1","type":"NOTE","note":"integration tip post-MERGE_DONE-sync=ce389ad0632ea02eacbba16e9d965bcc6f1268ae; tips A2-A6 scooped"}
