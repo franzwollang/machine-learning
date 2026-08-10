@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T20:05-05:00",
+  "updated_at": "2026-08-09T20:10-05:00",
   "integration_branch": "coord/integration",
   "throughput_mode": true,
   "merge_order": [
@@ -25,9 +25,9 @@
           "summary": "Scoop aggressively; keep queues 3-deep; no awaiting flip without green evidence + sample-ARI"
         },
         {
-          "id": "A1-T58",
+          "id": "A1-T59",
           "status": "ready",
-          "summary": "Watch denser×bridge_mass / soft×persist@tau*; densify-recover collateral; densify>256 seed77; hold #45"
+          "summary": "Watch A2 denser\u00d7bridge_mass; A4 densify>256; A5 residual-stop; A6 collateral; hold #45"
         }
       ]
     },
@@ -77,22 +77,22 @@
       ],
       "queue": [
         {
-          "id": "A3-T65",
-          "status": "ready",
-          "issue": 28,
-          "summary": "SI S2.6.2 densify_overlap_recover thr0.35 + seed3 short-block + multi-seed Jaccard table (cite A6-T58..T60; default none)"
-        },
-        {
-          "id": "A3-T66",
-          "status": "ready",
-          "issue": 44,
-          "summary": "SI S2.6.2 denser soft_frac kills seed1 inflate + bridge_mass never inflates + tau* soft (cite A2-T50..T52; no awaiting flip)"
-        },
-        {
-          "id": "A3-T67",
+          "id": "A3-T68",
           "status": "ready",
           "issue": 43,
-          "summary": "SI S6.x BP damping policy + online/offline loopy compose + GateConfig.fail_closed_dual_adjacency (cite A5-T58..T60; keep awaiting)"
+          "summary": "SI S6.x enable_bp_policy_in_loopy + loopy convergence probe + compose forward (cite A5-T61..T63; keep awaiting)"
+        },
+        {
+          "id": "A3-T69",
+          "status": "ready",
+          "issue": 44,
+          "summary": "SI S2.6.2 denser soft_frac seed0 tori window follow-on when A2-T55 lands; else expand bridge_mass/tau* prose; no awaiting flip"
+        },
+        {
+          "id": "A3-T70",
+          "status": "ready",
+          "issue": 41,
+          "summary": "SI S14.2 densify>256 seed77 / seed7+hollow when A4-T50.. lands; stay @awaiting"
         }
       ]
     },
@@ -143,22 +143,22 @@
       ],
       "queue": [
         {
-          "id": "A5-T61",
+          "id": "A5-T64",
           "status": "ready",
           "issue": 43,
-          "summary": "EXPERIMENT wire damping policy into loopy spectrum ridge path (flag off); keep mass/density awaiting"
+          "summary": "EXPERIMENT certified loopy residual-stop policy sketch (flag off); keep mass/density awaiting"
         },
         {
-          "id": "A5-T62",
+          "id": "A5-T65",
           "status": "ready",
           "issue": 43,
-          "summary": "EXPERIMENT certified BP convergence harness sketch (flag off); REQUEST_TRACKER"
+          "summary": "EXPERIMENT fail_closed score_edit default-path matrix expansion (defaults unchanged); REQUEST_TRACKER"
         },
         {
-          "id": "A5-T63",
+          "id": "A5-T66",
           "status": "ready",
           "issue": 43,
-          "summary": "STUB fail_closed acceptance-path draft doc + unit matrix (defaults unchanged); do not flip"
+          "summary": "EXPERIMENT mass_normalization x loopy compose probe (flag off); do not flip awaiting"
         }
       ]
     },
@@ -196,5 +196,5 @@
       ]
     }
   },
-  "notes": "2026-08-09T20:05: Scoop A2-T50..T52; A3-T62..T64; A4-T47..T49; A5-T58..T60; A6-T58..T60. No awaiting flips. tests 31+6+84+10."
+  "notes": "2026-08-09T20:10: Double-scoop A3-EXP-si65..si67 + A5-T61..T63; refill A3-T68..T70 / A5-T64..T66. tests evidence 89."
 }

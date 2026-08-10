@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-09T20:05-05:00",
-  "turn": 53,
+  "updated_at": "2026-08-09T20:10-05:00",
+  "turn": 54,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "denser×bridge_mass / soft×persist@tau*; densify-recover collateral"
+    "goal": "denser\u00d7bridge_mass / soft\u00d7persist@tau*; densify>256 seed77"
   },
   "recent": [
-    "Scoop A2-T50..T52 denser soft_frac kills seed1 inflate",
-    "A4-T47..T49 seed77/seed7 no clean (1,2,1); cal kills dirty",
-    "A5-T58..T60 BP policy/loopy compose/fail_closed stub"
+    "Double-scoop A3-EXP-si65..si67 SI + A5-T61..T63 policy-in-loopy",
+    "Triple-scoop A2-T50..T52 denser soft_frac kills seed1 inflate",
+    "A6 densify_overlap_recover thr0.35 recovers seed4 flips seed1"
   ],
   "discoveries": [
     "Seed1 inflate=baseline+betweenness+probe-tau only; denser/bridge_mass/tau* kill",
     "densify_overlap_recover thr0.35 recovers seed4 but flips seed1",
-    "seed77 hollow dirty-b2 only at SI fine mult; cal≥3 erases without clean"
+    "seed77 hollow dirty-b2 only at SI fine mult; cal\u22653 erases without clean"
   ],
   "open_threads": [
-    "A2-T53 denser×bridge_mass; A2-T54 soft×persist@tau*",
-    "A6-T61 densify-recover collateral sweep",
+    "A2-T53 denser\u00d7bridge_mass; A4 densify>256 seed77",
+    "A5-T64 residual-stop; A6-T61 collateral sweep",
     "#45 open-loop after #44 ARI"
   ],
-  "next_step": "Workers pull MERGE_DONE; watch denser×bridge_mass + collateral",
+  "next_step": "Push MERGE_DONE; workers pull; watch denser\u00d7bridge_mass",
   "blockers": []
 }

@@ -467,7 +467,11 @@ circle `b1 = 1` target of #25.
   `run_online_offline_loopy_compose` (live BMU→loopy BP); 
   `GateConfig.fail_closed_dual_adjacency` default `False` +
   `probe_gate_fail_closed_switch` (score_edit None⇒reject only when
-  apply+fail_closed). Flags/defaults unchanged. Gaps remain: certified BP
-  convergence; fail-closed acceptance flip. Mass/density/benchmark stay
-  `@awaiting`. **Do not close #43** until acceptance-path default replaces
-  the conservative open default / fuller S6.
+  apply+fail_closed). Flags/defaults unchanged.
+- **Landed (A5-T61..T63):** `enable_bp_policy_in_loopy` wires policy into
+  `solve_loopy_bp_schedule`; `enable_loopy_bp_convergence_probe` /
+  `probe_loopy_bp_convergence` residual trajectory; compose forwards
+  policy flag. Defaults off. Gaps remain: certified BP stop rule;
+  fail-closed acceptance flip. Mass/density/benchmark stay `@awaiting`.
+  **Do not close #43** until acceptance-path default replaces the
+  conservative open default / fuller S6.
