@@ -17,7 +17,10 @@ from proteus.stage1.controller import (
     _THREE_QUARTER_LOAD_SCREEN_MIN,
     _WITHIN_INTERVAL_LOAD_SCREEN_MIN,
     _load_weighted_index,
+    _mid_interval_index,
     _resolve_persistence_tau_index,
+    _three_quarter_index,
+    _two_thirds_index,
     run_scale_search,
 )
 from proteus.stage1.persistence import (
@@ -6258,6 +6261,161 @@ def test_stab_skip_x_logL_seed2_joint_table_thr030_dense() -> None:
         assert int(by[seed]["log_fav"]) == 0
         assert int(by[seed]["idx_lw"]) == 0
         assert float(by[seed]["logpk"]) > float(by[seed]["log0"])
+
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
+def test_phi_half_life_x_fractional_landing_proximity_thr030_dense() -> None:
+    # EXPERIMENT (A6-T99): thr=0.30 densified seeds0..4 — Phi half-life index
+    # proximity to mid / two-thirds / three-quarter / fine-end landings.
+    # Pins mid as uniquely closest on every accept; half-life always coarser
+    # than mid; densify-flip two-thirds (~1.00×E[τ]) remains several steps
+    # finer than half-life. Defaults stay off.
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+    assert _WITHIN_INTERVAL_LOAD_SCREEN_MIN == 0.5
+
+    modes = (
+        ("mid", "mid_interval", _mid_interval_index),
+        ("tt", "two_thirds_interval", _two_thirds_index),
+        ("tq", "three_quarter_interval", _three_quarter_index),
+        ("fine", "fine_end_of_block", lambda i_lo, i_hi: i_hi),
+    )
+    by: dict[int, dict[str, object]] = {}
+    print("\nA6-T99 thr0.30 densified Phi half-life × fractional landing proximity")
+    header = (
+        f"{'seed':>4s} {'peak':>4s} {'half':>4s} {'mid':>3s} {'tt':>3s} "
+        f"{'tq':>3s} {'fine':>4s} {'d_mid':>5s} {'d_tt':>5s} {'d_tq':>5s} "
+        f"{'d_f':>5s} {'closest':>8s}"
+    )
+    print(header)
+    print("-" * len(header))
+    for seed in range(5):
+        dataset = make_hierarchical_gaussian(
+            children_per_coarse=2, n_samples=600, ambient_dim=4, seed=seed,
+        )
+        gt = dataset.ground_truth
+        assert gt.expected_tau is not None
+        tau_lo, tau_hi = gt.tau_grid_hint
+        result = run_scale_search(
+            dataset.points,
+            dim=gt.ambient_dim,
+            config=ScaleSearchConfig(
+                tau_min=tau_lo,
+                tau_max=tau_hi,
+                max_grid_points=8,
+                k=8,
+                n_seeds=12,
+                min_nodes=8,
+                max_nodes=128,
+                ann_backend="naive",
+                selector="persistence",
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2, max_epochs=12
+                ),
+                seed=seed,
+                halve_grid_steps=True,
+                persistence=PersistenceConfig(
+                    resolve_within_interval="none",
+                    densify_overlap_recover="lower_threshold",
+                    densify_overlap_recover_threshold=0.30,
+                ),
+            ),
+        )
+        assert result.persistence_result is not None
+        pr = result.persistence_result
+        assert pr.tau_star_index == 0
+        assert int(pr.run_lengths[0]) == 16
+        load = np.asarray(result.load_trace, dtype=float)
+        phi = np.asarray(result.phi_trace, dtype=float)
+        taus = np.asarray(result.tau_grid, dtype=float)
+        stab = list(result.stabilized_flags)
+        i_lo, i_hi = 0, 15
+        finite = [
+            idx for idx in range(i_lo, i_hi + 1) if np.isfinite(float(phi[idx]))
+        ]
+        peak = max(finite, key=lambda i: float(phi[i]))
+        phi_p = float(phi[peak])
+        half_idx: int | None = None
+        frac_off: float | None = None
+        prev_r = 1.0
+        for off in range(1, i_hi - peak + 1):
+            r = float(phi[peak + off]) / phi_p
+            if r <= 0.5:
+                half_idx = peak + off
+                t = (prev_r - 0.5) / (prev_r - r) if prev_r != r else 0.0
+                frac_off = float(off - 1) + float(t)
+                break
+            prev_r = r
+        assert half_idx is not None and frac_off is not None
+        land: dict[str, int] = {}
+        for name, mode, fn in modes:
+            idx = int(fn(i_lo, i_hi))
+            resolved = _resolve_persistence_tau_index(
+                pr,
+                load,
+                stab,
+                PersistenceConfig(resolve_within_interval=mode),  # type: ignore[arg-type]
+            )
+            assert int(resolved) == idx
+            land[name] = idx
+        dists = {name: abs(int(half_idx) - idx) for name, idx in land.items()}
+        closest = min(dists.values())
+        tied = sorted(name for name, d in dists.items() if d == closest)
+        E = float(gt.expected_tau)
+        by[seed] = {
+            "peak": int(peak),
+            "half": int(half_idx),
+            "frac": float(frac_off),
+            "land": dict(land),
+            "dists": dict(dists),
+            "tied": list(tied),
+            "tau_h_over_E": float(taus[half_idx]) / E,
+            "tau_mid_over_E": float(taus[land["mid"]]) / E,
+            "tau_tt_over_E": float(taus[land["tt"]]) / E,
+        }
+        print(
+            f"{seed:4d} {peak:4d} {half_idx:4d} {land['mid']:3d} {land['tt']:3d} "
+            f"{land['tq']:3d} {land['fine']:4d} {dists['mid']:5d} {dists['tt']:5d} "
+            f"{dists['tq']:5d} {dists['fine']:5d} {','.join(tied):>8s}"
+        )
+
+    # Landing indices are densify-invariant (full-block [0,15]).
+    expect_land = {"mid": 7, "tt": 10, "tq": 11, "fine": 15}
+    expect_half = {0: 5, 1: 5, 2: 4, 3: 6, 4: 5}
+    expect_d_mid = {0: 2, 1: 2, 2: 3, 3: 1, 4: 2}
+    expect_tau_h = {0: 4.0, 1: 4.0, 2: 5.278, 3: 3.031, 4: 4.0}
+    for seed in range(5):
+        assert int(by[seed]["peak"]) == 1
+        assert int(by[seed]["half"]) == expect_half[seed]
+        assert by[seed]["land"] == expect_land
+        assert by[seed]["tied"] == ["mid"]
+        assert int(by[seed]["dists"]["mid"]) == expect_d_mid[seed]
+        # Half-life always coarser than mid (and finer landings).
+        assert int(by[seed]["half"]) < int(by[seed]["land"]["mid"])
+        assert int(by[seed]["dists"]["mid"]) < int(by[seed]["dists"]["tt"])
+        assert int(by[seed]["dists"]["tt"]) < int(by[seed]["dists"]["tq"])
+        assert int(by[seed]["dists"]["tq"]) < int(by[seed]["dists"]["fine"])
+        assert abs(float(by[seed]["tau_h_over_E"]) - expect_tau_h[seed]) < 0.05
+        assert abs(float(by[seed]["tau_mid_over_E"]) - 2.297) < 0.05
+        # Densify-flip two-thirds lands at ~1.00×E[τ] — farther from half-life
+        # than mid despite being closer to fine-leaf E[τ].
+        assert abs(float(by[seed]["tau_tt_over_E"]) - 1.0) < 0.05
+        assert float(by[seed]["tau_h_over_E"]) > float(by[seed]["tau_mid_over_E"])
+        assert float(by[seed]["tau_mid_over_E"]) > float(by[seed]["tau_tt_over_E"])
+
+    # Seed3 is nearest half↔mid; seed2 (fastest half-life) is farthest.
+    assert int(by[3]["dists"]["mid"]) == min(
+        int(by[s]["dists"]["mid"]) for s in range(5)
+    )
+    assert int(by[2]["dists"]["mid"]) == max(
+        int(by[s]["dists"]["mid"]) for s in range(5)
+    )
 
     assert PersistenceConfig().resolve_within_interval == "none"
     assert PersistenceConfig().densify_overlap_recover == "none"
