@@ -1679,6 +1679,34 @@ Seed-$1$ inflate is baseline$+$betweenness$+$probe-tau only; denser /
 Soft$\neq$sample-ARI. Defaults remain off; do \emph{not} flip S14.3 or
 awaiting.
 
+\paragraph{Denser$\times$bridge\_mass contrast kill and soft$\times$persist
+at $\tau^\star$ e2e (proposed; A2-T53..T54 / A3-T69).}
+A2-T55 (seed-$0$ denser soft\_frac window follow-on) has not landed; expand
+from T53/T54. Exports
+\texttt{DENSER\_BRIDGE\_MASS\_X\_YOUDEN\_SEED\_INFLATE\_*} /
+\texttt{format\_denser\_bridge\_mass\_x\_youden\_seed\_inflate\_table} and
+\texttt{SOFT\_X\_PERSIST\_TAU\_STAR\_*} /
+\texttt{format\_soft\_x\_persist\_tau\_star\_table}
+(mid${=}0.5$, gabriel off, Youden $h_0$; proposal-path):
+\begin{itemize}[leftmargin=1.5em]
+  \item Denser$\times$bridge\_mass (A2-T53; $n{=}160/240$,
+  \texttt{max\_nodes}${=}128$): on denser scaffolds both betweenness and
+  \texttt{bridge\_mass} never inflate seed~$1$ across
+  $f\in\{0.1,0.25,0.5,0.75,0.9\}$ --- denser kills the baseline
+  betweenness method contrast (T51). Multi-seed@$f{=}0.25$: seed~$0$
+  Youden keeps tori $K{=}2$ ARI$\approx 0.14$; both soft methods
+  collapse; seeds $1$--$2$ all $\le 1$.
+  \item Soft$\times$persist\_agree at operational $\tau^\star$ e2e
+  (A2-T54; lean \texttt{max\_grid\_points}${=}12$): seed-$1$ nested
+  $K{=}2$ chance-ARI$\approx 0$ \emph{survives}
+  Youden/soft/persist/soft$\times$persist --- T52 majors-absent at
+  $\tau^\star$ $\neq$ e2e leaf kill. Seeds $0$/$2$ $+$ all tori stay $1$
+  leaf. Circle Youden alone shatters ($2$ leaves);
+  soft/persist/soft$\times$persist keep uniforms at $1$.
+\end{itemize}
+Denser-killed method contrast $\neq$ sample-ARI; e2e leaf $\neq$
+sample-ARI. Defaults remain off; do \emph{not} flip S14.3 or awaiting.
+
 \paragraph{Multi-$\tau$ ROC confirmation of the A4 primary (proposed; A4-T27).}
 Multi-$\tau$ sheet$+$gap ROC (A4-T27) keeps the primary
 $(f_{\mathrm{mid}},h_0,\mathrm{Gabriel}){=}(0.5,0.7,\mathrm{False})$ as the
@@ -2415,6 +2443,26 @@ graph (do \emph{not} flip mass/density/benchmark
   \texttt{DualFlowConfig.enable\_online\_offline\_loopy\_compose}: live
   BMU tallies then offline loopy-BP schedule. Still proposal-path; not
   production online$\to$offline BP.
+  \item Policy-in-loopy wire (A5-T61 / A3-T68; default off) --- when
+  \texttt{DualFlowConfig.enable\_bp\_policy\_in\_loopy} is on,
+  \texttt{solve\_loopy\_bp\_schedule} consults
+  \texttt{propose\_bp\_damping\_policy} per factor update (raised damping $+$
+  ridge when local cond exceeds \texttt{spectrum\_cond\_cap}); reports
+  \texttt{policy\_applied} / \texttt{max\_policy\_damping}. Flags default
+  off; still not certified production BP.
+  \item Loopy BP residual-trajectory probe (A5-T62 / A3-T68; default off)
+  --- \texttt{probe\_loopy\_bp\_convergence} $+$
+  \texttt{LoopyBPConvergenceProbe} behind
+  \texttt{DualFlowConfig.enable\_loopy\_bp\_convergence\_probe}: re-runs the
+  loopy schedule at increasing \texttt{bp\_max\_iters} and records
+  $r_{\mathrm{data}}$ / $r_{\mathrm{cons}}$. Optionally forwards
+  \texttt{enable\_bp\_policy\_in\_loopy}. Sketch only --- \emph{not} a
+  convergence certificate.
+  \item Compose forwards policy-in-loopy (A5-T63 / A3-T68) ---
+  \texttt{run\_online\_offline\_loopy\_compose} forwards
+  \texttt{enable\_bp\_policy\_in\_loopy} into the offline loopy schedule and
+  surfaces \texttt{loopy\_policy\_applied} /
+  \texttt{loopy\_max\_policy\_damping}. Compose remains proposal-path.
   \item Ungated helpers \texttt{mu\_S\_weight}, \texttt{whiten\_empirical\_pressures},
   \texttt{count\_aware\_lambda\_f}, and \texttt{epsilon\_flux} expose the SI
   formulas unit-testably; \texttt{epsilon\_flux} is the post-solve health check
@@ -2423,11 +2471,12 @@ graph (do \emph{not} flip mass/density/benchmark
 \end{itemize}
 Gaps remain: production loopy Gaussian BP with convergence certificates
 (beyond the spectrum-damping / online-tallies$\to$offline-solve
-\emph{probes} and the A5-T58/T59 policy/compose sketches), and
-face-registry seam/ghost beyond scalar sketches. Live
-S6.4 density and dry-run Stage-1 route harnesses land below / in
-S6.4--S6.6. Stage-1 BMU$\to$tally wiring and Complex/ANN incidence sketches
-land in S6.1 (\texttt{enable\_stage1\_bmu\_wiring} /
+\emph{probes}, the A5-T58/T59 policy/compose sketches, and the A5-T61..T63
+policy-in-loopy / residual-trajectory wires), and face-registry seam/ghost
+beyond scalar sketches. Live S6.4 density and dry-run Stage-1 route
+harnesses land below / in S6.4--S6.6. Stage-1 BMU$\to$tally wiring and
+Complex/ANN incidence sketches land in S6.1
+(\texttt{enable\_stage1\_bmu\_wiring} /
 \texttt{enable\_complex\_ann\_incidence}). Acceptance path stays
 \texttt{None}$\Rightarrow$flags off; do \emph{not} flip mass/density
 \texttt{@awaiting}.
@@ -2464,7 +2513,7 @@ Do \emph{not} flip fail-closed / apply\_dual defaults or mass/density
 \texttt{@awaiting}.
 
 \paragraph{Online vs. offline schedule.}
-Empirical tallies $\hat p_f$ are written online during sample routing. The conservative field $p_f$ is solved offline after the accepted topology and mass field have settled. This schedule prevents double counting: transition counts select structure, online face tallies record interpolation evidence, and the offline solve converts the accepted representation into a queryable probability field. The A5-T56 / A3-T64 harness above is a proposal-path sketch of that online$\to$offline handoff on live BMU tallies; the A5-T59 / A3-EXP-si67 compose wires the same tallies into the loopy-BP schedule sketch. Production loopy BP remains future work.
+Empirical tallies $\hat p_f$ are written online during sample routing. The conservative field $p_f$ is solved offline after the accepted topology and mass field have settled. This schedule prevents double counting: transition counts select structure, online face tallies record interpolation evidence, and the offline solve converts the accepted representation into a queryable probability field. The A5-T56 / A3-T64 harness above is a proposal-path sketch of that online$\to$offline handoff on live BMU tallies; the A5-T59 / A3-EXP-si67 compose wires the same tallies into the loopy-BP schedule sketch; A5-T61..T63 / A3-T68 optionally fold \texttt{propose\_bp\_damping\_policy} into that offline loopy path and expose a residual-trajectory probe. Production loopy BP remains future work.
 
 \subsection*{S6.3 Boundary-Face Taxonomy}
 Boundary facets are classified before the dual-flow solve.
@@ -3386,6 +3435,28 @@ Denser fitted linked-tori follow-ons (stay \texttt{@awaiting}):
 \end{itemize}
 No clean full recovery. Do not flip awaiting or S14.3 defaults.
 
+\paragraph{Densify${>}256$ seed-$77$, seed-$7$+hollow, and hollow mid$\times h_0$
+(proposed; A4-T50..T52 / A3-T70).}
+Denser fitted linked-tori follow-ons (stay \texttt{@awaiting}):
+\begin{itemize}[leftmargin=1.5em]
+  \item Seed-$77$ densify ladder (A4-T50; dataset seed~$2$, Stage-1
+  seed~$77$, \texttt{max\_nodes}$\in\{256,384,512\}$): $256$ and $512$
+  keep both-tori partial $(1,2,0)$; $384$ regresses to $(1,1,0)$ /
+  $(1,1,0)$; $\max b_2{=}0$ --- densify${>}256$ does not unlock $b_2$ /
+  full $(1,2,1)$.
+  \item Seed-$7$+hollow lifetime cleanup (A4-T51): hollow keeps
+  $\approx 132/138$ nodes; fixed stays torus~$0$ $(2,1,1)$ dirty /
+  torus~$1$ $(1,2,0)$; hollow$\times$lifetime
+  $n_{\mathrm{clean}}{=}n_{\mathrm{full}}{=}0$ with $6$ dirty cells on
+  torus~$0$ --- primary hollow does not clean seed-$7$ dirty $b_2$.
+  \item Seed-$77$ hollow mid$\times h_0$ cfg sweep (A4-T52): dirty $b_2$
+  only at mid${=}0.5\times h_0\in\{0.5,0.7\}$; mid${=}0.65$ preserves
+  both-partial without dirty; mid${=}0.35$ weakens $b_1$;
+  $n_{\mathrm{clean}}{=}n_{\mathrm{full}}{=}0$. Dirty lever is
+  mid$\approx 0.5$ $+$ $h_0\ge 0.5$.
+\end{itemize}
+No clean full recovery. Do not flip awaiting or S14.3 defaults.
+
 \paragraph{Maximum mean discrepancy.}
 Use an RBF kernel with bandwidth set by the median heuristic on the combined sample. Default to $1{,}000$ samples drawn from the model and $1{,}000$ samples from the held-out test set, repeated over $5$ seeds; report mean$\pm$std and a permutation test $p$-value.
 
@@ -3456,9 +3527,9 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{hollow\_mst\_critical\_only} & \text{false}\ (\text{MST}\cap\text{hollow; A2-T34; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{hollow\_bridge\_critical\_only} & \text{false}\ (\text{graph-bridge}\cap\text{hollow; A2-T34-followon; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{HollowEdgeConfig.soft\_capacity\_only} & \text{false}\ (\text{capacity score}\ge f\cdot\max\cap\text{hollow; A2-T37; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{HollowEdgeConfig.soft\_capacity\_frac} & 0.25\ (\text{soft-capacity score fraction; A2-T37; frac sweep A2-T40/T42 nested collapses all }f\text{/seeds; tori ARI chance-level seed-fragile; seed1 inflate frac-windowed }f\in\{0.1,0.25,0.5\}\text{ A2-T47/A3-T62; denser kills inflate A2-T48; denser soft\_frac window absent A2-T50/A3-EXP-si65; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{HollowEdgeConfig.soft\_capacity\_method} & \texttt{"betweenness"}\ (\text{alt }\texttt{"bridge\_mass"}\text{ min-cut mass; A2-T39; bridge\_mass never inflates seed1 A2-T51/A3-EXP-si65; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-h_0\ (\text{hollowness cut}) & 0.35\ \text{provisional}\ (\text{A4 primary handoff }0.7\text{ with mid }0.5\text{/noGab; multi-}\tau\text{ ROC confirms dens1; A2-T43 proposed Youden }0.73\text{/A4 }0.7\text{/Poisson-LR }0.76\text{; soft}\times\text{youden multi-seed seed-fragile A2-T44/A3-T59; soft}\times h_0\text{ near-null A2-T46; denser soft}\times\text{youden both}\le1\text{ A2-T45/T48; denser }h_0\text{-only seed0 tori ARI}\approx0.14\text{ A2-T49/A3-T62; soft}\times\text{youden at }\tau^\star\text{ seed1 inflate absent A2-T52/A3-EXP-si65; sheet/bridge}\neq\text{sample-ARI; \#44}) & \text{S2.6.2} & \text{proposed (calibrated; \#44)}\\
+\texttt{HollowEdgeConfig.soft\_capacity\_frac} & 0.25\ (\text{soft-capacity score fraction; A2-T37; frac sweep A2-T40/T42 nested collapses all }f\text{/seeds; tori ARI chance-level seed-fragile; seed1 inflate frac-windowed }f\in\{0.1,0.25,0.5\}\text{ A2-T47/A3-T62; denser kills inflate A2-T48; denser soft\_frac window absent A2-T50/A3-EXP-si65; denser}\times\text{bridge\_mass both}\le1\text{ A2-T53/A3-T69; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{HollowEdgeConfig.soft\_capacity\_method} & \texttt{"betweenness"}\ (\text{alt }\texttt{"bridge\_mass"}\text{ min-cut mass; A2-T39; bridge\_mass never inflates seed1 A2-T51/A3-EXP-si65; denser kills bet/bridge\_mass contrast A2-T53/A3-T69; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+h_0\ (\text{hollowness cut}) & 0.35\ \text{provisional}\ (\text{A4 primary handoff }0.7\text{ with mid }0.5\text{/noGab; multi-}\tau\text{ ROC confirms dens1; A2-T43 proposed Youden }0.73\text{/A4 }0.7\text{/Poisson-LR }0.76\text{; soft}\times\text{youden multi-seed seed-fragile A2-T44/A3-T59; soft}\times h_0\text{ near-null A2-T46; denser soft}\times\text{youden both}\le1\text{ A2-T45/T48; denser }h_0\text{-only seed0 tori ARI}\approx0.14\text{ A2-T49/A3-T62; soft}\times\text{youden at }\tau^\star\text{ seed1 inflate absent A2-T52/A3-EXP-si65; soft}\times\text{persist at }\tau^\star\text{ e2e seed1 nested survives A2-T54/A3-T69; sheet/bridge}\neq\text{sample-ARI; \#44}) & \text{S2.6.2} & \text{proposed (calibrated; \#44)}\\
 f_{\mathrm{mid}}\ (\text{mid-ball fraction}) & 0.35\ (L/4\text{ false-hollows; A4 primary handoff }0.5\text{; mid}{>}0.5\text{ TPR collapses; ROC AUC}\approx1.0\text{ at }0.35) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 n_{\mathrm{end}}^{\min} & 0.5\ (\text{else Gabriel empty-diameter}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 M_{\mathrm{transit}} & 1\ (\text{identity until online EWMA lands}) & \text{S2.6.1} & \text{operational (proposal-path)}\\
@@ -3479,6 +3550,8 @@ M_{\mathrm{transit}} & 1\ (\text{identity until online EWMA lands}) & \text{S2.6
 \texttt{DualFlowConfig.enable\_bp\_damping\_policy} & \text{false}\ (\text{cond}\Rightarrow\text{ridge + raised damping sketch; A5-T58/A3-EXP-si67; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_online\_offline\_schedule} & \text{false}\ (\text{live-BMU tallies}\to\mu\text{ soft-solve; A5-T56/A3-T64; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_online\_offline\_loopy\_compose} & \text{false}\ (\text{live-BMU tallies}\to\text{loopy BP schedule; A5-T59/A3-EXP-si67; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.enable\_bp\_policy\_in\_loopy} & \text{false}\ (\text{loopy schedule consults propose\_bp\_damping\_policy; A5-T61/A3-T68; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.enable\_loopy\_bp\_convergence\_probe} & \text{false}\ (\text{residual trajectory LoopyBPConvergenceProbe; A5-T62/A3-T68; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_mass\_normalization} & \text{false}\ (\text{rescale }\sum m_S{=}1\text{ + }\epsilon_{\mathrm{mass}}\text{; A5-T53/A3-T61; \#43}) & \text{S6.4} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.mu\_scale} & 0.1\ (\text{SI }\mu_S\text{ leading constant; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.whiten\_floor} & 10^{-8}\ (\text{empirical-std floor; \#43}) & \text{S6.2} & \text{numerical}\\
@@ -3519,7 +3592,7 @@ n_{\min} & \max(10d,1000) & \text{S8.2} & \text{operational}\\
 \theta_A & 0.5 & \text{S8.4} & \text{empirical}\\
 \theta_{\mathrm{rej}} & 0.8 & \text{S8.4} & \text{empirical}\\
 \rho_{\min} & 10^{-4}\ (\text{conservative }10^{-3}) & \text{S10.4} & \text{operational}\\
-\texttt{lifetime\_frac}\ (\text{VR lifetime Betti reading}) & 0.5\ (\text{nested schedule}\times\text{lifetime recovers only at }\ge4\text{; A4-T39/A3-T58; denser max\_nodes 384/512 regresses partial b1=2 A4-T40/A3-T60; cal-mult=6 loses denser256 partial A4-T41; multi-seed denser partial seed-fragile A4-T42; seed2 lifetime}\neq b_2\text{ A4-T43; Stage-1 seed77 both-partial/seed7 dirty }b_2\text{ A4-T44/A3-T63; hollow+lifetime dirty }b_2\text{ A4-T45; lifetime}\times\text{cal-mult max }b_2{=}0\text{ A4-T46; seed77 hollow dirty-only/lifetime no-}b_2\text{ A4-T47/A3-EXP-si66; seed7 cleanup n\_clean=0 A4-T48; hollow}\times\text{cal kills dirty without (1,2,1) A4-T49; \#41}) & \text{S14.2} & \text{operational (proposal-path; OPEN\_ISSUES \#41)}\\
+\texttt{lifetime\_frac}\ (\text{VR lifetime Betti reading}) & 0.5\ (\text{nested schedule}\times\text{lifetime recovers only at }\ge4\text{; A4-T39/A3-T58; denser max\_nodes 384/512 regresses partial b1=2 A4-T40/A3-T60; cal-mult=6 loses denser256 partial A4-T41; multi-seed denser partial seed-fragile A4-T42; seed2 lifetime}\neq b_2\text{ A4-T43; Stage-1 seed77 both-partial/seed7 dirty }b_2\text{ A4-T44/A3-T63; hollow+lifetime dirty }b_2\text{ A4-T45; lifetime}\times\text{cal-mult max }b_2{=}0\text{ A4-T46; seed77 hollow dirty-only/lifetime no-}b_2\text{ A4-T47/A3-EXP-si66; seed7 cleanup n\_clean=0 A4-T48; hollow}\times\text{cal kills dirty without (1,2,1) A4-T49; densify ladder 384 regress/512 partial max }b_2{=}0\text{ A4-T50/A3-T70; seed7+hollow n\_clean=0 A4-T51; hollow mid}\times h_0\text{ dirty only mid=0.5 A4-T52; \#41}) & \text{S14.2} & \text{operational (proposal-path; OPEN\_ISSUES \#41)}\\
 \texttt{filtration\_mult}\ (\text{VR fixed-threshold}) & 1.5 & \text{S14.2} & \text{operational (acceptance; \#41)}\\
 \texttt{filtration\_mult}_{\mathrm{cal}}\ (\text{optional VR fallback}) & \text{unset (protocol TBD; cal=6}\neq\text{denser-fitted recovery A4-T41; lifetime}\times\text{cal-mult max }b_2{=}0\text{ A4-T46; hollow}\times\text{cal}\ge3\text{ kills dirty without clean A4-T49)} & \text{S14.2} & \text{proposed (calibrated; \#41)}\\
 \end{array}
