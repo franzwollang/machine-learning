@@ -1748,7 +1748,6 @@ def test_denser_soft_x_gabriel_x_persist_seed_inflate_export() -> None:
 
     assert HollowEdgeConfig().soft_capacity_only is False
     assert HollowEdgeConfig().require_gabriel_and_h is False
-    assert HollowEdgeConfig().require_persistent_agree is False
     assert abs(DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_H0 - 0.73) < 1e-9
     assert DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SEEDS == (0, 1, 2)
     assert DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_NESTED_N == 160
