@@ -24,24 +24,28 @@ Green tests lock:
 * S6.2 count-aware ``λ_f=1+n_f/(1+n̄)`` behind ``enable_count_aware_lambda``
   (A5-T46); multi-simplex patch ``Σ μ_S`` soft solve behind
   ``enable_patch_mu_solve`` (A5-T47 stub); shared-face antisymmetry soft
-  glue behind ``enable_shared_face_glue`` (A5-EXP-glue); Complex →
+  glue behind ``enable_shared_face_glue`` (A5-EXP-glue); global face-id
+  soft solve behind ``enable_global_face_solve`` (A5-T49); Complex →
   node-star incidence + ANN BMU query behind ``enable_complex_ann_incidence``
   (A5-EXP-ann-inc).
 * S6.3 boundary taxonomy behind ``enable_boundary_taxonomy``; seam stitch /
   ghost reservoir sketches behind ``enable_seam_ghost`` (A5-T45).
 * S6.4 simplex-local PL density *sketch* behind ``enable_simplex_density``
-  (default off; does not flip density awaiting tests).
+  (default off); live Complex/ANN density harness behind
+  ``enable_live_density`` (A5-T50; default off; does not flip density
+  awaiting tests).
 
 Gaps vs full SI S6 (do **not** flip these elsewhere yet):
 
 * **S6.1** Tally + dry-run + BMU harness + Stage-1 wiring *sketch* +
   Complex/ANN incidence bridge exist; acceptance-path Stage-1 integration
   still open.
-* **S6.2** Soft ``A_S`` / ``μ_S`` / count-aware / patch / shared-face glue
-  sketches only — no loopy Gaussian BP / global face-registry graph. See
+* **S6.2** Soft ``A_S`` / ``μ_S`` / count-aware / patch / shared-face glue /
+  global face-id sketches only — no loopy Gaussian BP. See
   module docstring acceptance-path plan (A5-T42).
 * **S6.3** Seam/ghost sketches are scalar; no face registry / patch graph.
-* **S6.4** Density sketch only; live evaluator / mass normalization open.
+* **S6.4** Density sketch + live Complex/ANN harness only; mass
+  normalization / acceptance-path density open.
 * Mass-conservation / density / benchmark ``@awaiting("stage2.dual_flow")``
   (and ``stage2.density``) remain xfail until that producer lands.
 * Acceptance path still defaults open when adjacency is ``None`` / flags off.
@@ -68,6 +72,7 @@ from proteus.stage2 import (
     build_divergence_stencil,
     build_dual_adjacency,
     build_dual_adjacency_from_complex,
+    build_global_face_registry,
     build_node_to_simplices_from_complex,
     build_shared_face_pairs,
     build_simplex_positions_from_complex,
@@ -81,6 +86,7 @@ from proteus.stage2 import (
     query_stage1_ann_bmus,
     resolve_dual_connected,
     route_live_bmu_face_tallies,
+    route_live_density_from_complex,
     route_stage1_bmu_face_tallies,
     route_stage1_from_complex,
     simplex_local_density,
@@ -88,6 +94,7 @@ from proteus.stage2 import (
     simplex_volume,
     solve_as_message_pass,
     solve_conservative_pressures,
+    solve_global_face_mu_pressures,
     solve_mu_weighted_pressures,
     solve_patch_mu_weighted_pressures,
     stitch_orientation_seam_pressures,
@@ -653,12 +660,14 @@ def test_dry_run_face_tallies_flag_off_none():
         c, remove_simplex_indices=[], affected_node_ids=[0], samples=samples
     )
     assert result.face_tallies is None
+    assert result.stage1_route is None
 
     cfg = DualFlowConfig(enable_dual_adjacency=True)  # tallies still off
     result2 = dry_run_dual_from_edit(
         c, affected_node_ids=[0], samples=samples, config=cfg
     )
     assert result2.face_tallies is None
+    assert result2.stage1_route is None
 
 
 def test_dry_run_face_tallies_demo_accumulates_on_affected():
@@ -740,6 +749,91 @@ def test_simplex_density_pl_profile_and_uniform_fallback():
 
 
 # ---------------------------------------------------------------------------
+# A5-T50: live Complex/ANN → S6.4 density harness (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_live_density_flag_off_returns_none():
+    """enable_live_density=False ⇒ route_live_density_from_complex None."""
+
+    V = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    complex_ = Complex(
+        simplices=[Simplex(vertex_ids=(0, 1, 2), volume=0.5)],
+        vertex_positions=V,
+        intrinsic_dim=2,
+    )
+    assert (
+        route_live_density_from_complex(
+            [np.array([0.2, 0.2])], complex_
+        )
+        is None
+    )
+
+
+def test_live_density_routes_via_complex_ann_and_evaluates():
+    """Flag on ⇒ ANN BMU + S6.4 density on winning simplex."""
+
+    V = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [0.5, 1.0],
+            [2.0, 0.0],
+            [1.5, 1.0],
+        ]
+    )
+    complex_ = Complex(
+        simplices=[
+            Simplex(vertex_ids=(0, 1, 2), volume=0.5),
+            Simplex(vertex_ids=(1, 3, 4), volume=0.5),
+        ],
+        vertex_positions=V,
+        intrinsic_dim=2,
+    )
+    cfg = DualFlowConfig(enable_live_density=True, tally_scale=1.0)
+    samples = [np.array([0.1, 0.1]), np.array([1.8, 0.2])]
+    # Uniform pressures → density = mass / volume = 0.5 / 0.5 = 1.0.
+    out = route_live_density_from_complex(
+        samples,
+        complex_,
+        pressures_by_simplex={0: np.ones(3), 1: np.ones(3)},
+        masses_by_simplex={0: 0.5, 1: 0.5},
+        config=cfg,
+    )
+    assert out is not None
+    assert out.assignments == (0, 1)
+    assert out.node_bmus == (0, 3)
+    assert len(out.densities) == 2
+    assert out.densities[0] == pytest.approx(1.0)
+    assert out.densities[1] == pytest.approx(1.0)
+    assert "density" in out.note.lower()
+    assert "awaiting" in out.note.lower() or "do not flip" in out.note.lower()
+
+
+def test_live_density_uses_tallies_when_pressures_omitted():
+    """Without pressures_by_simplex, harness uses routed face tallies."""
+
+    V = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    complex_ = Complex(
+        simplices=[Simplex(vertex_ids=(0, 1, 2), volume=0.5)],
+        vertex_positions=V,
+        intrinsic_dim=2,
+    )
+    cfg = DualFlowConfig(enable_live_density=True, tally_scale=1.0)
+    out = route_live_density_from_complex(
+        [np.array([0.25, 0.25])],
+        complex_,
+        config=cfg,
+    )
+    assert out is not None
+    assert out.assignments == (0,)
+    assert 0 in out.pressures_by_simplex
+    assert np.all(out.pressures_by_simplex[0] >= 0.0)
+    assert out.densities[0] > 0.0
+    assert out.per_sample[0].density == out.densities[0]
+
+
+# ---------------------------------------------------------------------------
 # A5-T42: acceptance-path plan + S6.2 gap documentation locked in module
 # ---------------------------------------------------------------------------
 
@@ -769,9 +863,11 @@ def test_acceptance_path_plan_documented_in_dual_flow_module():
     assert cfg.enable_count_aware_lambda is False
     assert cfg.enable_patch_mu_solve is False
     assert cfg.enable_shared_face_glue is False
+    assert cfg.enable_global_face_solve is False
     assert cfg.enable_boundary_taxonomy is False
     assert cfg.enable_seam_ghost is False
     assert cfg.enable_simplex_density is False
+    assert cfg.enable_live_density is False
 
 
 # ---------------------------------------------------------------------------
@@ -1219,6 +1315,95 @@ def test_shared_face_glue_requires_simplices():
 
 
 # ---------------------------------------------------------------------------
+# A5-T49: global face-id soft solve (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_global_face_registry_two_triangles():
+    """Two triangles → 5 unique facets, 1 interior, opposite signs."""
+
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    reg = build_global_face_registry(simplices)
+    assert reg.n_faces == 5  # {0,1},{0,2},{1,2},{1,3},{2,3}
+    assert reg.n_interior == 1
+    shared = [inc for inc in reg.incidences if inc.facet == frozenset({1, 2})]
+    assert len(shared) == 2
+    signs = {inc.simplex_id: inc.sign for inc in shared}
+    assert signs[0] * signs[1] == -1
+    assert set(signs.values()) == {1, -1}
+
+
+def test_global_face_solve_flag_off_returns_none():
+    """enable_global_face_solve=False ⇒ solve returns None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    A0 = build_divergence_stencil(left)
+    A1 = build_divergence_stencil(right)
+    hat = {0: np.array([2.0, 0.1, 0.1]), 1: np.array([0.2, 1.5, 0.2])}
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    assert (
+        solve_global_face_mu_pressures(
+            hat, {0: A0, 1: A1}, simplices, config=DualFlowConfig()
+        )
+        is None
+    )
+
+
+def test_global_face_solve_identifies_shared_and_antisym_local():
+    """Flag on ⇒ one global var per facet; shared locals are antisymmetric."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    A0 = build_divergence_stencil(left)
+    A1 = build_divergence_stencil(right)
+    # Disagreeing shared-face empirics (left face0 vs right face1).
+    hat = {0: np.array([3.0, 0.1, 0.1]), 1: np.array([0.1, 3.0, 0.1])}
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    cfg = DualFlowConfig(
+        enable_global_face_solve=True,
+        bp_max_iters=20,
+        as_step=0.35,
+        bp_damping=0.4,
+        mu_scale=0.05,
+    )
+    out = solve_global_face_mu_pressures(
+        hat, {0: A0, 1: A1}, simplices, config=cfg
+    )
+    assert out is not None
+    assert out.n_faces == 5
+    assert out.n_interior_faces == 1
+    assert out.simplex_ids == (0, 1)
+    assert out.block_sizes == (3, 3)
+    assert out.pressures_global.shape == (5,)
+    assert out.pressures_local.shape == (6,)
+    assert out.mu_S_sum == pytest.approx(out.mu_S[0] + out.mu_S[1])
+    assert out.r_cons >= 0.0
+    assert out.epsilon_flux >= 0.0
+    # Shared facet {1,2}: left local 0, right local 1 → indices 0 and 4.
+    assert out.pressures_local[0] == pytest.approx(
+        -out.pressures_local[4], abs=1e-9
+    )
+    assert "global face" in out.note.lower() or "face-id" in out.note.lower()
+    assert "loopy" in out.note.lower()
+
+
+def test_global_face_solve_missing_simplex_raises():
+    """Empirical simplex absent from simplices → ValueError."""
+
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    A_S = build_divergence_stencil(P)
+    cfg = DualFlowConfig(enable_global_face_solve=True)
+    with pytest.raises(ValueError, match="missing from face registry"):
+        solve_global_face_mu_pressures(
+            {0: np.ones(3)},
+            {0: A_S},
+            simplices={9: (0, 1, 2)},  # wrong id
+            config=cfg,
+        )
+
+
+# ---------------------------------------------------------------------------
 # A5-T48: Stage-1 BMU wiring sketch (flag off by default)
 # ---------------------------------------------------------------------------
 
@@ -1355,3 +1540,90 @@ def test_complex_ann_incidence_accepts_ann_duck_type():
     assert out is not None
     assert out.node_bmus == (2,)
     assert out.assignments == (0,)
+
+
+# ---------------------------------------------------------------------------
+# A5-T51: dry_run wires route_stage1_from_complex (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_dry_run_stage1_route_flag_off_none():
+    """enable_complex_ann_incidence=False ⇒ stage1_route is None."""
+
+    V = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [0.5, 1.0],
+            [2.0, 0.0],
+            [1.5, 1.0],
+        ]
+    )
+    c = Complex(
+        simplices=[
+            Simplex(vertex_ids=(0, 1, 2), volume=0.5),
+            Simplex(vertex_ids=(1, 3, 4), volume=0.5),
+        ],
+        vertex_positions=V,
+        intrinsic_dim=2,
+    )
+    samples = [np.array([0.1, 0.1])]
+    result = dry_run_dual_from_edit(
+        c, affected_node_ids=[0], samples=samples, config=DualFlowConfig()
+    )
+    assert result.stage1_route is None
+
+
+def test_dry_run_stage1_route_end_to_end():
+    """Flag on + samples ⇒ stage1_route matches route_stage1_from_complex."""
+
+    V = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [0.5, 1.0],
+            [2.0, 0.0],
+            [1.5, 1.0],
+        ]
+    )
+    c = Complex(
+        simplices=[
+            Simplex(vertex_ids=(0, 1, 2), volume=0.5),
+            Simplex(vertex_ids=(1, 3, 4), volume=0.5),
+        ],
+        vertex_positions=V,
+        intrinsic_dim=2,
+    )
+    samples = [np.array([0.1, 0.1]), np.array([1.8, 0.2])]
+    cfg = DualFlowConfig(
+        enable_dual_adjacency=True,
+        enable_complex_ann_incidence=True,
+        tally_scale=1.0,
+    )
+    result = dry_run_dual_from_edit(
+        c, affected_node_ids=[0, 1, 3], samples=samples, config=cfg
+    )
+    assert result.stage1_route is not None
+    assert result.stage1_route.node_bmus == (0, 3)
+    assert result.stage1_route.assignments == (0, 1)
+    assert 0 in result.stage1_route.tallies_by_simplex
+    assert 1 in result.stage1_route.tallies_by_simplex
+    # Dual adjacency still built; these simplices share a vertex only, so
+    # the induced dual on {0,1} is disconnected (correct A2 signal).
+    assert result.dual_adjacency is not None
+    assert set(result.dual_adjacency.keys()) == {0, 1}
+    assert result.dual_connected is False
+
+    direct = route_stage1_from_complex(samples, c, config=cfg)
+    assert direct is not None
+    assert result.stage1_route.node_bmus == direct.node_bmus
+    assert result.stage1_route.assignments == direct.assignments
+
+
+def test_dry_run_stage1_route_requires_samples():
+    """Flag on without samples ⇒ stage1_route stays None."""
+
+    c = _triangle_complex()
+    cfg = DualFlowConfig(enable_complex_ann_incidence=True)
+    result = dry_run_dual_from_edit(c, affected_node_ids=[0], config=cfg)
+    assert result.stage1_route is None

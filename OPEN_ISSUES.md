@@ -115,7 +115,7 @@ Remaining work:
   `two_thirds_load_screened` (default `"none"`); hierarchy Phi seed0: mid~2.69× /
   two_thirds~1.49× / 3q~0.82× (still closest on **standard** grid) / fine~0.25×;
   screened==raw. SI S2.6.2/S14.3 rows present.
-- **Landed (A6-T46..T49 + A3-EXP-si53 SI):** experimental
+- **Landed (A6-T46..T49 + A3-EXP-si53/T55 SI):** experimental
   `ScaleSearchConfig.halve_grid_steps` (half log-step) +
   `resolve_within_interval="load_weighted_interval"` (argmin `|log L|` among
   `L≥0.5`). FINDING: densify **flips** ranking on seed-0 (dense two_thirds~1.00×
@@ -123,6 +123,10 @@ Remaining work:
   fallback); seeds 1–2 never accept a multi-cluster split; load_weighted
   systematically reproduces coarse-end on hierarchy (`L(i_lo)~0.6–0.7`). Do
   **not** flip default.
+- **Landed (A6-T50/T51 + A3-T55):** multi-seed Phi hierarchy export
+  (seeds 0..4; std+dense) + `load_weighted×halve_grid` combo probe; SI notes
+  densify seed-fragility. Paper pins load_weighted≡coarse. Do **not** flip
+  default.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -257,9 +261,15 @@ re-searched *finer* scales inside a single feature.
   soft×persist_agree unrecovered; Poisson-null sheet export
   (`format_poisson_null_h0_table`; mid q01≈0.15/0.43/0.76; primary h0=0.7≤q01).
   **Do not flip awaiting.**
-- **Remaining:** soft×conj / multi-seed frac; fuller suite green with
-  **sample-ARI** → retire radial/PCA family + awaiting-flip review (A1
-  sign-off). Distinct from #28. Post-track: open #45 open-loop /
+- **Landed (A2-T41..T43 + A3-T53 SI):** soft×`require_gabriel_and_h` conj
+  collapses majors≤1 (soft alone tori K=2 ARI≈0.26); multi-seed soft_frac
+  seeds0–2 nested≤1 / tori seed-fragile; proposed Youden/Poisson-LR h0
+  (`proposed_h0_calibrated_config`: Youden≈0.73, poisson_lr≈0.76, A4=0.7;
+  defaults unchanged) — nested/tori still unrecovered. **Do not flip
+  awaiting.**
+- **Remaining:** soft×youden_h0 / denser×proposed_h0 probes; fuller suite
+  green with **sample-ARI** → retire radial/PCA family + awaiting-flip
+  review (A1 sign-off). Distinct from #28. Post-track: open #45 open-loop /
   `max_nodes` (`reference/open_loop_growth_and_node_cap.md`) into M4.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
@@ -340,9 +350,15 @@ circle `b1 = 1` target of #25.
   (`mult∈{1..8}`, max b1=1) never reach `(1,2,1)`. Hollow+cal=6 no gain.
   schedule×local-σ **regresses** nested shell2 — keep global σ. Keep
   `@awaiting`.
-- **Remaining before flipping recovery tests:** tori lifetime×mult /
-  denser clean-grid levers beyond mult/σ schedule; keep recovery
-  `@awaiting` until SI-default fitted evidence is green.
+- **FINDING (A4-T37..T39):** tori lifetime×mult grid max_b1=1; denser
+  clean-grid (24×12..40×20) all `(1,2,1)` but fitted n=500/max_nodes=256
+  yields **partial** torus0 `(1,2,0)` — first interlocking fitted b1=2
+  (other torus / b2 still fail; n=1000 still max_b1=1); nested
+  schedule×lifetime recovers both shells only at `frac≥4` (SI 0.5
+  inflates). Keep `@awaiting` (not SI single-default).
+- **Remaining before flipping recovery tests:** denser max_nodes
+  384/512 hunt full tori `(1,2,1)`; cal-mult on denser fitted; keep
+  recovery `@awaiting` until SI-default fitted evidence is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -381,7 +397,11 @@ circle `b1 = 1` target of #25.
   Stage-1 BMU wiring sketch (flags off).
 - **Landed (A5-EXP-glue + ann-inc + A3 SI):** `enable_shared_face_glue` +
   Complex→`node_to_simplices` / ANN BMU bridge (`enable_complex_ann_incidence`,
-  flags off). Gaps remain: real loopy BP / global face-id soft solve; live
-  S6.4 density; acceptance `None=>True`. Mass/density/benchmark stay
-  `@awaiting`. **Do not close #43** until acceptance-path default replaces
-  the conservative open default / fuller S6.
+  flags off).
+- **Landed (A5-T49..T51 + A3-T54 SI):** `enable_global_face_solve` stub;
+  `enable_live_density` / `route_live_density_from_complex`; dry_run
+  `DualDryRunResult.stage1_route` wires Complex ANN when flagged (all
+  default off). Gaps remain: real loopy BP; acceptance `None=>True`.
+  Mass/density/benchmark stay `@awaiting`. **Do not close #43** until
+  acceptance-path default replaces the conservative open default / fuller
+  S6.
