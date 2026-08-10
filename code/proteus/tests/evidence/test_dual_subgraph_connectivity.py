@@ -65,6 +65,7 @@ from proteus.evidence import (
     GateConfig,
     affected_dual_subgraph_connected,
     bdeu_alpha,
+    probe_fail_closed_score_edit_matrix,
     score_edit,
     star_incidence_matrix,
 )
@@ -95,7 +96,9 @@ from proteus.stage2 import (
     probe_fail_closed_dual_adjacency_plan,
     probe_gate_fail_closed_switch,
     probe_loopy_bp_convergence,
+    probe_mass_loopy_compose,
     propose_bp_damping_policy,
+    propose_loopy_bp_residual_stop,
     query_stage1_ann_bmus,
     resolve_dual_connected,
     route_live_bmu_face_tallies,
@@ -2162,3 +2165,177 @@ def test_online_offline_loopy_compose_forwards_policy_flag():
     assert out.loopy_policy_applied is True
     assert out.loopy_max_policy_damping > 0.5
     assert out.loopy_message_updates > 0
+
+
+# ---------------------------------------------------------------------------
+# A5-T64: certified loopy residual-stop policy sketch (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_loopy_bp_residual_stop_flag_off_returns_none():
+    """enable_loopy_bp_residual_stop=False ⇒ propose_loopy_bp_residual_stop None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    hats = {0: np.array([0.1, -0.2, 0.05])}
+    stencils = {0: build_divergence_stencil(left)}
+    assert (
+        propose_loopy_bp_residual_stop(
+            hats, stencils, {0: (0, 1, 2)}, config=DualFlowConfig()
+        )
+        is None
+    )
+
+
+def test_loopy_bp_residual_stop_policy_sketches_stop_reason():
+    """Flag on: returns stop_reason + trajectories; sketch ≠ production cert."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    hats = {
+        0: np.array([1.0, -1.0, 0.5]),
+        1: np.array([-1.0, 0.5, 0.25]),
+    }
+    stencils = {
+        0: build_divergence_stencil(left),
+        1: build_divergence_stencil(right),
+    }
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    cfg = DualFlowConfig(
+        enable_loopy_bp_residual_stop=True,
+        bp_residual_stop_tol=1e-3,
+        bp_residual_stop_patience=2,
+        bp_damping=0.5,
+    )
+    policy = propose_loopy_bp_residual_stop(
+        hats, stencils, simplices, max_iters=5, config=cfg
+    )
+    assert policy is not None
+    assert policy.policy_flag_default_off is True
+    assert DualFlowConfig().enable_loopy_bp_residual_stop is False
+    assert policy.stop_reason in ("abs_tol", "plateau", "max_iters")
+    assert 1 <= policy.stopped_at_iters <= 5
+    assert len(policy.r_data_traj) == policy.stopped_at_iters
+    assert len(policy.r_cons_traj) == policy.stopped_at_iters
+    assert all(r >= 0.0 for r in policy.r_data_traj)
+    assert all(r >= 0.0 for r in policy.r_cons_traj)
+    assert isinstance(policy.sketch_certificate_ok, bool)
+    if policy.stop_reason in ("abs_tol", "plateau"):
+        assert policy.sketch_certificate_ok is True
+    else:
+        assert policy.sketch_certificate_ok is False
+    assert "sketch" in policy.note.lower() or "not" in policy.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T65: fail_closed score_edit default-path matrix expansion
+# ---------------------------------------------------------------------------
+
+
+def test_fail_closed_score_edit_matrix_probe_defaults_unchanged():
+    """A5-T65: probe documents matrix; GateConfig defaults stay off."""
+
+    probe = probe_fail_closed_score_edit_matrix()
+    assert probe.defaults_unchanged is True
+    assert probe.apply_dual_default is False
+    assert probe.fail_closed_default is False
+    assert GateConfig().apply_dual_adjacency is False
+    assert GateConfig().fail_closed_dual_adjacency is False
+    assert probe.n_cases >= 8
+    assert len(probe.cases) == probe.n_cases
+    names = {c.name for c in probe.cases}
+    assert "apply_fail_closed_none_reject" in names
+    assert "fail_closed_alone_none" in names
+
+
+def test_fail_closed_score_edit_matrix_matches_score_edit():
+    """Each matrix cell's expect_accept matches live score_edit (good stars)."""
+
+    keep, edit, proposal, good_stars = _good_split_fixture()
+    # Induced on {"S0","S2"} stays connected via a direct S0—S2 edge.
+    connected = {
+        "S0": ("S1", "S2"),
+        "S1": ("S0", "S2"),
+        "S2": ("S0", "S1"),
+    }
+    disconnect = {
+        "S0": ("S1",),
+        "S1": ("S0",),
+        "S2": (),
+    }
+    probe = probe_fail_closed_score_edit_matrix()
+    for case in probe.cases:
+        if case.adj_kind == "none":
+            adj = None
+        elif case.adj_kind == "connected":
+            adj = connected
+        elif case.adj_kind == "disconnect":
+            adj = disconnect
+        else:
+            raise AssertionError(f"unknown adj_kind {case.adj_kind!r}")
+        verdict = score_edit(
+            keep,
+            edit,
+            proposal,
+            edit_stars=good_stars,
+            keep_stars=good_stars,
+            dual_connected=case.dual_connected_kwarg,
+            dual_adjacency=adj,
+            affected_simplices=["S0", "S2"],
+            config=GateConfig(
+                apply_dual_adjacency=case.apply_dual,
+                fail_closed_dual_adjacency=case.fail_closed,
+            ),
+        )
+        assert verdict.accepted is case.expect_accept, (
+            f"{case.name}: expected accept={case.expect_accept}, "
+            f"got {verdict.accepted}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# A5-T66: mass_normalization × loopy compose probe (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_mass_loopy_compose_probe_flag_off_returns_none():
+    """enable_mass_loopy_compose_probe=False ⇒ probe is None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    assert (
+        probe_mass_loopy_compose(
+            [np.array([0.3, 0.3])],
+            {0: left},
+            {0: (0, 1, 2)},
+            config=DualFlowConfig(),
+        )
+        is None
+    )
+
+
+def test_mass_loopy_compose_probe_runs_mass_and_loopy():
+    """Flag on: mass ε≈0 and loopy message updates; awaiting stays untouched."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([1.2, 0.2])]
+    cfg = DualFlowConfig(
+        enable_mass_loopy_compose_probe=True,
+        bp_damping=0.5,
+        bp_max_iters=2,
+    )
+    out = probe_mass_loopy_compose(
+        samples,
+        {0: left, 1: right},
+        {0: (0, 1, 2), 1: (1, 3, 2)},
+        config=cfg,
+    )
+    assert out is not None
+    assert out.probe_flag_default_off is True
+    assert DualFlowConfig().enable_mass_loopy_compose_probe is False
+    assert out.n_samples == 2
+    assert out.n_online_simplices >= 1
+    assert out.epsilon_mass == pytest.approx(0.0, abs=1e-9)
+    assert out.mass_total_before > 0.0
+    assert out.loopy_message_updates > 0
+    assert out.loopy_r_cons >= 0.0
+    assert "mass" in out.note.lower() and "awaiting" in out.note.lower()

@@ -47,8 +47,12 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   (A5-T59). Wiring the damping policy into the loopy schedule lands
   behind ``enable_bp_policy_in_loopy`` (A5-T61). A residual-trajectory
   convergence *probe* lands behind ``enable_loopy_bp_convergence_probe``
-  (A5-T62). Remaining real-BP gaps: certified spectrum-safe production
-  loopy BP convergence; true-manifold flux zeroing (S6.3).
+  (A5-T62). A *certified residual-stop policy sketch* lands behind
+  ``enable_loopy_bp_residual_stop`` (A5-T64; proposal-path — **not** a
+  production certificate). A mass-normalization × loopy-compose *probe*
+  lands behind ``enable_mass_loopy_compose_probe`` (A5-T66). Remaining
+  real-BP gaps: spectrum-safe production loopy BP certificate; true-
+  manifold flux zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
   seams land behind ``enable_boundary_taxonomy`` (proposed; default off).
   Heuristic single-owner → true-manifold; hint sets override. Seam stitch /
@@ -137,6 +141,14 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
 * ``DualFlowConfig.enable_loopy_bp_convergence_probe`` — when off,
   :func:`probe_loopy_bp_convergence` returns ``None``; when on, records
   residual trajectories over increasing iters (A5-T62).
+* ``DualFlowConfig.enable_loopy_bp_residual_stop`` — when off,
+  :func:`propose_loopy_bp_residual_stop` returns ``None``; when on,
+  sketches a residual plateau / tolerance stop rule (A5-T64; **not**
+  certified production stop).
+* ``DualFlowConfig.enable_mass_loopy_compose_probe`` — when off,
+  :func:`probe_mass_loopy_compose` returns ``None``; when on, runs
+  mass-normalization together with online→offline loopy compose
+  (A5-T66; proposal-path; does not flip ``@awaiting``).
 * Call sites that opt in (tests / experimental dry-runs) pass flags ``True``
   and feed results into the gate or diagnostics.
 
@@ -217,6 +229,9 @@ __all__ = [
     "OnlineOfflineLoopyComposeResult",
     "FailClosedDualPlanProbe",
     "FailClosedGateSwitchProbe",
+    "LoopyBPConvergenceProbe",
+    "LoopyBPResidualStopPolicy",
+    "MassLoopyComposeProbe",
     "SharedFacePair",
     "build_dual_adjacency",
     "build_dual_adjacency_from_complex",
@@ -261,6 +276,8 @@ __all__ = [
     "run_online_offline_schedule",
     "run_online_offline_loopy_compose",
     "probe_loopy_bp_convergence",
+    "propose_loopy_bp_residual_stop",
+    "probe_mass_loopy_compose",
     "probe_fail_closed_dual_adjacency_plan",
     "probe_gate_fail_closed_switch",
 ]
@@ -406,6 +423,23 @@ class DualFlowConfig:
         returns ``None``. When ``True``, records ``r_data`` / ``r_cons``
         trajectories over increasing iteration counts (A5-T62;
         proposal-path harness — not a production certificate).
+    enable_loopy_bp_residual_stop:
+        When ``False`` (default), :func:`propose_loopy_bp_residual_stop`
+        returns ``None``. When ``True``, sketches a residual-plateau /
+        tolerance stop rule over increasing loopy iters (A5-T64;
+        proposal-path — **not** a production certificate).
+    enable_mass_loopy_compose_probe:
+        When ``False`` (default), :func:`probe_mass_loopy_compose`
+        returns ``None``. When ``True``, runs mass normalization together
+        with online→offline loopy compose (A5-T66; proposal-path; does
+        not flip mass/density ``@awaiting``).
+    bp_residual_stop_tol:
+        Absolute plateau tolerance on ``|Δr_data|`` / ``|Δr_cons|`` for
+        the residual-stop sketch (default ``1e-3``). Operational
+        proposal-path only (SI S14.3).
+    bp_residual_stop_patience:
+        Consecutive plateau steps required before stopping (default
+        ``2``). Operational proposal-path only.
     bp_damping:
         Operational damping in ``[0, 1]`` for the BP sketch
         (``p <- (1-d)*hat_p + d*p_prev``). Default ``0.5``.
@@ -469,6 +503,10 @@ class DualFlowConfig:
     enable_online_offline_loopy_compose: bool = False
     enable_bp_policy_in_loopy: bool = False
     enable_loopy_bp_convergence_probe: bool = False
+    enable_loopy_bp_residual_stop: bool = False
+    enable_mass_loopy_compose_probe: bool = False
+    bp_residual_stop_tol: float = 1e-3
+    bp_residual_stop_patience: int = 2
     bp_damping: float = 0.5
     bp_max_iters: int = 1
     tally_scale: float = 1.0
@@ -3907,4 +3945,240 @@ def probe_gate_fail_closed_switch() -> FailClosedGateSwitchProbe:
             affected_dual_subgraph_connected(None, (0, 1))
         ),
         flag_on_none_rejects=not dual_connected_on_none,
+    )
+
+
+@dataclass(frozen=True)
+class LoopyBPResidualStopPolicy:
+    """Certified residual-stop *sketch* for loopy BP (SI S6.2; A5-T64).
+
+    Walks increasing iteration counts and stops on residual plateau /
+    absolute tolerance. Proposal-path only — ``sketch_certificate_ok``
+    is a *harness claim*, **not** a production spectrum-safe certificate.
+    """
+
+    policy_flag_default_off: bool
+    stopped_at_iters: int
+    max_iters_scanned: int
+    r_data_traj: tuple[float, ...]
+    r_cons_traj: tuple[float, ...]
+    stop_reason: str
+    tol: float
+    patience: int
+    sketch_certificate_ok: bool
+    policy_in_loopy_used: bool
+    note: str = (
+        "sketch only: residual-plateau / tol stop rule; "
+        "NOT a certified production convergence proof; do not flip @awaiting"
+    )
+
+
+def propose_loopy_bp_residual_stop(
+    empirical_by_simplex: Mapping[Hashable, np.ndarray],
+    stencils_by_simplex: Mapping[Hashable, np.ndarray],
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]],
+    *,
+    max_iters: int = 6,
+    config: DualFlowConfig | None = None,
+) -> LoopyBPResidualStopPolicy | None:
+    """Sketch a residual-plateau stop rule over loopy BP iters (A5-T64).
+
+    When ``enable_loopy_bp_residual_stop`` is off, returns ``None``. When
+    on, re-runs :func:`solve_loopy_bp_schedule` at ``bp_max_iters =
+    1..max_iters`` and stops early when both ``|Δr_data|`` and
+    ``|Δr_cons|`` stay below ``bp_residual_stop_tol`` for
+    ``bp_residual_stop_patience`` consecutive steps, or when both
+    residuals themselves fall below ``tol``.
+
+    ``sketch_certificate_ok`` is true only when the chosen stop has
+    finite non-negative residuals and a declared stop reason other than
+    exhausting ``max_iters`` without plateau — still **not** a production
+    certificate. Does **not** flip mass/density ``@awaiting``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_loopy_bp_residual_stop:
+        return None
+    n_max = int(max_iters)
+    if n_max < 1:
+        raise ValueError("max_iters must be >= 1")
+    tol = float(cfg.bp_residual_stop_tol)
+    if tol < 0.0:
+        raise ValueError("bp_residual_stop_tol must be >= 0")
+    patience = int(cfg.bp_residual_stop_patience)
+    if patience < 1:
+        raise ValueError("bp_residual_stop_patience must be >= 1")
+
+    r_data_out: list[float] = []
+    r_cons_out: list[float] = []
+    policy_used = False
+    plateau = 0
+    stop_reason = "max_iters"
+    stopped_at = n_max
+    for k in range(1, n_max + 1):
+        run_cfg = DualFlowConfig(
+            enable_loopy_bp_schedule=True,
+            enable_bp_policy_in_loopy=bool(cfg.enable_bp_policy_in_loopy),
+            bp_damping=float(cfg.bp_damping),
+            bp_max_iters=k,
+            mu_scale=float(cfg.mu_scale),
+            as_eps=float(cfg.as_eps),
+            whiten_floor=float(cfg.whiten_floor),
+            spectrum_cond_cap=float(cfg.spectrum_cond_cap),
+            enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+        )
+        out = solve_loopy_bp_schedule(
+            empirical_by_simplex,
+            stencils_by_simplex,
+            simplices,
+            config=run_cfg,
+        )
+        if out is None:
+            raise RuntimeError("loopy BP unexpectedly None under residual-stop cfg")
+        rd = float(out.r_data)
+        rc = float(out.r_cons)
+        r_data_out.append(rd)
+        r_cons_out.append(rc)
+        policy_used = policy_used or bool(out.policy_applied)
+
+        if rd <= tol and rc <= tol:
+            stop_reason = "abs_tol"
+            stopped_at = k
+            break
+        if k >= 2:
+            d_rd = abs(r_data_out[-1] - r_data_out[-2])
+            d_rc = abs(r_cons_out[-1] - r_cons_out[-2])
+            if d_rd <= tol and d_rc <= tol:
+                plateau += 1
+            else:
+                plateau = 0
+            if plateau >= patience:
+                stop_reason = "plateau"
+                stopped_at = k
+                break
+
+    # Truncate trajectories to the stop horizon.
+    r_data_t = tuple(r_data_out[:stopped_at])
+    r_cons_t = tuple(r_cons_out[:stopped_at])
+    finite_ok = all(np.isfinite(r) and r >= 0.0 for r in r_data_t + r_cons_t)
+    sketch_ok = bool(finite_ok and stop_reason in ("abs_tol", "plateau"))
+
+    return LoopyBPResidualStopPolicy(
+        policy_flag_default_off=not DualFlowConfig().enable_loopy_bp_residual_stop,
+        stopped_at_iters=int(stopped_at),
+        max_iters_scanned=n_max,
+        r_data_traj=r_data_t,
+        r_cons_traj=r_cons_t,
+        stop_reason=stop_reason,
+        tol=tol,
+        patience=patience,
+        sketch_certificate_ok=sketch_ok,
+        policy_in_loopy_used=bool(policy_used),
+    )
+
+
+@dataclass(frozen=True)
+class MassLoopyComposeProbe:
+    """Mass-normalization × online→offline loopy compose (SI S6.2; A5-T66).
+
+    Proposal-path combined probe — does **not** flip mass/density
+    ``@awaiting`` markers.
+    """
+
+    probe_flag_default_off: bool
+    n_samples: int
+    n_online_simplices: int
+    epsilon_mass: float
+    mass_total_before: float
+    loopy_message_updates: int
+    loopy_r_cons: float
+    loopy_spectrum_ridge_applied: bool
+    note: str = (
+        "sketch only: mass-norm + online→offline loopy compose probe; "
+        "do not flip mass/density @awaiting"
+    )
+
+
+def probe_mass_loopy_compose(
+    samples: Sequence[np.ndarray],
+    simplex_positions: Mapping[Hashable, np.ndarray],
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]],
+    *,
+    masses: Mapping[Hashable, float] | None = None,
+    config: DualFlowConfig | None = None,
+) -> MassLoopyComposeProbe | None:
+    """Run mass normalization together with loopy compose (A5-T66).
+
+    When ``enable_mass_loopy_compose_probe`` is off, returns ``None``.
+    When on:
+
+    1. Online→offline loopy compose (internal compose flag on).
+    2. Mass-normalize ``masses`` (default: unit mass per online winner
+       simplex from the compose path's sample routing).
+
+    Does **not** flip mass/density ``@awaiting``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_mass_loopy_compose_probe:
+        return None
+    if not samples:
+        raise ValueError("samples must be non-empty")
+    if not simplex_positions:
+        raise ValueError("simplex_positions must be non-empty")
+
+    compose_cfg = DualFlowConfig(
+        enable_online_offline_loopy_compose=True,
+        enable_bp_policy_in_loopy=bool(cfg.enable_bp_policy_in_loopy),
+        bp_damping=float(cfg.bp_damping),
+        bp_max_iters=max(int(cfg.bp_max_iters), 2),
+        tally_scale=float(cfg.tally_scale),
+        mu_scale=float(cfg.mu_scale),
+        as_eps=float(cfg.as_eps),
+        whiten_floor=float(cfg.whiten_floor),
+        spectrum_cond_cap=float(cfg.spectrum_cond_cap),
+        enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+    )
+    compose = run_online_offline_loopy_compose(
+        samples, simplex_positions, simplices, config=compose_cfg
+    )
+    if compose is None:
+        raise RuntimeError("loopy compose unexpectedly None under mass×loopy cfg")
+
+    if masses is None:
+        # Unit prior per online-routed simplex (stable sorted ids).
+        # Re-run live BMU to discover winners without depending on compose guts.
+        tally_cfg = DualFlowConfig(
+            enable_live_bmu_tally=True,
+            tally_scale=float(cfg.tally_scale),
+        )
+        live = route_live_bmu_face_tallies(
+            samples, simplex_positions, config=tally_cfg
+        )
+        if live is None:
+            raise RuntimeError("live BMU tallies unexpectedly None")
+        mass_map: dict[Hashable, float] = {
+            sid: 1.0 for sid in live.tallies_by_simplex
+        }
+    else:
+        mass_map = {k: float(v) for k, v in masses.items()}
+    if not mass_map:
+        raise ValueError("masses must be non-empty for mass×loopy probe")
+
+    mass_cfg = DualFlowConfig(enable_mass_normalization=True)
+    mass_out = normalize_simplex_masses(mass_map, config=mass_cfg)
+    if mass_out is None:
+        raise RuntimeError("mass normalization unexpectedly None under probe cfg")
+
+    return MassLoopyComposeProbe(
+        probe_flag_default_off=not DualFlowConfig().enable_mass_loopy_compose_probe,
+        n_samples=int(compose.n_samples),
+        n_online_simplices=int(compose.n_online_simplices),
+        epsilon_mass=float(mass_out.epsilon_mass),
+        mass_total_before=float(mass_out.total_before),
+        loopy_message_updates=int(compose.loopy_message_updates),
+        loopy_r_cons=float(compose.loopy_r_cons),
+        loopy_spectrum_ridge_applied=bool(compose.loopy_spectrum_ridge_applied),
     )
