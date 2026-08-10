@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09T19:35-05:00",
+  "updated_at": "2026-08-09T19:40-05:00",
   "integration_branch": "coord/integration",
   "throughput_mode": true,
   "merge_order": [
@@ -109,22 +109,22 @@
       ],
       "queue": [
         {
-          "id": "A4-T46",
-          "status": "ready",
-          "issue": 41,
-          "summary": "EXPERIMENT lifetime x cal-mult grid on seed2 denser256; stay @awaiting; REQUEST_TRACKER"
-        },
-        {
           "id": "A4-T47",
           "status": "ready",
           "issue": 41,
-          "summary": "EXPERIMENT seed77 denser256 lifetime/hollow hunt full (1,2,1); stay @awaiting"
+          "summary": "EXPERIMENT seed77 denser256 lifetime/hollow hunt full (1,2,1); stay @awaiting; REQUEST_TRACKER"
         },
         {
           "id": "A4-T48",
           "status": "ready",
           "issue": 41,
           "summary": "EXPERIMENT seed7 dirty-b2 cleanup (filtration/lifetime) toward clean (1,2,1); stay @awaiting"
+        },
+        {
+          "id": "A4-T49",
+          "status": "ready",
+          "issue": 41,
+          "summary": "EXPERIMENT lifetime x cal-mult follow-on on seed77 denser256; stay @awaiting"
         }
       ]
     },
@@ -196,5 +196,5 @@
       ]
     }
   },
-  "notes": "2026-08-09T19:35: Double-scoop A2-T47..T49 soft_frac inflate; A3-T59..T61 SI; A4-T44/T45 seed sweep+hollow; A5-T55..T57 BP/fail-closed; A6-T55..T57 seed3/Jaccard/circle LW. No awaiting flips."
+  "notes": "2026-08-09T19:40: Double-scoop A2-T47..T49; A3-T59..T61; A4-T44..T46; A5-T55..T57; A6-T55..T57. No awaiting flips. tests 29+6+4."
 }
