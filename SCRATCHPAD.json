@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-10T03:40:00Z",
-  "turn": 57,
+  "updated_at": "2026-08-10T04:20:00Z",
+  "turn": 58,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "triple-scoop soft keep/gabriel + densify hollow + spectrum/mass"
+    "goal": "quad-scoop denser keep seed0-only + densify cliff + Phi multi-seed"
   },
   "recent": [
-    "Triple-scoop A2-T61..T64 soft keep/gabriel/persist denser",
-    "A4-T65..T73 densify/hollow/circle/nested still max_b2=0",
-    "A5-T72..T77 spectrum/fail_closed/mass/patience flags off"
+    "Quad-scoop A2-T65..T66 denser keep≠e2e + seed0-only multi-seed",
+    "A4-T74..T79 densify256 schedule win; cliff@512; tissue cal4 clean",
+    "A5-T78..T80 traj/patience/fail_closed bridge; A6-T78..T80 Phi"
   ],
   "discoveries": [
-    "majors keep≠e2e; denser keep gabriel-fragile; compose≠unlock",
-    "thr0.30 seed2 Phi-peak≡LW ≠ LC-hybrid; Phi rises not descent",
-    "densify512 kills nested schedule recovery; highfrac≠void unlock"
+    "denser keep soft≤0.12 is seed0-only; seeds1–2 no majors keep",
+    "schedule hollow wins at densify128/256; regression cliff densify512",
+    "Phi-peak=idx1 all thr0.30 accepts; LW≡peak only seed2"
   ],
   "open_threads": [
-    "A2 denser keep×gabriel multi-seed; soft keep×gabriel×persist frac",
-    "A4 densify128 schedule; A5 spectrum×mass traj; A6 multi-seed Phi-peak",
+    "A2-T67 compose seed1; T68 multi-seed persist; A3 SI T80..T82",
+    "A4 densify384 cliff; A5 spectrum×patience; A6 stab-after-peak",
     "#45 deferred until #44 sample-ARI"
   ],
-  "next_step": "Push MERGE_DONE; workers pull T65+/T77+/T74+/T78+/T78+",
+  "next_step": "Push MERGE_DONE; workers pull T67+/T80+/T80+/T81+/T81+",
   "blockers": []
 }

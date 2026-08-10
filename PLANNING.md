@@ -13,10 +13,10 @@ bodies below stay static descriptions.
 | Milestone | Status |
 |---|---|
 | M0 — Spec/implementation sync pass | done |
-| M1 — Canonical clustering objective | blocked on #44 (soft×gabriel@τ* seed1 nested survives; denser kills that inflate + keep-band×persist moot at e2e; still ≠sample-ARI. No awaiting flip.) |
-| M2 — Characteristic-scale selection rebuild | in progress (thr0.35 narrow; thr0.30 seed2 LW≠coarse via closest-to-unit load; densify×LW seed1 stays coarse. Do not flip default.) |
+| M1 — Canonical clustering objective | blocked on #44 (denser keep×gabriel seed0-only + keep≠e2e persist; soft×gabriel×persist denser compose still open; ≠sample-ARI. No awaiting flip.) |
+| M2 — Characteristic-scale selection rebuild | in progress (thr0.30 multi-seed Phi-peak=idx1 always but LW≡peak only seed2; Phi2 near-peak still LC-coarse. Do not flip default.) |
 | M3 — Constant audit & calibration tier | done (c_{d,k} + C_Q(d) calibrated on the shared uniform-d-ball ensemble; S14.3 three-tier audit #37 complete; intrinsic-dim estimator #39 validated vs GT + Levina–Bickel cross-check shipped, SI S1.4.1. Operational estimator-wiring divergence surfaced as #40, deferred to the M5 junction-detection consumer.) |
-| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 spectrum_safe×policy + fail_closed EvidenceGate matrix flags off; do not close. #41: densify384/cal/lifetime/nested mid ≠(1,2,1)/SI b1. Remaining: hollow×cal / #45) |
+| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 spectrum×policy×mass traj/patience/fail_closed bridge flags off; do not close. #41: densify128/256 schedule+hollow win, cliff@512; tissue cal4×frac3 proposal clean only. Remaining: densify384 cliff / #45) |
 | M5 — Inference interface & diagnostics | not started |
 | M6 — Evaluation, benchmarks, paper finalization | not started |
 

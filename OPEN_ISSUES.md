@@ -173,6 +173,13 @@ Remaining work:
   Phi-descent); load-screened mid/2/3/3q ≡ raw. In-block argmax Phi lands
   at unstabilized idx1 ≡ LW; `load_crossover` hybrid stays coarse (stab
   filter skips idx1). Keep default none. Do **not** flip default.
+- **Landed (A6-T78..T80):** thr0.30 densified multi-seed — in-block
+  argmax Phi = idx1 on **every** accept (seeds0–4), but LW≡Phi-peak
+  **only seed2** (seeds0/1/3/4 keep LW≡coarse≠peak); LC hybrid≡coarse
+  on all five. Seed2 LC-eligible idx2 has Phi2/Phi1≈0.78 (near-peak,
+  Phi2≫Phi0) yet LC stays coarse because `|L0−1|<|L2−1|` after stab
+  skips the peak. Paper pins. Keep `densify_overlap_recover` default
+  none. Do **not** flip default.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -360,11 +367,17 @@ re-searched *finer* scales inside a single feature.
   nested survives soft×conj×persist (majors≠e2e). denser soft keep×
   gabriel majors: T55 soft≤0.12 keep **gabriel-fragile** (conj kills);
   e2e soft/soft×conj≤1. Soft ≠ sample-ARI. **Do not flip awaiting.**
-- **Remaining:** soft keep×gabriel×persist denser e2e frac grid; denser
-  soft keep×gabriel multi-seed; fuller suite green with **sample-ARI** →
-  retire radial/PCA family + awaiting-flip review (A1 sign-off). Distinct
-  from #28. Post-track: open #45 open-loop / `max_nodes`
-  (`reference/open_loop_growth_and_node_cap.md`) into M4.
+- **FINDING (A2-T65..T66):** denser soft keep×gabriel×persist e2e frac
+  grid: soft×persist / soft×conj×persist all≤1 across
+  frac∈{0.05,0.12,0.15,0.25} (keep≠e2e). denser soft keep×gabriel
+  multi-seed: T55/T64 keep soft≤0.12→tori K=2 is **seed0-only**;
+  seeds1–2 ≤1; gabriel kills seed0 keep; lean e2e only seed0 youden
+  nested K=2≈0.01. Soft ≠ sample-ARI. **Do not flip awaiting.**
+- **Remaining:** soft×gabriel×persist denser compose seed1 inflate;
+  denser soft keep×gabriel×persist multi-seed; fuller suite green with
+  **sample-ARI** → retire radial/PCA family + awaiting-flip review
+  (A1 sign-off). Distinct from #28. Post-track: open #45 open-loop /
+  `max_nodes` (`reference/open_loop_growth_and_node_cap.md`) into M4.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
@@ -496,10 +509,16 @@ circle `b1 = 1` target of #25.
   b2. circle tissue×noise×frac: SI dead; cal clean floors mostly frac≥4
   (tissue0.08×noise0 never). nested schedule{1:3,2:6}@densify512×hollow
   fails (densify512 kills T33 schedule recovery). Keep `@awaiting`.
-- **Remaining before flipping recovery tests:** densify128 schedule
-  reconfirm vs 512 regression; circle cal×frac at tissue0.08×noise0;
-  seed7 dirty-b2×densify256×highfrac cal; keep recovery `@awaiting`
-  until SI-default fitted evidence is green.
+- **FINDING (A4-T74..T79):** schedule{1:3,2:6}@densify128/256×hollow
+  recovers `(1,0,1)` (cliff is **densify512**, not 256). circle
+  tissue0.08×noise0: SI/cal6 never jointly clean; **first** clean
+  `(1,1)` at proposal-path cal mult=4×frac=3 only. seed7 densify256
+  highfrac + hollow-cfg×lifetime: `any_clean_b2=false`; mid0.35×h0≥0.5
+  erases dirty-b2 without unlocking `(1,2,1)`. Keep `@awaiting`.
+- **Remaining before flipping recovery tests:** densify384 schedule×
+  hollow cliff pin; circle tissue0.08 cal4 neighborhood×noise; seed7
+  erase-cfg×cal-mult; keep recovery `@awaiting` until SI-default
+  fitted evidence is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -586,7 +605,14 @@ circle `b1 = 1` target of #25.
   `probe_spectrum_safe_policy_mass_compose`; 
   `enable_residual_mass_patience_sweep_probe` /
   `probe_residual_mass_patience_sweep`. Flags/defaults unchanged.
-  Gaps remain: spectrum×policy×mass traj export; residual×mass×policy
-  patience; fail-closed acceptance flip. Mass/density/benchmark stay
-  `@awaiting`. **Do not close #43** until acceptance-path default
-  replaces the conservative open default / fuller S6.
+- **Landed (A5-T78..T80):** `enable_spectrum_safe_policy_mass_traj_probe`
+  / `probe_spectrum_safe_policy_mass_traj`; 
+  `enable_residual_mass_policy_patience_probe` /
+  `probe_residual_mass_policy_patience`; 
+  `enable_spectrum_policy_mass_fail_closed_bridge_probe` /
+  `probe_spectrum_policy_mass_fail_closed_bridge`. Flags/defaults
+  unchanged. Gaps remain: spectrum×policy×mass×patience compose;
+  residual×mass×policy×cap; fail-closed acceptance flip.
+  Mass/density/benchmark stay `@awaiting`. **Do not close #43** until
+  acceptance-path default replaces the conservative open default /
+  fuller S6.
