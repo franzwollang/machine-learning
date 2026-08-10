@@ -99,7 +99,7 @@ def _is_dirty_b2(betti: tuple[int, ...]) -> bool:
 
 
 @dataclass(frozen=True)
-class Seed7EraseLifetimeSoftRow:
+class Seed7EraseLifeSoftRow:
     mid_radius_frac: float
     h0: float
     gabriel_fallback: bool
