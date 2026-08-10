@@ -5137,9 +5137,14 @@ def test_thr030_dense_multiseed_phi_half_life() -> None:
         assert int(by[seed]["off"]) == want - 1
         assert abs(float(by[seed]["frac"]) - float(expect_frac[seed])) < 0.05
 
-    # Ordering: seed2 < {0,1,4} < seed3 on fractional half-life.
-    assert float(by[2]["frac"]) < float(by[1]["frac"]) < float(by[0]["frac"])
-    assert float(by[0]["frac"]) < float(by[4]["frac"]) < float(by[3]["frac"])
+    # Ordering: seed2 < seed1 < seed4 < seed0 < seed3 on fractional half-life.
+    assert (
+        float(by[2]["frac"])
+        < float(by[1]["frac"])
+        < float(by[4]["frac"])
+        < float(by[0]["frac"])
+        < float(by[3]["frac"])
+    )
 
     # LW landings unchanged vs T74/T78.
     for seed in (0, 1, 3, 4):
