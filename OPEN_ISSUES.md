@@ -218,6 +218,12 @@ Remaining work:
   preference. Std multi-seed half≡peak+1 thr-invariant on accepts
   `{0,1,3,4}` across `{0.30,0.35,0.40}`; seed2 reject. Paper pins
   T103..T107. Keep default none. Do **not** flip default.
+- **Landed (A6-T109..T111):** thr0.30 densify half×stab-only Phi-argmax
+  — mid closer on seeds 0/1/3/4 (d 2/2/1/2 vs sArg 4/4/5/4); only seed2
+  d_sArg=2<d_mid=3 — half-life ≠ sArg preference. LC straddle: fine
+  always closer to half than coarse, yet `|L-1|` keeps LC≡0; fine beats
+  mid only on seed2. Paper pins T109/T110. Keep default none. Do **not**
+  flip default.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -439,11 +445,16 @@ re-searched *finer* scales inside a single feature.
   K=2≈0.01; soft all≤1); soft×persist/soft×conj×persist e2e also≤1 —
   **persist does NOT rescue** T73 soft e2e collapse. Soft ≠ sample-ARI.
   **Do not flip awaiting.**
-- **Remaining:** denser soft keep×gabriel×persist majors-pin seed0-only
-  ARI probe; youden×majors multi-seed vs T74 seed0-only; fuller suite
-  green with **sample-ARI** → retire radial/PCA family + awaiting-flip
-  review (A1 sign-off). Distinct from #28. Post-track: open #45 open-loop
-  / `max_nodes` (`reference/open_loop_growth_and_node_cap.md`) into M4.
+- **FINDING (A2-T76):** denser soft keep×gabriel×persist majors-pin
+  seed0-only ARI probe — fine T55 soft_frac grid under T69 compose:
+  soft≤0.12→tori K=2 chance-ARI≈0.16–0.18 (gabriel kills; soft≥0.15
+  collapses); soft×persist e2e all≤1 across fine grid; only youden
+  nested K=2≈0.01. Soft ≠ sample-ARI. **Do not flip awaiting.**
+- **Remaining:** denser soft keep×gabriel×persist youden×majors
+  multi-seed vs T74 seed0-only; fuller suite green with **sample-ARI** →
+  retire radial/PCA family + awaiting-flip review (A1 sign-off). Distinct
+  from #28. Post-track: open #45 open-loop / `max_nodes`
+  (`reference/open_loop_growth_and_node_cap.md`) into M4.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
@@ -612,10 +623,16 @@ circle `b1 = 1` target of #25.
   0.24✓/0.25✗ (cal4 pin dead; proposal-path ONLY). denser384
   soft×gabriel∧H×bridge: signal (1,2,0) void-absent; max_b2=0 (no
   dirty reintro vs denser256 dirty max_b2=1). Keep `@awaiting`.
-- **Remaining before flipping recovery tests:** densify294/318 pin;
-  mult3×noise{0.2275,0.2325} or tissue0.10/0.15@0.235; erase×persist_agree
-  via RecursionConfig hollow prepass or denser512 soft×gab; keep
-  recovery `@awaiting` until SI-default fitted evidence is green.
+- **FINDING (A4-T107..T109):** densify294 **and** 318 **both hard-fail**
+  (no full/mild) — NON-MONO cliff (294 fails between 288full/296full;
+  318 past 316fail). mult3 residual dip **narrowly@0.23**
+  (0.2275✓/0.2325✓; cal4 never; proposal-path ONLY). denser512
+  soft×gab∧H×bridge: max_b2=0 void-absent; signal (1,1,0)/(1,3,0) not
+  (1,2,0)@384 — densify≠void unlock. Keep `@awaiting`.
+- **Remaining before flipping recovery tests:** densify290/292/320 pin;
+  tissue0.10/0.15@0.235; erase×persist_agree RecursionConfig leaf PH or
+  denser640/seed-vary; keep recovery `@awaiting` until SI-default fitted
+  evidence is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -740,3 +757,7 @@ circle `b1 = 1` target of #25.
   (`enable_*` / `probe_*`; flags off; dual 171p). Do **not** flip
   spectrum-safe/policy/mass/enable_dual defaults; mass/density/
   benchmark stay `@awaiting`. **Do not close #43.**
+- **Landed (A5-T106..T108):** residual×spectrum traj×fail_closed
+  dry_run/reconnect/matrix compose (`enable_*` / `probe_*`; flags off;
+  dual 177p). Do **not** flip spectrum-safe/policy/mass/enable_dual
+  defaults; mass/density/benchmark stay `@awaiting`. **Do not close #43.**

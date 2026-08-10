@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-10T07:22:00Z",
-  "turn": 64,
+  "updated_at": "2026-08-10T07:40:00Z",
+  "turn": 65,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "MERGE_DONE scoop T75/T95+/T104+/T103+/T106+; refill T76+/T98+/T107+/T106+/T109+"
+    "goal": "MERGE_DONE scoop2 T76/si115+/T107+/T106+/T109+; refill T77+/T101+/T110+/T109+/T112+"
   },
   "recent": [
-    "Scoop A2-T75 + A3-T95..T97 + A4-T104..T106 + A5-T103..T105 + A6-T106..T108",
-    "Tests 2+6+171+2 green; no awaiting flip",
-    "Queues refilled 3-deep post-scoop"
+    "Scoop1 T75+/T95+/T104+/T103+/T106+; scoop2 T76+si115+/T107+/T106+/T109+",
+    "Tests scoop2: 2+6+177+2 green; no awaiting flip",
+    "Queues refilled 3-deep post-scoop2"
   ],
   "discoveries": [
-    "T75 persist does NOT rescue T73 soft e2e collapse",
-    "densify298 full / 316 fail; denser384 void-absent max_b2=0",
-    "half-life×LC farther than mid; std half≡peak+1 thr-invariant"
+    "T76 majors-pin ARI≈0.16–0.18 chance only; Soft≠ARI",
+    "densify294/318 both hard-fail; mult3 dip narrowly@0.23",
+    "half×sArg mid-closer except seed2; LC straddle LC≡0"
   ],
   "open_threads": [
-    "A2-T76 ARI probe; A3 SI T98..T100",
-    "A4 densify294/318; A5 T106 dual-path; A6 stab-Phi",
+    "A2-T77 multiseed; A3 SI T101..T103",
+    "A4 densify290/320; A5 T109 mega-compose; A6 first-stab",
     "#45 deferred until #44 sample-ARI"
   ],
-  "next_step": "Push MERGE_DONE; workers pull T76+/T98+/T107+",
+  "next_step": "Push MERGE_DONE scoop2; workers pull T77+/T101+/T110+",
   "blockers": []
 }
