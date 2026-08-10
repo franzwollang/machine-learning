@@ -3633,6 +3633,235 @@ def test_seed1_densify_lw_stays_coarse_across_thr() -> None:
     assert ScaleSearchConfig().halve_grid_steps is False
 
 
+def test_seed2_thr030_dense_fractional_vs_lw() -> None:
+    # EXPERIMENT (A6-T73-followon): thr=0.30 densified seed~2 mid / two-thirds /
+    # three-quarter / fine-end vs load_weighted. Pins that the LW≠coarse
+    # divergence (idx1 ~12.1×) is a *one-step* closest-to-unit nudge — not a
+    # fractional-style within-block refinement (mid~2.30× / 2/3~1.00× /
+    # 3/4~0.76× / fine~0.25×). Defaults stay off; do not flip acceptance.
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+    modes = (
+        "none",
+        "mid_interval",
+        "two_thirds_interval",
+        "three_quarter_interval",
+        "load_weighted_interval",
+        "fine_end_of_block",
+    )
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=2,
+    )
+    gt = dataset.ground_truth
+    assert gt.expected_tau is not None
+    tau_lo, tau_hi = gt.tau_grid_hint
+    result = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=ScaleSearchConfig(
+            tau_min=tau_lo,
+            tau_max=tau_hi,
+            max_grid_points=8,
+            k=8,
+            n_seeds=12,
+            min_nodes=8,
+            max_nodes=128,
+            ann_backend="naive",
+            selector="persistence",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=12
+            ),
+            seed=2,
+            halve_grid_steps=True,
+            persistence=PersistenceConfig(
+                resolve_within_interval="none",
+                densify_overlap_recover="lower_threshold",
+                densify_overlap_recover_threshold=0.30,
+            ),
+        ),
+    )
+    assert result.persistence_result is not None
+    pr = result.persistence_result
+    assert pr.tau_star_index == 0
+    assert int(pr.run_lengths[0]) == 16
+    assert abs(float(pr.match_overlaps[0]) - 0.340) < 0.02
+
+    rows: dict[str, dict[str, float | int]] = {}
+    print("\nA6-T73 seed2 thr0.30 dense fractional vs LW")
+    header = f"{'mode':24s} {'idx':>3s} {'tau*/E':>8s}"
+    print(header)
+    print("-" * len(header))
+    for mode in modes:
+        idx = _resolve_persistence_tau_index(
+            pr,
+            result.load_trace,
+            list(result.stabilized_flags),
+            PersistenceConfig(resolve_within_interval=mode),  # type: ignore[arg-type]
+        )
+        ratio = float(result.tau_grid[idx]) / float(gt.expected_tau)
+        rows[mode] = {"idx": int(idx), "ratio": ratio}
+        print(f"{mode:24s} {idx:3d} {ratio:8.3f}")
+
+    # Coarse-end vs LW one-step nudge (T70 mechanism).
+    assert int(rows["none"]["idx"]) == 0
+    assert abs(float(rows["none"]["ratio"]) - 16.0) < 0.05
+    assert int(rows["load_weighted_interval"]["idx"]) == 1
+    assert abs(float(rows["load_weighted_interval"]["ratio"]) - 12.126) < 0.05
+
+    # Fractional landings match densify hierarchy (same indices as seed0/3).
+    assert int(rows["mid_interval"]["idx"]) == 7
+    assert abs(float(rows["mid_interval"]["ratio"]) - 2.297) < 0.05
+    assert int(rows["two_thirds_interval"]["idx"]) == 10
+    assert abs(float(rows["two_thirds_interval"]["ratio"]) - 1.0) < 0.05
+    assert int(rows["three_quarter_interval"]["idx"]) == 11
+    assert abs(float(rows["three_quarter_interval"]["ratio"]) - 0.758) < 0.05
+    assert int(rows["fine_end_of_block"]["idx"]) == 15
+    assert abs(float(rows["fine_end_of_block"]["ratio"]) - 0.25) < 0.05
+
+    # LW is strictly coarser than every fractional landing.
+    assert int(rows["load_weighted_interval"]["idx"]) < int(rows["mid_interval"]["idx"])
+    assert int(rows["load_weighted_interval"]["idx"]) < int(
+        rows["two_thirds_interval"]["idx"]
+    )
+    assert float(rows["load_weighted_interval"]["ratio"]) > float(
+        rows["mid_interval"]["ratio"]
+    )
+
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
+def test_thr030_dense_accept_load_vector_export() -> None:
+    # EXPORT (A6-T74-followon): load vectors for all densified accepts under
+    # thr=0.30 recover floor (seeds 0–4 all accept on this budget). Pins that
+    # only seed~2 has |log L(1)| < |log L(0)| (LW→idx1); seeds 0/1/3/4 keep
+    # |log L0| < |log L1| so LW≡coarse. Defaults stay off.
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+    assert _WITHIN_INTERVAL_LOAD_SCREEN_MIN == 0.5
+
+    by: dict[int, dict[str, float | int]] = {}
+    print("\nA6-T74 thr0.30 densified accept load vectors")
+    header = (
+        f"{'seed':>4s} {'ov0':>7s} {'run0':>4s} {'L0':>8s} {'L1':>8s} "
+        f"{'|logL0|':>8s} {'|logL1|':>8s} {'LW':>3s}"
+    )
+    print(header)
+    print("-" * len(header))
+    for seed in range(5):
+        dataset = make_hierarchical_gaussian(
+            children_per_coarse=2, n_samples=600, ambient_dim=4, seed=seed,
+        )
+        gt = dataset.ground_truth
+        tau_lo, tau_hi = gt.tau_grid_hint
+        result = run_scale_search(
+            dataset.points,
+            dim=gt.ambient_dim,
+            config=ScaleSearchConfig(
+                tau_min=tau_lo,
+                tau_max=tau_hi,
+                max_grid_points=8,
+                k=8,
+                n_seeds=12,
+                min_nodes=8,
+                max_nodes=128,
+                ann_backend="naive",
+                selector="persistence",
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2, max_epochs=12
+                ),
+                seed=seed,
+                halve_grid_steps=True,
+                persistence=PersistenceConfig(
+                    resolve_within_interval="none",
+                    densify_overlap_recover="lower_threshold",
+                    densify_overlap_recover_threshold=0.30,
+                ),
+            ),
+        )
+        assert result.persistence_result is not None
+        pr = result.persistence_result
+        assert pr.tau_star_index == 0
+        assert int(pr.run_lengths[0]) == 16
+        load = np.asarray(result.load_trace, dtype=float)
+        L0 = float(load[0])
+        L1 = float(load[1])
+        assert L0 >= _WITHIN_INTERVAL_LOAD_SCREEN_MIN
+        assert L1 >= _WITHIN_INTERVAL_LOAD_SCREEN_MIN
+        abs_log0 = abs(float(np.log(L0)))
+        abs_log1 = abs(float(np.log(L1)))
+        idx_lw = _resolve_persistence_tau_index(
+            pr,
+            load,
+            list(result.stabilized_flags),
+            PersistenceConfig(resolve_within_interval="load_weighted_interval"),
+        )
+        by[seed] = {
+            "ov0": float(pr.match_overlaps[0]),
+            "run0": int(pr.run_lengths[0]),
+            "L0": L0,
+            "L1": L1,
+            "abs_log0": abs_log0,
+            "abs_log1": abs_log1,
+            "idx_lw": int(idx_lw),
+        }
+        print(
+            f"{seed:4d} {float(pr.match_overlaps[0]):7.3f} "
+            f"{int(pr.run_lengths[0]):4d} {L0:8.4f} {L1:8.4f} "
+            f"{abs_log0:8.4f} {abs_log1:8.4f} {idx_lw:3d}"
+        )
+
+    # Published densified ov0 pins at thr0.30 (T64/T68 accept map).
+    assert abs(float(by[0]["ov0"]) - 0.504) < 0.02
+    assert abs(float(by[1]["ov0"]) - 0.364) < 0.02
+    assert abs(float(by[2]["ov0"]) - 0.340) < 0.02
+    assert abs(float(by[3]["ov0"]) - 0.503) < 0.02
+    assert abs(float(by[4]["ov0"]) - 0.390) < 0.02
+
+    # Load-vector pins: only seed2 flips |log| order → LW idx1.
+    assert abs(float(by[0]["L0"]) - 0.732) < 0.02
+    assert abs(float(by[0]["L1"]) - 1.764) < 0.05
+    assert float(by[0]["abs_log0"]) < float(by[0]["abs_log1"])
+    assert int(by[0]["idx_lw"]) == 0
+
+    assert abs(float(by[1]["L0"]) - 0.650) < 0.02
+    assert abs(float(by[1]["L1"]) - 1.635) < 0.05
+    assert float(by[1]["abs_log0"]) < float(by[1]["abs_log1"])
+    assert int(by[1]["idx_lw"]) == 0
+
+    assert abs(float(by[2]["L0"]) - 0.614) < 0.02
+    assert abs(float(by[2]["L1"]) - 1.562) < 0.05
+    assert float(by[2]["abs_log1"]) < float(by[2]["abs_log0"])
+    assert int(by[2]["idx_lw"]) == 1
+
+    assert abs(float(by[3]["L0"]) - 0.722) < 0.02
+    assert abs(float(by[3]["L1"]) - 1.785) < 0.05
+    assert float(by[3]["abs_log0"]) < float(by[3]["abs_log1"])
+    assert int(by[3]["idx_lw"]) == 0
+
+    assert abs(float(by[4]["L0"]) - 0.692) < 0.02
+    assert abs(float(by[4]["L1"]) - 1.903) < 0.05
+    assert float(by[4]["abs_log0"]) < float(by[4]["abs_log1"])
+    assert int(by[4]["idx_lw"]) == 0
+
+    # Singleton LW≠coarse exception under thr0.30 densify.
+    for seed in (0, 1, 3, 4):
+        assert int(by[seed]["idx_lw"]) == 0
+    assert int(by[2]["idx_lw"]) == 1
+
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
 def test_default_selector_is_load_crossover() -> None:
     # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
     assert ScaleSearchConfig().selector == "load_crossover"
