@@ -113,6 +113,8 @@ from proteus.stage2 import (
     probe_spectrum_safe_policy_mass_patience,
     probe_residual_mass_policy_cap,
     probe_spectrum_policy_mass_traj_fail_closed_bridge,
+    probe_spectrum_safe_policy_mass_patience_cap,
+    probe_residual_mass_policy_patience_cap,
     propose_bp_damping_policy,
     propose_loopy_bp_residual_stop,
     query_stage1_ann_bmus,
@@ -3583,3 +3585,178 @@ def test_spectrum_policy_mass_traj_fail_closed_bridge_composes():
     assert probe.fail_closed_reconnect_all_matched is True
     assert "harness" in probe.note.lower() or "awaiting" in probe.note.lower()
     assert "fail" in probe.note.lower() or "closed" in probe.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T84: spectrum-safe × policy × mass_loopy patience×cap grid (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_spectrum_safe_policy_mass_patience_cap_flag_off_returns_none():
+    """enable_spectrum_safe_policy_mass_patience_cap_probe=False ⇒ None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    assert (
+        probe_spectrum_safe_policy_mass_patience_cap(
+            [np.array([0.3, 0.3])],
+            {0: left},
+            {0: (0, 1, 2)},
+            config=DualFlowConfig(),
+        )
+        is None
+    )
+
+
+def test_spectrum_safe_policy_mass_patience_cap_grid():
+    """Flag on: spectrum×policy pin + mass×compose patience×cap; defaults off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([1.2, 0.2])]
+    grid = (1, 2, 4)
+    caps = (1e-12, 1.0, 1e6)
+    probe = probe_spectrum_safe_policy_mass_patience_cap(
+        samples,
+        {0: left, 1: right},
+        {0: (0, 1, 2), 1: (1, 3, 2)},
+        patience_grid=grid,
+        spectrum_cond_caps=caps,
+        config=DualFlowConfig(
+            enable_spectrum_safe_policy_mass_patience_cap_probe=True,
+            bp_damping=0.5,
+            bp_max_iters=8,
+            bp_residual_stop_tol=1e-3,
+        ),
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert DualFlowConfig().enable_spectrum_safe_policy_mass_patience_cap_probe is False
+    assert DualFlowConfig().enable_spectrum_safe_policy_mass_patience_probe is False
+    assert DualFlowConfig().enable_residual_mass_policy_cap_probe is False
+    assert DualFlowConfig().enable_bp_policy_in_loopy is False
+    assert DualFlowConfig().enable_mass_normalization is False
+    assert DualFlowConfig().enable_loopy_bp_residual_stop is False
+    assert probe.patience_grid == grid
+    assert probe.caps == caps
+    assert len(probe.cases) == len(grid) * len(caps)
+    # Tight cap should engage the damping-policy path on this fixture.
+    assert any(
+        case.policy_applied
+        for case in probe.cases
+        if case.spectrum_cond_cap == pytest.approx(1e-12)
+    )
+    for case in probe.cases:
+        assert case.patience in grid
+        assert case.spectrum_cond_cap in caps
+        assert case.r_data >= 0.0
+        assert case.r_cons >= 0.0
+        assert case.residual_stop_reason in ("abs_tol", "plateau", "max_iters")
+        assert 1 <= case.iters_executed <= case.max_iters
+        assert isinstance(case.spectrum_ridge_applied, bool)
+        assert case.max_policy_damping >= 0.0
+        if (
+            case.residual_stop_reason in ("abs_tol", "plateau")
+            and not case.spectrum_ridge_applied
+        ):
+            assert case.spectrum_safe_sketch_ok is True
+        else:
+            assert case.spectrum_safe_sketch_ok is False
+        assert case.epsilon_mass == pytest.approx(0.0, abs=1e-9)
+        assert case.mass_total_before > 0.0
+        assert case.compose_n_samples == 2
+        assert case.compose_n_online_simplices >= 1
+        assert case.compose_loopy_message_updates > 0
+        assert case.compose_loopy_r_cons >= 0.0
+        assert case.compose_residual_stop_enabled is True
+        assert case.compose_residual_stop_reason in (
+            "abs_tol",
+            "plateau",
+            "max_iters",
+        )
+        assert 1 <= case.compose_loopy_iters <= case.compose_max_iters
+        assert isinstance(case.compose_policy_applied, bool)
+        assert isinstance(case.compose_spectrum_ridge_applied, bool)
+    assert "harness" in probe.note.lower() or "not" in probe.note.lower()
+    assert "awaiting" in probe.note.lower()
+    assert "mass" in probe.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T85: residual-stop × mass_loopy × policy patience×cap grid (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_residual_mass_policy_patience_cap_flag_off_returns_none():
+    """enable_residual_mass_policy_patience_cap_probe=False ⇒ None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    assert (
+        probe_residual_mass_policy_patience_cap(
+            [np.array([0.3, 0.3])],
+            {0: left},
+            {0: (0, 1, 2)},
+            config=DualFlowConfig(),
+        )
+        is None
+    )
+
+
+def test_residual_mass_policy_patience_cap_grid():
+    """Flag on: mass×policy×compose patience×cap grid; defaults stay off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([1.2, 0.2])]
+    grid = (1, 2, 4)
+    caps = (1e-12, 1.0, 1e6)
+    probe = probe_residual_mass_policy_patience_cap(
+        samples,
+        {0: left, 1: right},
+        {0: (0, 1, 2), 1: (1, 3, 2)},
+        patience_grid=grid,
+        spectrum_cond_caps=caps,
+        config=DualFlowConfig(
+            enable_residual_mass_policy_patience_cap_probe=True,
+            bp_damping=0.5,
+            bp_max_iters=6,
+            bp_residual_stop_tol=1e-3,
+        ),
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert DualFlowConfig().enable_residual_mass_policy_patience_cap_probe is False
+    assert DualFlowConfig().enable_residual_mass_policy_patience_probe is False
+    assert DualFlowConfig().enable_residual_mass_policy_cap_probe is False
+    assert DualFlowConfig().enable_bp_policy_in_loopy is False
+    assert DualFlowConfig().enable_mass_normalization is False
+    assert DualFlowConfig().enable_loopy_bp_residual_stop is False
+    assert probe.patience_grid == grid
+    assert probe.caps == caps
+    assert len(probe.cases) == len(grid) * len(caps)
+    # Tight cap should engage the damping-policy path on this fixture.
+    assert any(
+        case.compose_policy_applied
+        for case in probe.cases
+        if case.spectrum_cond_cap == pytest.approx(1e-12)
+    )
+    for case in probe.cases:
+        assert case.patience in grid
+        assert case.spectrum_cond_cap in caps
+        assert case.epsilon_mass == pytest.approx(0.0, abs=1e-9)
+        assert case.mass_total_before > 0.0
+        assert case.compose_n_samples == 2
+        assert case.compose_n_online_simplices >= 1
+        assert case.compose_loopy_message_updates > 0
+        assert case.compose_loopy_r_cons >= 0.0
+        assert case.compose_residual_stop_enabled is True
+        assert case.compose_residual_stop_reason in (
+            "abs_tol",
+            "plateau",
+            "max_iters",
+        )
+        assert 1 <= case.compose_loopy_iters <= case.compose_max_iters
+        assert isinstance(case.compose_policy_applied, bool)
+        assert isinstance(case.compose_spectrum_ridge_applied, bool)
+    assert "awaiting" in probe.note.lower()
+    assert "mass" in probe.note.lower()
+    assert "policy" in probe.note.lower() or "sketch" in probe.note.lower()
