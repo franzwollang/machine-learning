@@ -70,7 +70,10 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   only; does not flip ``@awaiting``). A residual-stop × mass_loopy
   *patience sweep* lands behind
   ``enable_residual_mass_patience_sweep_probe`` (A5-T77; proposal-path;
-  does not flip ``@awaiting``). Remaining real-BP gaps: true
+  does not flip ``@awaiting``). A spectrum-safe × policy × mass
+  *cap-sweep residual trajectory export* lands behind
+  ``enable_spectrum_safe_policy_mass_traj_probe`` (A5-T78; harness
+  only; does not flip ``@awaiting``). Remaining real-BP gaps: true
   spectrum-safe production loopy BP certificate; true-manifold flux
   zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
@@ -204,6 +207,12 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
   when on, sweeps ``bp_residual_stop_patience`` under mass×loopy
   compose residual-stop early-exit (A5-T77; proposal-path; does not
   flip ``@awaiting``).
+* ``DualFlowConfig.enable_spectrum_safe_policy_mass_traj_probe`` —
+  when off, :func:`probe_spectrum_safe_policy_mass_traj` returns
+  ``None``; when on, cap-sweeps residual trajectories under
+  spectrum-safe×policy-in-loopy and mass×loopy compose under matching
+  caps (A5-T78; harness only — **not** a production certificate; does
+  not flip ``@awaiting``).
 * Call sites that opt in (tests / experimental dry-runs) pass flags ``True``
   and feed results into the gate or diagnostics.
 
@@ -347,6 +356,7 @@ __all__ = [
     "probe_residual_mass_loopy_compose",
     "probe_spectrum_safe_policy_mass_compose",
     "probe_residual_mass_patience_sweep",
+    "probe_spectrum_safe_policy_mass_traj",
     "probe_fail_closed_dual_adjacency_plan",
     "probe_gate_fail_closed_switch",
 ]
@@ -546,6 +556,13 @@ class DualFlowConfig:
         When ``True``, sweeps ``bp_residual_stop_patience`` under
         mass×loopy compose with residual-stop early-exit (A5-T77;
         proposal-path; does not flip mass/density ``@awaiting``).
+    enable_spectrum_safe_policy_mass_traj_probe:
+        When ``False`` (default),
+        :func:`probe_spectrum_safe_policy_mass_traj` returns ``None``.
+        When ``True``, cap-sweeps residual trajectories under
+        spectrum-safe×policy-in-loopy and mass×loopy compose under
+        matching ``spectrum_cond_cap`` values (A5-T78; harness only —
+        **not** a production certificate; does not flip ``@awaiting``).
     bp_residual_stop_tol:
         Absolute plateau tolerance on ``|Δr_data|`` / ``|Δr_cons|`` for
         the residual-stop sketch / early-exit (default ``1e-3``).
@@ -625,6 +642,7 @@ class DualFlowConfig:
     enable_residual_mass_loopy_compose_probe: bool = False
     enable_spectrum_safe_policy_mass_compose_probe: bool = False
     enable_residual_mass_patience_sweep_probe: bool = False
+    enable_spectrum_safe_policy_mass_traj_probe: bool = False
     bp_residual_stop_tol: float = 1e-3
     bp_residual_stop_patience: int = 2
     bp_damping: float = 0.5
@@ -5547,5 +5565,291 @@ def probe_residual_mass_patience_sweep(
     return ResidualMassPatienceSweepProbe(
         probe_flag_default_off=not DualFlowConfig().enable_residual_mass_patience_sweep_probe,
         patience_grid=grid,
+        cases=tuple(cases),
+    )
+
+
+@dataclass(frozen=True)
+class SpectrumSafePolicyMassTrajCase:
+    """One ``spectrum_cond_cap`` cell of spectrum×policy×mass traj (A5-T78)."""
+
+    spectrum_cond_cap: float
+    iters: tuple[int, ...]
+    r_data_traj: tuple[float, ...]
+    r_cons_traj: tuple[float, ...]
+    policy_applied_any: bool
+    max_policy_damping: float
+    spectrum_ridge_applied_final: bool
+    residual_stop_reason_final: str | None
+    iters_executed_final: int
+    max_iters: int
+    spectrum_safe_sketch_ok: bool
+    epsilon_mass: float
+    mass_total_before: float
+    compose_n_samples: int
+    compose_n_online_simplices: int
+    compose_loopy_message_updates: int
+    compose_loopy_r_cons: float
+    compose_policy_applied: bool
+    compose_spectrum_ridge_applied: bool
+    compose_residual_stop_enabled: bool
+    compose_residual_stop_reason: str | None
+    compose_loopy_iters: int
+    compose_max_iters: int
+
+
+@dataclass(frozen=True)
+class SpectrumSafePolicyMassTrajProbe:
+    """Spectrum-safe × policy × mass_loopy traj export (SI S6.2; A5-T78).
+
+    For each ``spectrum_cond_cap``, exports the multi-iter residual
+    trajectory under ``enable_bp_policy_in_loopy`` (full horizon),
+    reports the T70 harness ``spectrum_safe_sketch_ok`` claim on a
+    residual-stop final run, and runs mass-normalization together with
+    online→offline loopy compose under policy + residual-stop at that
+    cap. Harness only — **not** a production certificate. Do **not**
+    flip mass/density ``@awaiting``.
+    """
+
+    probe_flag_default_off: bool
+    caps: tuple[float, ...]
+    cases: tuple[SpectrumSafePolicyMassTrajCase, ...]
+    note: str = (
+        "harness only: spectrum-safe × policy-in-loopy × mass_loopy "
+        "cap-sweep residual traj export; NOT a certified production "
+        "convergence proof; do not flip mass/density @awaiting"
+    )
+
+
+def probe_spectrum_safe_policy_mass_traj(
+    samples: Sequence[np.ndarray],
+    simplex_positions: Mapping[Hashable, np.ndarray],
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]],
+    *,
+    masses: Mapping[Hashable, float] | None = None,
+    spectrum_cond_caps: Sequence[float] | None = None,
+    max_traj_iters: int | None = None,
+    config: DualFlowConfig | None = None,
+) -> SpectrumSafePolicyMassTrajProbe | None:
+    """Cap-sweep residual traj + mass×loopy compose (A5-T78).
+
+    When ``enable_spectrum_safe_policy_mass_traj_probe`` is off, returns
+    ``None``. When on, for each cap in ``spectrum_cond_caps`` (default
+    ``(1e-12, 1.0, 1e6, 1e12)``):
+
+    1. **Trajectory** — re-run :func:`solve_loopy_bp_schedule` at
+       ``bp_max_iters = 1..max_traj_iters`` with policy-in-loopy on and
+       residual-stop off (full horizon).
+    2. **Final sketch** — one residual-stop early-exit run at
+       ``max_traj_iters`` reporting T70's ``spectrum_safe_sketch_ok``.
+    3. **Mass × compose** — mass-normalize online winners and run
+       online→offline loopy compose with policy + residual-stop at
+       that same cap.
+
+    Does **not** flip mass/density ``@awaiting``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_spectrum_safe_policy_mass_traj_probe:
+        return None
+    if not samples:
+        raise ValueError("samples must be non-empty")
+    if not simplex_positions:
+        raise ValueError("simplex_positions must be non-empty")
+    caps = tuple(
+        float(c)
+        for c in (
+            spectrum_cond_caps
+            if spectrum_cond_caps is not None
+            else (1e-12, 1.0, 1e6, 1e12)
+        )
+    )
+    if not caps:
+        raise ValueError("spectrum_cond_caps must be non-empty")
+    if any(not np.isfinite(c) or c <= 0.0 for c in caps):
+        raise ValueError("spectrum_cond_caps must be finite and > 0")
+    n_max = int(
+        max_traj_iters
+        if max_traj_iters is not None
+        else max(int(cfg.bp_max_iters), 2)
+    )
+    if n_max < 1:
+        raise ValueError("max_traj_iters must be >= 1")
+
+    tally_cfg = DualFlowConfig(
+        enable_live_bmu_tally=True,
+        tally_scale=float(cfg.tally_scale),
+    )
+    live = route_live_bmu_face_tallies(
+        samples, simplex_positions, config=tally_cfg
+    )
+    if live is None:
+        raise RuntimeError("live BMU tallies unexpectedly None")
+
+    hats: dict[Hashable, np.ndarray] = {}
+    stencils: dict[Hashable, np.ndarray] = {}
+    for sid, tally in live.tallies_by_simplex.items():
+        if sid not in simplex_positions:
+            continue
+        hats[sid] = np.asarray(tally.tallies, dtype=float)
+        stencils[sid] = build_divergence_stencil(
+            np.asarray(simplex_positions[sid], dtype=float)
+        )
+    if not hats:
+        raise RuntimeError("online phase produced no simplex tallies")
+
+    if isinstance(simplices, Mapping):
+        face_simplices: Sequence[Sequence[Hashable]] | Mapping[
+            Hashable, Sequence[Hashable]
+        ] = {sid: simplices[sid] for sid in hats if sid in simplices}
+        if len(face_simplices) != len(hats):
+            missing = set(hats) - set(face_simplices)
+            raise ValueError(
+                f"simplices mapping missing winners {sorted(missing)!r}"
+            )
+    else:
+        face_simplices = simplices
+
+    if masses is None:
+        mass_map: dict[Hashable, float] = {
+            sid: 1.0 for sid in live.tallies_by_simplex
+        }
+    else:
+        mass_map = {k: float(v) for k, v in masses.items()}
+    if not mass_map:
+        raise ValueError(
+            "masses must be non-empty for spectrum×policy×mass traj probe"
+        )
+
+    mass_cfg = DualFlowConfig(enable_mass_normalization=True)
+    mass_out = normalize_simplex_masses(mass_map, config=mass_cfg)
+    if mass_out is None:
+        raise RuntimeError("mass normalization unexpectedly None under probe cfg")
+
+    cases: list[SpectrumSafePolicyMassTrajCase] = []
+    for cap in caps:
+        iters: list[int] = []
+        r_data_t: list[float] = []
+        r_cons_t: list[float] = []
+        policy_any = False
+        max_damp = 0.0
+        for k in range(1, n_max + 1):
+            traj_cfg = DualFlowConfig(
+                enable_loopy_bp_schedule=True,
+                enable_bp_policy_in_loopy=True,
+                enable_loopy_bp_residual_stop=False,
+                bp_damping=float(cfg.bp_damping),
+                bp_max_iters=k,
+                mu_scale=float(cfg.mu_scale),
+                as_eps=float(cfg.as_eps),
+                whiten_floor=float(cfg.whiten_floor),
+                spectrum_cond_cap=float(cap),
+                enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+            )
+            out = solve_loopy_bp_schedule(
+                hats, stencils, face_simplices, config=traj_cfg
+            )
+            if out is None:
+                raise RuntimeError(
+                    "loopy BP unexpectedly None under spectrum×policy×mass traj cfg"
+                )
+            iters.append(k)
+            r_data_t.append(float(out.r_data))
+            r_cons_t.append(float(out.r_cons))
+            policy_any = policy_any or bool(out.policy_applied)
+            max_damp = max(max_damp, float(out.max_policy_damping))
+
+        final_cfg = DualFlowConfig(
+            enable_loopy_bp_schedule=True,
+            enable_loopy_bp_residual_stop=True,
+            enable_bp_policy_in_loopy=True,
+            bp_damping=float(cfg.bp_damping),
+            bp_max_iters=n_max,
+            bp_residual_stop_tol=float(cfg.bp_residual_stop_tol),
+            bp_residual_stop_patience=int(cfg.bp_residual_stop_patience),
+            mu_scale=float(cfg.mu_scale),
+            as_eps=float(cfg.as_eps),
+            whiten_floor=float(cfg.whiten_floor),
+            spectrum_cond_cap=float(cap),
+            enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+        )
+        final = solve_loopy_bp_schedule(
+            hats, stencils, face_simplices, config=final_cfg
+        )
+        if final is None:
+            raise RuntimeError(
+                "loopy BP unexpectedly None under spectrum×policy×mass final cfg"
+            )
+        rd = float(final.r_data)
+        rc = float(final.r_cons)
+        reason = final.residual_stop_reason
+        finite_ok = bool(
+            np.isfinite(rd) and np.isfinite(rc) and rd >= 0.0 and rc >= 0.0
+        )
+        sketch_ok = bool(
+            finite_ok
+            and reason in ("abs_tol", "plateau")
+            and not bool(final.spectrum_ridge_applied)
+        )
+
+        compose_cfg = DualFlowConfig(
+            enable_online_offline_loopy_compose=True,
+            enable_loopy_bp_residual_stop=True,
+            enable_bp_policy_in_loopy=True,
+            bp_damping=float(cfg.bp_damping),
+            bp_max_iters=n_max,
+            bp_residual_stop_tol=float(cfg.bp_residual_stop_tol),
+            bp_residual_stop_patience=int(cfg.bp_residual_stop_patience),
+            tally_scale=float(cfg.tally_scale),
+            mu_scale=float(cfg.mu_scale),
+            as_eps=float(cfg.as_eps),
+            whiten_floor=float(cfg.whiten_floor),
+            spectrum_cond_cap=float(cap),
+            enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+        )
+        compose = run_online_offline_loopy_compose(
+            samples, simplex_positions, simplices, config=compose_cfg
+        )
+        if compose is None:
+            raise RuntimeError(
+                "loopy compose unexpectedly None under spectrum×policy×mass traj cfg"
+            )
+
+        cases.append(
+            SpectrumSafePolicyMassTrajCase(
+                spectrum_cond_cap=float(cap),
+                iters=tuple(iters),
+                r_data_traj=tuple(r_data_t),
+                r_cons_traj=tuple(r_cons_t),
+                policy_applied_any=bool(policy_any),
+                max_policy_damping=float(max_damp),
+                spectrum_ridge_applied_final=bool(final.spectrum_ridge_applied),
+                residual_stop_reason_final=reason,
+                iters_executed_final=int(final.iters),
+                max_iters=n_max,
+                spectrum_safe_sketch_ok=sketch_ok,
+                epsilon_mass=float(mass_out.epsilon_mass),
+                mass_total_before=float(mass_out.total_before),
+                compose_n_samples=int(compose.n_samples),
+                compose_n_online_simplices=int(compose.n_online_simplices),
+                compose_loopy_message_updates=int(compose.loopy_message_updates),
+                compose_loopy_r_cons=float(compose.loopy_r_cons),
+                compose_policy_applied=bool(compose.loopy_policy_applied),
+                compose_spectrum_ridge_applied=bool(
+                    compose.loopy_spectrum_ridge_applied
+                ),
+                compose_residual_stop_enabled=bool(
+                    compose.loopy_residual_stop_enabled
+                ),
+                compose_residual_stop_reason=compose.loopy_residual_stop_reason,
+                compose_loopy_iters=int(compose.loopy_iters),
+                compose_max_iters=n_max,
+            )
+        )
+
+    return SpectrumSafePolicyMassTrajProbe(
+        probe_flag_default_off=not DualFlowConfig().enable_spectrum_safe_policy_mass_traj_probe,
+        caps=caps,
         cases=tuple(cases),
     )
