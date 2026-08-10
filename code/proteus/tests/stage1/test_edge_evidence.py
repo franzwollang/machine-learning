@@ -1384,3 +1384,61 @@ def test_denser_soft_x_gabriel_tau_star_export() -> None:
     assert "sample-ARI" in DENSER_SOFT_X_GABRIEL_TAU_STAR_SI_NOTE
     assert "defaults off" in DENSER_SOFT_X_GABRIEL_TAU_STAR_SI_NOTE
     assert "awaiting" in DENSER_SOFT_X_GABRIEL_TAU_STAR_SI_NOTE
+
+
+def test_denser_soft_x_gabriel_x_persist_tau_star_export() -> None:
+    """#44 / A2-T61-followon: denser soft×gabriel×persist compose@tau* export.
+
+    Triple compose does not unlock beyond T57/T60 pairwise denser
+    collapse; denser-youden seed0 nested K=2 chance-ARI≈0.01. Defaults
+    off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_H0,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_MAX_GRID_POINTS,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_MAX_NODES,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_NESTED_N,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SEEDS,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SI_NOTE,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SOFT_FRAC,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_TABLE,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_TORI_N,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_UNIFORMS,
+        format_denser_soft_x_gabriel_x_persist_tau_star_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().require_gabriel_and_h is False
+    assert abs(DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_H0 - 0.73) < 1e-9
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SEEDS == (0, 1, 2)
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_MAX_GRID_POINTS == 12
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_NESTED_N == 160
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_TORI_N == 240
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_MAX_NODES == 128
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SOFT_FRAC == 0.25
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_TABLE[0]["youden"][0] == 2
+    assert (
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_TABLE[0][
+            "soft_x_conj_x_persist"
+        ][0]
+        <= 1
+    )
+    assert (
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_TABLE[1][
+            "soft_x_conj_x_persist"
+        ][0]
+        <= 1
+    )
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_UNIFORMS["circle"][
+        "youden"
+    ] == 1
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_UNIFORMS["circle"][
+        "soft_x_conj_x_persist"
+    ] == 1
+    tsv = format_denser_soft_x_gabriel_x_persist_tau_star_table()
+    assert "soft_x_conj_x_persist" in tsv and "circle" in tsv
+    assert "compose" in DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SI_NOTE
+    assert "sample-ARI" in DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SI_NOTE
+    assert "defaults off" in DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SI_NOTE
+    assert "awaiting" in DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SI_NOTE
