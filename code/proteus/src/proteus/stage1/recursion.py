@@ -228,6 +228,11 @@ class RecursionConfig:
     A2-T47: soft_frac×Youden seed1 nested-inflate is frac-windowed
     (0.1–0.5); A2-T48/T49 denser multi-seed: seed1 inflate absent on
     denser; h0-only ≠ soft×* recovery; defaults off.
+    A2-T53: denser×bridge_mass soft×Youden — denser kills baseline
+    betweenness/bridge_mass method contrast; defaults off.
+    A2-T54: soft×persist_agree at operational tau* e2e — seed1 nested
+    K=2 chance-ARI survives soft×persist (majors-absent ≠ e2e kill);
+    defaults off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +

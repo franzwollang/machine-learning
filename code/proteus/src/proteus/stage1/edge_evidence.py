@@ -146,6 +146,16 @@ class HollowEdgeConfig:
     probe tau) — see :data:`SOFT_X_YOUDEN_TAU_STAR_*`. Seed1 probe-tau
     soft inflate is **absent** at ``tau*``; seed0 tori keeps chance-ARI
     K≥2 under both modes. Still not sample-ARI recovery; defaults off.
+
+    A2-T53: denser × bridge_mass soft×Youden seed1 inflate — see
+    :data:`DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_*`. On denser scaffolds
+    both betweenness and bridge_mass never inflate seed1 (method contrast
+    from baseline is denser-killed). Defaults off.
+
+    A2-T54: soft×persist_agree at operational ``tau*`` e2e leaf table —
+    see :data:`SOFT_X_PERSIST_TAU_STAR_*`. Seed1 nested K=2 chance-ARI
+    survives soft×persist; majors-absent (T52) ≠ e2e leaf recovery.
+    Defaults off.
     """
 
     mid_radius_frac: float = 0.35
@@ -1222,6 +1232,225 @@ def format_soft_x_youden_tau_star_table() -> str:
                 f"{seed}\t{mode}\ttori\t{t_tau:.4f}\t{tm}\t{ta_s}"
             )
     lines.append(f"# {SOFT_X_YOUDEN_TAU_STAR_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Denser × bridge_mass soft×Youden seed1 inflate (A2-T53 → A3 SI)
+# ---------------------------------------------------------------------------
+# denser n=160/240, max_nodes=128. Baseline betweenness seed1 inflate
+# (T51) and denser-betweenness kill (T50) both imply denser×bridge_mass
+# never inflates; method contrast is denser-killed. Seed0 youden keeps
+# tori K=2 chance-ARI; both soft methods collapse. Not recovery.
+
+DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SEEDS: tuple[int, ...] = (0, 1, 2)
+DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_FRACS: tuple[float, ...] = (
+    0.1, 0.25, 0.5, 0.75, 0.9,
+)
+DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_NESTED_N: int = DENSER_PROPOSED_H0_NESTED_N
+DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TORI_N: int = DENSER_PROPOSED_H0_TORI_N
+DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_MAX_NODES: int = DENSER_PROPOSED_H0_MAX_NODES
+DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_NESTED_TAU: float = 0.27
+DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TORI_TAU: float = 0.5
+DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_H0: float = PROPOSED_H0_YOUDEN
+DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_FRAC: float = 0.25
+
+# Multi-seed@frac=0.25: mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TABLE: dict[
+    int, dict[str, tuple[int, float | None, int, float | None]]
+] = {
+    0: {
+        "youden": (1, None, 2, 0.14),
+        "soft_betweenness": (1, None, 1, None),
+        "soft_bridge_mass": (1, None, 1, None),
+    },
+    1: {
+        "youden": (1, None, 1, None),
+        "soft_betweenness": (1, None, 1, None),
+        "soft_bridge_mass": (1, None, 1, None),
+    },
+    2: {
+        "youden": (1, None, 1, None),
+        "soft_betweenness": (1, None, 1, None),
+        "soft_bridge_mass": (1, None, 1, None),
+    },
+}
+
+# Seed1 denser frac-window: method → frac → (...)
+DENSER_BRIDGE_MASS_X_YOUDEN_SEED1_FRAC_TABLE: dict[
+    str, dict[float, tuple[int, float | None, int, float | None]]
+] = {
+    "betweenness": {
+        0.1: (1, None, 1, None),
+        0.25: (1, None, 1, None),
+        0.5: (1, None, 1, None),
+        0.75: (1, None, 1, None),
+        0.9: (1, None, 1, None),
+    },
+    "bridge_mass": {
+        0.1: (1, None, 1, None),
+        0.25: (1, None, 1, None),
+        0.5: (1, None, 1, None),
+        0.75: (1, None, 1, None),
+        0.9: (1, None, 1, None),
+    },
+}
+
+DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SI_NOTE: str = (
+    "A2-T53 denser×bridge_mass soft×Youden seed1 inflate "
+    "(n=160/240, max_nodes=128, mid=0.5 gabriel=False, h0≈0.73): on denser "
+    "scaffolds both betweenness and bridge_mass never inflate seed1 across "
+    "soft_frac∈{0.1..0.9} — denser kills the baseline betweenness method "
+    "contrast (T51). Multi-seed@0.25: seed0 youden keeps tori K=2 ARI≈0.14; "
+    "both soft methods collapse; seeds1–2 all ≤1. Denser-killed ≠ "
+    "sample-ARI recovery; defaults off; no awaiting flip."
+)
+
+
+def format_denser_bridge_mass_x_youden_seed_inflate_table() -> str:
+    """TSV export of denser×bridge_mass soft×Youden seed1 inflate (A2-T53)."""
+
+    lines = [
+        "# denser × bridge_mass soft × Youden seed1 inflate",
+        f"# nested_n={DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_NESTED_N} "
+        f"tori_n={DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TORI_N} "
+        f"max_nodes={DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_MAX_NODES} "
+        f"h0={DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_H0:g} "
+        f"frac={DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_FRAC:g} "
+        f"seeds={list(DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SEEDS)} "
+        f"seed1_fracs={list(DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_FRACS)}",
+        "seed\tmode\tdataset\ttau\tmajors\tsample_ari",
+    ]
+    for seed in DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SEEDS:
+        for mode, (nm, na, tm, ta) in (
+            DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TABLE[seed].items()
+        ):
+            na_s = "" if na is None else f"{na:.2f}"
+            ta_s = "" if ta is None else f"{ta:.2f}"
+            lines.append(
+                f"{seed}\t{mode}\tnested\t"
+                f"{DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_NESTED_TAU:g}\t"
+                f"{nm}\t{na_s}"
+            )
+            lines.append(
+                f"{seed}\t{mode}\ttori\t"
+                f"{DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TORI_TAU:g}\t"
+                f"{tm}\t{ta_s}"
+            )
+    lines.append("seed\tmethod\tfrac\tdataset\ttau\tmajors\tsample_ari")
+    for method, frac_table in (
+        DENSER_BRIDGE_MASS_X_YOUDEN_SEED1_FRAC_TABLE.items()
+    ):
+        for frac, (nm, na, tm, ta) in frac_table.items():
+            na_s = "" if na is None else f"{na:.2f}"
+            ta_s = "" if ta is None else f"{ta:.2f}"
+            lines.append(
+                f"1\t{method}\t{frac:g}\tnested\t"
+                f"{DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_NESTED_TAU:g}\t"
+                f"{nm}\t{na_s}"
+            )
+            lines.append(
+                f"1\t{method}\t{frac:g}\ttori\t"
+                f"{DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TORI_TAU:g}\t"
+                f"{tm}\t{ta_s}"
+            )
+    lines.append(f"# {DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Soft×persist_agree at operational tau* e2e leaves (A2-T54 → A3 SI)
+# ---------------------------------------------------------------------------
+# Baseline n=80/120, Youden h0≈0.73, lean max_grid_points=12,
+# scale_seed=42+dataset_seed. Recursive discovery leaf counts (not majors):
+# seed1 nested K=2 chance-ARI≈0 survives youden/soft/persist/soft×persist;
+# seeds0/2 + all tori stay 1 leaf. Circle youden alone shatters (2 leaves);
+# soft/persist/soft×persist keep uniforms at 1. T52 majors-absent ≠ e2e
+# leaf kill; soft×persist ≠ sample-ARI recovery; defaults off.
+
+SOFT_X_PERSIST_TAU_STAR_SEEDS: tuple[int, ...] = (0, 1, 2)
+SOFT_X_PERSIST_TAU_STAR_SOFT_FRAC: float = 0.25
+SOFT_X_PERSIST_TAU_STAR_SOFT_METHOD: str = "betweenness"
+SOFT_X_PERSIST_TAU_STAR_H0: float = PROPOSED_H0_YOUDEN
+SOFT_X_PERSIST_TAU_STAR_MAX_GRID_POINTS: int = 12
+SOFT_X_PERSIST_TAU_STAR_SCALE_SEED_BASE: int = 42
+
+# seed → mode → (nested_leaves, nested_ari, tori_leaves, tori_ari)
+SOFT_X_PERSIST_TAU_STAR_TABLE: dict[
+    int, dict[str, tuple[int, float | None, int, float | None]]
+] = {
+    0: {
+        "youden": (1, None, 1, None),
+        "soft": (1, None, 1, None),
+        "persist": (1, None, 1, None),
+        "soft_x_persist": (1, None, 1, None),
+    },
+    1: {
+        "youden": (2, 0.0, 1, None),
+        "soft": (2, 0.0, 1, None),
+        "persist": (2, 0.0, 1, None),
+        "soft_x_persist": (2, 0.0, 1, None),
+    },
+    2: {
+        "youden": (1, None, 1, None),
+        "soft": (1, None, 1, None),
+        "persist": (1, None, 1, None),
+        "soft_x_persist": (1, None, 1, None),
+    },
+}
+
+# Uniform leaf counts under the same lean tau* / Youden knobs (seed=0).
+SOFT_X_PERSIST_TAU_STAR_UNIFORMS: dict[str, dict[str, int]] = {
+    "circle": {
+        "youden": 2,
+        "soft": 1,
+        "persist": 1,
+        "soft_x_persist": 1,
+    },
+    "swiss": {
+        "youden": 1,
+        "soft": 1,
+        "persist": 1,
+        "soft_x_persist": 1,
+    },
+}
+
+SOFT_X_PERSIST_TAU_STAR_SI_NOTE: str = (
+    "A2-T54 soft×persist_agree at operational scale-search tau* e2e "
+    "(baseline n=80/120, Youden h0≈0.73, mid=0.5 gabriel=False, lean "
+    "max_grid_points=12, scale_seed=42+dataset_seed): seed1 nested K=2 "
+    "chance-ARI≈0 survives youden/soft/persist/soft×persist — soft×persist "
+    "does not kill e2e seed1 inflate (contrast T52 majors-absent at "
+    "tau*); seeds0/2 + all tori stay 1 leaf. Circle youden alone "
+    "shatters (2 leaves); soft/persist/soft×persist keep uniforms at 1. "
+    "E2e leaf ≠ sample-ARI recovery; defaults off; no awaiting flip."
+)
+
+
+def format_soft_x_persist_tau_star_table() -> str:
+    """TSV export of soft×persist_agree at operational tau* e2e (A2-T54)."""
+
+    lines = [
+        "# soft × persist_agree at operational scale-search tau* e2e leaves",
+        f"# h0={SOFT_X_PERSIST_TAU_STAR_H0:g} "
+        f"soft_frac={SOFT_X_PERSIST_TAU_STAR_SOFT_FRAC:g} "
+        f"method={SOFT_X_PERSIST_TAU_STAR_SOFT_METHOD} "
+        f"max_grid_points={SOFT_X_PERSIST_TAU_STAR_MAX_GRID_POINTS} "
+        f"scale_seed_base={SOFT_X_PERSIST_TAU_STAR_SCALE_SEED_BASE} "
+        f"seeds={list(SOFT_X_PERSIST_TAU_STAR_SEEDS)}",
+        "seed\tmode\tdataset\tleaves\tsample_ari",
+    ]
+    for seed in SOFT_X_PERSIST_TAU_STAR_SEEDS:
+        for mode, (nl, na, tl, ta) in SOFT_X_PERSIST_TAU_STAR_TABLE[seed].items():
+            na_s = "" if na is None else f"{na:.2f}"
+            ta_s = "" if ta is None else f"{ta:.2f}"
+            lines.append(f"{seed}\t{mode}\tnested\t{nl}\t{na_s}")
+            lines.append(f"{seed}\t{mode}\ttori\t{tl}\t{ta_s}")
+    lines.append("dataset\tmode\tleaves")
+    for dataset, mode_table in SOFT_X_PERSIST_TAU_STAR_UNIFORMS.items():
+        for mode, leaves in mode_table.items():
+            lines.append(f"{dataset}\t{mode}\t{leaves}")
+    lines.append(f"# {SOFT_X_PERSIST_TAU_STAR_SI_NOTE}")
     return "\n".join(lines)
 
 

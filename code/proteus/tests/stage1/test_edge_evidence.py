@@ -1047,3 +1047,86 @@ def test_soft_x_youden_tau_star_export() -> None:
     assert "sample-ARI" in SOFT_X_YOUDEN_TAU_STAR_SI_NOTE
     assert "defaults off" in SOFT_X_YOUDEN_TAU_STAR_SI_NOTE
     assert "awaiting" in SOFT_X_YOUDEN_TAU_STAR_SI_NOTE
+
+
+def test_denser_bridge_mass_x_youden_seed_inflate_export() -> None:
+    """#44 / A2-T53: denser×bridge_mass soft×Youden seed1 inflate export.
+
+    Denser kills baseline betweenness/bridge_mass method contrast; both
+    never inflate seed1. Defaults off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_BRIDGE_MASS_X_YOUDEN_SEED1_FRAC_TABLE,
+        DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_FRACS,
+        DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_H0,
+        DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_MAX_NODES,
+        DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_NESTED_N,
+        DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SEEDS,
+        DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SI_NOTE,
+        DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TABLE,
+        DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TORI_N,
+        format_denser_bridge_mass_x_youden_seed_inflate_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().soft_capacity_method == "betweenness"
+    assert abs(DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_H0 - 0.73) < 1e-9
+    assert DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_NESTED_N == 160
+    assert DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TORI_N == 240
+    assert DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_MAX_NODES == 128
+    assert DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SEEDS == (0, 1, 2)
+    assert DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TABLE[0]["youden"][2] == 2
+    assert DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TABLE[1][
+        "soft_betweenness"
+    ][0] <= 1
+    assert DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_TABLE[1][
+        "soft_bridge_mass"
+    ][0] <= 1
+    for method in ("betweenness", "bridge_mass"):
+        for frac in DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_FRACS:
+            assert DENSER_BRIDGE_MASS_X_YOUDEN_SEED1_FRAC_TABLE[method][
+                frac
+            ][0] <= 1
+    tsv = format_denser_bridge_mass_x_youden_seed_inflate_table()
+    assert "denser" in tsv and "bridge_mass" in tsv
+    assert "denser kills" in DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SI_NOTE
+    assert "sample-ARI" in DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SI_NOTE
+    assert "defaults off" in DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SI_NOTE
+    assert "awaiting" in DENSER_BRIDGE_MASS_X_YOUDEN_SEED_INFLATE_SI_NOTE
+
+
+def test_soft_x_persist_tau_star_export() -> None:
+    """#44 / A2-T54: soft×persist_agree at operational tau* e2e export.
+
+    Seed1 nested K=2 chance-ARI survives soft×persist; uniforms safe
+    under soft/persist. Defaults off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_X_PERSIST_TAU_STAR_H0,
+        SOFT_X_PERSIST_TAU_STAR_MAX_GRID_POINTS,
+        SOFT_X_PERSIST_TAU_STAR_SEEDS,
+        SOFT_X_PERSIST_TAU_STAR_SI_NOTE,
+        SOFT_X_PERSIST_TAU_STAR_TABLE,
+        SOFT_X_PERSIST_TAU_STAR_UNIFORMS,
+        format_soft_x_persist_tau_star_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert abs(SOFT_X_PERSIST_TAU_STAR_H0 - 0.73) < 1e-9
+    assert SOFT_X_PERSIST_TAU_STAR_SEEDS == (0, 1, 2)
+    assert SOFT_X_PERSIST_TAU_STAR_MAX_GRID_POINTS == 12
+    assert SOFT_X_PERSIST_TAU_STAR_TABLE[1]["soft_x_persist"][0] == 2
+    assert SOFT_X_PERSIST_TAU_STAR_TABLE[1]["soft_x_persist"][1] is not None
+    assert abs(SOFT_X_PERSIST_TAU_STAR_TABLE[1]["soft_x_persist"][1]) < 0.08
+    assert SOFT_X_PERSIST_TAU_STAR_TABLE[0]["soft_x_persist"][0] <= 1
+    assert SOFT_X_PERSIST_TAU_STAR_UNIFORMS["circle"]["youden"] == 2
+    assert SOFT_X_PERSIST_TAU_STAR_UNIFORMS["circle"]["soft_x_persist"] == 1
+    assert SOFT_X_PERSIST_TAU_STAR_UNIFORMS["swiss"]["soft_x_persist"] == 1
+    tsv = format_soft_x_persist_tau_star_table()
+    assert "soft_x_persist" in tsv and "circle" in tsv
+    assert "survives" in SOFT_X_PERSIST_TAU_STAR_SI_NOTE
+    assert "sample-ARI" in SOFT_X_PERSIST_TAU_STAR_SI_NOTE
+    assert "defaults off" in SOFT_X_PERSIST_TAU_STAR_SI_NOTE
+    assert "awaiting" in SOFT_X_PERSIST_TAU_STAR_SI_NOTE
