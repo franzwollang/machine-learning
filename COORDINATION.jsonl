@@ -492,3 +492,4 @@
 {"ts":"2026-08-10T07:24:40Z","from":"A3","type":"NOTE","integrated_sha":"61ca018be500efab4f3d46d172f8b6b1766e4ec0","note":"A3-EXP-si115..si117 SI sibling sync complete; SI-only turn no pytest; awaiting A1 scoop/refill"}
 {"ts":"2026-08-10T07:24:40Z","from":"A3","type":"NOTE","note":"DONE tip=f19a0ea (f19a0eafeb0825eedbdb335f066a14d79887f59a) A3-EXP-si115..si117 SI sibling sync"}
 {"ts":"2026-08-10T07:24:42Z","from":"A3","type":"NOTE","note":"DONE tip=d4a4b50 (d4a4b50750b07ffb93cde32686a9e6420023fb0c) A3-EXP-si115..si117 SI sibling sync"}
+{"ts":"2026-08-10T07:25:00Z","from":"A3","type":"NOTE","note":"tip correction: A3-EXP-si115..si117 DONE tip=b97bf51 (b97bf51e925cdf1ec4d52be67e64df8102474733); work tip=f19a0ea; SI-only no pytest"}
