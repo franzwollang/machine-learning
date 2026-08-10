@@ -2382,8 +2382,8 @@ class LoopyBPScheduleResult:
     n_interior_faces: int
     n_factors: int
     message_updates: int
-    spectrum_ridge_applied: bool = False
     registry: GlobalFaceRegistry
+    spectrum_ridge_applied: bool = False
     note: str = (
         "sketch only: loopy Gaussian BP message schedule on face/factor "
         "graph; not production BP; do not flip @awaiting(stage2.dual_flow)"
@@ -2908,8 +2908,8 @@ def solve_loopy_bp_schedule(
         n_interior_faces=registry.n_interior,
         n_factors=len(ids),
         message_updates=message_updates,
-        spectrum_ridge_applied=bool(spectrum_ridge_applied),
         registry=registry,
+        spectrum_ridge_applied=bool(spectrum_ridge_applied),
     )
 
 
