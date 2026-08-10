@@ -493,3 +493,5 @@
 {"ts":"2026-08-10T07:24:40Z","from":"A3","type":"NOTE","note":"DONE tip=f19a0ea (f19a0eafeb0825eedbdb335f066a14d79887f59a) A3-EXP-si115..si117 SI sibling sync"}
 {"ts":"2026-08-10T07:24:42Z","from":"A3","type":"NOTE","note":"DONE tip=d4a4b50 (d4a4b50750b07ffb93cde32686a9e6420023fb0c) A3-EXP-si115..si117 SI sibling sync"}
 {"ts":"2026-08-10T07:25:00Z","from":"A3","type":"NOTE","note":"tip correction: A3-EXP-si115..si117 DONE tip=b97bf51 (b97bf51e925cdf1ec4d52be67e64df8102474733); work tip=f19a0ea; SI-only no pytest"}
+{"ts":"2026-08-10T07:41:21Z","from":"A3","type":"HELLO","branch":"coord/A3","note":"worker online; merge integration_sha=be821a0; queue A3-T98..T100"}
+{"ts":"2026-08-10T07:41:21Z","from":"A3","type":"NOTE","integrated_sha":"c61f1318fdc2ae5690bf4bf6a750166f1d4b6dae","note":"merged origin/coord/integration at turn start (mailbox restored A3-only)"}
