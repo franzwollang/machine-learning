@@ -1490,3 +1490,55 @@ def test_soft_keep_band_x_persist_majors_export() -> None:
     assert "sample-ARI" in SOFT_KEEP_BAND_X_PERSIST_MAJORS_SI_NOTE
     assert "defaults off" in SOFT_KEEP_BAND_X_PERSIST_MAJORS_SI_NOTE
     assert "awaiting" in SOFT_KEEP_BAND_X_PERSIST_MAJORS_SI_NOTE
+
+
+def test_soft_x_gabriel_x_persist_majors_export() -> None:
+    """#44 / A2-T63: soft×gabriel×persist majors seed1 window export.
+
+    Seed1 majors soft inflate killed by conj; e2e seed1 survives
+    soft×conj×persist (majors≠e2e). Defaults off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_E2E_TABLE,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_H0,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_MAX_NODES,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_NESTED_N,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_SEEDS,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_SOFT_FRAC,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_TABLE,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_TORI_N,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_UNIFORMS,
+        format_soft_x_gabriel_x_persist_majors_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().require_gabriel_and_h is False
+    assert abs(SOFT_X_GABRIEL_X_PERSIST_MAJORS_H0 - 0.73) < 1e-9
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_SEEDS == (0, 1, 2)
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_NESTED_N == 80
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_TORI_N == 120
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_MAX_NODES == 64
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_SOFT_FRAC == 0.25
+    # seed1 majors soft inflate; conj kills it
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_TABLE[1]["soft"][0] == 2
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_TABLE[1]["soft_x_conj"][0] <= 1
+    # e2e seed1 survives soft×conj×persist
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_E2E_TABLE[1][
+        "soft_x_conj_x_persist"
+    ][0] == 2
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_UNIFORMS["circle"]["youden"] == 2
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_UNIFORMS["circle"][
+        "soft_x_conj_x_persist"
+    ] == 1
+    tsv = format_soft_x_gabriel_x_persist_majors_table()
+    assert "soft_x_conj_x_persist" in tsv and "majors" in tsv
+    assert "seed1" in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE
+    assert "majors≠e2e" in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE or (
+        "majors" in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE
+        and "e2e" in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE
+    )
+    assert "sample-ARI" in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE
+    assert "defaults off" in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE
+    assert "awaiting" in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE
