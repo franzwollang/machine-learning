@@ -196,6 +196,12 @@ class HollowEdgeConfig:
     Triple compose does not unlock beyond T57/T60 pairwise denser
     collapse; denser-youden seed0 nested K=2 chance-ARI≈0.01 killed by
     soft×conj / soft×persist / soft×conj×persist. Defaults off.
+
+    A2-T61: non-denser soft keep-band × persist majors baseline — see
+    :data:`SOFT_KEEP_BAND_X_PERSIST_MAJORS_*`. Baseline n=80/120 majors
+    keep-band soft≤0.5 → tori K=2 chance-ARI≈0.26 (wider than denser
+    T55 ≤0.12); soft≥0.75 collapses; soft×persist e2e all ≤1 — keep-band
+    is majors-only. Defaults off.
     """
 
     mid_radius_frac: float = 0.35
@@ -2172,6 +2178,118 @@ def format_denser_soft_x_gabriel_x_persist_tau_star_table() -> str:
         for mode, leaves in mode_table.items():
             lines.append(f"{dataset}\t{mode}\t{leaves}")
     lines.append(f"# {DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Non-denser soft keep-band × persist majors baseline (A2-T61 → A3 SI)
+# ---------------------------------------------------------------------------
+# Baseline n=80/120, max_nodes=64, seed0, Youden h0≈0.73, mid=0.5
+# gabriel=False, betweenness soft_capacity. Fixed-tau majors (0.27/0.5)
+# keep-band soft_frac≤0.5 → tori K=2 chance-ARI≈0.26 (wider than denser
+# T55 ≤0.12); soft≥0.75 collapses to 1. Nested soft → ≤1. Soft and
+# soft×persist_agree at operational tau* e2e (lean max_grid_points=12,
+# scale_seed=42) collapse nested+tori to ≤1 across keep/collapse fracs —
+# keep-band is majors-only (same lesson as denser T59). Soft≠recovery.
+
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_SEED: int = 0
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_FRACS: tuple[float, ...] = (
+    0.12, 0.25, 0.5, 0.75, 0.9,
+)
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_NESTED_N: int = 80
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_TORI_N: int = 120
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_MAX_NODES: int = 64
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_NESTED_TAU: float = 0.27
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_TORI_TAU: float = 0.5
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_H0: float = PROPOSED_H0_YOUDEN
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_METHOD: str = "betweenness"
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_MAX_GRID_POINTS: int = 12
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_SCALE_SEED_BASE: int = 42
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_KEEP_MAX_FRAC: float = 0.5
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_COLLAPSE_MIN_FRAC: float = 0.75
+
+# Fixed-tau majors: mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_TABLE: dict[
+    str, tuple[int, float | None, int, float | None]
+] = {
+    "youden": (2, 0.12, 2, 0.26),
+    "soft_0.12": (1, None, 2, 0.26),
+    "soft_0.25": (1, None, 2, 0.26),
+    "soft_0.5": (1, None, 2, 0.26),
+    "soft_0.75": (1, None, 1, None),
+    "soft_0.9": (1, None, 1, None),
+}
+
+# E2E soft / soft×persist at keep/collapse fracs (seed0): all ≤1 leaf.
+# mode → (nested_leaves, nested_ari, tori_leaves, tori_ari)
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_E2E_TABLE: dict[
+    str, tuple[int, float | None, int, float | None]
+] = {
+    "youden": (1, None, 1, None),
+    "persist": (1, None, 1, None),
+    "soft_0.12": (1, None, 1, None),
+    "soft_x_persist_0.12": (1, None, 1, None),
+    "soft_0.25": (1, None, 1, None),
+    "soft_x_persist_0.25": (1, None, 1, None),
+    "soft_0.5": (1, None, 1, None),
+    "soft_x_persist_0.5": (1, None, 1, None),
+    "soft_0.75": (1, None, 1, None),
+    "soft_x_persist_0.75": (1, None, 1, None),
+}
+
+SOFT_KEEP_BAND_X_PERSIST_MAJORS_SI_NOTE: str = (
+    "A2-T61 non-denser soft keep-band × persist majors baseline "
+    "(n=80/120, max_nodes=64, Youden h0≈0.73, mid=0.5 gabriel=False, "
+    "betweenness, fixed-tau majors 0.27/0.5 + lean tau* e2e "
+    "max_grid_points=12 scale_seed=42): majors keep-band soft_frac≤0.5 "
+    "→ tori K=2 chance-ARI≈0.26 (wider than denser T55 ≤0.12); "
+    "soft≥0.75 collapses to 1; nested soft → ≤1. Soft and soft×persist "
+    "e2e collapse nested+tori to ≤1 across soft_frac∈{0.12,0.25,0.5,0.75} "
+    "— keep-band is majors-only (same lesson as denser T59). "
+    "Chance-ARI ≠ sample-ARI recovery; defaults off; no awaiting flip."
+)
+
+
+def format_soft_keep_band_x_persist_majors_table() -> str:
+    """TSV export of non-denser soft keep-band × persist majors (A2-T61)."""
+
+    lines = [
+        "# non-denser soft keep-band × persist majors baseline",
+        f"# nested_n={SOFT_KEEP_BAND_X_PERSIST_MAJORS_NESTED_N} "
+        f"tori_n={SOFT_KEEP_BAND_X_PERSIST_MAJORS_TORI_N} "
+        f"max_nodes={SOFT_KEEP_BAND_X_PERSIST_MAJORS_MAX_NODES} "
+        f"h0={SOFT_KEEP_BAND_X_PERSIST_MAJORS_H0:g} "
+        f"method={SOFT_KEEP_BAND_X_PERSIST_MAJORS_METHOD} "
+        f"max_grid_points={SOFT_KEEP_BAND_X_PERSIST_MAJORS_MAX_GRID_POINTS} "
+        f"scale_seed_base={SOFT_KEEP_BAND_X_PERSIST_MAJORS_SCALE_SEED_BASE} "
+        f"seed={SOFT_KEEP_BAND_X_PERSIST_MAJORS_SEED} "
+        f"fracs={list(SOFT_KEEP_BAND_X_PERSIST_MAJORS_FRACS)} "
+        f"keep_max={SOFT_KEEP_BAND_X_PERSIST_MAJORS_KEEP_MAX_FRAC:g} "
+        f"collapse_min={SOFT_KEEP_BAND_X_PERSIST_MAJORS_COLLAPSE_MIN_FRAC:g}",
+        "surface\tseed\tmode\tdataset\ttau_or_e2e\tmajors_or_leaves\tsample_ari",
+    ]
+    seed = SOFT_KEEP_BAND_X_PERSIST_MAJORS_SEED
+    for mode, (nm, na, tm, ta) in (
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_TABLE.items()
+    ):
+        na_s = "" if na is None else f"{na:.2f}"
+        ta_s = "" if ta is None else f"{ta:.2f}"
+        lines.append(
+            f"majors\t{seed}\t{mode}\tnested\t"
+            f"{SOFT_KEEP_BAND_X_PERSIST_MAJORS_NESTED_TAU:g}\t{nm}\t{na_s}"
+        )
+        lines.append(
+            f"majors\t{seed}\t{mode}\ttori\t"
+            f"{SOFT_KEEP_BAND_X_PERSIST_MAJORS_TORI_TAU:g}\t{tm}\t{ta_s}"
+        )
+    for mode, (nl, na, tl, ta) in (
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_E2E_TABLE.items()
+    ):
+        na_s = "" if na is None else f"{na:.2f}"
+        ta_s = "" if ta is None else f"{ta:.2f}"
+        lines.append(f"e2e\t{seed}\t{mode}\tnested\ttau*\t{nl}\t{na_s}")
+        lines.append(f"e2e\t{seed}\t{mode}\ttori\ttau*\t{tl}\t{ta_s}")
+    lines.append(f"# {SOFT_KEEP_BAND_X_PERSIST_MAJORS_SI_NOTE}")
     return "\n".join(lines)
 
 
