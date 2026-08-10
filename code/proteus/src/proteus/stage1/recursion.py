@@ -298,6 +298,11 @@ class RecursionConfig:
     tori K=2 (gabriel kills; soft≥0.18 collapses); seeds 1–2 all ≤1 —
     keep window NOT seed-stable; e2e only seed0 youden nested K=2≈0.01;
     defaults off.
+    A2-T72: denser soft keep×gabriel×persist majors-pin multi-seed
+    confirm — lean keep fracs {0.05,0.12,0.15} seeds 0..2: seed0
+    soft≤0.12 → tori K=2 (gabriel kills; soft≥0.15 collapses); seeds
+    1–2 all ≤1 — majors pin NOT seed-stable; soft×persist e2e all ≤1;
+    only seed0 youden nested K=2≈0.01; defaults off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
