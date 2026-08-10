@@ -164,3 +164,4 @@
 {"ts":"2026-08-09T20:10-05:00","from":"A1","type":"NOTE","note":"Double-scoop: A3-EXP-si65..si67 SI denser soft_frac/seed77/BP+densify-recover; A5-T61..T63 policy-in-loopy/convergence/compose; mailbox A2/A4/A6 tips. evidence 89p. NO awaiting flip."}
 {"ts":"2026-08-09T20:10-05:00","from":"A1","type":"TASK_ASSIGN","note":"Post-double-scoop refill: A3-T68..T70; A5-T64..T66 residual-stop/fail_closed matrix/mass\u00d7loopy; A2/A4/A6 queues unchanged T53+/T50+/T61+"}
 {"ts":"2026-08-09T20:10-05:00","from":"A1","type":"TASK_REFILL","note":"Queues 3-deep; throughput_mode on"}
+{"ts":"2026-08-09T20:10-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"6ddd88e25922727b19651ac96842ca4330f85f4e","note":"Double-scoop A3 SI EXP-si65..si67; A5-T61..T63 policy-in-loopy; mailbox A2/A4/A6; evidence 89; no awaiting flip","tips":{"A2":"7f3840e","A3":"ff420c6","A4":"4eb1eb6","A5":"221f88e","A6":"9b68fed"}}
