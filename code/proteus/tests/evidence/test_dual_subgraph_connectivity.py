@@ -1817,7 +1817,7 @@ def test_bp_spectrum_damping_probe_fires_mu_and_loopy_ridge():
     assert probe.mu_hessian_cond > 0.0
     assert probe.loopy_spectrum_ridge_applied is True
     assert probe.loopy_message_updates > 0
-    assert probe.spectrum_cond_cap_used == 0.0
+    assert probe.spectrum_cond_cap_used == pytest.approx(1e-12)
     assert "spectrum" in probe.note.lower()
 
 

@@ -3300,8 +3300,9 @@ def probe_bp_spectrum_damping(
         return None
 
     default_off = not DualFlowConfig().enable_bp_spectrum_damping_probe
-    # Force spectrum paths: any finite cond exceeds cap=0.
-    probe_cap = 0.0
+    # Force spectrum paths: any reasonable cond exceeds a tiny cap.
+    # (loopy BP requires spectrum_cond_cap > 0; μ soft-solve accepts 0.)
+    probe_cap = 1e-12
     P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]], dtype=float)
     A_S = build_divergence_stencil(P)
     hat = np.array([2.0, 0.1, 0.1], dtype=float)
