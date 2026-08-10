@@ -214,12 +214,17 @@ class PersistenceConfig:
         not enable on the acceptance path.  Operational (S14.3).
     densify_overlap_recover_threshold:
         Optional **probe override** for the densify-recover Jaccard floor
-        (OPEN_ISSUES #28 / A6-T64).  When ``None`` (default) and
+        (OPEN_ISSUES #28 / A6-T64/T67).  When ``None`` (default) and
         ``densify_overlap_recover="lower_threshold"``, the module constant
         :data:`EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD` (0.35) is used.
         When set, that float is the floor instead (sensitivity probes at
         0.30 / 0.40).  Ignored unless ``densify_overlap_recover`` is
-        ``"lower_threshold"``.  Operational (S14.3); never acceptance-path.
+        ``"lower_threshold"``.  Empirically the override is a **Jaccard
+        accept/reject gate only**: when the same densified seed accepts under
+        two floors, coarse-end and mid-interval ``Phi_C`` at the landed
+        indices match exactly (A6-T67 thr×Phi export); Phi magnitudes are
+        not retuned by the floor.  Operational (S14.3); never
+        acceptance-path.
     """
 
     min_persistence: int = 2
