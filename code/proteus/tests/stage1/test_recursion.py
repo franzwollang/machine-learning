@@ -7817,3 +7817,332 @@ def test_denser_soft_keep_band_x_gabriel_x_persist_youden_x_majors_compose() -> 
         "soft_x_conj_x_persist_0.15"
     ][0] <= 1
     assert recovered == 0
+
+
+def test_denser_soft_x_gabriel_majors_seed0_keep_x_persist_compose_vs_t73_nonpersist() -> None:
+    """#44 / A2-T75: denser soft×gabriel seed0 keep×persist vs T73 non-persist.
+
+    Majors soft≤0.12 → tori K=2 (gabriel kills; soft=0.25 collapses);
+    e2e non-persist matches T73; soft×persist e2e also ≤1 — persist
+    does not rescue T73 soft collapse. Not sample-ARI recovery; flags
+    off; no awaiting flip.
+    """
+
+    from sklearn.metrics import adjusted_rand_score
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_E2E_NONPERSIST_TABLE,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_E2E_PERSIST_TABLE,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_FRACS,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_H0,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_INFLATE_FRAC,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_KEEP_MAX_FRAC,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_MAX_GRID_POINTS,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_MAX_NODES,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_NESTED_N,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_NESTED_TAU,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_SCALE_SEED_BASE,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_SEED,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_TABLE,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_TORI_N,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_TORI_TAU,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_UNIFORMS,
+        proposed_h0_calibrated_config,
+    )
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+    from tests.datasets.synthetic.swiss_roll import make_swiss_roll
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_require_gabriel_and_h is False
+    assert RecursionConfig().hollow_require_persistent_agree is False
+    assert abs(
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_H0
+        - 0.73
+    ) < 1e-9
+    assert (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_KEEP_MAX_FRAC
+        == 0.12
+    )
+    assert (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_INFLATE_FRAC
+        == 0.25
+    )
+
+    seed = (
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_SEED
+    )
+    nested = make_nested_spheres(
+        n_per_sphere=(
+            DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_NESTED_N
+        ),
+        extrusion_dim=1, seed=seed,
+    )
+    tori = make_linked_tori(
+        n_per_torus=(
+            DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_TORI_N
+        ),
+        seed=seed,
+    )
+
+    def _adapt(points, tau: float):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8,
+            max_nodes=(
+                DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_MAX_NODES
+            ),
+            ann_backend="naive", rng=np.random.default_rng(seed),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    sc_n = _adapt(
+        nested.points,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_NESTED_TAU,
+    )
+    sc_t = _adapt(
+        tori.points,
+        DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_TORI_TAU,
+    )
+    maj_cfgs: dict[str, object] = {
+        "youden": proposed_h0_calibrated_config("youden"),
+        "conj": proposed_h0_calibrated_config(
+            "youden", require_gabriel_and_h=True,
+        ),
+    }
+    for frac in DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_FRACS:
+        maj_cfgs[f"soft_{frac:g}"] = proposed_h0_calibrated_config(
+            "youden",
+            soft_capacity_only=True,
+            soft_capacity_frac=float(frac),
+        )
+        maj_cfgs[f"soft_x_conj_{frac:g}"] = proposed_h0_calibrated_config(
+            "youden",
+            soft_capacity_only=True,
+            soft_capacity_frac=float(frac),
+            require_gabriel_and_h=True,
+        )
+
+    recovered = 0
+    for mode, cfg in maj_cfgs.items():
+        nm, na = _hollow_majors_and_sample_ari(
+            sc_n, nested.points, nested.labels, cfg,
+        )
+        tm, ta = _hollow_majors_and_sample_ari(
+            sc_t, tori.points, tori.labels, cfg,
+        )
+        exp_nm, exp_na, exp_tm, exp_ta = (
+            DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_TABLE[
+                mode
+            ]
+        )
+        assert nm == exp_nm
+        assert tm == exp_tm
+        if exp_na is not None:
+            assert na is not None and abs(na - exp_na) < 0.08
+        else:
+            assert na is None or na < 0.5
+        if exp_ta is not None:
+            assert ta is not None and abs(ta - exp_ta) < 0.08
+        else:
+            assert ta is None or ta < 0.5
+        for maj, ari in ((nm, na), (tm, ta)):
+            if maj >= 2 and ari is not None and ari >= 0.5:
+                recovered += 1
+
+    def _lean() -> ScaleSearchConfig:
+        return ScaleSearchConfig(
+            tau_min=1e-3,
+            tau_max=2.0,
+            max_grid_points=(
+                DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_MAX_GRID_POINTS
+            ),
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            max_nodes=(
+                DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_MAX_NODES
+            ),
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=8,
+            ),
+            seed=(
+                DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_SCALE_SEED_BASE
+                + seed
+            ),
+        )
+
+    def _run_e2e(
+        points, labels, *, soft: bool, conj: bool, persist: bool, frac: float,
+        min_samples: int = 40,
+    ):
+        cfg = RecursionConfig(
+            scale_search=_lean(),
+            min_samples=min_samples,
+            max_depth=3,
+            require_persistent_split=True,
+            allow_finer_research=False,
+            prefer_hollow_edge_prepass=True,
+            hollow_mid_radius_frac=0.5,
+            hollow_h0=float(
+                DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_H0
+            ),
+            hollow_min_end_count=0.5,
+            hollow_gabriel_fallback=False,
+            hollow_soft_capacity_only=soft,
+            hollow_soft_capacity_frac=frac,
+            hollow_soft_capacity_method="betweenness",
+            hollow_require_gabriel_and_h=conj,
+            hollow_require_persistent_agree=persist,
+            seed=(
+                DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_SCALE_SEED_BASE
+                + seed
+            ),
+        )
+        tree = run_recursive_discovery(points, dim=points.shape[1], config=cfg)
+        n_leaves = len(tree.leaves)
+        ari = None
+        if n_leaves >= 2 and labels is not None:
+            pred = np.full(len(points), -1, dtype=int)
+            for lid, leaf in enumerate(tree.leaves):
+                pred[np.asarray(leaf.sample_indices)] = lid
+            mask = (pred >= 0) & (np.asarray(labels) >= 0)
+            if mask.sum() > 0 and len(np.unique(pred[mask])) >= 2:
+                ari = float(adjusted_rand_score(labels[mask], pred[mask]))
+        return n_leaves, ari
+
+    e2e_np_modes: dict[str, tuple[bool, bool, bool, float]] = {
+        "youden": (False, False, False, 0.25),
+        "soft_0.05": (True, False, False, 0.05),
+        "soft_x_conj_0.05": (True, True, False, 0.05),
+        "soft_0.12": (True, False, False, 0.12),
+        "soft_x_conj_0.12": (True, True, False, 0.12),
+        "soft_0.25": (True, False, False, 0.25),
+        "soft_x_conj_0.25": (True, True, False, 0.25),
+    }
+    for mode, (soft, conj, persist, frac) in e2e_np_modes.items():
+        nl, na = _run_e2e(
+            nested.points, nested.labels,
+            soft=soft, conj=conj, persist=persist, frac=frac,
+        )
+        tl, ta = _run_e2e(
+            tori.points, tori.labels,
+            soft=soft, conj=conj, persist=persist, frac=frac,
+        )
+        exp_nl, exp_na, exp_tl, exp_ta = (
+            DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_E2E_NONPERSIST_TABLE[
+                mode
+            ]
+        )
+        assert nl == exp_nl
+        assert tl == exp_tl
+        if exp_na is not None:
+            assert na is not None and abs(na - exp_na) < 0.08
+        else:
+            assert na is None or na < 0.5
+        if exp_ta is not None:
+            assert ta is not None and abs(ta - exp_ta) < 0.08
+        else:
+            assert ta is None or ta < 0.5
+        for leaves, ari in ((nl, na), (tl, ta)):
+            if leaves >= 2 and ari is not None and ari >= 0.5:
+                recovered += 1
+
+    e2e_p_modes: dict[str, tuple[bool, bool, bool, float]] = {
+        "youden": (False, False, False, 0.12),
+        "persist": (False, False, True, 0.12),
+        "conj": (False, True, False, 0.12),
+        "conj_x_persist": (False, True, True, 0.12),
+    }
+    for frac in DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_FRACS:
+        e2e_p_modes[f"soft_x_persist_{frac:g}"] = (True, False, True, frac)
+        e2e_p_modes[f"soft_x_conj_x_persist_{frac:g}"] = (
+            True, True, True, frac,
+        )
+
+    for mode, (soft, conj, persist, frac) in e2e_p_modes.items():
+        nl, na = _run_e2e(
+            nested.points, nested.labels,
+            soft=soft, conj=conj, persist=persist, frac=frac,
+        )
+        tl, ta = _run_e2e(
+            tori.points, tori.labels,
+            soft=soft, conj=conj, persist=persist, frac=frac,
+        )
+        exp_nl, exp_na, exp_tl, exp_ta = (
+            DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_E2E_PERSIST_TABLE[
+                mode
+            ]
+        )
+        assert nl == exp_nl
+        assert tl == exp_tl
+        if exp_na is not None:
+            assert na is not None and abs(na - exp_na) < 0.08
+        else:
+            assert na is None or na < 0.5
+        if exp_ta is not None:
+            assert ta is not None and abs(ta - exp_ta) < 0.08
+        else:
+            assert ta is None or ta < 0.5
+        for leaves, ari in ((nl, na), (tl, ta)):
+            if leaves >= 2 and ari is not None and ari >= 0.5:
+                recovered += 1
+
+    circle = make_circle(
+        n_samples=300, radius=1.0, noise=0.02, extrusion_dim=2, seed=0,
+    )
+    swiss = make_swiss_roll(n_samples=400, noise=0.02, seed=0)
+    uni_modes = (
+        "youden", "persist",
+        "soft_x_persist_0.12", "soft_x_conj_x_persist_0.12",
+        "soft_x_persist_0.25",
+    )
+    for mode in uni_modes:
+        soft, conj, persist, frac = e2e_p_modes[mode]
+        cl, _ = _run_e2e(
+            circle.points, None,
+            soft=soft, conj=conj, persist=persist, frac=frac,
+            min_samples=80,
+        )
+        sl, _ = _run_e2e(
+            swiss.points, None,
+            soft=soft, conj=conj, persist=persist, frac=frac,
+            min_samples=80,
+        )
+        assert cl == (
+            DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_UNIFORMS[
+                "circle"
+            ][mode]
+        )
+        assert sl == (
+            DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_UNIFORMS[
+                "swiss"
+            ][mode]
+        )
+
+    # contrast claim: T73 keep majors + non-persist soft collapse;
+    # persist compose does not rescue soft e2e
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_TABLE[
+        "soft_0.12"
+    ][2] == 2
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_TABLE[
+        "soft_0.25"
+    ][2] <= 1
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_E2E_NONPERSIST_TABLE[
+        "youden"
+    ][0] == 2
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_E2E_NONPERSIST_TABLE[
+        "soft_0.12"
+    ][0] <= 1
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_E2E_PERSIST_TABLE[
+        "soft_x_persist_0.12"
+    ][0] <= 1
+    assert DENSER_SOFT_X_GABRIEL_MAJORS_SEED0_KEEP_X_PERSIST_COMPOSE_VS_T73_NONPERSIST_E2E_PERSIST_TABLE[
+        "soft_x_persist_0.25"
+    ][0] <= 1
+    assert recovered == 0

@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-10T06:55:00Z",
-  "turn": 63,
+  "updated_at": "2026-08-10T07:22:00Z",
+  "turn": 64,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "MERGE_DONE scoop T74/T92+/T101+/T100+/T103+; refill T75+/T95+/T104+/T103+/T106+"
+    "goal": "MERGE_DONE scoop T75/T95+/T104+/T103+/T106+; refill T76+/T98+/T107+/T106+/T109+"
   },
   "recent": [
-    "Scoop A2-T74 + A3-T92..T94 + A4-T101..T103 + A5-T100..T102 + A6-T103..T105",
-    "Tests 2+6+165+3 green; no awaiting flip",
+    "Scoop A2-T75 + A3-T95..T97 + A4-T104..T106 + A5-T103..T105 + A6-T106..T108",
+    "Tests 2+6+171+2 green; no awaiting flip",
     "Queues refilled 3-deep post-scoop"
   ],
   "discoveries": [
-    "T74 youden×majors coexist seed0 (majors keep + youden nested)",
-    "mult3 noise NON-MONO 0.22✓/0.23✗/0.24✓/0.25✗",
-    "half-life farther from LW than mid (except seed2 tie)"
+    "T75 persist does NOT rescue T73 soft e2e collapse",
+    "densify298 full / 316 fail; denser384 void-absent max_b2=0",
+    "half-life×LC farther than mid; std half≡peak+1 thr-invariant"
   ],
   "open_threads": [
-    "A2-T75 seed0 keep×persist; A3 SI T95..T97",
-    "A4 densify298/316; A5 T103 dual-path traj; A6 LC-hybrid",
+    "A2-T76 ARI probe; A3 SI T98..T100",
+    "A4 densify294/318; A5 T106 dual-path; A6 stab-Phi",
     "#45 deferred until #44 sample-ARI"
   ],
-  "next_step": "Push MERGE_DONE; workers pull T75+/T95+/T104+",
+  "next_step": "Push MERGE_DONE; workers pull T76+/T98+/T107+",
   "blockers": []
 }
