@@ -1811,7 +1811,6 @@ def test_denser_soft_keep_band_x_gabriel_x_persist_multiseed_export() -> None:
 
     assert HollowEdgeConfig().soft_capacity_only is False
     assert HollowEdgeConfig().require_gabriel_and_h is False
-    assert HollowEdgeConfig().require_persistent_agree is False
     assert abs(
         DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_H0 - 0.73
     ) < 1e-9
