@@ -231,3 +231,4 @@
 {"ts": "2026-08-10T06:55:00Z", "from": "A1", "type": "TASK_ASSIGN", "note": "Post-scoop refill: A2-T75..T77 keep×persist/ARI/multiseed; A3-T95..T97 SI; A4-T104..T106 densify298/316; A5-T103..T105 dual-path traj; A6-T106..T108 LC-hybrid"}
 {"ts": "2026-08-10T06:55:00Z", "from": "A1", "type": "TASK_REFILL", "note": "Queues 3-deep; A1-T49=#45 deferred; throughput_mode on"}
 {"ts": "2026-08-10T06:55:00Z", "from": "A1", "type": "MERGE_DONE", "integration_sha": "1d79d3f07aab7b5227d1ac6f48def75d6b69b28c", "note": "Scoop A2-T74; A3-T92..T94; A4-T101..T103; A5-T100..T102; A6-T103..T105; tests 2+6+165+3; no awaiting flip", "tips": {"A2": "2db297c", "A3": "0a27979", "A4": "dd1c462", "A5": "04af089", "A6": "74444d0"}}
+{"ts":"2026-08-10T07:01:04Z","from":"A1","type":"HELLO","branch":"coord/A1","note":"tracker online; waiting for A2-T75+/A3-T95+/A4-T104+/A5-T103+/A6-T106+ tips (workers RUNNING)"}
