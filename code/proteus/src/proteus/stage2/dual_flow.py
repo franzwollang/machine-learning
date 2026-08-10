@@ -25,19 +25,23 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   ``Σ_S μ_S‖A_S p_S‖²`` soft solve lands behind ``enable_patch_mu_solve``
   (A5-T47 stub — not loopy BP). Shared-face antisymmetry soft glue for
   that patch solve lands behind ``enable_shared_face_glue`` (A5-EXP-glue;
-  still not a global face registry / loopy BP). Complex → node-star
-  incidence + ANN BMU query for Stage-1 tally wiring lands behind
-  ``enable_complex_ann_incidence`` (A5-EXP-ann-inc). Remaining real-BP
-  gaps: full loopy Gaussian BP / global face-id solve on the multi-simplex
-  face/factor graph; online tallies → offline solve schedule;
-  true-manifold flux zeroing (S6.3).
+  still not a global face registry / loopy BP). Global face-id soft
+  solve (one pressure per unique facet, signed local incidence) lands
+  behind ``enable_global_face_solve`` (A5-T49 stub — still **not** loopy
+  Gaussian BP). Complex → node-star incidence + ANN BMU query for
+  Stage-1 tally wiring lands behind ``enable_complex_ann_incidence``
+  (A5-EXP-ann-inc). Remaining real-BP gaps: full loopy Gaussian BP on
+  the multi-simplex face/factor graph; online tallies → offline solve
+  schedule; true-manifold flux zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
   seams land behind ``enable_boundary_taxonomy`` (proposed; default off).
   Heuristic single-owner → true-manifold; hint sets override. Seam stitch /
   ghost-reservoir sketches land behind ``enable_seam_ghost`` (A5-T45;
   default off) — not full Stage-2 face registry.
 * **S6.4** simplex-local PL density — sketch behind ``enable_simplex_density``
-  (proposed; default off). Does **not** flip density ``@awaiting`` tests.
+  (proposed; default off). Live Complex/ANN density harness lands behind
+  ``enable_live_density`` (A5-T50; default off). Does **not** flip density
+  ``@awaiting`` tests.
 
 Mass-conservation / density / benchmark ``@awaiting("stage2.dual_flow")``
 (and ``stage2.density``) stay xfail until the full producer lands. This file
@@ -79,12 +83,19 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
 * ``DualFlowConfig.enable_shared_face_glue`` — when off, patch solve keeps
   independent per-simplex face copies; when on (with ``simplices``), soft
   antisymmetry glue on shared facets (A5-EXP-glue).
+* ``DualFlowConfig.enable_global_face_solve`` — when off,
+  :func:`solve_global_face_mu_pressures` returns ``None``; when on,
+  soft-solves one pressure per unique facet via a signed face registry
+  (A5-T49 stub — **not** loopy Gaussian BP).
 * ``DualFlowConfig.enable_boundary_taxonomy`` — when off,
   :func:`classify_boundary_facets` returns ``None``.
 * ``DualFlowConfig.enable_seam_ghost`` — when off, seam stitch / ghost
   reservoir helpers return ``None`` (A5-T45).
 * ``DualFlowConfig.enable_simplex_density`` — when off,
   :func:`simplex_local_density` returns ``None``.
+* ``DualFlowConfig.enable_live_density`` — when off,
+  :func:`route_live_density_from_complex` returns ``None`` (A5-T50
+  harness: Complex/ANN BMU → S6.4 density per sample).
 * Call sites that opt in (tests / experimental dry-runs) pass flags ``True``
   and feed results into the gate or diagnostics.
 
@@ -134,13 +145,18 @@ __all__ = [
     "SimplexDensityResult",
     "LiveBmuTallyResult",
     "Stage1BmuTallyResult",
+    "LiveDensityResult",
     "SeamStitchResult",
     "GhostReservoirResult",
     "MuWeightedSolveResult",
     "PatchMuSolveResult",
+    "GlobalFaceIncidence",
+    "GlobalFaceRegistry",
+    "GlobalFaceSolveResult",
     "SharedFacePair",
     "build_dual_adjacency",
     "build_dual_adjacency_from_complex",
+    "build_global_face_registry",
     "build_shared_face_pairs",
     "dry_run_dual_from_edit",
     "solve_conservative_pressures",
@@ -153,6 +169,7 @@ __all__ = [
     "build_simplex_positions_from_complex",
     "query_stage1_ann_bmus",
     "route_stage1_from_complex",
+    "route_live_density_from_complex",
     "build_divergence_stencil",
     "conservation_residual_r_cons",
     "epsilon_flux",
@@ -162,6 +179,7 @@ __all__ = [
     "count_aware_lambda_f",
     "solve_mu_weighted_pressures",
     "solve_patch_mu_weighted_pressures",
+    "solve_global_face_mu_pressures",
     "classify_boundary_facets",
     "stitch_orientation_seam_pressures",
     "apply_ghost_reservoir",
@@ -247,6 +265,12 @@ class DualFlowConfig:
         passed to :func:`solve_patch_mu_weighted_pressures`), adds a soft
         antisymmetry penalty ``Σ_shared (p_a + p_b)²`` on shared facets
         (A5-EXP-glue). Still **not** a global face variable / loopy BP.
+    enable_global_face_solve:
+        When ``False`` (default), :func:`solve_global_face_mu_pressures`
+        returns ``None``. When ``True``, soft-minimizes the SI S6.2
+        data + ``Σ_S μ_S‖A_S p_S‖²`` objective over **one pressure per
+        unique facet** with signed local incidence (A5-T49 stub). Still
+        **not** loopy Gaussian BP — gradient soft solve only.
     enable_boundary_taxonomy:
         When ``False`` (default), :func:`classify_boundary_facets` returns
         ``None``. When ``True``, labels single-owner facets via SI S6.3
@@ -260,6 +284,11 @@ class DualFlowConfig:
         When ``False`` (default), :func:`simplex_local_density` returns
         ``None``. When ``True``, evaluates the SI S6.4 PL profile sketch
         (proposal-path; does not flip density ``@awaiting`` tests).
+    enable_live_density:
+        When ``False`` (default), :func:`route_live_density_from_complex`
+        returns ``None``. When ``True``, routes samples via Complex/ANN
+        incidence then evaluates S6.4 density on the winning simplex
+        (A5-T50 harness). Still proposal-path; does not flip ``@awaiting``.
     bp_damping:
         Operational damping in ``[0, 1]`` for the BP sketch
         (``p <- (1-d)*hat_p + d*p_prev``). Default ``0.5``.
@@ -309,9 +338,11 @@ class DualFlowConfig:
     enable_count_aware_lambda: bool = False
     enable_patch_mu_solve: bool = False
     enable_shared_face_glue: bool = False
+    enable_global_face_solve: bool = False
     enable_boundary_taxonomy: bool = False
     enable_seam_ghost: bool = False
     enable_simplex_density: bool = False
+    enable_live_density: bool = False
     bp_damping: float = 0.5
     bp_max_iters: int = 1
     tally_scale: float = 1.0
@@ -350,6 +381,10 @@ class DualDryRunResult:
         empty) mapping from post-edit simplex id → :class:`FaceTallyResult`
         after accumulating ``samples`` on that simplex's vertices. Not live
         routing — demonstration wiring only (A5-T40).
+    stage1_route:
+        Optional Complex/ANN Stage-1 BMU → tally bridge on the post-edit
+        complex (``None`` when ``enable_complex_ann_incidence`` is off or
+        ``samples`` is omitted). A5-T51 dry-run end-to-end wire.
     """
 
     dual_adjacency: DualAdjacencyDict | None
@@ -357,6 +392,7 @@ class DualDryRunResult:
     dual_connected: bool
     post_edit_complex: Complex
     face_tallies: Mapping[Hashable, FaceTallyResult] | None = None
+    stage1_route: Stage1BmuTallyResult | None = None
 
 
 @dataclass(frozen=True)
@@ -445,6 +481,27 @@ class Stage1BmuTallyResult:
     note: str = (
         "sketch only: Stage-1 node BMU → incident-simplex tally; not "
         "acceptance-path wiring; do not flip @awaiting(stage2.dual_flow)"
+    )
+
+
+@dataclass(frozen=True)
+class LiveDensityResult:
+    """Live Complex/ANN → S6.4 density harness (SI S6.4; A5-T50).
+
+    ``densities[i]`` is ``p(x_i|S*)`` on the winning simplex for sample
+    ``i``. ``assignments`` / ``node_bmus`` mirror the Stage-1 incidence
+    bridge. Still proposal-path — does not flip density ``@awaiting``.
+    """
+
+    densities: tuple[float, ...]
+    assignments: tuple[Hashable, ...]
+    node_bmus: tuple[Hashable, ...]
+    per_sample: tuple[SimplexDensityResult, ...]
+    pressures_by_simplex: Mapping[Hashable, np.ndarray]
+    masses_by_simplex: Mapping[Hashable, float]
+    note: str = (
+        "sketch only: live Complex/ANN density harness; not acceptance-path "
+        "density; do not flip @awaiting(stage2.density / stage2.dual_flow)"
     )
 
 
@@ -559,6 +616,96 @@ def build_shared_face_pairs(
     return tuple(pairs)
 
 
+@dataclass(frozen=True)
+class GlobalFaceIncidence:
+    """Signed local attachment of a simplex face to a global face id (SI S6.2).
+
+    ``sign`` is ``+1`` for the first owner of a facet (stable simplex-id
+    order) and ``-1`` for subsequent owners — a proposal-path stand-in for
+    outward-normal antisymmetry on shared facets. Local face index matches
+    :func:`simplex_outward_normals` (facet opposite ordered vertex ``i``).
+    """
+
+    simplex_id: Hashable
+    local_face: int
+    global_face: int
+    sign: int
+    facet: frozenset[Hashable]
+
+
+@dataclass(frozen=True)
+class GlobalFaceRegistry:
+    """Unique-facet face registry with signed local incidences (SI S6.2).
+
+    ``facets[g]`` is the unordered vertex frozenset for global face id
+    ``g``. ``n_interior`` counts facets with two or more owners. Ungated
+    geometry helper — not Stage-2 loopy BP.
+    """
+
+    facets: tuple[frozenset[Hashable], ...]
+    incidences: tuple[GlobalFaceIncidence, ...]
+    n_interior: int
+
+    @property
+    def n_faces(self) -> int:
+        return len(self.facets)
+
+
+def build_global_face_registry(
+    simplices: Sequence[Sequence[Hashable]] | Mapping[Hashable, Sequence[Hashable]],
+) -> GlobalFaceRegistry:
+    """Build a global face-id registry from ordered simplex vertex lists.
+
+    Each unique codim-1 facet becomes one global face. Owners are attached
+    with signs ``(+1, -1, -1, ...)`` in stable ``(simplex_id, local_face)``
+    order so a two-owner interior face is antisymmetric by construction.
+    Ungated helper used by :func:`solve_global_face_mu_pressures` (A5-T49).
+    """
+
+    if isinstance(simplices, Mapping):
+        items: list[tuple[Hashable, tuple[Hashable, ...]]] = [
+            (sid, tuple(verts)) for sid, verts in simplices.items()
+        ]
+    else:
+        items = [(i, tuple(verts)) for i, verts in enumerate(simplices)]
+
+    # facet -> list of (simplex_id, local_face)
+    owners: dict[frozenset[Hashable], list[tuple[Hashable, int]]] = defaultdict(
+        list
+    )
+    for sid, verts in items:
+        if len(verts) < 2:
+            continue
+        for i, v in enumerate(verts):
+            facet = frozenset(verts) - {v}
+            owners[facet].append((sid, i))
+
+    # Stable facet order: sorted by sorted-tuple of vertex ids.
+    facets = tuple(sorted(owners.keys(), key=lambda f: tuple(sorted(f, key=str))))
+    incidences: list[GlobalFaceIncidence] = []
+    n_interior = 0
+    for g, facet in enumerate(facets):
+        own = sorted(owners[facet], key=lambda t: (str(t[0]), t[1]))
+        if len(own) >= 2:
+            n_interior += 1
+        for k, (sid, local_i) in enumerate(own):
+            sign = 1 if k == 0 else -1
+            incidences.append(
+                GlobalFaceIncidence(
+                    simplex_id=sid,
+                    local_face=int(local_i),
+                    global_face=g,
+                    sign=sign,
+                    facet=facet,
+                )
+            )
+    return GlobalFaceRegistry(
+        facets=facets,
+        incidences=tuple(incidences),
+        n_interior=n_interior,
+    )
+
+
 def build_dual_adjacency(
     simplices: Sequence[Sequence[Hashable]] | Mapping[Hashable, Sequence[Hashable]],
     *,
@@ -663,6 +810,11 @@ def dry_run_dual_from_edit(
     (A5-T40): each sample in ``samples`` is accumulated onto every affected
     simplex that has ``vertex_positions`` (naive all-to-affected routing —
     **not** BMU live routing). Flag off ⇒ ``face_tallies`` is ``None``.
+
+    When ``enable_complex_ann_incidence`` is on and ``samples`` is provided,
+    also wires :func:`route_stage1_from_complex` on the post-edit complex
+    into ``stage1_route`` (A5-T51 end-to-end dry-run bridge). Flag off or
+    no samples ⇒ ``stage1_route`` is ``None``.
     """
 
     cfg = config or DualFlowConfig()
@@ -739,12 +891,27 @@ def dry_run_dual_from_edit(
                 if last is not None:
                     face_tallies[sid] = last
 
+    stage1_route: Stage1BmuTallyResult | None = None
+    if cfg.enable_complex_ann_incidence and samples is not None:
+        if post_edit.vertex_positions is None:
+            raise ValueError(
+                "enable_complex_ann_incidence dry-run requires "
+                "complex.vertex_positions"
+            )
+        if not post_edit.simplices:
+            stage1_route = None
+        else:
+            stage1_route = route_stage1_from_complex(
+                samples, post_edit, config=cfg
+            )
+
     return DualDryRunResult(
         dual_adjacency=adj,
         affected_simplices=affected_t,
         dual_connected=connected,
         post_edit_complex=post_edit,
         face_tallies=face_tallies,
+        stage1_route=stage1_route,
     )
 
 
@@ -1262,6 +1429,123 @@ def route_stage1_from_complex(
         pos_map,
         prior_tallies=prior_tallies,
         config=tally_cfg,
+    )
+
+
+def route_live_density_from_complex(
+    samples: Sequence[np.ndarray],
+    complex: Complex,
+    *,
+    pressures_by_simplex: Mapping[Hashable, np.ndarray] | None = None,
+    masses_by_simplex: Mapping[Hashable, float] | None = None,
+    ann: object | None = None,
+    node_positions: np.ndarray | None = None,
+    prior_tallies: Mapping[Hashable, np.ndarray] | None = None,
+    config: DualFlowConfig | None = None,
+) -> LiveDensityResult | None:
+    """Live Complex/ANN BMU → S6.4 density harness (SI S6.4; A5-T50).
+
+    When ``enable_live_density`` is off, returns ``None``. When on:
+
+    1. Route samples via :func:`route_stage1_from_complex` (Complex star +
+       ANN/naive BMU → winning simplex + face tallies).
+    2. For each sample, evaluate :func:`simplex_local_density` on the
+       winning simplex using ``pressures_by_simplex[S]`` when supplied,
+       else the cumulative face tallies for ``S``, with mass
+       ``masses_by_simplex.get(S, 1/n_simplices)``.
+
+    Proposal-path only — does **not** flip ``@awaiting("stage2.density")``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_live_density:
+        return None
+
+    if not complex.simplices:
+        raise ValueError("complex must contain at least one simplex")
+
+    bridge_cfg = DualFlowConfig(
+        enable_complex_ann_incidence=True,
+        tally_scale=cfg.tally_scale,
+        volume_floor=cfg.volume_floor,
+    )
+    routed = route_stage1_from_complex(
+        samples,
+        complex,
+        ann=ann,
+        node_positions=node_positions,
+        prior_tallies=prior_tallies,
+        config=bridge_cfg,
+    )
+    if routed is None:
+        raise RuntimeError("complex ANN incidence unexpectedly disabled")
+
+    n_S = len(complex.simplices)
+    default_mass = 1.0 / float(n_S)
+    dens_cfg = DualFlowConfig(
+        enable_simplex_density=True,
+        volume_floor=cfg.volume_floor,
+    )
+
+    # Resolve pressures: explicit map wins; else tallies; else ones.
+    press_map: dict[Hashable, np.ndarray] = {}
+    mass_map: dict[Hashable, float] = {}
+    for sid, simp in enumerate(complex.simplices):
+        n_faces = len(simp.vertex_ids)
+        if pressures_by_simplex is not None and sid in pressures_by_simplex:
+            press_map[sid] = np.asarray(
+                pressures_by_simplex[sid], dtype=float
+            ).reshape(-1)
+        elif sid in routed.tallies_by_simplex:
+            press_map[sid] = np.asarray(
+                routed.tallies_by_simplex[sid].tallies, dtype=float
+            ).reshape(-1)
+        else:
+            press_map[sid] = np.ones(n_faces, dtype=float)
+        if masses_by_simplex is not None and sid in masses_by_simplex:
+            mass_map[sid] = float(masses_by_simplex[sid])
+        else:
+            mass_map[sid] = default_mass
+
+    pos_map = build_simplex_positions_from_complex(complex, config=bridge_cfg)
+    if pos_map is None:
+        raise RuntimeError("complex positions unexpectedly disabled")
+
+    per_sample: list[SimplexDensityResult] = []
+    densities: list[float] = []
+    for sample, sid in zip(samples, routed.assignments, strict=True):
+        if sid not in pos_map:
+            raise ValueError(f"winning simplex {sid!r} missing positions")
+        P = pos_map[sid]
+        press = press_map[sid]
+        if press.shape[0] != P.shape[0]:
+            raise ValueError(
+                f"pressures for simplex {sid!r} length {press.shape[0]} "
+                f"!= vertex count {P.shape[0]}"
+            )
+        vol = None
+        if 0 <= int(sid) < len(complex.simplices):
+            vol = float(complex.simplices[int(sid)].volume)
+        out = simplex_local_density(
+            sample,
+            P,
+            mass=mass_map[sid],
+            facet_pressures=press,
+            volume=vol,
+            config=dens_cfg,
+        )
+        if out is None:
+            raise RuntimeError("simplex density unexpectedly disabled")
+        per_sample.append(out)
+        densities.append(out.density)
+
+    return LiveDensityResult(
+        densities=tuple(densities),
+        assignments=routed.assignments,
+        node_bmus=routed.node_bmus,
+        per_sample=tuple(per_sample),
+        pressures_by_simplex=press_map,
+        masses_by_simplex=mass_map,
     )
 
 
@@ -1919,6 +2203,251 @@ def solve_patch_mu_weighted_pressures(
         n_shared_faces=n_shared,
         shared_glue_residual=glue_resid,
         note=note,
+    )
+
+
+@dataclass(frozen=True)
+class GlobalFaceSolveResult:
+    """Global face-id soft solve stub (SI S6.2; A5-T49).
+
+    ``pressures_global`` has one entry per unique facet. ``pressures_local``
+    is the signed expansion onto per-simplex face slots (same block-concat
+    layout as :class:`PatchMuSolveResult`). ``n_interior_faces`` counts
+    facets with ≥2 owners. Still **not** loopy Gaussian BP.
+    """
+
+    empirical_local: np.ndarray
+    empirical_global: np.ndarray
+    pressures_global: np.ndarray
+    pressures_local: np.ndarray
+    lambda_f_global: np.ndarray
+    mu_S: Mapping[Hashable, float]
+    mu_S_sum: float
+    r_data: float
+    r_cons: float
+    epsilon_flux: float
+    iters: int
+    block_sizes: tuple[int, ...]
+    simplex_ids: tuple[Hashable, ...]
+    n_faces: int
+    n_interior_faces: int
+    registry: GlobalFaceRegistry
+    note: str = (
+        "sketch only: global face-id soft solve (signed incidence); "
+        "not loopy Gaussian BP (SI S6.2)"
+    )
+
+
+def solve_global_face_mu_pressures(
+    empirical_by_simplex: Mapping[Hashable, np.ndarray],
+    stencils_by_simplex: Mapping[Hashable, np.ndarray],
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]],
+    *,
+    face_hit_counts_by_simplex: Mapping[Hashable, np.ndarray] | None = None,
+    config: DualFlowConfig | None = None,
+) -> GlobalFaceSolveResult | None:
+    """Soft solve on unique facet pressures (SI S6.2; A5-T49).
+
+    When ``enable_global_face_solve`` is off, returns ``None``. When on,
+    builds a :class:`GlobalFaceRegistry` and soft-minimizes
+
+        Σ_{S,i} λ (s_{S,i} p_{g(S,i)} - hat_{S,i})²
+        + Σ_S μ_S ‖A_S p_S‖₂²
+
+    with ``p_S[i] = s_{S,i} p_{g(S,i)}``. Optional count-aware ``λ_f``
+    when ``enable_count_aware_lambda`` and hit counts are supplied
+    (aggregated onto global faces by mean of owner λ). Gradient soft
+    solve with damping — **not** loopy Gaussian BP.
+
+    Proposal-path stub only — do **not** flip ``@awaiting``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_global_face_solve:
+        return None
+
+    if not empirical_by_simplex:
+        raise ValueError("empirical_by_simplex must be non-empty")
+    ids = tuple(empirical_by_simplex.keys())
+    for sid in ids:
+        if sid not in stencils_by_simplex:
+            raise ValueError(f"missing divergence stencil for simplex {sid!r}")
+
+    registry = build_global_face_registry(simplices)
+    # Incidence lookup: (sid, local_i) -> (g, sign)
+    loc_map: dict[tuple[Hashable, int], tuple[int, int]] = {}
+    for inc in registry.incidences:
+        loc_map[(inc.simplex_id, inc.local_face)] = (
+            inc.global_face,
+            inc.sign,
+        )
+
+    blocks_hat: list[np.ndarray] = []
+    blocks_A: list[np.ndarray] = []
+    blocks_lam: list[np.ndarray] = []
+    mu_map: dict[Hashable, float] = {}
+    block_sizes: list[int] = []
+    offsets: dict[Hashable, int] = {}
+
+    offset = 0
+    for sid in ids:
+        hat = np.asarray(empirical_by_simplex[sid], dtype=float).reshape(-1)
+        A_S = np.asarray(stencils_by_simplex[sid], dtype=float)
+        if A_S.ndim != 2 or A_S.shape[1] != hat.shape[0]:
+            raise ValueError(
+                f"stencil {sid!r} shape {A_S.shape} incompatible with "
+                f"pressures length {hat.shape[0]}"
+            )
+        n = hat.shape[0]
+        for i in range(n):
+            if (sid, i) not in loc_map:
+                raise ValueError(
+                    f"simplex {sid!r} local face {i} missing from face "
+                    f"registry (check simplices keys match empirical ids)"
+                )
+        if cfg.enable_count_aware_lambda:
+            if (
+                face_hit_counts_by_simplex is None
+                or sid not in face_hit_counts_by_simplex
+            ):
+                raise ValueError(
+                    "enable_count_aware_lambda requires "
+                    "face_hit_counts_by_simplex for every simplex"
+                )
+            lam = count_aware_lambda_f(face_hit_counts_by_simplex[sid])
+            if lam.shape != (n,):
+                raise ValueError(
+                    f"hit counts for {sid!r} length {lam.shape[0]} != ({n},)"
+                )
+        else:
+            lam = np.ones(n, dtype=float)
+        bar_lam = float(np.mean(lam))
+        mu = mu_S_weight(
+            A_S,
+            bar_lambda=bar_lam,
+            mu_scale=float(cfg.mu_scale),
+            eps_A=float(cfg.as_eps),
+        )
+        mu_map[sid] = mu
+        blocks_hat.append(hat)
+        blocks_A.append(A_S)
+        blocks_lam.append(lam)
+        block_sizes.append(n)
+        offsets[sid] = offset
+        offset += n
+
+    hat_local = np.concatenate(blocks_hat)
+    lam_local = np.concatenate(blocks_lam)
+    n_local = hat_local.shape[0]
+    n_g = registry.n_faces
+    if n_g < 1:
+        raise ValueError("global face registry is empty")
+
+    # Incidence matrix M: local = M @ p_global  (entries ±1).
+    M = np.zeros((n_local, n_g), dtype=float)
+    local_g: list[int] = [-1] * n_local
+    local_s: list[float] = [0.0] * n_local
+    for sid, n in zip(ids, block_sizes, strict=True):
+        off = offsets[sid]
+        for i in range(n):
+            g, s = loc_map[(sid, i)]
+            M[off + i, g] = float(s)
+            local_g[off + i] = g
+            local_s[off + i] = float(s)
+
+    # Aggregate empirical / λ onto global faces (signed mean of owners).
+    hat_g = np.zeros(n_g, dtype=float)
+    lam_g = np.zeros(n_g, dtype=float)
+    counts_g = np.zeros(n_g, dtype=float)
+    for loc_i in range(n_local):
+        g = local_g[loc_i]
+        s = local_s[loc_i]
+        hat_g[g] += s * float(hat_local[loc_i])
+        lam_g[g] += float(lam_local[loc_i])
+        counts_g[g] += 1.0
+    counts_g = np.maximum(counts_g, 1.0)
+    hat_g = hat_g / counts_g
+    lam_g = lam_g / counts_g
+
+    damp = float(cfg.bp_damping)
+    if not 0.0 <= damp <= 1.0:
+        raise ValueError("bp_damping must be in [0, 1]")
+    iters = int(cfg.bp_max_iters)
+    if iters < 1:
+        raise ValueError("bp_max_iters must be >= 1")
+    step = float(cfg.as_step)
+    if step < 0.0:
+        raise ValueError("as_step must be >= 0")
+
+    # Whiten global empirics; soft-solve in whitened coords.
+    hat_w, std = whiten_empirical_pressures(
+        hat_g, None, floor=float(cfg.whiten_floor)
+    )
+    p_w = hat_w.copy()
+
+    # Precompute A_S M_S blocks for conservation gradient.
+    # p_local_phys = M @ (p_w * std); grad_w via chain rule.
+    for _ in range(iters):
+        p_w = (1.0 - damp) * hat_w + damp * p_w
+        p_g = p_w * std
+        p_loc = M @ p_g
+        # Data term on whitened global aggregated hats.
+        grad = lam_g * (p_w - hat_w)
+        # Conservation: Σ_S μ_S ‖A_S p_S‖²; p_S = (M p_g)[block].
+        cons_grad_g = np.zeros(n_g, dtype=float)
+        for sid, A_S, n in zip(ids, blocks_A, block_sizes, strict=True):
+            off = offsets[sid]
+            p_S = p_loc[off : off + n]
+            # d/dp_g  μ ‖A p_S‖² = 2 μ M_S^T A^T A p_S  (½ absorbed in step)
+            AtAp = A_S.T @ (A_S @ p_S)
+            for i in range(n):
+                g = local_g[off + i]
+                s = local_s[off + i]
+                cons_grad_g[g] += float(mu_map[sid]) * s * float(AtAp[i])
+        # Chain rule into whitened coords: ∂p_g/∂p_w = std.
+        grad = grad + std * cons_grad_g
+        p_w = p_w - step * grad
+
+    p_g = p_w * std
+    p_loc = M @ p_g
+
+    eps = 1e-12
+    r_data = float(
+        np.sum((p_loc - hat_local) ** 2) / (np.sum(hat_local**2) + eps)
+    )
+    flux2 = 0.0
+    cons_num = 0.0
+    for sid, A_S, n in zip(ids, blocks_A, block_sizes, strict=True):
+        off = offsets[sid]
+        p_S = p_loc[off : off + n]
+        Ap = A_S @ p_S
+        f2 = float(np.dot(Ap, Ap))
+        fro2 = float(np.sum(A_S * A_S))
+        flux2 += f2
+        cons_num += f2 / (fro2 + float(cfg.as_eps))
+    denom = float(np.sum(p_g * p_g)) + eps
+    r_cons = cons_num / denom
+    e_flux = flux2 / denom
+    mu_sum = float(sum(mu_map.values()))
+
+    return GlobalFaceSolveResult(
+        empirical_local=hat_local,
+        empirical_global=hat_g,
+        pressures_global=p_g,
+        pressures_local=p_loc,
+        lambda_f_global=lam_g,
+        mu_S=mu_map,
+        mu_S_sum=mu_sum,
+        r_data=r_data,
+        r_cons=r_cons,
+        epsilon_flux=e_flux,
+        iters=iters,
+        block_sizes=tuple(block_sizes),
+        simplex_ids=ids,
+        n_faces=n_g,
+        n_interior_faces=registry.n_interior,
+        registry=registry,
     )
 
 

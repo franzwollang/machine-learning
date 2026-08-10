@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-09T18:05-05:00",
-  "turn": 49,
+  "updated_at": "2026-08-09T18:46-05:00",
+  "turn": 50,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "soft×conj / multi-seed frac toward sample-ARI"
+    "goal": "soft\u00d7youden_h0 / denser\u00d7proposed_h0 toward sample-ARI"
   },
   "recent": [
-    "Multi-scoop A2 soft/Poisson/frac + A4 nested schedule green",
-    "Dense-grid flips 3q-closest→two_thirds~1.00x (seed-fragile)",
-    "A5 Complex-ANN incidence + shared-face glue landed"
+    "Scoop A2 Youden\u22480.73 + soft\u00d7conj collapse",
+    "A4 denser fitted tori partial (1,2,0) first b1=2",
+    "A5 face-solve + live density + dry_run stage1_route"
   ],
   "discoveries": [
-    "Nested schedule {1:3,2:6} recovers both shells (proposal-path)",
-    "schedule×local-σ regresses nested shell2 — keep global σ",
-    "load_weighted≡coarse on hierarchy; densify seed4 persist-reject"
+    "Youden h0\u22480.73 / poisson_lr\u22480.76 proposed; A4=0.7; still \u2260ARI",
+    "Fitted interlocking torus0 partial b1=2 at n=500/max_nodes=256",
+    "schedule\u00d7lifetime needs frac\u22654 for both nested shells"
   ],
   "open_threads": [
-    "A2-T41 soft×conj hollow ARI",
-    "Tori need lever beyond mult/σ schedule",
+    "A2-T44 soft\u00d7youden hollow ARI",
+    "A4-T40 denser 384/512 full (1,2,1) hunt",
     "#45 open-loop after #44 ARI"
   ],
-  "next_step": "MERGE_DONE push; watch soft×conj ARI",
+  "next_step": "Workers pull MERGE_DONE; watch soft\u00d7youden + denser tori",
   "blockers": []
 }
