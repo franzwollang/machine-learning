@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-09T19:35-05:00",
-  "turn": 52,
+  "updated_at": "2026-08-09T20:10-05:00",
+  "turn": 54,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "soft_frac seed1 window; denser seed77/seed7 b2 hunt"
+    "goal": "denser\u00d7bridge_mass / soft\u00d7persist@tau*; densify>256 seed77"
   },
   "recent": [
-    "Double-scoop A2-T47..T49 soft_frac seed1 inflate windowed",
-    "A4-T44/T45 Stage-1 seed fragile; hollow+lifetime no (1,2,1)",
-    "A5-T55..T57 BP damp/offline/fail-closed; A6 seed3 short-block"
+    "Double-scoop A3-EXP-si65..si67 SI + A5-T61..T63 policy-in-loopy",
+    "Triple-scoop A2-T50..T52 denser soft_frac kills seed1 inflate",
+    "A6 densify_overlap_recover thr0.35 recovers seed4 flips seed1"
   ],
   "discoveries": [
-    "Seed1 soft inflate is baseline+frac-windowed; denser kills inflate",
-    "Stage-1 denser: seed77 both-partial; seed7 sporadic dirty b2; no full (1,2,1)",
-    "Seed3 short persist-block len=3 forces mid=2/3=3q at ~8.83x"
+    "Seed1 inflate=baseline+betweenness+probe-tau only; denser/bridge_mass/tau* kill",
+    "densify_overlap_recover thr0.35 recovers seed4 but flips seed1",
+    "seed77 hollow dirty-b2 only at SI fine mult; cal\u22653 erases without clean"
   ],
   "open_threads": [
-    "A2-T50 denser soft_frac seed1 window",
-    "A4-T46 lifetime x cal-mult still ready",
+    "A2-T53 denser\u00d7bridge_mass; A4 densify>256 seed77",
+    "A5-T64 residual-stop; A6-T61 collateral sweep",
     "#45 open-loop after #44 ARI"
   ],
-  "next_step": "Workers pull double MERGE_DONE; watch soft_frac denser + seed77",
+  "next_step": "Push MERGE_DONE; workers pull; watch denser\u00d7bridge_mass",
   "blockers": []
 }
