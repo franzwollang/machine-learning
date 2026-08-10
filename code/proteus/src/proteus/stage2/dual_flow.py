@@ -76,7 +76,10 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   only; does not flip ``@awaiting``). A residual-stop × mass_loopy ×
   policy-in-loopy *patience compose* lands behind
   ``enable_residual_mass_policy_patience_probe`` (A5-T79; proposal-path;
-  does not flip ``@awaiting``). Remaining real-BP gaps: true
+  does not flip ``@awaiting``). A spectrum×policy×mass × fail_closed
+  dry_run reconnect *bridge* lands behind
+  ``enable_spectrum_policy_mass_fail_closed_bridge_probe`` (A5-T80;
+  harness only; does not flip ``@awaiting``). Remaining real-BP gaps: true
   spectrum-safe production loopy BP certificate; true-manifold flux
   zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
@@ -221,6 +224,11 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
   when on, sweeps ``bp_residual_stop_patience`` under mass×loopy
   compose with residual-stop **and** ``enable_bp_policy_in_loopy``
   (A5-T79; proposal-path; does not flip ``@awaiting``).
+* ``DualFlowConfig.enable_spectrum_policy_mass_fail_closed_bridge_probe``
+  — when off, :func:`probe_spectrum_policy_mass_fail_closed_bridge`
+  returns ``None``; when on, runs spectrum×policy×mass compose together
+  with fail_closed dry_run reconnect×EvidenceGate (A5-T80; harness
+  only; does not flip ``@awaiting`` / GateConfig defaults).
 * Call sites that opt in (tests / experimental dry-runs) pass flags ``True``
   and feed results into the gate or diagnostics.
 
@@ -366,6 +374,7 @@ __all__ = [
     "probe_residual_mass_patience_sweep",
     "probe_spectrum_safe_policy_mass_traj",
     "probe_residual_mass_policy_patience",
+    "probe_spectrum_policy_mass_fail_closed_bridge",
     "probe_fail_closed_dual_adjacency_plan",
     "probe_gate_fail_closed_switch",
 ]
@@ -579,6 +588,12 @@ class DualFlowConfig:
         mass×loopy compose with residual-stop early-exit **and**
         ``enable_bp_policy_in_loopy`` (A5-T79; proposal-path; does not
         flip mass/density ``@awaiting``).
+    enable_spectrum_policy_mass_fail_closed_bridge_probe:
+        When ``False`` (default),
+        :func:`probe_spectrum_policy_mass_fail_closed_bridge` returns
+        ``None``. When ``True``, bridges spectrum×policy×mass compose
+        with fail_closed dry_run reconnect×EvidenceGate (A5-T80;
+        harness only; does not flip ``@awaiting`` / GateConfig).
     bp_residual_stop_tol:
         Absolute plateau tolerance on ``|Δr_data|`` / ``|Δr_cons|`` for
         the residual-stop sketch / early-exit (default ``1e-3``).
@@ -660,6 +675,7 @@ class DualFlowConfig:
     enable_residual_mass_patience_sweep_probe: bool = False
     enable_spectrum_safe_policy_mass_traj_probe: bool = False
     enable_residual_mass_policy_patience_probe: bool = False
+    enable_spectrum_policy_mass_fail_closed_bridge_probe: bool = False
     bp_residual_stop_tol: float = 1e-3
     bp_residual_stop_patience: int = 2
     bp_damping: float = 0.5
@@ -6036,4 +6052,121 @@ def probe_residual_mass_policy_patience(
         patience_grid=grid,
         spectrum_cond_cap=cap,
         cases=tuple(cases),
+    )
+
+
+@dataclass(frozen=True)
+class SpectrumPolicyMassFailClosedBridgeProbe:
+    """Spectrum×policy×mass compose × fail_closed reconnect bridge (A5-T80).
+
+    Harness only — packages :func:`probe_spectrum_safe_policy_mass_compose`
+    with :func:`proteus.evidence.gate.probe_fail_closed_dry_run_reconnect_bridge`.
+    Does **not** flip mass/density ``@awaiting`` or GateConfig defaults.
+    """
+
+    probe_flag_default_off: bool
+    spectrum_mass: SpectrumSafePolicyMassComposeProbe
+    fail_closed_reconnect_all_matched: bool
+    fail_closed_n_cases: int
+    fail_closed_n_matched: int
+    fail_closed_disconnect_connected: bool
+    fail_closed_reconnect_connected: bool
+    gate_apply_dual_default: bool
+    gate_fail_closed_default: bool
+    dual_adjacency_default: bool
+    note: str = (
+        "harness only: spectrum×policy×mass compose bridged to "
+        "fail_closed dry_run disconnect→reconnect × EvidenceGate; "
+        "defaults unchanged; do not flip @awaiting / apply_dual / "
+        "fail_closed / enable_dual_adjacency"
+    )
+
+
+def probe_spectrum_policy_mass_fail_closed_bridge(
+    samples: Sequence[np.ndarray],
+    simplex_positions: Mapping[Hashable, np.ndarray],
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]],
+    keep_region: Sequence[object],
+    edit_region: Sequence[object],
+    proposal: object,
+    *,
+    masses: Mapping[Hashable, float] | None = None,
+    spectrum_cond_caps: Sequence[float] | None = None,
+    edit_stars: Mapping[int, np.ndarray] | None = None,
+    keep_stars: Mapping[int, np.ndarray] | None = None,
+    complex_path: object | None = None,
+    config: DualFlowConfig | None = None,
+) -> SpectrumPolicyMassFailClosedBridgeProbe | None:
+    """Bridge spectrum×policy×mass compose with fail_closed reconnect (A5-T80).
+
+    When ``enable_spectrum_policy_mass_fail_closed_bridge_probe`` is off,
+    returns ``None``. When on:
+
+    1. Run :func:`probe_spectrum_safe_policy_mass_compose` (flag forced on
+       for the nested call).
+    2. Run gate :func:`probe_fail_closed_dry_run_reconnect_bridge` on the
+       provided edit regions / proposal.
+
+    Does **not** flip mass/density ``@awaiting`` or GateConfig defaults.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_spectrum_policy_mass_fail_closed_bridge_probe:
+        return None
+    if not samples:
+        raise ValueError("samples must be non-empty")
+
+    from proteus.evidence.gate import (
+        GateConfig,
+        probe_fail_closed_dry_run_reconnect_bridge,
+    )
+
+    nested = DualFlowConfig(
+        enable_spectrum_safe_policy_mass_compose_probe=True,
+        bp_damping=float(cfg.bp_damping),
+        bp_max_iters=max(int(cfg.bp_max_iters), 4),
+        bp_residual_stop_tol=float(cfg.bp_residual_stop_tol),
+        bp_residual_stop_patience=int(cfg.bp_residual_stop_patience),
+        tally_scale=float(cfg.tally_scale),
+        mu_scale=float(cfg.mu_scale),
+        as_eps=float(cfg.as_eps),
+        whiten_floor=float(cfg.whiten_floor),
+        spectrum_cond_cap=float(cfg.spectrum_cond_cap),
+        enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+    )
+    spectrum_mass = probe_spectrum_safe_policy_mass_compose(
+        samples,
+        simplex_positions,
+        simplices,
+        masses=masses,
+        spectrum_cond_caps=spectrum_cond_caps,
+        config=nested,
+    )
+    if spectrum_mass is None:
+        raise RuntimeError(
+            "spectrum×policy×mass compose unexpectedly None under bridge cfg"
+        )
+
+    fc = probe_fail_closed_dry_run_reconnect_bridge(
+        keep_region,  # type: ignore[arg-type]
+        edit_region,  # type: ignore[arg-type]
+        proposal,  # type: ignore[arg-type]
+        edit_stars=edit_stars,
+        keep_stars=keep_stars,
+        complex_path=complex_path,
+    )
+    gate_defaults = GateConfig()
+    dual_defaults = DualFlowConfig()
+    return SpectrumPolicyMassFailClosedBridgeProbe(
+        probe_flag_default_off=not DualFlowConfig().enable_spectrum_policy_mass_fail_closed_bridge_probe,
+        spectrum_mass=spectrum_mass,
+        fail_closed_reconnect_all_matched=bool(fc.all_matched),
+        fail_closed_n_cases=int(fc.n_cases),
+        fail_closed_n_matched=int(fc.n_matched),
+        fail_closed_disconnect_connected=bool(fc.disconnect_connected),
+        fail_closed_reconnect_connected=bool(fc.reconnect_connected),
+        gate_apply_dual_default=bool(gate_defaults.apply_dual_adjacency),
+        gate_fail_closed_default=bool(gate_defaults.fail_closed_dual_adjacency),
+        dual_adjacency_default=bool(dual_defaults.enable_dual_adjacency),
     )

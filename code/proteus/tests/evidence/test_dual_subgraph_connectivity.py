@@ -109,6 +109,7 @@ from proteus.stage2 import (
     probe_residual_mass_patience_sweep,
     probe_spectrum_safe_policy_mass_traj,
     probe_residual_mass_policy_patience,
+    probe_spectrum_policy_mass_fail_closed_bridge,
     propose_bp_damping_policy,
     propose_loopy_bp_residual_stop,
     query_stage1_ann_bmus,
