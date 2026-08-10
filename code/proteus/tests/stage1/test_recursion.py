@@ -4185,3 +4185,287 @@ def test_soft_x_gabriel_tau_star_nested_tori_ari() -> None:
     assert SOFT_X_GABRIEL_TAU_STAR_TABLE[1]["soft_x_conj"][0] == 2
     assert SOFT_X_GABRIEL_TAU_STAR_UNIFORMS["circle"]["soft_x_conj"] == 1
     assert recovered == 0
+
+
+def test_denser_soft_seed0_keep_band_x_persist_nested_tori() -> None:
+    """#44 / A2-T59: denser soft seed0 keep-band × persist_agree e2e.
+
+    T55 majors keep-band soft≤0.12 does not survive denser e2e soft or
+    soft×persist for betweenness or bridge_mass (all ≤1). Youden alone
+    keeps seed0 nested K=2 chance-ARI≈0.01. Not sample-ARI recovery;
+    flags off; no awaiting flip.
+    """
+
+    from sklearn.metrics import adjusted_rand_score
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_FRACS,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_H0,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_MAX_GRID_POINTS,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_MAX_NODES,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_NESTED_N,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SCALE_SEED_BASE,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SEED,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TABLE,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TORI_N,
+    )
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_require_persistent_agree is False
+    assert abs(DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_H0 - 0.73) < 1e-9
+
+    seed = DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SEED
+
+    def _lean() -> ScaleSearchConfig:
+        return ScaleSearchConfig(
+            tau_min=1e-3,
+            tau_max=2.0,
+            max_grid_points=DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_MAX_GRID_POINTS,
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            max_nodes=DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_MAX_NODES,
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=8,
+            ),
+            seed=DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SCALE_SEED_BASE + seed,
+        )
+
+    def _run(points, labels, dim, *, soft: bool, persist: bool, frac: float,
+             method: str) -> tuple[int, float | None]:
+        cfg = RecursionConfig(
+            scale_search=_lean(),
+            min_samples=40,
+            max_depth=3,
+            require_persistent_split=True,
+            allow_finer_research=False,
+            prefer_hollow_edge_prepass=True,
+            hollow_mid_radius_frac=0.5,
+            hollow_h0=float(DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_H0),
+            hollow_min_end_count=0.5,
+            hollow_gabriel_fallback=False,
+            hollow_soft_capacity_only=soft,
+            hollow_soft_capacity_frac=frac,
+            hollow_soft_capacity_method=method,
+            hollow_require_persistent_agree=persist,
+            seed=DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SCALE_SEED_BASE + seed,
+        )
+        tree = run_recursive_discovery(points, dim=dim, config=cfg)
+        n_leaves = len(tree.leaves)
+        ari = None
+        if n_leaves >= 2 and labels is not None:
+            pred = np.full(len(points), -1, dtype=int)
+            for lid, leaf in enumerate(tree.leaves):
+                pred[np.asarray(leaf.sample_indices)] = lid
+            mask = (pred >= 0) & (np.asarray(labels) >= 0)
+            if mask.sum() > 0 and len(np.unique(pred[mask])) >= 2:
+                ari = float(adjusted_rand_score(labels[mask], pred[mask]))
+        return n_leaves, ari
+
+    nested = make_nested_spheres(
+        n_per_sphere=DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_NESTED_N,
+        extrusion_dim=1, seed=seed,
+    )
+    tori = make_linked_tori(
+        n_per_torus=DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TORI_N,
+        seed=seed,
+    )
+
+    mode_specs: dict[str, tuple[bool, bool, float, str]] = {
+        "youden": (False, False, 0.25, "betweenness"),
+        "persist": (False, True, 0.25, "betweenness"),
+    }
+    for frac in DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_FRACS:
+        mode_specs[f"soft_bet_{frac:g}"] = (True, False, float(frac), "betweenness")
+        mode_specs[f"soft_x_persist_bet_{frac:g}"] = (
+            True, True, float(frac), "betweenness",
+        )
+        mode_specs[f"soft_bridge_{frac:g}"] = (
+            True, False, float(frac), "bridge_mass",
+        )
+        mode_specs[f"soft_x_persist_bridge_{frac:g}"] = (
+            True, True, float(frac), "bridge_mass",
+        )
+
+    recovered = 0
+    for mode, (soft, persist, frac, method) in mode_specs.items():
+        nl, na = _run(
+            nested.points, nested.labels, nested.points.shape[1],
+            soft=soft, persist=persist, frac=frac, method=method,
+        )
+        tl, ta = _run(
+            tori.points, tori.labels, tori.points.shape[1],
+            soft=soft, persist=persist, frac=frac, method=method,
+        )
+        exp_nl, exp_na, exp_tl, exp_ta = (
+            DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TABLE[mode]
+        )
+        assert nl == exp_nl
+        assert tl == exp_tl
+        if exp_na is not None:
+            assert na is not None and abs(na - exp_na) < 0.08
+        else:
+            assert na is None or na < 0.5
+        if exp_ta is not None:
+            assert ta is not None and abs(ta - exp_ta) < 0.08
+        else:
+            assert ta is None or ta < 0.5
+        for leaves, ari in ((nl, na), (tl, ta)):
+            if leaves >= 2 and ari is not None and ari >= 0.5:
+                recovered += 1
+
+    # T55 keep-band soft≤0.12 does not survive denser e2e soft/persist
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TABLE["youden"][0] == 2
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TABLE[
+        "soft_x_persist_bet_0.12"
+    ][2] <= 1
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TABLE[
+        "soft_x_persist_bridge_0.12"
+    ][2] <= 1
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TABLE["soft_bet_0.12"][2] <= 1
+    assert recovered == 0
+
+
+def test_denser_soft_x_gabriel_tau_star_nested_tori_ari() -> None:
+    """#44 / A2-T60-followon: denser soft×gabriel_and_h at operational tau*.
+
+    Denser kills T58 seed1 nested e2e inflate; denser-youden seed0 nested
+    K=2 chance-ARI is killed by soft/conj. Circle youden does not shatter
+    on denser. Not sample-ARI recovery; flags off; no awaiting flip.
+    """
+
+    from sklearn.metrics import adjusted_rand_score
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_X_GABRIEL_TAU_STAR_H0,
+        DENSER_SOFT_X_GABRIEL_TAU_STAR_MAX_GRID_POINTS,
+        DENSER_SOFT_X_GABRIEL_TAU_STAR_MAX_NODES,
+        DENSER_SOFT_X_GABRIEL_TAU_STAR_NESTED_N,
+        DENSER_SOFT_X_GABRIEL_TAU_STAR_SCALE_SEED_BASE,
+        DENSER_SOFT_X_GABRIEL_TAU_STAR_SEEDS,
+        DENSER_SOFT_X_GABRIEL_TAU_STAR_SOFT_FRAC,
+        DENSER_SOFT_X_GABRIEL_TAU_STAR_TABLE,
+        DENSER_SOFT_X_GABRIEL_TAU_STAR_TORI_N,
+        DENSER_SOFT_X_GABRIEL_TAU_STAR_UNIFORMS,
+    )
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+    from tests.datasets.synthetic.swiss_roll import make_swiss_roll
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_require_gabriel_and_h is False
+    assert abs(DENSER_SOFT_X_GABRIEL_TAU_STAR_H0 - 0.73) < 1e-9
+
+    def _lean(seed: int) -> ScaleSearchConfig:
+        return ScaleSearchConfig(
+            tau_min=1e-3,
+            tau_max=2.0,
+            max_grid_points=DENSER_SOFT_X_GABRIEL_TAU_STAR_MAX_GRID_POINTS,
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            max_nodes=DENSER_SOFT_X_GABRIEL_TAU_STAR_MAX_NODES,
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=8,
+            ),
+            seed=seed,
+        )
+
+    def _run(points, labels, dim, *, soft: bool, conj: bool, seed: int,
+             min_samples: int = 40) -> tuple[int, float | None]:
+        cfg = RecursionConfig(
+            scale_search=_lean(
+                DENSER_SOFT_X_GABRIEL_TAU_STAR_SCALE_SEED_BASE + seed
+            ),
+            min_samples=min_samples,
+            max_depth=3,
+            require_persistent_split=True,
+            allow_finer_research=False,
+            prefer_hollow_edge_prepass=True,
+            hollow_mid_radius_frac=0.5,
+            hollow_h0=float(DENSER_SOFT_X_GABRIEL_TAU_STAR_H0),
+            hollow_min_end_count=0.5,
+            hollow_gabriel_fallback=False,
+            hollow_soft_capacity_only=soft,
+            hollow_soft_capacity_frac=DENSER_SOFT_X_GABRIEL_TAU_STAR_SOFT_FRAC,
+            hollow_soft_capacity_method="betweenness",
+            hollow_require_gabriel_and_h=conj,
+            seed=DENSER_SOFT_X_GABRIEL_TAU_STAR_SCALE_SEED_BASE + seed,
+        )
+        tree = run_recursive_discovery(points, dim=dim, config=cfg)
+        n_leaves = len(tree.leaves)
+        ari = None
+        if n_leaves >= 2 and labels is not None:
+            pred = np.full(len(points), -1, dtype=int)
+            for lid, leaf in enumerate(tree.leaves):
+                pred[np.asarray(leaf.sample_indices)] = lid
+            mask = (pred >= 0) & (np.asarray(labels) >= 0)
+            if mask.sum() > 0 and len(np.unique(pred[mask])) >= 2:
+                ari = float(adjusted_rand_score(labels[mask], pred[mask]))
+        return n_leaves, ari
+
+    modes = {
+        "youden": (False, False),
+        "soft": (True, False),
+        "conj": (False, True),
+        "soft_x_conj": (True, True),
+    }
+    recovered = 0
+    for seed in DENSER_SOFT_X_GABRIEL_TAU_STAR_SEEDS:
+        nested = make_nested_spheres(
+            n_per_sphere=DENSER_SOFT_X_GABRIEL_TAU_STAR_NESTED_N,
+            extrusion_dim=1, seed=seed,
+        )
+        tori = make_linked_tori(
+            n_per_torus=DENSER_SOFT_X_GABRIEL_TAU_STAR_TORI_N, seed=seed,
+        )
+        for mode, (soft, conj) in modes.items():
+            nl, na = _run(
+                nested.points, nested.labels, nested.points.shape[1],
+                soft=soft, conj=conj, seed=seed,
+            )
+            tl, ta = _run(
+                tori.points, tori.labels, tori.points.shape[1],
+                soft=soft, conj=conj, seed=seed,
+            )
+            exp_nl, exp_na, exp_tl, exp_ta = (
+                DENSER_SOFT_X_GABRIEL_TAU_STAR_TABLE[seed][mode]
+            )
+            assert nl == exp_nl
+            assert tl == exp_tl
+            if exp_na is not None:
+                assert na is not None and abs(na - exp_na) < 0.08
+            else:
+                assert na is None or na < 0.5
+            if exp_ta is not None:
+                assert ta is not None and abs(ta - exp_ta) < 0.08
+            else:
+                assert ta is None or ta < 0.5
+            for leaves, ari in ((nl, na), (tl, ta)):
+                if leaves >= 2 and ari is not None and ari >= 0.5:
+                    recovered += 1
+
+    circle = make_circle(
+        n_samples=300, radius=1.0, noise=0.02, extrusion_dim=2, seed=0,
+    )
+    swiss = make_swiss_roll(n_samples=400, noise=0.02, seed=0)
+    for mode, (soft, conj) in modes.items():
+        cl, _ = _run(
+            circle.points, None, circle.points.shape[1],
+            soft=soft, conj=conj, seed=0, min_samples=80,
+        )
+        sl, _ = _run(
+            swiss.points, None, swiss.points.shape[1],
+            soft=soft, conj=conj, seed=0, min_samples=80,
+        )
+        assert cl == DENSER_SOFT_X_GABRIEL_TAU_STAR_UNIFORMS["circle"][mode]
+        assert sl == DENSER_SOFT_X_GABRIEL_TAU_STAR_UNIFORMS["swiss"][mode]
+
+    # denser kills T58 seed1 nested e2e inflate; soft/conj kill denser-youden seed0
+    assert DENSER_SOFT_X_GABRIEL_TAU_STAR_TABLE[1]["soft_x_conj"][0] <= 1
+    assert DENSER_SOFT_X_GABRIEL_TAU_STAR_TABLE[0]["youden"][0] == 2
+    assert DENSER_SOFT_X_GABRIEL_TAU_STAR_TABLE[0]["soft_x_conj"][0] <= 1
+    assert DENSER_SOFT_X_GABRIEL_TAU_STAR_UNIFORMS["circle"]["youden"] == 1
+    assert recovered == 0
