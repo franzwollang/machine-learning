@@ -264,6 +264,10 @@ class RecursionConfig:
     seed1 majors soft alone nested K=2 chance-ARI≈0.08 killed by conj;
     e2e seed1 nested K=2 survives soft×conj×persist (majors≠e2e);
     defaults off.
+    A2-T64-followon: denser soft keep-band × gabriel majors — T55 denser
+    majors keep-band soft≤0.12 → tori K=2 is killed by gabriel conj at
+    majors; lean e2e soft/soft×conj all ≤1 (youden alone keeps seed0
+    nested K=2 chance-ARI≈0.01); defaults off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
