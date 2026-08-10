@@ -495,3 +495,6 @@
 {"ts":"2026-08-10T07:25:00Z","from":"A3","type":"NOTE","note":"tip correction: A3-EXP-si115..si117 DONE tip=b97bf51 (b97bf51e925cdf1ec4d52be67e64df8102474733); work tip=f19a0ea; SI-only no pytest"}
 {"ts":"2026-08-10T07:41:21Z","from":"A3","type":"HELLO","branch":"coord/A3","note":"worker online; merge integration_sha=be821a0; queue A3-T98..T100"}
 {"ts":"2026-08-10T07:41:21Z","from":"A3","type":"NOTE","integrated_sha":"c61f1318fdc2ae5690bf4bf6a750166f1d4b6dae","note":"merged origin/coord/integration at turn start (mailbox restored A3-only)"}
+{"ts":"2026-08-10T07:41:39Z","from":"A3","type":"CLAIM","issue":44,"task_id":"A3-T98","files":["docs/Proteus/paper_1_foundational/SI.tex"],"note":"CLAIM A3-T98 SI denser soft×gabriel seed0 keep×persist vs T73 (A2-T75); no awaiting flip"}
+{"ts":"2026-08-10T07:41:39Z","from":"A3","type":"CLAIM","issue":41,"task_id":"A3-T99","files":["docs/Proteus/paper_1_foundational/SI.tex"],"note":"CLAIM A3-T99 SI densify298full/316fail + mult3 NON-MONO fine + denser384 void-absent (A4-T104..T106); keep awaiting"}
+{"ts":"2026-08-10T07:41:39Z","from":"A3","type":"CLAIM","issue":28,"task_id":"A3-T100","files":["docs/Proteus/paper_1_foundational/SI.tex"],"note":"CLAIM A3-T100 SI half-life×LC farther + std half≡peak+1 + A5 T103..T105 dual-path traj (A6-T106..T108); keep awaiting"}
