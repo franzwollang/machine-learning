@@ -44,9 +44,11 @@ lower the matched-Jaccard floor to
 :data:`EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD` so a densified
 first-half-step break (e.g. seed~4 ``ov0≈0.39``) recovers a coarse-anchored
 accept; collateral accepts appear on other seeds, so it must not flip the
-acceptance path.  The legacy ``load_band`` scale selector is gone from
-the acceptance path; the controller keeps a deprecated alias that warns and
-redirects to ``load_crossover``.
+acceptance path.  Optional
+:attr:`PersistenceConfig.densify_overlap_recover_threshold` overrides the
+0.35 floor for sensitivity probes (A6-T64).  The legacy ``load_band`` scale
+selector is gone from the acceptance path; the controller keeps a deprecated
+alias that warns and redirects to ``load_crossover``.
 
 .. note::
    The acceptance rule is **coarse-anchored** by default
@@ -71,15 +73,20 @@ from typing import Any, Literal, Optional
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-# Experimental densify-recover Jaccard floor (OPEN_ISSUES #28 / A6-T58/T61).
+# Experimental densify-recover Jaccard floor (OPEN_ISSUES #28 / A6-T58/T61/T64).
 # Seed-4 × ``halve_grid_steps`` rejects under the default ``overlap_threshold``
 # 0.5 because the inserted half-step neighbor lands at ``ov0≈0.39``.  Setting
 # :attr:`PersistenceConfig.densify_overlap_recover` to ``"lower_threshold"``
 # uses this floor and recovers a full coarse-anchored run on that fixture.
 # Collateral accept map (seeds 0..4 × std/dense; A6-T61): flips reject→accept
 # for seed~1 on both grids and seed~4 dense; seed~2 stays reject (ov0 below
-# 0.35); seed~3 std keeps accept but lengthens run0 3→5.  Operational probe
-# only — do not enable on the acceptance path.
+# 0.35); seed~3 std keeps accept but lengthens run0 3→5.
+# Threshold sensitivity (A6-T64): thr=0.30 additionally accepts seed~2 dense
+# (ov0≈0.34); thr=0.40 loses seed~1 dense and seed~4 dense recovers (and drops
+# the seed~3 std lengthening).  0.35 is the narrow band that recovers seed~4
+# dense without accepting seed~2 dense.  Operational probe only — do not enable
+# on the acceptance path.  Optional per-call override:
+# :attr:`PersistenceConfig.densify_overlap_recover_threshold`.
 EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD: float = 0.35
 
 
@@ -205,6 +212,14 @@ class PersistenceConfig:
         dense; seed~4 dense recovers; seed~2 stays reject; seed~3 std keeps
         accept but lengthens the short block (run0 3→5).  Default off; do
         not enable on the acceptance path.  Operational (S14.3).
+    densify_overlap_recover_threshold:
+        Optional **probe override** for the densify-recover Jaccard floor
+        (OPEN_ISSUES #28 / A6-T64).  When ``None`` (default) and
+        ``densify_overlap_recover="lower_threshold"``, the module constant
+        :data:`EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD` (0.35) is used.
+        When set, that float is the floor instead (sensitivity probes at
+        0.30 / 0.40).  Ignored unless ``densify_overlap_recover`` is
+        ``"lower_threshold"``.  Operational (S14.3); never acceptance-path.
     """
 
     min_persistence: int = 2
@@ -225,6 +240,7 @@ class PersistenceConfig:
         "fine_end_of_block",
     ] = "none"
     densify_overlap_recover: Literal["none", "lower_threshold"] = "none"
+    densify_overlap_recover_threshold: float | None = None
 
 
 @dataclass
@@ -367,6 +383,8 @@ def _effective_overlap_threshold(config: PersistenceConfig) -> float:
     """Matched-Jaccard floor, honoring experimental densify-recover override."""
 
     if config.densify_overlap_recover == "lower_threshold":
+        if config.densify_overlap_recover_threshold is not None:
+            return float(config.densify_overlap_recover_threshold)
         return float(EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD)
     if config.densify_overlap_recover != "none":
         raise ValueError(
