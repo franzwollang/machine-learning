@@ -1157,24 +1157,32 @@ default \texttt{"none"}): \texttt{"lower\_threshold"} substitutes floor
 $0.35$ and recovers seed-$4$ densified $\mathrm{run}_0{=}16$, but
 collateral-flips seed~$1$ reject$\to$accept --- keep default
 \texttt{"none"}. Multi-seed densify-recover collateral map
-(A6-T61 / A3-EXP-si73; seeds $0$--$4$ $\times$ std/dense under
+(A6-T61 / A3-T72; seeds $0$--$4$ $\times$ std/dense under
 \texttt{lower\_threshold}): recover-accept $\{0,1,3,4\}$; seed~$2$ stays
 reject (overlap below $0.35$); flips include seed-$1$ std$+$dense and
 seed-$4$ dense; seed-$3$ std $\mathrm{run}_0$ $3\to 5$. Seed-$3$ densify
-Phi pin (A6-T62 / A3-EXP-si73): densified fractional landing indices /
+Phi pin (A6-T62 / A3-T72): densified fractional landing indices /
 $\tau^\star/E$ $\equiv$ seed-$0$ densify (mid$\sim 2.30\times$,
 $2/3\sim 1.00\times$, $3q\sim 0.76\times$); std short-block collapse
 confirmed. Recover-threshold sensitivity
-(A6-T64 / A3-EXP-si73; \texttt{PersistenceConfig.densify\_overlap\_recover\_threshold}):
+(A6-T64 / A3-T72; \texttt{PersistenceConfig.densify\_overlap\_recover\_threshold}):
 floor $0.30$ adds densified seed~$2$; $0.40$ loses densified seed-$1$ $+$
 seed-$4$ recover; $0.35$ is a narrow operational band --- keep default
 \texttt{None} (module floor $0.35$ when unset). Seed-$3$ densify$\times$LW
-(A6-T65 / A3-EXP-si73): load-weighted stays coarse idx~$0$/$\sim 16\times$
+(A6-T65 / A3-T72): load-weighted stays coarse idx~$0$/$\sim 16\times$
 under std/dense $\pm$recover (alias of \texttt{"none"}); fractional modes
-still move with block length. Paper pins the collateral map $+$ thr band
-$+$ densify$\times$LW coarse alias (A6-T63/T66). None of these modes is
-SI-justified as an acceptance rule; the flags remain operational /
-default-\texttt{"none"} (S14.3). Do not flip the default.
+still move with block length. Thr$\times\Phi_C$ gate-only pin
+(A6-T67 / A3-T72): when the same densified seed accepts under two floors
+in $\{0.30,0.35,0.40\}$, coarse-end $\Phi_0$ and mid-interval $\Phi$ match
+exactly --- the override is a Jaccard accept/reject gate only; seed~$2$
+contributes a $\Phi$ row only at $0.30$. Densify$\times$LW on seeds $0$/$4$
+(A6-T68 / A3-T72): load-weighted stays coarse $16\times$ whenever densify
+accepts; seed~$0$ is recover-invariant; densified seed~$4$ needs recover
+to match the seed-$0$ hierarchy. Paper pins the collateral map $+$ thr
+band $+$ densify$\times$LW coarse alias $+$ thr$\times\Phi$ gate-only
+(A6-T63/T66/T69). None of these modes is SI-justified as an acceptance
+rule; the flags remain operational / default-\texttt{"none"} (S14.3). Do
+not flip the default.
 
 \paragraph{Coarse-anchoring of the persistence interval.} The bare two-point
 rule is made robust to warm-start path dependence by requiring the accepted
@@ -1723,7 +1731,7 @@ Denser-killed method contrast $\neq$ sample-ARI; e2e leaf $\neq$
 sample-ARI. Defaults remain off; do \emph{not} flip S14.3 or awaiting.
 
 \paragraph{Denser soft seed-$0$ tori ARI keep-band and bridge\_mass
-method-specificity (proposed; A2-T55..T56 / A3-EXP-si71).}
+method-specificity (proposed; A2-T55..T56 / A3-T71).}
 Exports \texttt{DENSER\_SOFT\_SEED0\_TORI\_ARI\_WINDOW\_*} /
 \texttt{format\_denser\_soft\_seed0\_tori\_ari\_window\_table} and
 \texttt{DENSER\_SOFT\_SEED0\_BRIDGE\_MASS\_WINDOW\_*} /
@@ -1743,6 +1751,25 @@ Youden $h_0$; proposal-path):
 \end{itemize}
 Chance-ARI $\neq$ sample-ARI recovery. Defaults remain off; do \emph{not}
 flip S14.3 or awaiting.
+
+\paragraph{Denser soft$\times$persist at $\tau^\star$ e2e (proposed;
+A2-T57 / A3-T71).}
+Export \texttt{DENSER\_SOFT\_X\_PERSIST\_TAU\_STAR\_*} /
+\texttt{format\_denser\_soft\_x\_persist\_tau\_star\_table}
+($n{=}160/240$, \texttt{max\_nodes}${=}128$, mid${=}0.5$, gabriel off,
+Youden $h_0\approx 0.73$, lean \texttt{max\_grid\_points}${=}12$,
+soft\_frac${=}0.25$ betweenness; proposal-path):
+\begin{itemize}[leftmargin=1.5em]
+  \item Denser kills the baseline T54 seed-$1$ nested e2e inflate ---
+  Youden/soft/persist/soft$\times$persist all $\le 1$ leaf on denser.
+  \item Denser-Youden alone leaves seed-$0$ nested $K{=}2$
+  chance-ARI$\approx 0.01$; soft/persist/soft$\times$persist kill that
+  residual $K{=}2$.
+  \item Circle Youden does \emph{not} shatter on denser (contrast T54
+  circle Youden${=}2$ leaves); soft$\times$persist keeps uniforms at $1$.
+\end{itemize}
+Soft$\neq$sample-ARI recovery. Defaults remain off; do \emph{not} flip
+S14.3 or awaiting.
 
 \paragraph{Multi-$\tau$ ROC confirmation of the A4 primary (proposed; A4-T27).}
 Multi-$\tau$ sheet$+$gap ROC (A4-T27) keeps the primary
@@ -2500,18 +2527,32 @@ graph (do \emph{not} flip mass/density/benchmark
   \texttt{enable\_bp\_policy\_in\_loopy} into the offline loopy schedule and
   surfaces \texttt{loopy\_policy\_applied} /
   \texttt{loopy\_max\_policy\_damping}. Compose remains proposal-path.
-  \item Loopy BP residual-stop sketch (A5-T64 / A3-EXP-si73; default off)
+  \item Loopy BP residual-stop sketch (A5-T64 / A3-T73; default off)
   --- \texttt{propose\_loopy\_bp\_residual\_stop} behind
   \texttt{DualFlowConfig.enable\_loopy\_bp\_residual\_stop}: plateau /
   tolerance early-stop sketch on $r_{\mathrm{cons}}$ using
   \texttt{bp\_residual\_stop\_tol} / \texttt{bp\_residual\_stop\_patience}.
   \emph{Not} a production convergence certificate; flags default off.
-  \item Fail-closed score\_edit matrix probe (A5-T65 / A3-EXP-si73) ---
+  \item Residual-stop early-exit in the loopy schedule (A5-T67 / A3-T73;
+  default off) --- when
+  \texttt{DualFlowConfig.enable\_loopy\_bp\_residual\_stop} is on,
+  \texttt{solve\_loopy\_bp\_schedule} early-exits and reports
+  \texttt{residual\_stop\_reason} $\in$
+  $\{\texttt{abs\_tol},\texttt{plateau},\texttt{max\_iters}\}$ plus
+  \texttt{residual\_stop\_iters}. Still proposal-path; flags default off.
+  \item Spectrum-safe residual-stop cert harness (A5-T68 / A3-T73;
+  default off) --- \texttt{probe\_loopy\_bp\_spectrum\_safe\_cert} behind
+  \texttt{DualFlowConfig.enable\_loopy\_bp\_spectrum\_safe\_cert}: runs
+  the residual-stop early-exit path and reports
+  \texttt{spectrum\_safe\_sketch\_ok} only when stop reason is
+  \texttt{abs\_tol}/\texttt{plateau}, no ridge was applied, and residuals
+  are finite non-negative. \emph{Not} a production certificate.
+  \item Fail-closed score\_edit matrix probe (A5-T65 / A3-T73) ---
   \texttt{probe\_fail\_closed\_score\_edit\_matrix}: $9$-cell
   accept/reject matrix over
   \texttt{apply\_dual\_adjacency}$\times$\texttt{fail\_closed\_dual\_adjacency}$\times$
   adjacency presence. \texttt{GateConfig} defaults unchanged.
-  \item Mass$\times$loopy compose probe (A5-T66 / A3-EXP-si73; default off)
+  \item Mass$\times$loopy compose probe (A5-T66 / A3-T73; default off)
   --- \texttt{probe\_mass\_loopy\_compose} behind
   \texttt{DualFlowConfig.enable\_mass\_loopy\_compose\_probe}: composes
   mass-normalization with the loopy schedule sketch. Proposal-path only;
@@ -2525,8 +2566,9 @@ graph (do \emph{not} flip mass/density/benchmark
 Gaps remain: production loopy Gaussian BP with convergence certificates
 (beyond the spectrum-damping / online-tallies$\to$offline-solve
 \emph{probes}, the A5-T58/T59 policy/compose sketches, the A5-T61..T63
-policy-in-loopy / residual-trajectory wires, and the A5-T64..T66
-residual-stop / fail-closed matrix / mass$\times$loopy probes), and
+policy-in-loopy / residual-trajectory wires, the A5-T64..T66
+residual-stop / fail-closed matrix / mass$\times$loopy probes, and the
+A5-T67..T68 residual-stop early-exit / spectrum-safe cert harnesses), and
 face-registry seam/ghost beyond scalar sketches. Live S6.4 density and
 dry-run Stage-1 route harnesses land below / in S6.4--S6.6. Stage-1
 BMU$\to$tally wiring and Complex/ANN incidence sketches land in S6.1
@@ -2567,7 +2609,7 @@ Do \emph{not} flip fail-closed / apply\_dual defaults or mass/density
 \texttt{@awaiting}.
 
 \paragraph{Online vs. offline schedule.}
-Empirical tallies $\hat p_f$ are written online during sample routing. The conservative field $p_f$ is solved offline after the accepted topology and mass field have settled. This schedule prevents double counting: transition counts select structure, online face tallies record interpolation evidence, and the offline solve converts the accepted representation into a queryable probability field. The A5-T56 / A3-T64 harness above is a proposal-path sketch of that online$\to$offline handoff on live BMU tallies; the A5-T59 / A3-EXP-si67 compose wires the same tallies into the loopy-BP schedule sketch; A5-T61..T63 / A3-T68 optionally fold \texttt{propose\_bp\_damping\_policy} into that offline loopy path and expose a residual-trajectory probe; A5-T64..T66 / A3-EXP-si73 add a residual-stop sketch, a fail-closed \texttt{score\_edit} matrix probe, and a mass$\times$loopy compose probe --- all flags default off. Production loopy BP remains future work.
+Empirical tallies $\hat p_f$ are written online during sample routing. The conservative field $p_f$ is solved offline after the accepted topology and mass field have settled. This schedule prevents double counting: transition counts select structure, online face tallies record interpolation evidence, and the offline solve converts the accepted representation into a queryable probability field. The A5-T56 / A3-T64 harness above is a proposal-path sketch of that online$\to$offline handoff on live BMU tallies; the A5-T59 / A3-EXP-si67 compose wires the same tallies into the loopy-BP schedule sketch; A5-T61..T63 / A3-T68 optionally fold \texttt{propose\_bp\_damping\_policy} into that offline loopy path and expose a residual-trajectory probe; A5-T64..T66 / A3-T73 add a residual-stop sketch, a fail-closed \texttt{score\_edit} matrix probe, and a mass$\times$loopy compose probe; A5-T67..T68 / A3-T73 wire residual-stop early-exit into \texttt{solve\_loopy\_bp\_schedule} and add a spectrum-safe cert harness --- all flags default off. Production loopy BP remains future work.
 
 \subsection*{S6.3 Boundary-Face Taxonomy}
 Boundary facets are classified before the dual-flow solve.
@@ -3532,6 +3574,27 @@ Denser fitted linked-tori follow-ons (stay \texttt{@awaiting}):
 \end{itemize}
 No clean full recovery. Do not flip awaiting or S14.3 defaults.
 
+\paragraph{Hollow$\times$sigma-scale, Stage-1$\times$mid${=}0.65$, and
+tissue$\times$noise (proposed; A4-T56..T58-followon / A3-T72).}
+Denser fitted linked-tori follow-ons (stay \texttt{@awaiting}):
+\begin{itemize}[leftmargin=1.5em]
+  \item Seed-$77$ primary hollow$\times$sigma-scale (A4-T56-followon):
+  dirty $b_2$ only at scale${=}1.0$ (torus~$1$ $(2,0,1)$);
+  scales$\ge 1.25$ erase dirty or fragment $b_0$;
+  $n_{\mathrm{clean}}{=}0$, $\max b_2{=}1$ --- sigma-scale $\neq$ void
+  unlock.
+  \item Seed-$2$ Stage-1$\times$mid${=}0.65$ hollow (A4-T57-followon):
+  only seed-$77$ both-partial $(1,2,0)$; seed-$7$ dirty $(2,1,1)$
+  persists; mid${=}0.65$ $\approx$ no-op prune; $n_{\mathrm{clean}}{=}0$
+  --- Stage-1 stochasticity $+$ mild hollow does not unlock void.
+  \item Seed-$77$ tissue$\times$noise $3\times 3$ (A4-T58-followon):
+  $\max b_2{=}0$ all cells; both-partial only at noise${=}0.02\times$
+  tissue$\in\{0,0.03\}$; quieter weakens $b_1$; louder fragments ---
+  tissue ablation $\neq$ void lever.
+\end{itemize}
+Clean full $(1,2,1)$ remains unreachable under these probes. Do not flip
+awaiting or S14.3 defaults.
+
 \paragraph{Maximum mean discrepancy.}
 Use an RBF kernel with bandwidth set by the median heuristic on the combined sample. Default to $1{,}000$ samples drawn from the model and $1{,}000$ samples from the held-out test set, repeated over $5$ seeds; report mean$\pm$std and a permutation test $p$-value.
 
@@ -3580,11 +3643,11 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \theta_{\mathrm{ovl}} & 0.5\ (\text{matched-cluster Jaccard}) & \text{S2.6.2} & \text{operational}\\
 \texttt{coarse\_anchored} & \text{true}\ (\text{coarsest split must persist}) & \text{S2.6.2} & \text{operational}\\
 \texttt{cold\_start\_recheck} & \text{false}\ (\text{refuted gate; see S2.6.2}) & \text{S2.6.2} & \text{diagnostic}\\
-\texttt{resolve\_within\_interval} & \texttt{"none"}\ (\texttt{"load\_crossover"} hybrid; \texttt{"mid\_interval"} / \texttt{"mid\_interval\_load\_screened"} / \texttt{"two\_thirds\_interval"} / \texttt{"two\_thirds\_load\_screened"} / \texttt{"three\_quarter\_interval"} / \texttt{"three\_quarter\_load\_screened"} / \texttt{"load\_weighted\_interval"} / \texttt{"fine\_end\_of\_block"} experimental; std Phi mid$\sim$2.69 / 2/3$\sim$1.49 / 3q$\sim$0.82; dense-halve flips 2/3$\sim$1.00 / 3q$\sim$0.76 seed-fragile; persist-accept $\{0,3\}$ both grids $+$ seed4 std-only A6-T50/T60; seed3 std short-block mid$\equiv$2/3$\equiv$3q@8.83$\times$ A6-T55/T59/A3-EXP-si67; seed3 densify$\equiv$seed0 hierarchy mid$\sim$2.30/2/3$\sim$1.00/3q$\sim$0.76 A6-T62/A3-EXP-si73; densify$\times$LW seed3 stays coarse 16$\times$ A6-T65; seed4 dense reject$=$first half-step Jaccard$<$0.5 A6-T54/T56/A3-T61; circle/swiss densify LC no-op A6-T53; densify$\times$LW$\equiv$none LC A6-T57; load\_weighted$\equiv$coarse multi-seed A6-T49/T51; \#28) & \text{S2.6.2} & \text{operational}\\
+\texttt{resolve\_within\_interval} & \texttt{"none"}\ (\texttt{"load\_crossover"} hybrid; \texttt{"mid\_interval"} / \texttt{"mid\_interval\_load\_screened"} / \texttt{"two\_thirds\_interval"} / \texttt{"two\_thirds\_load\_screened"} / \texttt{"three\_quarter\_interval"} / \texttt{"three\_quarter\_load\_screened"} / \texttt{"load\_weighted\_interval"} / \texttt{"fine\_end\_of\_block"} experimental; std Phi mid$\sim$2.69 / 2/3$\sim$1.49 / 3q$\sim$0.82; dense-halve flips 2/3$\sim$1.00 / 3q$\sim$0.76 seed-fragile; persist-accept $\{0,3\}$ both grids $+$ seed4 std-only A6-T50/T60; seed3 std short-block mid$\equiv$2/3$\equiv$3q@8.83$\times$ A6-T55/T59/A3-EXP-si67; seed3 densify$\equiv$seed0 hierarchy mid$\sim$2.30/2/3$\sim$1.00/3q$\sim$0.76 A6-T62/A3-T72; densify$\times$LW seed3 stays coarse 16$\times$ A6-T65; densify$\times$LW seed0/4 coarse when accept A6-T68/A3-T72; thr$\times$Phi gate-only shared Phi identical A6-T67/A3-T72; seed4 dense reject$=$first half-step Jaccard$<$0.5 A6-T54/T56/A3-T61; circle/swiss densify LC no-op A6-T53; densify$\times$LW$\equiv$none LC A6-T57; load\_weighted$\equiv$coarse multi-seed A6-T49/T51; \#28) & \text{S2.6.2} & \text{operational}\\
 \texttt{\_WITHIN\_INTERVAL\_LOAD\_SCREEN\_MIN} & 0.5\ (\text{shared }\ll 1\text{ floor for mid/2/3/3q load-screened + load-weighted eligibility; alias }\texttt{\_THREE\_QUARTER\_LOAD\_SCREEN\_MIN}; \#28) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{ScaleSearchConfig.halve\_grid\_steps} & \text{false}\ (\text{half log-step denser }\tau\text{ grid; A6-T46; densify flip seed-fragile A6-T49/T50; \#28}) & \text{S2.5.1/S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{PersistenceConfig.densify\_overlap\_recover} & \texttt{"none"}\ (\texttt{"lower\_threshold"} floor 0.35 recovers seed4 dense run0=16 but collateral seed1 flip A6-T58/A3-EXP-si67; collateral map accept\{0,1,3,4\}/reject\{2\} A6-T61/A3-EXP-si73; \#28) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{PersistenceConfig.densify\_overlap\_recover\_threshold} & \texttt{None}\ (\text{module floor }0.35\text{ when unset; }0.30\text{ adds densified seed2; }0.40\text{ loses densified seed1+seed4; A6-T64/A3-EXP-si73; \#28}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{PersistenceConfig.densify\_overlap\_recover} & \texttt{"none"}\ (\texttt{"lower\_threshold"} floor 0.35 recovers seed4 dense run0=16 but collateral seed1 flip A6-T58/A3-EXP-si67; collateral map accept\{0,1,3,4\}/reject\{2\} A6-T61/A3-T72; \#28) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{PersistenceConfig.densify\_overlap\_recover\_threshold} & \texttt{None}\ (\text{module floor }0.35\text{ when unset; }0.30\text{ adds densified seed2; }0.40\text{ loses densified seed1+seed4; Jaccard gate-only Phi pin A6-T64/T67/A3-T72; \#28}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{allow\_finer\_research} & \text{false}\ (\text{finer-than-}\tau^\star\text{ re-search; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
@@ -3603,9 +3666,9 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{hollow\_mst\_critical\_only} & \text{false}\ (\text{MST}\cap\text{hollow; A2-T34; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{hollow\_bridge\_critical\_only} & \text{false}\ (\text{graph-bridge}\cap\text{hollow; A2-T34-followon; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{HollowEdgeConfig.soft\_capacity\_only} & \text{false}\ (\text{capacity score}\ge f\cdot\max\cap\text{hollow; A2-T37; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{HollowEdgeConfig.soft\_capacity\_frac} & 0.25\ (\text{soft-capacity score fraction; A2-T37; frac sweep A2-T40/T42 nested collapses all }f\text{/seeds; tori ARI chance-level seed-fragile; seed1 inflate frac-windowed }f\in\{0.1,0.25,0.5\}\text{ A2-T47/A3-T62; denser kills inflate A2-T48; denser soft\_frac window absent A2-T50/A3-EXP-si65; denser}\times\text{bridge\_mass both}\le1\text{ A2-T53/A3-T69; denser seed0 keep soft}\le0.12\text{/collapse}\ge0.15\text{ A2-T55/A3-EXP-si71; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{HollowEdgeConfig.soft\_capacity\_method} & \texttt{"betweenness"}\ (\text{alt }\texttt{"bridge\_mass"}\text{ min-cut mass; A2-T39; bridge\_mass never inflates seed1 A2-T51/A3-EXP-si65; denser kills bet/bridge\_mass contrast A2-T53/A3-T69; denser seed0 keep-band method-specific bridge\_mass collapses soft}\in\{0.05..0.25\}\text{ A2-T56/A3-EXP-si71; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-h_0\ (\text{hollowness cut}) & 0.35\ \text{provisional}\ (\text{A4 primary handoff }0.7\text{ with mid }0.5\text{/noGab; multi-}\tau\text{ ROC confirms dens1; A2-T43 proposed Youden }0.73\text{/A4 }0.7\text{/Poisson-LR }0.76\text{; soft}\times\text{youden multi-seed seed-fragile A2-T44/A3-T59; soft}\times h_0\text{ near-null A2-T46; denser soft}\times\text{youden both}\le1\text{ A2-T45/T48; denser }h_0\text{-only seed0 tori ARI}\approx0.14\text{ A2-T49/A3-T62; soft}\times\text{youden at }\tau^\star\text{ seed1 inflate absent A2-T52/A3-EXP-si65; soft}\times\text{persist at }\tau^\star\text{ e2e seed1 nested survives A2-T54/A3-T69; denser seed0 soft keep-band ARI}\approx0.16\text{--}0.18\text{ A2-T55/A3-EXP-si71; sheet/bridge}\neq\text{sample-ARI; \#44}) & \text{S2.6.2} & \text{proposed (calibrated; \#44)}\\
+\texttt{HollowEdgeConfig.soft\_capacity\_frac} & 0.25\ (\text{soft-capacity score fraction; A2-T37; frac sweep A2-T40/T42 nested collapses all }f\text{/seeds; tori ARI chance-level seed-fragile; seed1 inflate frac-windowed }f\in\{0.1,0.25,0.5\}\text{ A2-T47/A3-T62; denser kills inflate A2-T48; denser soft\_frac window absent A2-T50/A3-EXP-si65; denser}\times\text{bridge\_mass both}\le1\text{ A2-T53/A3-T69; denser seed0 keep soft}\le0.12\text{/collapse}\ge0.15\text{ A2-T55/A3-T71; denser soft}\times\text{persist@}\tau^\star\text{ kills T54 seed1 inflate A2-T57/A3-T71; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{HollowEdgeConfig.soft\_capacity\_method} & \texttt{"betweenness"}\ (\text{alt }\texttt{"bridge\_mass"}\text{ min-cut mass; A2-T39; bridge\_mass never inflates seed1 A2-T51/A3-EXP-si65; denser kills bet/bridge\_mass contrast A2-T53/A3-T69; denser seed0 keep-band method-specific bridge\_mass collapses soft}\in\{0.05..0.25\}\text{ A2-T56/A3-T71; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+h_0\ (\text{hollowness cut}) & 0.35\ \text{provisional}\ (\text{A4 primary handoff }0.7\text{ with mid }0.5\text{/noGab; multi-}\tau\text{ ROC confirms dens1; A2-T43 proposed Youden }0.73\text{/A4 }0.7\text{/Poisson-LR }0.76\text{; soft}\times\text{youden multi-seed seed-fragile A2-T44/A3-T59; soft}\times h_0\text{ near-null A2-T46; denser soft}\times\text{youden both}\le1\text{ A2-T45/T48; denser }h_0\text{-only seed0 tori ARI}\approx0.14\text{ A2-T49/A3-T62; soft}\times\text{youden at }\tau^\star\text{ seed1 inflate absent A2-T52/A3-EXP-si65; soft}\times\text{persist at }\tau^\star\text{ e2e seed1 nested survives A2-T54/A3-T69; denser soft}\times\text{persist@}\tau^\star\text{ denser kills inflate A2-T57/A3-T71; denser seed0 soft keep-band ARI}\approx0.16\text{--}0.18\text{ A2-T55/A3-T71; sheet/bridge}\neq\text{sample-ARI; \#44}) & \text{S2.6.2} & \text{proposed (calibrated; \#44)}\\
 f_{\mathrm{mid}}\ (\text{mid-ball fraction}) & 0.35\ (L/4\text{ false-hollows; A4 primary handoff }0.5\text{; mid}{>}0.5\text{ TPR collapses; ROC AUC}\approx1.0\text{ at }0.35) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 n_{\mathrm{end}}^{\min} & 0.5\ (\text{else Gabriel empty-diameter}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 M_{\mathrm{transit}} & 1\ (\text{identity until online EWMA lands}) & \text{S2.6.1} & \text{operational (proposal-path)}\\
@@ -3628,10 +3691,11 @@ M_{\mathrm{transit}} & 1\ (\text{identity until online EWMA lands}) & \text{S2.6
 \texttt{DualFlowConfig.enable\_online\_offline\_loopy\_compose} & \text{false}\ (\text{live-BMU tallies}\to\text{loopy BP schedule; A5-T59/A3-EXP-si67; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_bp\_policy\_in\_loopy} & \text{false}\ (\text{loopy schedule consults propose\_bp\_damping\_policy; A5-T61/A3-T68; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_loopy\_bp\_convergence\_probe} & \text{false}\ (\text{residual trajectory LoopyBPConvergenceProbe; A5-T62/A3-T68; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
-\texttt{DualFlowConfig.enable\_loopy\_bp\_residual\_stop} & \text{false}\ (\text{propose\_loopy\_bp\_residual\_stop plateau/tol sketch; A5-T64/A3-EXP-si73; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
-\texttt{DualFlowConfig.enable\_mass\_loopy\_compose\_probe} & \text{false}\ (\text{probe\_mass\_loopy\_compose; A5-T66/A3-EXP-si73; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
-\texttt{DualFlowConfig.bp\_residual\_stop\_tol} & 10^{-3}\ (\text{residual-stop |\Delta r_cons| tol; A5-T64/A3-EXP-si73; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
-\texttt{DualFlowConfig.bp\_residual\_stop\_patience} & 2\ (\text{consecutive steps below tol; A5-T64/A3-EXP-si73; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.enable\_loopy\_bp\_residual\_stop} & \text{false}\ (\text{propose\_loopy\_bp\_residual\_stop + solve early-exit residual\_stop\_reason; A5-T64/T67/A3-T73; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.enable\_loopy\_bp\_spectrum\_safe\_cert} & \text{false}\ (\text{probe\_loopy\_bp\_spectrum\_safe\_cert no-ridge+stop harness; A5-T68/A3-T73; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.enable\_mass\_loopy\_compose\_probe} & \text{false}\ (\text{probe\_mass\_loopy\_compose; A5-T66/A3-T73; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.bp\_residual\_stop\_tol} & 10^{-3}\ (\text{residual-stop |\Delta r_cons| tol; A5-T64/A3-T73; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
+\texttt{DualFlowConfig.bp\_residual\_stop\_patience} & 2\ (\text{consecutive steps below tol; A5-T64/A3-T73; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_mass\_normalization} & \text{false}\ (\text{rescale }\sum m_S{=}1\text{ + }\epsilon_{\mathrm{mass}}\text{; A5-T53/A3-T61; \#43}) & \text{S6.4} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.mu\_scale} & 0.1\ (\text{SI }\mu_S\text{ leading constant; \#43}) & \text{S6.2} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.whiten\_floor} & 10^{-8}\ (\text{empirical-std floor; \#43}) & \text{S6.2} & \text{numerical}\\
@@ -3642,7 +3706,7 @@ M_{\mathrm{transit}} & 1\ (\text{identity until online EWMA lands}) & \text{S2.6
 \texttt{DualFlowConfig.enable\_simplex\_density} & \text{false}\ (\text{S6.4 sketch; \#43}) & \text{S6.4} & \text{operational (proposal-path)}\\
 \texttt{DualFlowConfig.enable\_live\_density} & \text{false}\ (\text{Complex/ANN}\to\text{S6.4 density harness; A5-T50/A3-T57; \#43}) & \text{S6.4} & \text{operational (proposal-path)}\\
 \texttt{GateConfig.apply\_dual\_adjacency} & \text{false}\ (\text{None}\Rightarrow\text{True open-default locked by probe\_acceptance\_none\_open\_default A5-T54/A3-T61; fail-closed plan stub A5-T57/A3-T64; \#43}) & \text{S6.6,S10.4} & \text{operational (proposal-path)}\\
-\texttt{GateConfig.fail\_closed\_dual\_adjacency} & \text{false}\ (\text{with apply\_dual: None}\Rightarrow\text{reject; probe\_gate\_fail\_closed\_switch A5-T60/A3-EXP-si67; probe\_fail\_closed\_score\_edit\_matrix 9-cell A5-T65/A3-EXP-si73; \#43}) & \text{S6.6,S10.4} & \text{operational (proposal-path)}\\
+\texttt{GateConfig.fail\_closed\_dual\_adjacency} & \text{false}\ (\text{with apply\_dual: None}\Rightarrow\text{reject; probe\_gate\_fail\_closed\_switch A5-T60/A3-EXP-si67; probe\_fail\_closed\_score\_edit\_matrix 9-cell A5-T65/A3-T73; \#43}) & \text{S6.6,S10.4} & \text{operational (proposal-path)}\\
 \alpha_{0,i} & 1/(d_{\mathrm{final},i}+1) & \text{S2.7} & \text{theory}\\
 \text{node maturity}\ (\texttt{prune\_after}) & 25\text{ updates} & \text{S3.2} & \text{operational}\\
 \text{neonatal link guard}\ (\texttt{protected\_until}) & 25\text{ iters} & \text{S3.1} & \text{operational}\\
@@ -3672,7 +3736,7 @@ n_{\min} & \max(10d,1000) & \text{S8.2} & \text{operational}\\
 \theta_A & 0.5 & \text{S8.4} & \text{empirical}\\
 \theta_{\mathrm{rej}} & 0.8 & \text{S8.4} & \text{empirical}\\
 \rho_{\min} & 10^{-4}\ (\text{conservative }10^{-3}) & \text{S10.4} & \text{operational}\\
-\texttt{lifetime\_frac}\ (\text{VR lifetime Betti reading}) & 0.5\ (\text{nested schedule}\times\text{lifetime recovers only at }\ge4\text{; A4-T39/A3-T58; denser max\_nodes 384/512 regresses partial b1=2 A4-T40/A3-T60; cal-mult=6 loses denser256 partial A4-T41; multi-seed denser partial seed-fragile A4-T42; seed2 lifetime}\neq b_2\text{ A4-T43; Stage-1 seed77 both-partial/seed7 dirty }b_2\text{ A4-T44/A3-T63; hollow+lifetime dirty }b_2\text{ A4-T45; lifetime}\times\text{cal-mult max }b_2{=}0\text{ A4-T46; seed77 hollow dirty-only/lifetime no-}b_2\text{ A4-T47/A3-EXP-si66; seed7 cleanup n\_clean=0 A4-T48; hollow}\times\text{cal kills dirty without (1,2,1) A4-T49; densify ladder 384 regress/512 partial max }b_2{=}0\text{ A4-T50/A3-T70; seed7+hollow n\_clean=0 A4-T51; hollow mid}\times h_0\text{ dirty only mid=0.5 A4-T52; mid=0.65}\times\text{cal preserves (1,2,0) no void A4-T53/A3-EXP-si72; densify512}\times\text{hollow max }b_2{=}0\text{ A4-T54; seed7}\times\text{mid0.65 dirty persists A4-T55; \#41}) & \text{S14.2} & \text{operational (proposal-path; OPEN\_ISSUES \#41)}\\
+\texttt{lifetime\_frac}\ (\text{VR lifetime Betti reading}) & 0.5\ (\text{nested schedule}\times\text{lifetime recovers only at }\ge4\text{; A4-T39/A3-T58; denser max\_nodes 384/512 regresses partial b1=2 A4-T40/A3-T60; cal-mult=6 loses denser256 partial A4-T41; multi-seed denser partial seed-fragile A4-T42; seed2 lifetime}\neq b_2\text{ A4-T43; Stage-1 seed77 both-partial/seed7 dirty }b_2\text{ A4-T44/A3-T63; hollow+lifetime dirty }b_2\text{ A4-T45; lifetime}\times\text{cal-mult max }b_2{=}0\text{ A4-T46; seed77 hollow dirty-only/lifetime no-}b_2\text{ A4-T47/A3-EXP-si66; seed7 cleanup n\_clean=0 A4-T48; hollow}\times\text{cal kills dirty without (1,2,1) A4-T49; densify ladder 384 regress/512 partial max }b_2{=}0\text{ A4-T50/A3-T70; seed7+hollow n\_clean=0 A4-T51; hollow mid}\times h_0\text{ dirty only mid=0.5 A4-T52; mid=0.65}\times\text{cal preserves (1,2,0) no void A4-T53/A3-EXP-si72; densify512}\times\text{hollow max }b_2{=}0\text{ A4-T54; seed7}\times\text{mid0.65 dirty persists A4-T55; hollow}\times\text{sigma dirty only scale=1 A4-T56; Stage1}\times\text{mid65 partial/dirty A4-T57; tissue}\times\text{noise max }b_2{=}0\text{ A4-T58/A3-T72; \#41}) & \text{S14.2} & \text{operational (proposal-path; OPEN\_ISSUES \#41)}\\
 \texttt{filtration\_mult}\ (\text{VR fixed-threshold}) & 1.5 & \text{S14.2} & \text{operational (acceptance; \#41)}\\
 \texttt{filtration\_mult}_{\mathrm{cal}}\ (\text{optional VR fallback}) & \text{unset (protocol TBD; cal=6}\neq\text{denser-fitted recovery A4-T41; lifetime}\times\text{cal-mult max }b_2{=}0\text{ A4-T46; hollow}\times\text{cal}\ge3\text{ kills dirty without clean A4-T49)} & \text{S14.2} & \text{proposed (calibrated; \#41)}\\
 \end{array}
