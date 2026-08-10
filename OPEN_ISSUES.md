@@ -127,6 +127,11 @@ Remaining work:
   (seeds 0..4; std+dense) + `load_weighted×halve_grid` combo probe; SI notes
   densify seed-fragility. Paper pins load_weighted≡coarse. Do **not** flip
   default.
+- **Landed (A6-T53/T54):** circle/swiss under `halve_grid_steps` stay
+  LC-fallback identity across within-interval modes (densify moves LC peak
+  only). Seed-4 densified persist-reject is mechanical under coarse-anchored:
+  first half-step neighbor Jaccard drops below `overlap_threshold`
+  (`0.39 < 0.5`) so `run_lengths[0]=1`. Do **not** flip default.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -267,10 +272,18 @@ re-searched *finer* scales inside a single feature.
   (`proposed_h0_calibrated_config`: Youden≈0.73, poisson_lr≈0.76, A4=0.7;
   defaults unchanged) — nested/tori still unrecovered. **Do not flip
   awaiting.**
-- **Remaining:** soft×youden_h0 / denser×proposed_h0 probes; fuller suite
-  green with **sample-ARI** → retire radial/PCA family + awaiting-flip
-  review (A1 sign-off). Distinct from #28. Post-track: open #45 open-loop /
-  `max_nodes` (`reference/open_loop_growth_and_node_cap.md`) into M4.
+- **FINDING (A2-T44..T46 + A3-EXP-si63 SI):** multi-seed soft×Youden
+  h0≈0.73 is **seed-fragile** (seed0 nested≤1/tori K=2 ARI≈0.26; seed1
+  soft **inflates** nested K=2 ARI≈0.08; seed2 both≤1). denser×proposed_h0:
+  youden alone tori ARI≈0.14; soft×* collapses both≤1. soft×h0 method
+  contrast (poisson_lr/Youden/A4) identical under soft — **h0 near-null**.
+  Soft drives outcomes; calibrated h0 alone ≠ sample-ARI. **Do not flip
+  awaiting.**
+- **Remaining:** soft-frac×youden seed1-inflate mechanism; denser×soft
+  multi-seed; fuller suite green with **sample-ARI** → retire radial/PCA
+  family + awaiting-flip review (A1 sign-off). Distinct from #28.
+  Post-track: open #45 open-loop / `max_nodes`
+  (`reference/open_loop_growth_and_node_cap.md`) into M4.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
@@ -356,9 +369,17 @@ circle `b1 = 1` target of #25.
   (other torus / b2 still fail; n=1000 still max_b1=1); nested
   schedule×lifetime recovers both shells only at `frac≥4` (SI 0.5
   inflates). Keep `@awaiting` (not SI single-default).
-- **Remaining before flipping recovery tests:** denser max_nodes
-  384/512 hunt full tori `(1,2,1)`; cal-mult on denser fitted; keep
-  recovery `@awaiting` until SI-default fitted evidence is green.
+- **FINDING (A4-T40..T43):** denser max_nodes 384/512 **REGRESS** (b0
+  inflate as σ↓; partial b1=2 only at 256 fine or 384 fine on other
+  torus). cal-mult=6 on denser fitted **erases** 256 partial b1=2.
+  Multi-seed denser256 partial is **seed-fragile** (only seed2 of 0..2
+  gets both tori `(1,2,0)`; still b2=0). lifetime_frac on seed2 denser256
+  never unlocks b2 (low frac inflates b0; frac≥2 stays `(1,2,0)`). Keep
+  `@awaiting`.
+- **Remaining before flipping recovery tests:** Stage-1 seed sweep /
+  hollow-signal / lifetime×cal on best denser seed toward full
+  `(1,2,1)`; keep recovery `@awaiting` until SI-default fitted evidence
+  is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -401,7 +422,12 @@ circle `b1 = 1` target of #25.
 - **Landed (A5-T49..T51 + A3-T54 SI):** `enable_global_face_solve` stub;
   `enable_live_density` / `route_live_density_from_complex`; dry_run
   `DualDryRunResult.stage1_route` wires Complex ANN when flagged (all
-  default off). Gaps remain: real loopy BP; acceptance `None=>True`.
-  Mass/density/benchmark stay `@awaiting`. **Do not close #43** until
-  acceptance-path default replaces the conservative open default / fuller
-  S6.
+  default off).
+- **Landed (A5-T52..T54 + A3-EXP-si63 SI):** `enable_loopy_bp_schedule` /
+  `solve_loopy_bp_schedule` (cavity msgs); `enable_mass_normalization` +
+  `epsilon_mass`; `probe_acceptance_none_open_default` documents current
+  open-default matrix (flag-on detects disconnect; defaults unchanged).
+  Gaps remain: production BP spectrum/online-offline; fail-closed only
+  after acceptance plan. Mass/density/benchmark stay `@awaiting`. **Do not
+  close #43** until acceptance-path default replaces the conservative open
+  default / fuller S6.
