@@ -117,12 +117,21 @@ class GateConfig:
         ``affected_simplices`` are provided, connectivity is computed via
         :func:`affected_dual_subgraph_connected` (Stage-2 dual-flow stub).
         Operational default off until full S6 dual-flow is acceptance-ready.
+    fail_closed_dual_adjacency:
+        Proposal-path stub switch (A5-T60 / SI S10.4 A2). When ``False``
+        (default), missing ``dual_adjacency`` keeps the open-default
+        (caller ``dual_connected`` / ``None`` ⇒ connected). When ``True``
+        **and** ``apply_dual_adjacency`` is ``True``, a missing
+        ``dual_adjacency`` is treated as disconnected (fail-closed). Do
+        **not** flip either default until the dual producer + real S6.2
+        BP are acceptance-ready (see A5-T42 / A5-T57 plan).
     """
 
     tau_bf: float = 3.0
     k: int = 10
     rho_min: float = RHO_MIN_DEFAULT
     apply_dual_adjacency: bool = False
+    fail_closed_dual_adjacency: bool = False
 
 
 def gate_window(n_nodes: int, queue_len: int, k: int) -> int:
@@ -233,19 +242,20 @@ def score_edit(
     When ``config.apply_dual_adjacency`` is true and both ``dual_adjacency`` and
     ``affected_simplices`` are provided, ``dual_connected`` is overwritten by
     :func:`affected_dual_subgraph_connected` (proposal-path wiring for the
-    ``stage2.dual_flow`` stub). Flag off ⇒ kwargs ignored; acceptance path
-    unchanged.
+    ``stage2.dual_flow`` stub). When ``apply_dual_adjacency`` is true,
+    ``fail_closed_dual_adjacency`` is true, and ``dual_adjacency`` is
+    ``None``, connectivity fails closed (``False``) — stub switch default
+    off (A5-T60). Flags off ⇒ kwargs ignored; acceptance path unchanged.
     """
 
     config = config or GateConfig()
-    if (
-        config.apply_dual_adjacency
-        and dual_adjacency is not None
-        and affected_simplices is not None
-    ):
-        dual_connected = affected_dual_subgraph_connected(
-            dual_adjacency, affected_simplices
-        )
+    if config.apply_dual_adjacency:
+        if dual_adjacency is None and config.fail_closed_dual_adjacency:
+            dual_connected = False
+        elif dual_adjacency is not None and affected_simplices is not None:
+            dual_connected = affected_dual_subgraph_connected(
+                dual_adjacency, affected_simplices
+            )
 
     ill: set[int] = set()
     if edit_stars is not None:

@@ -136,6 +136,12 @@ Remaining work:
   mid≡two_thirds≡three_quarter (~8.83×); seed4 Jaccard half-step export
   table for SI; circle densify×`load_weighted` stays LC identity. Do **not**
   flip default.
+- **Landed (A6-T58..T60):** experimental `densify_overlap_recover` /
+  lower-threshold floor `0.35` recovers seed4 densified `run0=16` but
+  collaterally flips seed1 — **keep default none**. Paper pins seed3
+  short-block mechanism; multi-seed densify Jaccard first-step table
+  seeds0..4 locked (accept both `{0,3}`, std-only `{4}`, reject both
+  `{1,2}` + dense `{4}`). Do **not** flip default.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -288,11 +294,17 @@ re-searched *finer* scales inside a single feature.
   `≥0.75` collapses); seed0/2 never inflate. denser soft×youden multi-seed
   **kills** the seed1 inflate. h0-only denser: seed0 youden tori ARI≈0.14;
   seeds1–2 ≤1. Soft ≠ sample-ARI. **Do not flip awaiting.**
-- **Remaining:** soft_frac denser×seed1 window; bridge_mass×youden;
-  operational-τ* sample-ARI; fuller suite green with **sample-ARI** →
-  retire radial/PCA family + awaiting-flip review (A1 sign-off). Distinct
-  from #28. Post-track: open #45 open-loop / `max_nodes`
-  (`reference/open_loop_growth_and_node_cap.md`) into M4.
+- **FINDING (A2-T50..T52):** denser soft_frac×youden seed1 inflate
+  **ABSENT** across `frac∈{0.1..0.9}` (denser kills baseline window); seed0
+  soft_0.1 tori K=2 ARI≈0.18 then soft≥0.25 collapses. bridge_mass vs
+  betweenness: seed1 inflate is **betweenness-method-specific**; bridge_mass
+  never inflates. soft×youden at operational τ* (`n_grid=12`): seed1 probe
+  inflate absent; seed0 tori chance-ARI K≥2. Soft ≠ sample-ARI. **Do not
+  flip awaiting.**
+- **Remaining:** denser×bridge_mass; soft×persist_agree at τ*; fuller suite
+  green with **sample-ARI** → retire radial/PCA family + awaiting-flip
+  review (A1 sign-off). Distinct from #28. Post-track: open #45 open-loop /
+  `max_nodes` (`reference/open_loop_growth_and_node_cap.md`) into M4.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
@@ -390,8 +402,14 @@ circle `b1 = 1` target of #25.
   torus0; no full `(1,2,1)`. hollow+lifetime on seed2 denser256 keeps
   most signal but torus1 dirty b2 / inflated b0 across fracs — still no
   `(1,2,1)`. Keep `@awaiting`.
-- **Remaining before flipping recovery tests:** lifetime×cal-mult on
-  seed2; seed77/seed7 cleanup toward full `(1,2,1)`; keep recovery
+- **FINDING (A4-T46..T49):** lifetime×cal-mult on seed2 denser256
+  `max_b2=0`. seed77 lifetime vs hollow: signal stays `(1,2,0)` /
+  `max_b2=0`; hollow dirty torus1 b2 only. seed7 filtration/lifetime
+  cleanup: fixed dirty `(2,1,1)/(1,2,0)`; `n_clean=0`. seed77
+  hollow×lifetime×cal-mult: dirty b2 only at SI fine mult=1.5; cal≥3
+  kills dirty without cleaning to `(1,2,1)`. Keep `@awaiting`.
+- **Remaining before flipping recovery tests:** densify>256 seed77-only;
+  seed7+hollow; hollow cfg mid/h0 sweep on seed77; keep recovery
   `@awaiting` until SI-default fitted evidence is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
@@ -442,7 +460,18 @@ circle `b1 = 1` target of #25.
   open-default matrix (flag-on detects disconnect; defaults unchanged).
 - **Landed (A5-T55..T57):** BP spectrum damping probe; online→offline
   schedule sketch; `probe_fail_closed_dual_adjacency_plan` documents path
-  to replace None=>True (defaults unchanged). Gaps remain: production BP
-  policy; fail-closed acceptance flip. Mass/density/benchmark stay
-  `@awaiting`. **Do not close #43** until acceptance-path default replaces
-  the conservative open default / fuller S6.
+  to replace None=>True (defaults unchanged).
+- **Landed (A5-T58..T60):** `enable_bp_damping_policy` /
+  `propose_bp_damping_policy` (cond>cap ⇒ ridge + raised damping); 
+  `enable_online_offline_loopy_compose` /
+  `run_online_offline_loopy_compose` (live BMU→loopy BP); 
+  `GateConfig.fail_closed_dual_adjacency` default `False` +
+  `probe_gate_fail_closed_switch` (score_edit None⇒reject only when
+  apply+fail_closed). Flags/defaults unchanged.
+- **Landed (A5-T61..T63):** `enable_bp_policy_in_loopy` wires policy into
+  `solve_loopy_bp_schedule`; `enable_loopy_bp_convergence_probe` /
+  `probe_loopy_bp_convergence` residual trajectory; compose forwards
+  policy flag. Defaults off. Gaps remain: certified BP stop rule;
+  fail-closed acceptance flip. Mass/density/benchmark stay `@awaiting`.
+  **Do not close #43** until acceptance-path default replaces the
+  conservative open default / fuller S6.
