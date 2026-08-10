@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-10T05:05:00Z",
-  "turn": 59,
+  "updated_at": "2026-08-10T05:10:00Z",
+  "turn": 60,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "triple-scoop denser seed0-only + densify@320 cliff + Phi decay"
+    "goal": "quad-scoop densify288 cliff + Phi half-life + patience×cap"
   },
   "recent": [
-    "Triple-scoop A2-T67..T68 denser seed1 inflate kill + multi-seed e2e",
-    "A4-T80..T85 densify cliff onset@320; cal4 pin through noise0.12",
-    "A5-T81..T85 patience×cap; A6-T81..T86 stab/Phi decay"
+    "Quad-scoop A2-T67..T69 denser seed0 pin path; A3 si96..si106",
+    "A4-T80..T88 densify288 win / cliff@320; cal4 pin through 0.20",
+    "A5-T81..T87 patience×cap(+fail_closed); A6-T81..T89 half-life"
   ],
   "discoveries": [
-    "denser soft×gabriel×persist multi-seed e2e = seed0 youden only",
-    "schedule hollow cliff onset by densify320 (not just 384/512)",
-    "stab Phi-argmax≠LW; Phi decay monotonic; skip thr-invariant"
+    "schedule hollow cliff onset after densify288 (304 transitional)",
+    "cal4×frac3 pin survives tissue noise through 0.20 proposal-path",
+    "Phi half-life ~3–4 steps; |L0-1|≪|Lfsa-1|; LC≡coarse"
   ],
   "open_threads": [
-    "A2-T69 seed0 pin; A3 SI T83..T85 / EXP-si103..si106",
-    "A4 densify288/304; A5 patience×cap×fail_closed; A6 half-life",
+    "A2-T70..T72 youden/majors follow-ons; A3 SI T86..T88",
+    "A4 densify296/312 fine-pin; A5 T88 fail_closed matrix",
     "#45 deferred until #44 sample-ARI"
   ],
-  "next_step": "Push MERGE_DONE; workers pull T69+/T83+/T86+/T86+/T87+",
+  "next_step": "Push MERGE_DONE; workers pull T70+/T86+/T89+/T88+/T90+",
   "blockers": []
 }
