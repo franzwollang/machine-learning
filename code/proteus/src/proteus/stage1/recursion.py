@@ -252,6 +252,22 @@ class RecursionConfig:
     A2-T60-followon: denser soft×gabriel_and_h@tau* e2e — denser kills
     T58 seed1 nested inflate; denser-youden seed0 nested K=2 killed by
     soft/conj; circle youden no shatter on denser; defaults off.
+    A2-T61-followon: denser soft×gabriel×persist compose@tau* e2e —
+    triple compose does not unlock beyond T57/T60 pairwise denser
+    collapse; denser-youden seed0 nested K=2 chance-ARI≈0.01 killed by
+    soft×conj / soft×persist / soft×conj×persist; defaults off.
+    A2-T61: non-denser soft keep-band × persist majors baseline —
+    soft≤0.5 → tori K=2 chance-ARI (wider than denser T55 ≤0.12);
+    soft≥0.75 collapses; soft×persist e2e all ≤1 (majors-only band);
+    defaults off.
+    A2-T63: soft×gabriel×persist majors non-denser seed1 inflate —
+    seed1 majors soft alone nested K=2 chance-ARI≈0.08 killed by conj;
+    e2e seed1 nested K=2 survives soft×conj×persist (majors≠e2e);
+    defaults off.
+    A2-T64-followon: denser soft keep-band × gabriel majors — T55 denser
+    majors keep-band soft≤0.12 → tori K=2 is killed by gabriel conj at
+    majors; lean e2e soft/soft×conj all ≤1 (youden alone keeps seed0
+    nested K=2 chance-ARI≈0.01); defaults off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
