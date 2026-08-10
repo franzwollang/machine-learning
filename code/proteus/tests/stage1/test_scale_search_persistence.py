@@ -19,7 +19,11 @@ from proteus.stage1.controller import (
     _resolve_persistence_tau_index,
     run_scale_search,
 )
-from proteus.stage1.persistence import PersistenceConfig, PersistenceResult
+from proteus.stage1.persistence import (
+    EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD,
+    PersistenceConfig,
+    PersistenceResult,
+)
 from proteus.stage1.stabilization import StabilizationConfig
 from tests.datasets.synthetic.circles import make_circle
 from tests.datasets.synthetic.hierarchical_gaussian import make_hierarchical_gaussian
@@ -2201,6 +2205,200 @@ def test_export_seed4_jaccard_half_step_table() -> None:
     assert PersistenceConfig().resolve_within_interval == "none"
     assert ScaleSearchConfig().halve_grid_steps is False
     assert len(rows) == 8 + 16
+
+
+def test_lower_overlap_threshold_densify_recover_probe() -> None:
+    # EXPERIMENT (A6-T58): flag-gated densify-overlap-recover.
+    # Seed-4 × halve_grid_steps rejects under default overlap_threshold=0.5
+    # (ov0≈0.39). densify_overlap_recover="lower_threshold" substitutes
+    # EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD (0.35) and recovers a
+    # full coarse-anchored run (tsi=0, run0=16). Collateral: seed-1 also
+    # flips reject→accept under the lower floor — probe only, do not flip
+    # defaults / acceptance path.
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD == 0.35
+    thr_default = float(PersistenceConfig().overlap_threshold)
+    min_pers = int(PersistenceConfig().min_persistence)
+
+    def _run(seed: int, recover: str) -> PersistenceResult:
+        dataset = make_hierarchical_gaussian(
+            children_per_coarse=2, n_samples=600, ambient_dim=4, seed=seed,
+        )
+        gt = dataset.ground_truth
+        tau_lo, tau_hi = gt.tau_grid_hint
+        result = run_scale_search(
+            dataset.points,
+            dim=gt.ambient_dim,
+            config=ScaleSearchConfig(
+                tau_min=tau_lo,
+                tau_max=tau_hi,
+                max_grid_points=8,
+                k=8,
+                n_seeds=12,
+                min_nodes=8,
+                max_nodes=128,
+                ann_backend="naive",
+                selector="persistence",
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2, max_epochs=12
+                ),
+                seed=seed,
+                halve_grid_steps=True,
+                persistence=PersistenceConfig(
+                    resolve_within_interval="none",
+                    densify_overlap_recover=recover,  # type: ignore[arg-type]
+                ),
+            ),
+        )
+        assert result.persistence_result is not None
+        return result.persistence_result
+
+    none_pr = _run(4, "none")
+    recover_pr = _run(4, "lower_threshold")
+    print(
+        f"\nA6-T58 seed4 dense recover: none ov0={float(none_pr.match_overlaps[0]):.3f} "
+        f"tsi={none_pr.tau_star_index} run0={int(none_pr.run_lengths[0])}; "
+        f"lower_threshold tsi={recover_pr.tau_star_index} "
+        f"run0={int(recover_pr.run_lengths[0])}"
+    )
+    assert none_pr.tau_star_index is None
+    assert int(none_pr.run_lengths[0]) == 1
+    assert float(none_pr.match_overlaps[0]) < thr_default
+    assert (
+        float(none_pr.match_overlaps[0])
+        >= EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD
+    )
+    assert recover_pr.tau_star_index == 0
+    assert int(recover_pr.run_lengths[0]) >= min_pers
+    assert int(recover_pr.run_lengths[0]) == 16
+
+    # Collateral: seed-1 densify also accepts under the lower floor.
+    seed1_none = _run(1, "none")
+    seed1_recover = _run(1, "lower_threshold")
+    print(
+        f"A6-T58 seed1 collateral: none tsi={seed1_none.tau_star_index} "
+        f"ov0={float(seed1_none.match_overlaps[0]):.3f}; "
+        f"lower_threshold tsi={seed1_recover.tau_star_index} "
+        f"run0={int(seed1_recover.run_lengths[0])}"
+    )
+    assert seed1_none.tau_star_index is None
+    assert seed1_recover.tau_star_index == 0
+    assert int(seed1_recover.run_lengths[0]) >= min_pers
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().overlap_threshold == 0.5
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
+def test_export_multiseed_densify_jaccard_first_step_table() -> None:
+    # EXPORT (A6-T60): multi-seed densify first-step matched-Jaccard table
+    # (seeds 0..4 × standard vs halve_grid_steps) for A3 SI S2.6.2 sync.
+    # Pins which seeds accept under default overlap_threshold and which
+    # densified first half-steps break. Defaults stay off.
+    thr = float(PersistenceConfig().overlap_threshold)
+    min_pers = int(PersistenceConfig().min_persistence)
+    rows: list[dict[str, float | int | bool | None]] = []
+    by: dict[tuple[int, bool], PersistenceResult] = {}
+    print("\nA6-T60 multi-seed densify Jaccard first-step table")
+    header = (
+        f"{'seed':>4s} {'dense':5s} {'ov0':>8s} {'run0':>4s} "
+        f"{'tsi':>4s} {'n_cl0':>5s} {'n_cl1':>5s} {'accept':>6s}"
+    )
+    print(header)
+    print("-" * len(header))
+    for seed in range(5):
+        dataset = make_hierarchical_gaussian(
+            children_per_coarse=2, n_samples=600, ambient_dim=4, seed=seed,
+        )
+        gt = dataset.ground_truth
+        tau_lo, tau_hi = gt.tau_grid_hint
+        for dense in (False, True):
+            result = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=ScaleSearchConfig(
+                    tau_min=tau_lo,
+                    tau_max=tau_hi,
+                    max_grid_points=8,
+                    k=8,
+                    n_seeds=12,
+                    min_nodes=8,
+                    max_nodes=128,
+                    ann_backend="naive",
+                    selector="persistence",
+                    stabilization=StabilizationConfig(
+                        min_equilibrium_epochs=2, max_epochs=12
+                    ),
+                    seed=seed,
+                    halve_grid_steps=dense,
+                    persistence=PersistenceConfig(resolve_within_interval="none"),
+                ),
+            )
+            assert result.persistence_result is not None
+            pr = result.persistence_result
+            by[(seed, dense)] = pr
+            ov0 = float(pr.match_overlaps[0])
+            accept = pr.tau_star_index is not None
+            n0 = int(pr.snapshots[0].n_clusters)
+            n1 = int(pr.snapshots[1].n_clusters)
+            rows.append(
+                {
+                    "seed": seed,
+                    "dense": dense,
+                    "ov0": ov0,
+                    "run0": int(pr.run_lengths[0]),
+                    "tsi": pr.tau_star_index,
+                    "n_cl0": n0,
+                    "n_cl1": n1,
+                    "accept": accept,
+                }
+            )
+            print(
+                f"{seed:4d} {str(dense):5s} {ov0:8.3f} "
+                f"{int(pr.run_lengths[0]):4d} "
+                f"{str(pr.tau_star_index):>4s} {n0:5d} {n1:5d} "
+                f"{str(accept):>6}"
+            )
+
+    # Persist-accept under default thr: {0,3} both grids; {4} std only.
+    for seed in (0, 3):
+        for dense in (False, True):
+            pr = by[(seed, dense)]
+            assert pr.tau_star_index == 0
+            assert int(pr.run_lengths[0]) >= min_pers
+            assert float(pr.match_overlaps[0]) >= thr
+    pr4_std = by[(4, False)]
+    pr4_dense = by[(4, True)]
+    assert pr4_std.tau_star_index == 0
+    assert float(pr4_std.match_overlaps[0]) >= thr
+    assert pr4_dense.tau_star_index is None
+    assert float(pr4_dense.match_overlaps[0]) < thr
+    assert abs(float(pr4_dense.match_overlaps[0]) - 0.39) < 0.02
+    # Persist-reject both grids: seeds 1–2 (first-step ov below thr).
+    for seed in (1, 2):
+        for dense in (False, True):
+            pr = by[(seed, dense)]
+            assert pr.tau_star_index is None
+            assert int(pr.run_lengths[0]) == 1
+            assert float(pr.match_overlaps[0]) < thr
+    # Pin approximate first-step overlaps for SI sync (tolerance 0.03).
+    expected_ov0 = {
+        (0, False): 0.504,
+        (0, True): 0.504,
+        (1, False): 0.471,
+        (1, True): 0.364,
+        (2, False): 0.200,
+        (2, True): 0.340,
+        (3, False): 0.503,
+        (3, True): 0.503,
+        (4, False): 0.557,
+        (4, True): 0.390,
+    }
+    for key, want in expected_ov0.items():
+        assert abs(float(by[key].match_overlaps[0]) - want) < 0.03
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+    assert len(rows) == 10
 
 
 def test_circle_densify_x_load_weighted_lc_identity() -> None:
