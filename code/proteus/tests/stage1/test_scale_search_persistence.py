@@ -1800,6 +1800,193 @@ def test_load_weighted_x_halve_grid_combo_phi() -> None:
     assert ScaleSearchConfig().halve_grid_steps is False
 
 
+def test_halve_grid_circle_swiss_within_interval_noop() -> None:
+    # EXPERIMENT (A6-T53): circle / swiss under halve_grid_steps. Uniform /
+    # developable manifolds still have no accepted persistent split on the
+    # denser grid; within-interval modes remain identical LC fallbacks (only
+    # the LC peak index may move with densify). Defaults stay off.
+    modes = (
+        "none",
+        "mid_interval",
+        "two_thirds_interval",
+        "three_quarter_interval",
+        "fine_end_of_block",
+        "load_crossover",
+        "load_weighted_interval",
+    )
+    fixtures = (
+        (
+            "circle",
+            make_circle(
+                n_samples=800, radius=1.0, noise=0.02, extrusion_dim=2, seed=21,
+            ),
+        ),
+        ("swiss", make_swiss_roll(n_samples=800, seed=0)),
+    )
+    rows: list[dict[str, float | int | str | bool | None]] = []
+    for name, dataset in fixtures:
+        gt = dataset.ground_truth
+        assert gt.expected_tau is not None
+        tau_lo, tau_hi = gt.tau_grid_hint
+        for dense in (False, True):
+            base = ScaleSearchConfig(
+                tau_min=tau_lo,
+                tau_max=tau_hi,
+                max_grid_points=8,
+                k=8,
+                n_seeds=12,
+                min_nodes=8,
+                max_nodes=128,
+                ann_backend="naive",
+                selector="persistence",
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2, max_epochs=12
+                ),
+                seed=0,
+                halve_grid_steps=dense,
+            )
+            # One scale-search; offline resolve (persist reject ⇒ LC peak).
+            none = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=replace(
+                    base,
+                    persistence=PersistenceConfig(resolve_within_interval="none"),
+                ),
+            )
+            assert none.persistence_result is not None
+            assert none.peak_index is not None
+            pr = none.persistence_result
+            assert pr.tau_star_index is None
+            lc_peak = int(none.peak_index)
+            n_grid = int(len(none.tau_grid))
+            for mode in modes:
+                idx = _resolve_persistence_tau_index(
+                    pr,
+                    none.load_trace,
+                    list(none.stabilized_flags),
+                    PersistenceConfig(resolve_within_interval=mode),  # type: ignore[arg-type]
+                )
+                # Persist reject: controller / resolve fall back to LC peak.
+                assert idx == lc_peak
+                rows.append(
+                    {
+                        "name": name,
+                        "dense": dense,
+                        "mode": mode,
+                        "n_grid": n_grid,
+                        "peak_index": idx,
+                        "tau_star": float(none.tau_grid[idx]),
+                        "phi_star": float(none.phi_trace[idx]),
+                        "tau_over_expected": float(
+                            none.tau_grid[idx] / gt.expected_tau
+                        ),
+                    }
+                )
+
+    header = (
+        f"{'name':6s} {'dense':5s} {'mode':24s} "
+        f"{'n':>3s} {'idx':>3s} {'tau*/E':>8s} {'Phi*':>10s}"
+    )
+    print("\nA6-T53 circle/swiss × halve_grid_steps (within-interval no-op)")
+    print(header)
+    print("-" * len(header))
+    for row in rows:
+        print(
+            f"{row['name']:6s} {str(row['dense']):5s} {row['mode']:24s} "
+            f"{int(row['n_grid']):3d} {int(row['peak_index']):3d} "
+            f"{float(row['tau_over_expected']):8.3f} "
+            f"{float(row['phi_star']):10.4g}"
+        )
+
+    by = {
+        (str(r["name"]), bool(r["dense"])): r for r in rows if r["mode"] == "none"
+    }
+    # Densify actually doubles the geometric grid; LC peak may move.
+    assert int(by[("circle", True)]["n_grid"]) > int(by[("circle", False)]["n_grid"])
+    assert int(by[("swiss", True)]["n_grid"]) > int(by[("swiss", False)]["n_grid"])
+    # All modes share one peak per (manifold, dense) cell.
+    for name, _ in fixtures:
+        for dense in (False, True):
+            peaks = {
+                int(r["peak_index"])
+                for r in rows
+                if r["name"] == name and bool(r["dense"]) is dense
+            }
+            assert len(peaks) == 1
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
+def test_seed4_dense_persist_reject_is_first_step_overlap() -> None:
+    # EXPERIMENT (A6-T54): mechanism for seed-4 densified persist-reject.
+    # Standard grid: first adjacent matched Jaccard ≥ overlap_threshold so
+    # coarse-anchored run_lengths[0] ≥ min_persistence and tau_star_index=0.
+    # Half-step densify inserts a nearer neighbor whose overlap drops below
+    # threshold (partition churn 5→3 clusters), so run_lengths[0]=1 and the
+    # coarse-anchored rule rejects even though a long fineward run exists from
+    # index 1. Do not flip defaults.
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=4,
+    )
+    gt = dataset.ground_truth
+    assert gt.expected_tau is not None
+    tau_lo, tau_hi = gt.tau_grid_hint
+    thr = float(PersistenceConfig().overlap_threshold)
+    min_pers = int(PersistenceConfig().min_persistence)
+    by: dict[bool, PersistenceResult] = {}
+    for dense in (False, True):
+        result = run_scale_search(
+            dataset.points,
+            dim=gt.ambient_dim,
+            config=ScaleSearchConfig(
+                tau_min=tau_lo,
+                tau_max=tau_hi,
+                max_grid_points=8,
+                k=8,
+                n_seeds=12,
+                min_nodes=8,
+                max_nodes=128,
+                ann_backend="naive",
+                selector="persistence",
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2, max_epochs=12
+                ),
+                seed=4,
+                halve_grid_steps=dense,
+                persistence=PersistenceConfig(resolve_within_interval="none"),
+            ),
+        )
+        assert result.persistence_result is not None
+        pr = result.persistence_result
+        by[dense] = pr
+        n_clusters = [int(s.n_clusters) for s in pr.snapshots]
+        print(
+            f"\nA6-T54 seed4 dense={dense}: n_grid={len(result.tau_grid)} "
+            f"tsi={pr.tau_star_index} run0={int(pr.run_lengths[0])} "
+            f"ov0={float(pr.match_overlaps[0]):.3f} "
+            f"n_clusters[:3]={n_clusters[:3]}"
+        )
+
+    std_pr = by[False]
+    dense_pr = by[True]
+    assert std_pr.tau_star_index == 0
+    assert int(std_pr.run_lengths[0]) >= min_pers
+    assert float(std_pr.match_overlaps[0]) >= thr
+    # Dense: first half-step breaks the coarse-end run under overlap_threshold.
+    assert dense_pr.tau_star_index is None
+    assert int(dense_pr.run_lengths[0]) == 1
+    assert float(dense_pr.match_overlaps[0]) < thr
+    assert int(dense_pr.snapshots[0].n_clusters) >= 2
+    assert int(dense_pr.snapshots[1].n_clusters) >= 2
+    # A long fineward run still exists from index 1 — discarded only because
+    # coarse_anchored requires the *coarsest* multi-cluster point to persist.
+    assert int(dense_pr.run_lengths[1]) >= min_pers
+    assert PersistenceConfig().coarse_anchored is True
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
 def test_default_selector_is_load_crossover() -> None:
     # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
     assert ScaleSearchConfig().selector == "load_crossover"
