@@ -2915,6 +2915,525 @@ def test_seed3_densify_load_weighted_stays_coarse() -> None:
     assert ScaleSearchConfig().halve_grid_steps is False
 
 
+def test_densify_recover_thr_phi_export_seeds0_4() -> None:
+    # EXPORT (burn follow-on pre-formal A6-T67): thr × Phi_C under
+    # densify_overlap_recover_threshold ∈ {0.30, 0.35, 0.40}. Pins that the
+    # override is a Jaccard accept/reject gate only — when the same densified
+    # seed accepts under two floors, coarse-end and mid-interval Phi match
+    # exactly. Defaults stay off. (A1 formal A6-T67 is densify×LW×thr combo.)
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD == 0.35
+
+    phi_rows: dict[tuple[float, int], dict[str, float | int | None]] = {}
+    print("\nA6-T67 thr × Phi densify export")
+    header = (
+        f"{'thr':>5s} {'seed':>4s} {'accept':>6s} {'run0':>4s} "
+        f"{'Phi0':>10s} {'Phi_mid':>10s} {'idx_mid':>7s}"
+    )
+    print(header)
+    print("-" * len(header))
+    for thr in (0.30, 0.35, 0.40):
+        for seed in range(5):
+            dataset = make_hierarchical_gaussian(
+                children_per_coarse=2, n_samples=600, ambient_dim=4, seed=seed,
+            )
+            gt = dataset.ground_truth
+            tau_lo, tau_hi = gt.tau_grid_hint
+            result = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=ScaleSearchConfig(
+                    tau_min=tau_lo,
+                    tau_max=tau_hi,
+                    max_grid_points=8,
+                    k=8,
+                    n_seeds=12,
+                    min_nodes=8,
+                    max_nodes=128,
+                    ann_backend="naive",
+                    selector="persistence",
+                    stabilization=StabilizationConfig(
+                        min_equilibrium_epochs=2, max_epochs=12
+                    ),
+                    seed=seed,
+                    halve_grid_steps=True,
+                    persistence=PersistenceConfig(
+                        resolve_within_interval="none",
+                        densify_overlap_recover="lower_threshold",
+                        densify_overlap_recover_threshold=thr,
+                    ),
+                ),
+            )
+            assert result.persistence_result is not None
+            pr = result.persistence_result
+            accept = pr.tau_star_index is not None
+            if accept:
+                idx_mid = _resolve_persistence_tau_index(
+                    pr,
+                    result.load_trace,
+                    list(result.stabilized_flags),
+                    PersistenceConfig(resolve_within_interval="mid_interval"),
+                )
+                phi0 = float(result.phi_trace[0])
+                phi_mid = float(result.phi_trace[idx_mid])
+            else:
+                idx_mid = None
+                phi0 = float("nan")
+                phi_mid = float("nan")
+            phi_rows[(thr, seed)] = {
+                "accept": int(accept),
+                "run0": int(pr.run_lengths[0]),
+                "phi0": phi0,
+                "phi_mid": phi_mid,
+                "idx_mid": idx_mid if idx_mid is not None else -1,
+            }
+            print(
+                f"{thr:5.2f} {seed:4d} {str(accept):>6s} "
+                f"{int(pr.run_lengths[0]):4d} {phi0:10.4g} "
+                f"{phi_mid:10.4g} {str(idx_mid):>7s}"
+            )
+
+    # Accept map matches T64 densify column.
+    for seed in (0, 1, 3, 4):
+        assert phi_rows[(0.35, seed)]["accept"] == 1
+    assert phi_rows[(0.35, 2)]["accept"] == 0
+    assert phi_rows[(0.30, 2)]["accept"] == 1
+    assert phi_rows[(0.40, 1)]["accept"] == 0
+    assert phi_rows[(0.40, 4)]["accept"] == 0
+
+    # Shared accepts: Phi0 / Phi_mid identical across thr (gate-only).
+    for seed in (0, 3):
+        for thr_a, thr_b in ((0.30, 0.35), (0.35, 0.40), (0.30, 0.40)):
+            assert abs(
+                float(phi_rows[(thr_a, seed)]["phi0"])
+                - float(phi_rows[(thr_b, seed)]["phi0"])
+            ) < 1e-9
+            assert abs(
+                float(phi_rows[(thr_a, seed)]["phi_mid"])
+                - float(phi_rows[(thr_b, seed)]["phi_mid"])
+            ) < 1e-9
+            assert int(phi_rows[(thr_a, seed)]["idx_mid"]) == int(
+                phi_rows[(thr_b, seed)]["idx_mid"]
+            )
+    for thr_a, thr_b in ((0.30, 0.35),):
+        for seed in (1, 4):
+            assert abs(
+                float(phi_rows[(thr_a, seed)]["phi0"])
+                - float(phi_rows[(thr_b, seed)]["phi0"])
+            ) < 1e-9
+            assert abs(
+                float(phi_rows[(thr_a, seed)]["phi_mid"])
+                - float(phi_rows[(thr_b, seed)]["phi_mid"])
+            ) < 1e-9
+
+    # seed2 contributes a Phi row only at thr=0.30 (over-accept).
+    assert np.isfinite(float(phi_rows[(0.30, 2)]["phi0"]))
+    assert int(phi_rows[(0.30, 2)]["idx_mid"]) == 7
+    assert not np.isfinite(float(phi_rows[(0.35, 2)]["phi0"]))
+    assert not np.isfinite(float(phi_rows[(0.40, 2)]["phi0"]))
+
+    # Published dense mid landings (seed0/3 hierarchy).
+    assert int(phi_rows[(0.35, 0)]["idx_mid"]) == 7
+    assert int(phi_rows[(0.35, 3)]["idx_mid"]) == 7
+
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
+def test_seed0_seed4_densify_load_weighted_stays_coarse() -> None:
+    # EXPERIMENT (burn follow-on pre-formal A6-T68): densify × load_weighted on
+    # seeds~0 and~4. Extends T65: LW stays coarse-end alias whenever the split
+    # is accepted at the default recover floor; seed~0 is recover-invariant;
+    # densified seed~4 needs recover to expose the densify hierarchy matching
+    # seed~0. Defaults stay off. (A1 formal A6-T68 is thr0.30 seed2 ov0 pin.)
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+    modes = (
+        "none",
+        "mid_interval",
+        "two_thirds_interval",
+        "three_quarter_interval",
+        "load_weighted_interval",
+        "fine_end_of_block",
+    )
+    rows: dict[tuple[int, bool, str, str], dict[str, float | int] | None] = {}
+    print("\nA6-T68 seed0/4 densify × load_weighted")
+    header = (
+        f"{'seed':>4s} {'dense':5s} {'recover':16s} {'mode':24s} "
+        f"{'idx':>3s} {'tau*/E':>8s} {'run0':>4s}"
+    )
+    print(header)
+    print("-" * len(header))
+    for seed in (0, 4):
+        dataset = make_hierarchical_gaussian(
+            children_per_coarse=2, n_samples=600, ambient_dim=4, seed=seed,
+        )
+        gt = dataset.ground_truth
+        assert gt.expected_tau is not None
+        tau_lo, tau_hi = gt.tau_grid_hint
+        for dense in (False, True):
+            for recover in ("none", "lower_threshold"):
+                result = run_scale_search(
+                    dataset.points,
+                    dim=gt.ambient_dim,
+                    config=ScaleSearchConfig(
+                        tau_min=tau_lo,
+                        tau_max=tau_hi,
+                        max_grid_points=8,
+                        k=8,
+                        n_seeds=12,
+                        min_nodes=8,
+                        max_nodes=128,
+                        ann_backend="naive",
+                        selector="persistence",
+                        stabilization=StabilizationConfig(
+                            min_equilibrium_epochs=2, max_epochs=12
+                        ),
+                        seed=seed,
+                        halve_grid_steps=dense,
+                        persistence=PersistenceConfig(
+                            resolve_within_interval="none",
+                            densify_overlap_recover=recover,  # type: ignore[arg-type]
+                        ),
+                    ),
+                )
+                assert result.persistence_result is not None
+                pr = result.persistence_result
+                if pr.tau_star_index is None:
+                    for mode in modes:
+                        rows[(seed, dense, recover, mode)] = None
+                    print(
+                        f"{seed:4d} {str(dense):5s} {recover:16s} "
+                        f"{'(reject)':24s} {'—':>3s} {'—':>8s} "
+                        f"{int(pr.run_lengths[0]):4d}"
+                    )
+                    continue
+                assert pr.tau_star_index == 0
+                run0 = int(pr.run_lengths[0])
+                for mode in modes:
+                    idx = _resolve_persistence_tau_index(
+                        pr,
+                        result.load_trace,
+                        list(result.stabilized_flags),
+                        PersistenceConfig(resolve_within_interval=mode),  # type: ignore[arg-type]
+                    )
+                    ratio = float(result.tau_grid[idx]) / float(gt.expected_tau)
+                    rows[(seed, dense, recover, mode)] = {
+                        "idx": int(idx),
+                        "ratio": ratio,
+                        "run0": run0,
+                    }
+                    print(
+                        f"{seed:4d} {str(dense):5s} {recover:16s} {mode:24s} "
+                        f"{idx:3d} {ratio:8.3f} {run0:4d}"
+                    )
+
+    # seed4 dense + none: persist-reject (recover required).
+    assert rows[(4, True, "none", "none")] is None
+
+    # LW ≡ none (coarse 16×) in every accepted cell.
+    for seed in (0, 4):
+        for dense in (False, True):
+            for recover in ("none", "lower_threshold"):
+                lw = rows[(seed, dense, recover, "load_weighted_interval")]
+                none = rows[(seed, dense, recover, "none")]
+                if none is None:
+                    assert lw is None
+                    continue
+                assert lw is not None
+                assert int(lw["idx"]) == 0
+                assert abs(float(lw["ratio"]) - 16.0) < 0.05
+                assert int(lw["idx"]) == int(none["idx"])
+
+    # seed0 recover-invariant on both grids.
+    for dense in (False, True):
+        for mode in modes:
+            a = rows[(0, dense, "none", mode)]
+            b = rows[(0, dense, "lower_threshold", mode)]
+            assert a is not None and b is not None
+            assert int(a["idx"]) == int(b["idx"])
+            assert abs(float(a["ratio"]) - float(b["ratio"])) < 0.05
+
+    # Densify hierarchy (accepted): seed0 (any recover) and seed4+recover match.
+    for key in ((0, True, "none"), (0, True, "lower_threshold"), (4, True, "lower_threshold")):
+        assert abs(float(rows[(*key, "none")]["ratio"]) - 16.0) < 0.05  # type: ignore[index]
+        assert abs(float(rows[(*key, "mid_interval")]["ratio"]) - 2.297) < 0.05  # type: ignore[index]
+        assert abs(
+            float(rows[(*key, "two_thirds_interval")]["ratio"]) - 1.0  # type: ignore[index]
+        ) < 0.05
+        assert abs(
+            float(rows[(*key, "three_quarter_interval")]["ratio"]) - 0.758  # type: ignore[index]
+        ) < 0.05
+        assert abs(
+            float(rows[(*key, "fine_end_of_block")]["ratio"]) - 0.25  # type: ignore[index]
+        ) < 0.05
+        assert int(rows[(*key, "none")]["run0"]) == 16  # type: ignore[index]
+
+    # Std seed0/4: same fractional indices (run0=8); LW coarse.
+    for seed in (0, 4):
+        for recover in ("none", "lower_threshold"):
+            assert int(rows[(seed, False, recover, "none")]["run0"]) == 8  # type: ignore[index]
+            assert int(rows[(seed, False, recover, "mid_interval")]["idx"]) == 3  # type: ignore[index]
+            assert abs(
+                float(rows[(seed, False, recover, "mid_interval")]["ratio"]) - 2.692  # type: ignore[index]
+            ) < 0.05
+            assert int(rows[(seed, False, recover, "two_thirds_interval")]["idx"]) == 4  # type: ignore[index]
+            assert int(rows[(seed, False, recover, "three_quarter_interval")]["idx"]) == 5  # type: ignore[index]
+            assert int(rows[(seed, False, recover, "fine_end_of_block")]["idx"]) == 7  # type: ignore[index]
+
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
+def test_densify_lw_recover_thr_combo_seeds0_4() -> None:
+    # EXPERIMENT (A6-T67 formal): densify × load_weighted × recover-thr combo
+    # on seeds0..4. Crosses halve_grid_steps × densify_overlap_recover_threshold
+    # ∈ {0.30, 0.35, 0.40} and resolves none vs load_weighted_interval.
+    # Pins: (1) accept map matches T64 thr sensitivity; (2) LW ≡ coarse-end
+    # (idx0 / 16×) on every accepted cell *except* the thr=0.30 densified
+    # seed~2 over-accept, where LW steps one index finer (~12.1×) while
+    # none stays at coarse-end — the first LW≠coarse divergence under the
+    # recover-thr lever. Defaults stay off.
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+    assert EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD == 0.35
+
+    by: dict[tuple[float, int, bool], dict[str, float | int | None]] = {}
+    print("\nA6-T67 densify × LW × recover-thr combo")
+    header = (
+        f"{'thr':>5s} {'seed':>4s} {'dense':5s} {'acc':>5s} {'ov0':>7s} "
+        f"{'run0':>4s} {'LW':>3s} {'none':>4s} {'LW*':>7s}"
+    )
+    print(header)
+    print("-" * len(header))
+    for thr in (0.30, 0.35, 0.40):
+        for seed in range(5):
+            dataset = make_hierarchical_gaussian(
+                children_per_coarse=2, n_samples=600, ambient_dim=4, seed=seed,
+            )
+            gt = dataset.ground_truth
+            assert gt.expected_tau is not None
+            tau_lo, tau_hi = gt.tau_grid_hint
+            for dense in (False, True):
+                result = run_scale_search(
+                    dataset.points,
+                    dim=gt.ambient_dim,
+                    config=ScaleSearchConfig(
+                        tau_min=tau_lo,
+                        tau_max=tau_hi,
+                        max_grid_points=8,
+                        k=8,
+                        n_seeds=12,
+                        min_nodes=8,
+                        max_nodes=128,
+                        ann_backend="naive",
+                        selector="persistence",
+                        stabilization=StabilizationConfig(
+                            min_equilibrium_epochs=2, max_epochs=12
+                        ),
+                        seed=seed,
+                        halve_grid_steps=dense,
+                        persistence=PersistenceConfig(
+                            resolve_within_interval="none",
+                            densify_overlap_recover="lower_threshold",
+                            densify_overlap_recover_threshold=thr,
+                        ),
+                    ),
+                )
+                assert result.persistence_result is not None
+                pr = result.persistence_result
+                accept = pr.tau_star_index is not None
+                ov0 = float(pr.match_overlaps[0])
+                run0 = int(pr.run_lengths[0])
+                if accept:
+                    idx_lw = _resolve_persistence_tau_index(
+                        pr,
+                        result.load_trace,
+                        list(result.stabilized_flags),
+                        PersistenceConfig(
+                            resolve_within_interval="load_weighted_interval"
+                        ),
+                    )
+                    idx_none = _resolve_persistence_tau_index(
+                        pr,
+                        result.load_trace,
+                        list(result.stabilized_flags),
+                        PersistenceConfig(resolve_within_interval="none"),
+                    )
+                    ratio = float(result.tau_grid[idx_lw]) / float(gt.expected_tau)
+                else:
+                    idx_lw = None
+                    idx_none = None
+                    ratio = float("nan")
+                by[(thr, seed, dense)] = {
+                    "accept": int(accept),
+                    "ov0": ov0,
+                    "run0": run0,
+                    "idx_lw": idx_lw if idx_lw is not None else -1,
+                    "idx_none": idx_none if idx_none is not None else -1,
+                    "ratio": ratio,
+                }
+                print(
+                    f"{thr:5.2f} {seed:4d} {str(dense):5s} {str(accept):>5s} "
+                    f"{ov0:7.3f} {run0:4d} {str(idx_lw):>3s} "
+                    f"{str(idx_none):>4s} {ratio:7.3f}"
+                )
+
+    def _accept_pairs(thr: float) -> set[tuple[int, bool]]:
+        return {
+            (seed, dense)
+            for seed in range(5)
+            for dense in (False, True)
+            if by[(thr, seed, dense)]["accept"] == 1
+        }
+
+    # Accept map ≡ T64 thr sensitivity.
+    assert _accept_pairs(0.35) == {
+        (0, False), (0, True),
+        (1, False), (1, True),
+        (3, False), (3, True),
+        (4, False), (4, True),
+    }
+    assert _accept_pairs(0.30) == _accept_pairs(0.35) | {(2, True)}
+    assert _accept_pairs(0.40) == {
+        (0, False), (0, True),
+        (1, False),
+        (3, False), (3, True),
+        (4, False),
+    }
+
+    # LW ≡ coarse-end on every accepted cell except thr0.30 densified seed2.
+    for thr in (0.30, 0.35, 0.40):
+        for seed in range(5):
+            for dense in (False, True):
+                cell = by[(thr, seed, dense)]
+                if cell["accept"] == 0:
+                    assert int(cell["idx_lw"]) == -1
+                    continue
+                if (thr, seed, dense) == (0.30, 2, True):
+                    continue  # divergence pinned below
+                assert int(cell["idx_lw"]) == 0
+                assert int(cell["idx_none"]) == 0
+                assert abs(float(cell["ratio"]) - 16.0) < 0.05
+
+    # First LW≠coarse divergence: thr=0.30 densified seed~2 over-accept.
+    seed2 = by[(0.30, 2, True)]
+    assert seed2["accept"] == 1
+    assert int(seed2["idx_none"]) == 0
+    assert int(seed2["idx_lw"]) == 1
+    assert abs(float(seed2["ratio"]) - 12.126) < 0.05
+    assert int(seed2["run0"]) == 16
+
+    # Seed~3 densify×LW stays coarse across the thr band (T65/T69 pin).
+    for thr in (0.30, 0.35, 0.40):
+        for dense in (False, True):
+            cell = by[(thr, 3, dense)]
+            assert cell["accept"] == 1
+            assert int(cell["idx_lw"]) == 0
+            assert abs(float(cell["ratio"]) - 16.0) < 0.05
+
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
+def test_export_thr030_seed2_dense_accept_ov0_pin() -> None:
+    # EXPORT (A6-T68 formal): thr=0.30 densified seed~2 accept mechanism for
+    # A3 SI. Pins that densified seed~2 first-step Jaccard is ov0≈0.340
+    # (invariant across thr floors) and only the 0.30 floor accepts it
+    # (run0=16, coarse-end idx0); at 0.35/0.40 the same ov0 rejects
+    # (run0=1). Standard-grid seed~2 stays reject (ov0≈0.200) at all three
+    # floors. Defaults stay off.
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD == 0.35
+
+    rows: dict[tuple[float, bool], dict[str, float | int | None]] = {}
+    print("\nA6-T68 thr0.30 seed2 dense ov0 pin")
+    header = (
+        f"{'thr':>5s} {'dense':5s} {'ov0':>8s} {'run0':>4s} "
+        f"{'tsi':>4s} {'accept':>6s}"
+    )
+    print(header)
+    print("-" * len(header))
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=2,
+    )
+    gt = dataset.ground_truth
+    tau_lo, tau_hi = gt.tau_grid_hint
+    for thr in (0.30, 0.35, 0.40):
+        for dense in (False, True):
+            result = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=ScaleSearchConfig(
+                    tau_min=tau_lo,
+                    tau_max=tau_hi,
+                    max_grid_points=8,
+                    k=8,
+                    n_seeds=12,
+                    min_nodes=8,
+                    max_nodes=128,
+                    ann_backend="naive",
+                    selector="persistence",
+                    stabilization=StabilizationConfig(
+                        min_equilibrium_epochs=2, max_epochs=12
+                    ),
+                    seed=2,
+                    halve_grid_steps=dense,
+                    persistence=PersistenceConfig(
+                        resolve_within_interval="none",
+                        densify_overlap_recover="lower_threshold",
+                        densify_overlap_recover_threshold=thr,
+                    ),
+                ),
+            )
+            assert result.persistence_result is not None
+            pr = result.persistence_result
+            ov0 = float(pr.match_overlaps[0])
+            run0 = int(pr.run_lengths[0])
+            tsi = pr.tau_star_index
+            accept = tsi is not None
+            rows[(thr, dense)] = {
+                "ov0": ov0,
+                "run0": run0,
+                "tsi": tsi if tsi is not None else -1,
+                "accept": int(accept),
+            }
+            print(
+                f"{thr:5.2f} {str(dense):5s} {ov0:8.3f} {run0:4d} "
+                f"{str(tsi):>4s} {str(accept):>6s}"
+            )
+
+    # ov0 invariant across thr (gate-only); densify raises ~0.20 → ~0.34.
+    for thr in (0.30, 0.35, 0.40):
+        assert abs(float(rows[(thr, False)]["ov0"]) - 0.200) < 0.02
+        assert abs(float(rows[(thr, True)]["ov0"]) - 0.340) < 0.02
+        assert rows[(thr, False)]["accept"] == 0
+        assert int(rows[(thr, False)]["run0"]) == 1
+
+    # Only thr=0.30 densified accepts (ov0≈0.34 ≥ 0.30).
+    assert rows[(0.30, True)]["accept"] == 1
+    assert int(rows[(0.30, True)]["tsi"]) == 0
+    assert int(rows[(0.30, True)]["run0"]) == 16
+    assert rows[(0.35, True)]["accept"] == 0
+    assert rows[(0.40, True)]["accept"] == 0
+    assert int(rows[(0.35, True)]["run0"]) == 1
+    assert int(rows[(0.40, True)]["run0"]) == 1
+
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
 def test_default_selector_is_load_crossover() -> None:
     # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
     assert ScaleSearchConfig().selector == "load_crossover"
