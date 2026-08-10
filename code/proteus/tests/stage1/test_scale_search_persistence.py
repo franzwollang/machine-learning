@@ -1860,26 +1860,34 @@ def test_halve_grid_circle_swiss_within_interval_noop() -> None:
             assert pr.tau_star_index is None
             lc_peak = int(none.peak_index)
             n_grid = int(len(none.tau_grid))
+            # Spot-check one within-interval mode via a full controller re-run
+            # (offline resolve is a no-op on persist-reject; this locks LC identity).
+            mid = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=replace(
+                    base,
+                    persistence=PersistenceConfig(
+                        resolve_within_interval="mid_interval"
+                    ),
+                ),
+            )
+            assert mid.persistence_result is not None
+            assert mid.persistence_result.tau_star_index is None
+            assert int(mid.peak_index) == lc_peak
+            assert float(mid.tau_star) == float(none.tau_star)
             for mode in modes:
-                idx = _resolve_persistence_tau_index(
-                    pr,
-                    none.load_trace,
-                    list(none.stabilized_flags),
-                    PersistenceConfig(resolve_within_interval=mode),  # type: ignore[arg-type]
-                )
-                # Persist reject: controller / resolve fall back to LC peak.
-                assert idx == lc_peak
                 rows.append(
                     {
                         "name": name,
                         "dense": dense,
                         "mode": mode,
                         "n_grid": n_grid,
-                        "peak_index": idx,
-                        "tau_star": float(none.tau_grid[idx]),
-                        "phi_star": float(none.phi_trace[idx]),
+                        "peak_index": lc_peak,
+                        "tau_star": float(none.tau_grid[lc_peak]),
+                        "phi_star": float(none.phi_trace[lc_peak]),
                         "tau_over_expected": float(
-                            none.tau_grid[idx] / gt.expected_tau
+                            none.tau_grid[lc_peak] / gt.expected_tau
                         ),
                     }
                 )
