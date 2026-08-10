@@ -67,7 +67,10 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   does not flip ``@awaiting``). A spectrum-safe × policy × mass_loopy
   *cap-sweep compose* lands behind
   ``enable_spectrum_safe_policy_mass_compose_probe`` (A5-T76; harness
-  only; does not flip ``@awaiting``). Remaining real-BP gaps: true
+  only; does not flip ``@awaiting``). A residual-stop × mass_loopy
+  *patience sweep* lands behind
+  ``enable_residual_mass_patience_sweep_probe`` (A5-T77; proposal-path;
+  does not flip ``@awaiting``). Remaining real-BP gaps: true
   spectrum-safe production loopy BP certificate; true-manifold flux
   zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
@@ -196,6 +199,11 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
   ``None``; when on, cap-sweeps spectrum-safe×policy residual-stop
   sketches and mass×loopy compose under the same caps (A5-T76; harness
   only — **not** a production certificate; does not flip ``@awaiting``).
+* ``DualFlowConfig.enable_residual_mass_patience_sweep_probe`` — when
+  off, :func:`probe_residual_mass_patience_sweep` returns ``None``;
+  when on, sweeps ``bp_residual_stop_patience`` under mass×loopy
+  compose residual-stop early-exit (A5-T77; proposal-path; does not
+  flip ``@awaiting``).
 * Call sites that opt in (tests / experimental dry-runs) pass flags ``True``
   and feed results into the gate or diagnostics.
 
@@ -338,6 +346,7 @@ __all__ = [
     "probe_spectrum_safe_policy_traj",
     "probe_residual_mass_loopy_compose",
     "probe_spectrum_safe_policy_mass_compose",
+    "probe_residual_mass_patience_sweep",
     "probe_fail_closed_dual_adjacency_plan",
     "probe_gate_fail_closed_switch",
 ]
@@ -531,6 +540,12 @@ class DualFlowConfig:
         harness outcomes and mass×loopy compose under matching
         ``spectrum_cond_cap`` values (A5-T76; harness only — **not** a
         production certificate; does not flip ``@awaiting``).
+    enable_residual_mass_patience_sweep_probe:
+        When ``False`` (default),
+        :func:`probe_residual_mass_patience_sweep` returns ``None``.
+        When ``True``, sweeps ``bp_residual_stop_patience`` under
+        mass×loopy compose with residual-stop early-exit (A5-T77;
+        proposal-path; does not flip mass/density ``@awaiting``).
     bp_residual_stop_tol:
         Absolute plateau tolerance on ``|Δr_data|`` / ``|Δr_cons|`` for
         the residual-stop sketch / early-exit (default ``1e-3``).
@@ -609,6 +624,7 @@ class DualFlowConfig:
     enable_spectrum_safe_policy_traj_probe: bool = False
     enable_residual_mass_loopy_compose_probe: bool = False
     enable_spectrum_safe_policy_mass_compose_probe: bool = False
+    enable_residual_mass_patience_sweep_probe: bool = False
     bp_residual_stop_tol: float = 1e-3
     bp_residual_stop_patience: int = 2
     bp_damping: float = 0.5
@@ -5378,5 +5394,158 @@ def probe_spectrum_safe_policy_mass_compose(
     return SpectrumSafePolicyMassComposeProbe(
         probe_flag_default_off=not DualFlowConfig().enable_spectrum_safe_policy_mass_compose_probe,
         caps=caps,
+        cases=tuple(cases),
+    )
+
+
+@dataclass(frozen=True)
+class ResidualMassPatienceSweepCase:
+    """One ``bp_residual_stop_patience`` cell of residual×mass sweep (A5-T77)."""
+
+    patience: int
+    epsilon_mass: float
+    mass_total_before: float
+    compose_n_samples: int
+    compose_n_online_simplices: int
+    compose_loopy_message_updates: int
+    compose_loopy_r_cons: float
+    compose_residual_stop_enabled: bool
+    compose_residual_stop_reason: str | None
+    compose_loopy_iters: int
+    compose_max_iters: int
+
+
+@dataclass(frozen=True)
+class ResidualMassPatienceSweepProbe:
+    """Residual-stop × mass_loopy patience sweep (SI S6.2; A5-T77).
+
+    Mass-normalizes online winners once, then for each patience value
+    runs online→offline loopy compose under residual-stop early-exit
+    and reports iters / stop reason. Proposal-path only — **not** a
+    production certificate. Do **not** flip mass/density ``@awaiting``.
+    """
+
+    probe_flag_default_off: bool
+    patience_grid: tuple[int, ...]
+    cases: tuple[ResidualMassPatienceSweepCase, ...]
+    note: str = (
+        "sketch only: mass-norm × loopy compose residual-stop patience "
+        "sweep; not a production certificate; do not flip mass/density "
+        "@awaiting"
+    )
+
+
+def probe_residual_mass_patience_sweep(
+    samples: Sequence[np.ndarray],
+    simplex_positions: Mapping[Hashable, np.ndarray],
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]],
+    *,
+    masses: Mapping[Hashable, float] | None = None,
+    patience_grid: Sequence[int] | None = None,
+    config: DualFlowConfig | None = None,
+) -> ResidualMassPatienceSweepProbe | None:
+    """Sweep residual-stop patience under mass×loopy compose (A5-T77).
+
+    When ``enable_residual_mass_patience_sweep_probe`` is off, returns
+    ``None``. When on:
+
+    1. **Mass** — mass-normalize online winners.
+    2. **Patience sweep** — for each patience in ``patience_grid``
+       (default ``(1, 2, 4, 8)``), run online→offline loopy compose
+       with residual-stop early-exit at that patience.
+
+    Does **not** flip mass/density ``@awaiting``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_residual_mass_patience_sweep_probe:
+        return None
+    if not samples:
+        raise ValueError("samples must be non-empty")
+    if not simplex_positions:
+        raise ValueError("simplex_positions must be non-empty")
+    grid = tuple(
+        int(p)
+        for p in (
+            patience_grid if patience_grid is not None else (1, 2, 4, 8)
+        )
+    )
+    if not grid:
+        raise ValueError("patience_grid must be non-empty")
+    if any(p < 1 for p in grid):
+        raise ValueError("patience_grid values must be >= 1")
+
+    tally_cfg = DualFlowConfig(
+        enable_live_bmu_tally=True,
+        tally_scale=float(cfg.tally_scale),
+    )
+    live = route_live_bmu_face_tallies(
+        samples, simplex_positions, config=tally_cfg
+    )
+    if live is None:
+        raise RuntimeError("live BMU tallies unexpectedly None")
+
+    if masses is None:
+        mass_map: dict[Hashable, float] = {
+            sid: 1.0 for sid in live.tallies_by_simplex
+        }
+    else:
+        mass_map = {k: float(v) for k, v in masses.items()}
+    if not mass_map:
+        raise ValueError(
+            "masses must be non-empty for residual×mass patience sweep"
+        )
+
+    mass_cfg = DualFlowConfig(enable_mass_normalization=True)
+    mass_out = normalize_simplex_masses(mass_map, config=mass_cfg)
+    if mass_out is None:
+        raise RuntimeError("mass normalization unexpectedly None under probe cfg")
+
+    compose_max = max(int(cfg.bp_max_iters), max(grid) + 2, 4)
+    cases: list[ResidualMassPatienceSweepCase] = []
+    for patience in grid:
+        compose_cfg = DualFlowConfig(
+            enable_online_offline_loopy_compose=True,
+            enable_loopy_bp_residual_stop=True,
+            bp_damping=float(cfg.bp_damping),
+            bp_max_iters=compose_max,
+            bp_residual_stop_tol=float(cfg.bp_residual_stop_tol),
+            bp_residual_stop_patience=int(patience),
+            tally_scale=float(cfg.tally_scale),
+            mu_scale=float(cfg.mu_scale),
+            as_eps=float(cfg.as_eps),
+            whiten_floor=float(cfg.whiten_floor),
+            spectrum_cond_cap=float(cfg.spectrum_cond_cap),
+            enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+        )
+        compose = run_online_offline_loopy_compose(
+            samples, simplex_positions, simplices, config=compose_cfg
+        )
+        if compose is None:
+            raise RuntimeError(
+                "loopy compose unexpectedly None under residual×mass patience cfg"
+            )
+        cases.append(
+            ResidualMassPatienceSweepCase(
+                patience=int(patience),
+                epsilon_mass=float(mass_out.epsilon_mass),
+                mass_total_before=float(mass_out.total_before),
+                compose_n_samples=int(compose.n_samples),
+                compose_n_online_simplices=int(compose.n_online_simplices),
+                compose_loopy_message_updates=int(compose.loopy_message_updates),
+                compose_loopy_r_cons=float(compose.loopy_r_cons),
+                compose_residual_stop_enabled=bool(
+                    compose.loopy_residual_stop_enabled
+                ),
+                compose_residual_stop_reason=compose.loopy_residual_stop_reason,
+                compose_loopy_iters=int(compose.loopy_iters),
+                compose_max_iters=compose_max,
+            )
+        )
+
+    return ResidualMassPatienceSweepProbe(
+        probe_flag_default_off=not DualFlowConfig().enable_residual_mass_patience_sweep_probe,
+        patience_grid=grid,
         cases=tuple(cases),
     )
