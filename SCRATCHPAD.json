@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-10T01:30-00:00",
-  "turn": 55,
+  "updated_at": "2026-08-10T02:40:00Z",
+  "turn": 56,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "scoop denser×bridge/seed0 keep-band; densify-recover thr; residual-stop"
+    "goal": "double-scoop soft\u00d7gabriel + densify384 + spectrum\u00d7policy"
   },
   "recent": [
-    "Scoop A2-T53..T56 denser×bridge + seed0 keep≤0.12 bet-only",
-    "A4-T50..T55 densify/hollow mid65 — (1,2,1) unreachable",
-    "A6-T61..T66 thr0.35 narrow band; densify×LW seed3 coarse"
+    "Double-scoop A2-T57..T60 denser soft\u00d7persist/gabriel/keep-band",
+    "A4-T56..T64 densify384/cal/lifetime/nested mid \u2260 clean",
+    "A5-T67..T71 residual/spectrum/policy + fail_closed EvidenceGate"
   ],
   "discoveries": [
-    "Seed0 denser soft keep band betweenness-only; bridge_mass kills it",
-    "densify_overlap_recover thr0.35 narrow; 0.30 over-accepts seed2 dense",
-    "mid65 preserves tori partial; densify512×hollow still max_b2=0"
+    "denser kills soft\u00d7gabriel seed1 inflate; keep-band\u00d7persist moot at e2e",
+    "thr0.30 seed2 LW\u2260coarse via closest-to-unit load L0\u22480.61 vs L1\u22481.56",
+    "densify384\u00d7cal raises b1 but max_b2=0; circle lifetime\u2260SI b1"
   ],
   "open_threads": [
-    "A2 soft×gabriel@tau*; denser soft×persist e2e",
-    "A4 hollow×sigma; A5 residual-stop early-exit wire",
+    "A2 soft keep\u00d7persist majors; denser soft\u00d7gabriel\u00d7persist",
+    "A4 densify384\u00d7hollow\u00d7cal; A5 spectrum cap-sweep; A6 thr0.30 loads",
     "#45 deferred until #44 sample-ARI"
   ],
-  "next_step": "Push MERGE_DONE; workers pull refilled T57+/T71+/T56+/T67+/T67+",
+  "next_step": "Push MERGE_DONE; workers pull T61+/T74+/T65+/T72+/T73+",
   "blockers": []
 }
