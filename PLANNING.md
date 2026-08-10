@@ -13,10 +13,10 @@ bodies below stay static descriptions.
 | Milestone | Status |
 |---|---|
 | M0 — Spec/implementation sync pass | done |
-| M1 — Canonical clustering objective | blocked on #44 (persist does NOT rescue T73 soft e2e collapse; Soft≠sample-ARI. No awaiting flip.) |
-| M2 — Characteristic-scale selection rebuild | in progress (half-life×LC farther than mid; std half≡peak+1 thr-invariant accepts {0,1,3,4}; seed2 reject. Do not flip default.) |
+| M1 — Canonical clustering objective | blocked on #44 (T76 majors-pin ARI≈0.16–0.18 chance only; Soft≠sample-ARI. No awaiting flip.) |
+| M2 — Characteristic-scale selection rebuild | in progress (half×sArg mid-closer except seed2; LC straddle fine>coarse but LC≡0. Do not flip default.) |
 | M3 — Constant audit & calibration tier | done (c_{d,k} + C_Q(d) calibrated on the shared uniform-d-ball ensemble; S14.3 three-tier audit #37 complete; intrinsic-dim estimator #39 validated vs GT + Levina–Bickel cross-check shipped, SI S1.4.1. Operational estimator-wiring divergence surfaced as #40, deferred to the M5 junction-detection consumer.) |
-| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 dual-path traj/fail_closed compose flags off 171p; do not close. #41: densify298full/316fail; mult3 NON-MONO fine; denser384 void-absent. Remaining: densify294/318 / #45) |
+| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 traj×fail_closed compose 177p flags off; do not close. #41: densify294/318 both hard-fail; mult3 dip@0.23; denser512 void-absent. Remaining: densify290/320 / #45) |
 | M5 — Inference interface & diagnostics | not started |
 | M6 — Evaluation, benchmarks, paper finalization | not started |
 

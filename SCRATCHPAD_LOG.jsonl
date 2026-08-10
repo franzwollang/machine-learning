@@ -64,3 +64,4 @@
 {"ts":"2026-08-10T06:40:00Z","focus":"M1 #44 quad-scoop","summary":"Quad-scoop A2-T72/T73 majors; A3 SI; A4-T95..T100 densify; A5-T94..T99; A6-T96..T102 half-life. Queues refilled T74+/T92+/T101+. Tests 2+6+6+6+6+2+1.","next":"MERGE_DONE push; workers pull T74+/T101+"}
 {"ts":"2026-08-10T06:55:00Z","focus":"M1 scoop T74+/T101+","summary":"Merged A2-A6 tips; tests 2+6+165+3; OPEN_ISSUES findings; queues T75+/T95+/T104+/T103+/T106+","next":"workers pull MERGE_DONE; next scoop T75+/T104+"}
 {"ts":"2026-08-10T07:22:00Z","focus":"M1 scoop T75+/T104+","summary":"Merged A2-A6 tips; tests 2+6+171+2; OPEN_ISSUES findings; queues T76+/T98+/T107+/T106+/T109+","next":"workers pull MERGE_DONE; next scoop T76+/T107+"}
+{"ts":"2026-08-10T07:40:00Z","focus":"M1 scoop2 T76+/T107+","summary":"Scoop2 merged A2-A6; tests 2+6+177+2; OPEN_ISSUES findings; queues T77+/T101+/T110+/T109+/T112+","next":"workers pull MERGE_DONE; next scoop T77+/T110+"}
