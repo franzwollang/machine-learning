@@ -65,6 +65,7 @@ from proteus.evidence import (
     GateConfig,
     affected_dual_subgraph_connected,
     bdeu_alpha,
+    probe_fail_closed_evidence_gate_matrix,
     probe_fail_closed_score_edit_matrix,
     score_edit,
     star_incidence_matrix,
@@ -96,7 +97,10 @@ from proteus.stage2 import (
     probe_fail_closed_dual_adjacency_plan,
     probe_gate_fail_closed_switch,
     probe_loopy_bp_convergence,
+    probe_loopy_bp_spectrum_safe_cert,
     probe_mass_loopy_compose,
+    probe_policy_residual_compose,
+    probe_spectrum_safe_policy_pin,
     propose_bp_damping_policy,
     propose_loopy_bp_residual_stop,
     query_stage1_ann_bmus,
@@ -2339,3 +2343,354 @@ def test_mass_loopy_compose_probe_runs_mass_and_loopy():
     assert out.loopy_message_updates > 0
     assert out.loopy_r_cons >= 0.0
     assert "mass" in out.note.lower() and "awaiting" in out.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T67: residual-stop early-exit wired into solve_loopy_bp_schedule
+# ---------------------------------------------------------------------------
+
+
+def test_loopy_bp_residual_stop_early_exit_flag_off_runs_full_iters():
+    """Flag off: schedule runs full bp_max_iters; residual_stop_reason None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    hats = {
+        0: np.array([1.0, -1.0, 0.5]),
+        1: np.array([-1.0, 0.5, 0.25]),
+    }
+    stencils = {
+        0: build_divergence_stencil(left),
+        1: build_divergence_stencil(right),
+    }
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    out = solve_loopy_bp_schedule(
+        hats,
+        stencils,
+        simplices,
+        config=DualFlowConfig(
+            enable_loopy_bp_schedule=True,
+            enable_loopy_bp_residual_stop=False,
+            bp_max_iters=4,
+            bp_damping=0.5,
+        ),
+    )
+    assert out is not None
+    assert out.residual_stop_enabled is False
+    assert out.residual_stop_reason is None
+    assert out.iters == 4
+    assert DualFlowConfig().enable_loopy_bp_residual_stop is False
+
+
+def test_loopy_bp_residual_stop_early_exit_can_stop_before_max():
+    """Flag on: early-exit records stop reason; iters <= bp_max_iters."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    hats = {
+        0: np.array([1.0, -1.0, 0.5]),
+        1: np.array([-1.0, 0.5, 0.25]),
+    }
+    stencils = {
+        0: build_divergence_stencil(left),
+        1: build_divergence_stencil(right),
+    }
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    out = solve_loopy_bp_schedule(
+        hats,
+        stencils,
+        simplices,
+        config=DualFlowConfig(
+            enable_loopy_bp_schedule=True,
+            enable_loopy_bp_residual_stop=True,
+            bp_max_iters=8,
+            bp_residual_stop_tol=1e-3,
+            bp_residual_stop_patience=2,
+            bp_damping=0.5,
+        ),
+    )
+    assert out is not None
+    assert out.residual_stop_enabled is True
+    assert out.residual_stop_reason in ("abs_tol", "plateau", "max_iters")
+    assert 1 <= out.iters <= 8
+    if out.residual_stop_reason in ("abs_tol", "plateau"):
+        assert out.iters < 8
+    assert DualFlowConfig().enable_loopy_bp_residual_stop is False
+
+
+# ---------------------------------------------------------------------------
+# A5-T68: spectrum-safe residual-stop certificate harness (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_loopy_bp_spectrum_safe_cert_flag_off_returns_none():
+    """enable_loopy_bp_spectrum_safe_cert=False ⇒ probe is None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    hats = {0: np.array([0.1, -0.2, 0.05])}
+    stencils = {0: build_divergence_stencil(left)}
+    assert (
+        probe_loopy_bp_spectrum_safe_cert(
+            hats, stencils, {0: (0, 1, 2)}, config=DualFlowConfig()
+        )
+        is None
+    )
+
+
+def test_loopy_bp_spectrum_safe_cert_harness_reports_sketch_claim():
+    """Flag on: harness returns spectrum_safe_sketch_ok; default stays off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    hats = {
+        0: np.array([1.0, -1.0, 0.5]),
+        1: np.array([-1.0, 0.5, 0.25]),
+    }
+    stencils = {
+        0: build_divergence_stencil(left),
+        1: build_divergence_stencil(right),
+    }
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    probe = probe_loopy_bp_spectrum_safe_cert(
+        hats,
+        stencils,
+        simplices,
+        config=DualFlowConfig(
+            enable_loopy_bp_spectrum_safe_cert=True,
+            bp_max_iters=6,
+            bp_residual_stop_tol=1e-3,
+            bp_residual_stop_patience=2,
+            bp_damping=0.5,
+            spectrum_cond_cap=1e12,
+        ),
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert DualFlowConfig().enable_loopy_bp_spectrum_safe_cert is False
+    assert probe.residual_stop_reason in ("abs_tol", "plateau", "max_iters")
+    assert 1 <= probe.iters_executed <= probe.max_iters
+    assert probe.r_data >= 0.0 and probe.r_cons >= 0.0
+    assert isinstance(probe.spectrum_ridge_applied, bool)
+    assert isinstance(probe.spectrum_safe_sketch_ok, bool)
+    if (
+        probe.residual_stop_reason in ("abs_tol", "plateau")
+        and not probe.spectrum_ridge_applied
+    ):
+        assert probe.spectrum_safe_sketch_ok is True
+    else:
+        assert probe.spectrum_safe_sketch_ok is False
+    assert "harness" in probe.note.lower() or "not" in probe.note.lower()
+    assert "awaiting" in probe.note.lower() or "certificate" in probe.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T69: policy × residual-stop compose multi-iter residual pin (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_policy_residual_compose_probe_flag_off_returns_none():
+    """enable_policy_residual_compose_probe=False ⇒ probe is None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    assert (
+        probe_policy_residual_compose(
+            [np.array([0.3, 0.3])],
+            {0: left},
+            {0: (0, 1, 2)},
+            config=DualFlowConfig(),
+        )
+        is None
+    )
+
+
+def test_policy_residual_compose_probe_pins_and_compose_stops():
+    """Flag on: multi-iter pin + compose residual-stop; defaults stay off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([1.2, 0.2])]
+    cfg = DualFlowConfig(
+        enable_policy_residual_compose_probe=True,
+        bp_damping=0.5,
+        bp_max_iters=6,
+        bp_residual_stop_tol=1e-3,
+        bp_residual_stop_patience=2,
+        spectrum_cond_cap=1e-12,  # force policy path on ill-conditioned factors
+    )
+    probe = probe_policy_residual_compose(
+        samples,
+        {0: left, 1: right},
+        {0: (0, 1, 2), 1: (1, 3, 2)},
+        max_pin_iters=3,
+        config=cfg,
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert DualFlowConfig().enable_policy_residual_compose_probe is False
+    assert DualFlowConfig().enable_bp_policy_in_loopy is False
+    assert DualFlowConfig().enable_loopy_bp_residual_stop is False
+    assert probe.pin_iters == (1, 2, 3)
+    assert len(probe.pin_r_data) == 3
+    assert len(probe.pin_r_cons) == 3
+    assert all(r >= 0.0 for r in probe.pin_r_data)
+    assert all(r >= 0.0 for r in probe.pin_r_cons)
+    assert probe.pin_policy_applied is True
+    assert probe.compose_n_samples == 2
+    assert probe.compose_n_online_simplices >= 1
+    assert probe.compose_loopy_message_updates > 0
+    assert probe.compose_loopy_r_cons >= 0.0
+    assert probe.compose_residual_stop_enabled is True
+    assert probe.compose_residual_stop_reason in (
+        "abs_tol",
+        "plateau",
+        "max_iters",
+    )
+    assert 1 <= probe.compose_loopy_iters <= probe.compose_max_iters
+    assert "awaiting" in probe.note.lower()
+    assert "sketch" in probe.note.lower() or "not" in probe.note.lower()
+
+
+def test_online_offline_loopy_compose_forwards_residual_stop():
+    """Compose forwards enable_loopy_bp_residual_stop into offline schedule."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([1.2, 0.2])]
+    cfg = DualFlowConfig(
+        enable_online_offline_loopy_compose=True,
+        enable_loopy_bp_residual_stop=True,
+        bp_damping=0.5,
+        bp_max_iters=8,
+        bp_residual_stop_tol=1e-3,
+        bp_residual_stop_patience=2,
+    )
+    out = run_online_offline_loopy_compose(
+        samples,
+        {0: left, 1: right},
+        {0: (0, 1, 2), 1: (1, 3, 2)},
+        config=cfg,
+    )
+    assert out is not None
+    assert out.loopy_residual_stop_enabled is True
+    assert out.loopy_residual_stop_reason in ("abs_tol", "plateau", "max_iters")
+    assert 1 <= out.loopy_iters <= 8
+    assert DualFlowConfig().enable_loopy_bp_residual_stop is False
+
+
+# ---------------------------------------------------------------------------
+# A5-T70: spectrum-safe × policy_in_loopy multi-cond pin (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_spectrum_safe_policy_pin_flag_off_returns_none():
+    """enable_spectrum_safe_policy_pin_probe=False ⇒ probe is None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    hats = {0: np.array([0.1, -0.2, 0.05])}
+    stencils = {0: build_divergence_stencil(left)}
+    assert (
+        probe_spectrum_safe_policy_pin(
+            hats, stencils, {0: (0, 1, 2)}, config=DualFlowConfig()
+        )
+        is None
+    )
+
+
+def test_spectrum_safe_policy_pin_multi_cond_grid():
+    """Flag on: pin spectrum-safe harness across cond caps; defaults stay off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    hats = {
+        0: np.array([1.0, -1.0, 0.5]),
+        1: np.array([-1.0, 0.5, 0.25]),
+    }
+    stencils = {
+        0: build_divergence_stencil(left),
+        1: build_divergence_stencil(right),
+    }
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    caps = (1e-12, 1.0, 1e6, 1e12)
+    probe = probe_spectrum_safe_policy_pin(
+        hats,
+        stencils,
+        simplices,
+        spectrum_cond_caps=caps,
+        config=DualFlowConfig(
+            enable_spectrum_safe_policy_pin_probe=True,
+            bp_max_iters=6,
+            bp_residual_stop_tol=1e-3,
+            bp_residual_stop_patience=2,
+            bp_damping=0.5,
+        ),
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert DualFlowConfig().enable_spectrum_safe_policy_pin_probe is False
+    assert DualFlowConfig().enable_bp_policy_in_loopy is False
+    assert DualFlowConfig().enable_loopy_bp_spectrum_safe_cert is False
+    assert probe.caps == caps
+    assert len(probe.cases) == len(caps)
+    # Tight cap should engage the damping-policy path on this fixture.
+    assert probe.cases[0].policy_applied is True
+    for case in probe.cases:
+        assert case.spectrum_cond_cap in caps
+        assert case.residual_stop_reason in ("abs_tol", "plateau", "max_iters")
+        assert 1 <= case.iters_executed <= case.max_iters
+        assert case.r_data >= 0.0 and case.r_cons >= 0.0
+        assert isinstance(case.spectrum_ridge_applied, bool)
+        assert isinstance(case.policy_applied, bool)
+        assert case.max_policy_damping >= 0.0
+        if (
+            case.residual_stop_reason in ("abs_tol", "plateau")
+            and not case.spectrum_ridge_applied
+        ):
+            assert case.spectrum_safe_sketch_ok is True
+        else:
+            assert case.spectrum_safe_sketch_ok is False
+    assert "harness" in probe.note.lower() or "not" in probe.note.lower()
+    assert "awaiting" in probe.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T71: fail_closed live EvidenceGate.evaluate matrix vs score_edit
+# ---------------------------------------------------------------------------
+
+
+def test_fail_closed_evidence_gate_matrix_defaults_and_parity():
+    """A5-T71: live EvidenceGate.evaluate matches score_edit matrix; defaults off."""
+
+    keep, edit, proposal, good_stars = _good_split_fixture()
+    connected = {
+        "S0": ("S1", "S2"),
+        "S1": ("S0", "S2"),
+        "S2": ("S0", "S1"),
+    }
+    disconnect = {
+        "S0": ("S1",),
+        "S1": ("S0",),
+        "S2": (),
+    }
+    probe = probe_fail_closed_evidence_gate_matrix(
+        keep,
+        edit,
+        proposal,
+        edit_stars=good_stars,
+        keep_stars=good_stars,
+        connected_adj=connected,
+        disconnect_adj=disconnect,
+        affected_simplices=["S0", "S2"],
+    )
+    assert probe.defaults_unchanged is True
+    assert probe.apply_dual_default is False
+    assert probe.fail_closed_default is False
+    assert GateConfig().apply_dual_adjacency is False
+    assert GateConfig().fail_closed_dual_adjacency is False
+    assert probe.n_cases >= 8
+    assert probe.n_matched == probe.n_cases
+    assert probe.all_matched is True
+    for case in probe.cases:
+        assert case.match is True
+        assert case.score_edit_accepted is case.expect_accept
+        assert case.evidence_gate_accepted is case.expect_accept
+    assert "awaiting" in probe.note.lower() or "default" in probe.note.lower()
