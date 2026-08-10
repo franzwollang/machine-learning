@@ -1384,3 +1384,218 @@ def test_denser_soft_x_gabriel_tau_star_export() -> None:
     assert "sample-ARI" in DENSER_SOFT_X_GABRIEL_TAU_STAR_SI_NOTE
     assert "defaults off" in DENSER_SOFT_X_GABRIEL_TAU_STAR_SI_NOTE
     assert "awaiting" in DENSER_SOFT_X_GABRIEL_TAU_STAR_SI_NOTE
+
+
+def test_denser_soft_x_gabriel_x_persist_tau_star_export() -> None:
+    """#44 / A2-T61-followon: denser soft×gabriel×persist compose@tau* export.
+
+    Triple compose does not unlock beyond T57/T60 pairwise denser
+    collapse; denser-youden seed0 nested K=2 chance-ARI≈0.01. Defaults
+    off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_H0,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_MAX_GRID_POINTS,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_MAX_NODES,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_NESTED_N,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SEEDS,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SI_NOTE,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SOFT_FRAC,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_TABLE,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_TORI_N,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_UNIFORMS,
+        format_denser_soft_x_gabriel_x_persist_tau_star_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().require_gabriel_and_h is False
+    assert abs(DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_H0 - 0.73) < 1e-9
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SEEDS == (0, 1, 2)
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_MAX_GRID_POINTS == 12
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_NESTED_N == 160
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_TORI_N == 240
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_MAX_NODES == 128
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SOFT_FRAC == 0.25
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_TABLE[0]["youden"][0] == 2
+    assert (
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_TABLE[0][
+            "soft_x_conj_x_persist"
+        ][0]
+        <= 1
+    )
+    assert (
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_TABLE[1][
+            "soft_x_conj_x_persist"
+        ][0]
+        <= 1
+    )
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_UNIFORMS["circle"][
+        "youden"
+    ] == 1
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_UNIFORMS["circle"][
+        "soft_x_conj_x_persist"
+    ] == 1
+    tsv = format_denser_soft_x_gabriel_x_persist_tau_star_table()
+    assert "soft_x_conj_x_persist" in tsv and "circle" in tsv
+    assert "compose" in DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SI_NOTE
+    assert "sample-ARI" in DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SI_NOTE
+    assert "defaults off" in DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SI_NOTE
+    assert "awaiting" in DENSER_SOFT_X_GABRIEL_X_PERSIST_TAU_STAR_SI_NOTE
+
+
+def test_soft_keep_band_x_persist_majors_export() -> None:
+    """#44 / A2-T61: non-denser soft keep-band × persist majors export.
+
+    Majors keep-band soft≤0.5 (wider than denser T55 ≤0.12); soft≥0.75
+    collapses; soft×persist e2e all ≤1. Defaults off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_COLLAPSE_MIN_FRAC,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_E2E_TABLE,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_FRACS,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_H0,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_KEEP_MAX_FRAC,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_MAX_NODES,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_NESTED_N,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_SEED,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_SI_NOTE,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_TABLE,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_TORI_N,
+        format_soft_keep_band_x_persist_majors_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert abs(SOFT_KEEP_BAND_X_PERSIST_MAJORS_H0 - 0.73) < 1e-9
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_SEED == 0
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_NESTED_N == 80
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_TORI_N == 120
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_MAX_NODES == 64
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_FRACS == (
+        0.12, 0.25, 0.5, 0.75, 0.9,
+    )
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_KEEP_MAX_FRAC == 0.5
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_COLLAPSE_MIN_FRAC == 0.75
+    # wider than denser T55 keep≤0.12
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_TABLE["soft_0.5"][2] == 2
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_TABLE["soft_0.75"][2] <= 1
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_E2E_TABLE["soft_x_persist_0.5"][0] <= 1
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_E2E_TABLE["soft_x_persist_0.5"][2] <= 1
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_E2E_TABLE["soft_0.5"][2] <= 1
+    tsv = format_soft_keep_band_x_persist_majors_table()
+    assert "soft_x_persist_0.5" in tsv and "majors" in tsv and "e2e" in tsv
+    assert "keep-band" in SOFT_KEEP_BAND_X_PERSIST_MAJORS_SI_NOTE
+    assert "wider" in SOFT_KEEP_BAND_X_PERSIST_MAJORS_SI_NOTE
+    assert "sample-ARI" in SOFT_KEEP_BAND_X_PERSIST_MAJORS_SI_NOTE
+    assert "defaults off" in SOFT_KEEP_BAND_X_PERSIST_MAJORS_SI_NOTE
+    assert "awaiting" in SOFT_KEEP_BAND_X_PERSIST_MAJORS_SI_NOTE
+
+
+def test_soft_x_gabriel_x_persist_majors_export() -> None:
+    """#44 / A2-T63: soft×gabriel×persist majors seed1 window export.
+
+    Seed1 majors soft inflate killed by conj; e2e seed1 survives
+    soft×conj×persist (majors≠e2e). Defaults off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_E2E_TABLE,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_H0,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_MAX_NODES,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_NESTED_N,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_SEEDS,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_SOFT_FRAC,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_TABLE,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_TORI_N,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_UNIFORMS,
+        format_soft_x_gabriel_x_persist_majors_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().require_gabriel_and_h is False
+    assert abs(SOFT_X_GABRIEL_X_PERSIST_MAJORS_H0 - 0.73) < 1e-9
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_SEEDS == (0, 1, 2)
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_NESTED_N == 80
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_TORI_N == 120
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_MAX_NODES == 64
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_SOFT_FRAC == 0.25
+    # seed1 majors soft inflate; conj kills it
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_TABLE[1]["soft"][0] == 2
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_TABLE[1]["soft_x_conj"][0] <= 1
+    # e2e seed1 survives soft×conj×persist
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_E2E_TABLE[1][
+        "soft_x_conj_x_persist"
+    ][0] == 2
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_UNIFORMS["circle"]["youden"] == 2
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_UNIFORMS["circle"][
+        "soft_x_conj_x_persist"
+    ] == 1
+    tsv = format_soft_x_gabriel_x_persist_majors_table()
+    assert "soft_x_conj_x_persist" in tsv and "majors" in tsv
+    assert "seed1" in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE
+    assert "majors≠e2e" in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE or (
+        "majors" in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE
+        and "e2e" in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE
+    )
+    assert "sample-ARI" in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE
+    assert "defaults off" in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE
+    assert "awaiting" in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SI_NOTE
+
+
+def test_denser_soft_keep_band_x_gabriel_majors_export() -> None:
+    """#44 / A2-T64-followon: denser soft keep-band × gabriel majors export.
+
+    T55 denser majors keep-band soft≤0.12 killed by gabriel conj; e2e
+    soft/soft×conj all ≤1. Defaults off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_COLLAPSE_MIN_FRAC,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_E2E_TABLE,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_FRACS,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_H0,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_KEEP_MAX_FRAC,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_MAX_NODES,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_NESTED_N,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_SEED,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_SI_NOTE,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_TABLE,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_TORI_N,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_UNIFORMS,
+        format_denser_soft_keep_band_x_gabriel_majors_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().require_gabriel_and_h is False
+    assert abs(DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_H0 - 0.73) < 1e-9
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_SEED == 0
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_NESTED_N == 160
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_TORI_N == 240
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_MAX_NODES == 128
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_FRACS == (
+        0.05, 0.08, 0.10, 0.12, 0.15, 0.25,
+    )
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_KEEP_MAX_FRAC == 0.12
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_COLLAPSE_MIN_FRAC == 0.15
+    # T55 keep preserved under soft; gabriel kills it
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_TABLE["soft_0.12"][2] == 2
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_TABLE[
+        "soft_x_conj_0.12"
+    ][2] <= 1
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_TABLE["soft_0.15"][2] <= 1
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_E2E_TABLE["youden"][0] == 2
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_E2E_TABLE[
+        "soft_x_conj_0.12"
+    ][0] <= 1
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_UNIFORMS["circle"][
+        "youden"
+    ] == 1
+    tsv = format_denser_soft_keep_band_x_gabriel_majors_table()
+    assert "soft_x_conj_0.12" in tsv and "majors" in tsv and "e2e" in tsv
+    assert "gabriel" in DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_SI_NOTE
+    assert "keep-band" in DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_SI_NOTE
+    assert "sample-ARI" in DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_SI_NOTE
+    assert "defaults off" in DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_SI_NOTE
+    assert "awaiting" in DENSER_SOFT_KEEP_BAND_X_GABRIEL_MAJORS_SI_NOTE
