@@ -5583,6 +5583,331 @@ def test_thr030_dense_lpeak_vs_l0_lw_mechanism_export() -> None:
     assert ScaleSearchConfig().halve_grid_steps is False
 
 
+def test_phi_half_life_x_halve_grid_off_vs_on_thr030() -> None:
+    # EXPERIMENT (A6-T93): Phi half-life × ``halve_grid_steps`` off vs on at
+    # thr=0.30 densify-recover. Standard grid collapses half-life to the next
+    # log-step (peak+1; frac≲1); densify reveals multi-step decay (T87 pins).
+    # Physical τ_half/τ_peak is larger on the coarse grid (~0.55) than densified
+    # (~0.25–0.44). Seed2 accepts only under densify. Defaults stay off.
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+    assert _WITHIN_INTERVAL_LOAD_SCREEN_MIN == 0.5
+
+    by: dict[tuple[bool, int], dict[str, object]] = {}
+    print("\nA6-T93 Phi half-life × halve_grid off vs on thr0.30")
+    header = (
+        f"{'dense':>5s} {'seed':>4s} {'acc':>3s} {'n':>3s} {'peak':>4s} "
+        f"{'half':>4s} {'frac':>7s} {'tau_r':>7s} {'LC':>3s} {'LW':>3s}"
+    )
+    print(header)
+    print("-" * len(header))
+    for dense in (False, True):
+        for seed in range(5):
+            dataset = make_hierarchical_gaussian(
+                children_per_coarse=2, n_samples=600, ambient_dim=4, seed=seed,
+            )
+            gt = dataset.ground_truth
+            assert gt.expected_tau is not None
+            tau_lo, tau_hi = gt.tau_grid_hint
+            result = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=ScaleSearchConfig(
+                    tau_min=tau_lo,
+                    tau_max=tau_hi,
+                    max_grid_points=8,
+                    k=8,
+                    n_seeds=12,
+                    min_nodes=8,
+                    max_nodes=128,
+                    ann_backend="naive",
+                    selector="persistence",
+                    stabilization=StabilizationConfig(
+                        min_equilibrium_epochs=2, max_epochs=12
+                    ),
+                    seed=seed,
+                    halve_grid_steps=dense,
+                    persistence=PersistenceConfig(
+                        resolve_within_interval="none",
+                        densify_overlap_recover="lower_threshold",
+                        densify_overlap_recover_threshold=0.30,
+                    ),
+                ),
+            )
+            assert result.persistence_result is not None
+            pr = result.persistence_result
+            accept = pr.tau_star_index is not None
+            n = len(result.phi_trace)
+            row: dict[str, object] = {
+                "accept": int(accept),
+                "n": int(n),
+                "run0": int(pr.run_lengths[0]),
+            }
+            if accept:
+                assert pr.tau_star_index == 0
+                phi = np.asarray(result.phi_trace, dtype=float)
+                load = np.asarray(result.load_trace, dtype=float)
+                taus = np.asarray(result.tau_grid, dtype=float)
+                stab = list(result.stabilized_flags)
+                i_hi = n - 1
+                finite = [
+                    idx
+                    for idx in range(0, i_hi + 1)
+                    if np.isfinite(float(phi[idx]))
+                ]
+                peak = max(finite, key=lambda i: float(phi[i]))
+                phi_p = float(phi[peak])
+                half_idx: int | None = None
+                frac_off: float | None = None
+                prev_r = 1.0
+                for off in range(1, i_hi - peak + 1):
+                    r = float(phi[peak + off]) / phi_p
+                    if r <= 0.5:
+                        half_idx = peak + off
+                        t = (
+                            (prev_r - 0.5) / (prev_r - r)
+                            if prev_r != r
+                            else 0.0
+                        )
+                        frac_off = float(off - 1) + float(t)
+                        break
+                    prev_r = r
+                assert half_idx is not None and frac_off is not None
+                tau_r = float(taus[half_idx]) / float(taus[peak])
+                idx_lw = _resolve_persistence_tau_index(
+                    pr,
+                    load,
+                    stab,
+                    PersistenceConfig(
+                        resolve_within_interval="load_weighted_interval"
+                    ),
+                )
+                idx_lc = _resolve_persistence_tau_index(
+                    pr,
+                    load,
+                    stab,
+                    PersistenceConfig(
+                        resolve_within_interval="load_crossover"
+                    ),
+                )
+                row.update(
+                    {
+                        "peak": int(peak),
+                        "half": int(half_idx),
+                        "frac": float(frac_off),
+                        "tau_r": float(tau_r),
+                        "idx_lc": int(idx_lc),
+                        "idx_lw": int(idx_lw),
+                    }
+                )
+                print(
+                    f"{int(dense):5d} {seed:4d} {1:3d} {n:3d} {peak:4d} "
+                    f"{half_idx:4d} {frac_off:7.3f} {tau_r:7.4f} "
+                    f"{idx_lc:3d} {idx_lw:3d}"
+                )
+            else:
+                print(
+                    f"{int(dense):5d} {seed:4d} {0:3d} {n:3d} "
+                    f"{'-':>4} {'-':>4} {'-':>7} {'-':>7} {'-':>3} {'-':>3}"
+                )
+            by[(dense, seed)] = row
+
+    # Accept map: standard rejects seed2; densify accepts all (T64 thr0.30).
+    for seed in (0, 1, 3, 4):
+        assert by[(False, seed)]["accept"] == 1
+        assert by[(False, seed)]["n"] == 8
+    assert by[(False, 2)]["accept"] == 0
+    assert by[(False, 2)]["run0"] == 1
+    for seed in range(5):
+        assert by[(True, seed)]["accept"] == 1
+        assert by[(True, seed)]["n"] == 16
+        assert by[(True, seed)]["run0"] == 16
+
+    # Standard: half-life collapses to peak+1 (coarse log-step).
+    expect_std_frac = {0: 0.997, 1: 0.941, 3: 0.876, 4: 0.950}
+    for seed, want in expect_std_frac.items():
+        assert int(by[(False, seed)]["peak"]) == 1
+        assert int(by[(False, seed)]["half"]) == 2
+        assert abs(float(by[(False, seed)]["frac"]) - want) < 0.05
+        assert abs(float(by[(False, seed)]["tau_r"]) - 0.5520) < 0.02
+        assert int(by[(False, seed)]["idx_lc"]) == 0
+        assert int(by[(False, seed)]["idx_lw"]) == 0
+
+    # Densify: multi-step half-life pins match T87.
+    expect_half = {0: 5, 1: 5, 2: 4, 3: 6, 4: 5}
+    expect_frac = {0: 3.907, 1: 3.489, 2: 2.771, 3: 4.044, 4: 3.724}
+    expect_tau_r = {0: 0.3299, 1: 0.3299, 2: 0.4353, 3: 0.2500, 4: 0.3299}
+    for seed, want in expect_half.items():
+        assert int(by[(True, seed)]["peak"]) == 1
+        assert int(by[(True, seed)]["half"]) == want
+        assert abs(float(by[(True, seed)]["frac"]) - expect_frac[seed]) < 0.05
+        assert abs(float(by[(True, seed)]["tau_r"]) - expect_tau_r[seed]) < 0.02
+        assert int(by[(True, seed)]["idx_lc"]) == 0
+    assert int(by[(True, 2)]["idx_lw"]) == 1
+    for seed in (0, 1, 3, 4):
+        assert int(by[(True, seed)]["idx_lw"]) == 0
+        # Densify finds a deeper τ_half/τ_peak than the coarse-grid one-step.
+        assert float(by[(True, seed)]["tau_r"]) < float(
+            by[(False, seed)]["tau_r"]
+        )
+
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
+def test_stab_skip_x_phi_half_life_correlation_thr030_dense() -> None:
+    # EXPERIMENT (A6-T94): thr=0.30 densified seeds0..4 — correlate
+    # stabilization skips with Phi half-life. Only seed2 has a near-peak
+    # stab-skip (peak unstabilized) and is the fastest half-life; fine-end
+    # skips on seeds1/3 do not predict half-life order. Defaults stay off.
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+    assert _WITHIN_INTERVAL_LOAD_SCREEN_MIN == 0.5
+
+    by: dict[int, dict[str, object]] = {}
+    print("\nA6-T94 thr0.30 densified stab-skip × Phi half-life correlation")
+    header = (
+        f"{'seed':>4s} {'peak':>4s} {'half':>4s} {'frac':>7s} {'nskp':>4s} "
+        f"{'fsa':>3s} {'nskips':>6s} {'LC':>3s} {'LW':>3s}"
+    )
+    print(header)
+    print("-" * len(header))
+    for seed in range(5):
+        dataset = make_hierarchical_gaussian(
+            children_per_coarse=2, n_samples=600, ambient_dim=4, seed=seed,
+        )
+        gt = dataset.ground_truth
+        assert gt.expected_tau is not None
+        tau_lo, tau_hi = gt.tau_grid_hint
+        result = run_scale_search(
+            dataset.points,
+            dim=gt.ambient_dim,
+            config=ScaleSearchConfig(
+                tau_min=tau_lo,
+                tau_max=tau_hi,
+                max_grid_points=8,
+                k=8,
+                n_seeds=12,
+                min_nodes=8,
+                max_nodes=128,
+                ann_backend="naive",
+                selector="persistence",
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2, max_epochs=12
+                ),
+                seed=seed,
+                halve_grid_steps=True,
+                persistence=PersistenceConfig(
+                    resolve_within_interval="none",
+                    densify_overlap_recover="lower_threshold",
+                    densify_overlap_recover_threshold=0.30,
+                ),
+            ),
+        )
+        assert result.persistence_result is not None
+        pr = result.persistence_result
+        assert pr.tau_star_index == 0
+        assert int(pr.run_lengths[0]) == 16
+        load = np.asarray(result.load_trace, dtype=float)
+        phi = np.asarray(result.phi_trace, dtype=float)
+        stab = list(result.stabilized_flags)
+        i_hi = 15
+        finite = [
+            idx for idx in range(0, i_hi + 1) if np.isfinite(float(phi[idx]))
+        ]
+        peak = max(finite, key=lambda i: float(phi[i]))
+        phi_p = float(phi[peak])
+        half_idx: int | None = None
+        frac_off: float | None = None
+        prev_r = 1.0
+        for off in range(1, i_hi - peak + 1):
+            r = float(phi[peak + off]) / phi_p
+            if r <= 0.5:
+                half_idx = peak + off
+                t = (prev_r - 0.5) / (prev_r - r) if prev_r != r else 0.0
+                frac_off = float(off - 1) + float(t)
+                break
+            prev_r = r
+        assert half_idx is not None and frac_off is not None
+        skips = [i for i in range(16) if not stab[i]]
+        near_peak_skip = int(not stab[peak])
+        fsa = next(idx for idx in range(peak + 1, i_hi + 1) if stab[idx])
+        idx_lw = _resolve_persistence_tau_index(
+            pr,
+            load,
+            stab,
+            PersistenceConfig(resolve_within_interval="load_weighted_interval"),
+        )
+        idx_lc = _resolve_persistence_tau_index(
+            pr,
+            load,
+            stab,
+            PersistenceConfig(resolve_within_interval="load_crossover"),
+        )
+        by[seed] = {
+            "peak": int(peak),
+            "half": int(half_idx),
+            "frac": float(frac_off),
+            "near": int(near_peak_skip),
+            "skips": list(skips),
+            "fsa": int(fsa),
+            "idx_lc": int(idx_lc),
+            "idx_lw": int(idx_lw),
+        }
+        print(
+            f"{seed:4d} {peak:4d} {half_idx:4d} {frac_off:7.3f} "
+            f"{near_peak_skip:4d} {fsa:3d} {str(skips):>6s} "
+            f"{idx_lc:3d} {idx_lw:3d}"
+        )
+
+    # Half-life / topology pins match T87; fsa=2 always (T81).
+    expect_half = {0: 5, 1: 5, 2: 4, 3: 6, 4: 5}
+    expect_frac = {0: 3.907, 1: 3.489, 2: 2.771, 3: 4.044, 4: 3.724}
+    expect_skips = {
+        0: [],
+        1: [14, 15],
+        2: [1, 13, 14, 15],
+        3: [15],
+        4: [],
+    }
+    for seed in range(5):
+        assert int(by[seed]["peak"]) == 1
+        assert int(by[seed]["fsa"]) == 2
+        assert int(by[seed]["half"]) == expect_half[seed]
+        assert abs(float(by[seed]["frac"]) - expect_frac[seed]) < 0.05
+        assert list(by[seed]["skips"]) == expect_skips[seed]
+        assert int(by[seed]["idx_lc"]) == 0
+
+    # Near-peak stab-skip is the seed2 singleton; coincides with fastest half-life.
+    assert int(by[2]["near"]) == 1
+    for seed in (0, 1, 3, 4):
+        assert int(by[seed]["near"]) == 0
+    assert float(by[2]["frac"]) == min(float(by[s]["frac"]) for s in range(5))
+    # Fine-end skips alone do not predict half-life order (seed1 skips, seed3
+    # skips one, but seed0/4 have empty skips and sit between them).
+    assert (
+        float(by[2]["frac"])
+        < float(by[1]["frac"])
+        < float(by[4]["frac"])
+        < float(by[0]["frac"])
+        < float(by[3]["frac"])
+    )
+    assert int(by[2]["idx_lw"]) == 1
+    for seed in (0, 1, 3, 4):
+        assert int(by[seed]["idx_lw"]) == 0
+
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
 def test_default_selector_is_load_crossover() -> None:
     # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
     assert ScaleSearchConfig().selector == "load_crossover"
