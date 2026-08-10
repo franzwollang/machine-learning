@@ -198,6 +198,14 @@ Remaining work:
   (frac≲1, `tau_r≈0.55`; seed2 reject) vs densify multi-step T87
   pins + deeper `tau_r`. Near-peak stab-skip ≡ seed2 ≡ fastest
   half-life. Paper pins. Keep default none. Do **not** flip default.
+- **Landed (A6-T96..T102):** half-life×halve×thr floors — std accept
+  `{0,1,3,4}` thr-invariant; densify keeps T64; seed2 unique
+  near-peak∧`|log L|`favors peak∧LW≠coarse. thr0.30 densify half-life
+  uniquely closest to **mid** (gaps 2/2/3/1/2; half always coarser
+  than mid; densify-flip `2/3` farther) — proximity ≠ fine-leaf
+  fraction. Circle/swiss half-life without persist (circle 4/6→8/12,
+  swiss 4/5→8/10 under densify). Paper pins. Keep default none.
+  Do **not** flip default.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -401,8 +409,15 @@ re-searched *finer* scales inside a single feature.
   (conj/persist/soft×persist ≤1); soft×gabriel majors keep window is
   **NOT seed-stable** (seed0-only soft≤0.12→tori K=2; seeds1–2 ≤1). Soft
   ≠ sample-ARI. **Do not flip awaiting.**
-- **Remaining:** denser soft keep×gabriel×persist majors multi-seed /
-  youden×majors compose; fuller suite green with **sample-ARI** → retire
+- **FINDING (A2-T72..T73):** denser soft keep×gabriel×persist majors-pin
+  multi-seed confirm — lean fracs `{0.05,0.12,0.15}`: seed0 soft≤0.12→tori
+  K=2 (gabriel kills; soft≥0.15 collapses); seeds1–2 all≤1 (**NOT**
+  seed-stable); soft×persist e2e all≤1. denser kills T63 seed1 soft@0.25
+  nested majors inflate (seeds1–2 soft@0.05/0.12/0.25 all≤1; no soft-
+  inflate for gabriel to kill); seed0 keep singleton. Soft ≠ sample-ARI.
+  **Do not flip awaiting.**
+- **Remaining:** denser soft keep×gabriel×persist youden×majors compose /
+  seed0-only ARI probe; fuller suite green with **sample-ARI** → retire
   radial/PCA family + awaiting-flip review (A1 sign-off). Distinct from
   #28. Post-track: open #45 open-loop / `max_nodes`
   (`reference/open_loop_growth_and_node_cap.md`) into M4.
@@ -555,9 +570,15 @@ circle `b1 = 1` target of #25.
   cal4≤0.20 + mult3@0.22 residual (proposal-path ONLY). seed7
   erase×lifetime soft / mst / soft_capacity: dirty-b2 only — never
   clean `(1,2,1)`. Keep `@awaiting`.
-- **Remaining before flipping recovery tests:** densify304 non-mono
-  probe; tissue0.12×mult3×noise≥0.25; seed7 erase recovery path; keep
-  recovery `@awaiting` until SI-default fitted evidence is green.
+- **FINDING (A4-T95..T100):** densify304/306 mild-only; 310 full recover
+  — cliff map 296full/300mild/304mild/306mild/308full/310full/312fail.
+  tissue0.12 mult3 residual dies by noise=0.25 (survives only@0.22);
+  mult3@0.22 transfers to tissue{0.10,0.15} (proposal-path ONLY).
+  erase×mid×h0 / bridge_critical / bridge_mass: dirty-b2 reintro on
+  baseline — never clean `(1,2,1)`. Keep `@awaiting`.
+- **Remaining before flipping recovery tests:** densify302/314 fine-pin;
+  mult3×tissue0.12×noise0.23/0.24 edge; seed7 erase×bridge×persist path;
+  keep recovery `@awaiting` until SI-default fitted evidence is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -663,3 +684,10 @@ circle `b1 = 1` target of #25.
   acceptance flip. Mass/density/benchmark stay `@awaiting`. **Do not
   close #43** until acceptance-path default replaces the conservative
   open default / fuller S6.
+- **Landed (A5-T94..T99):** residual traj×fail_closed dry_run EG +
+  spectrum traj×EG matrix + residual patience×cap×dry_run EG +
+  spectrum traj×dry_run EG + residual traj×EG matrix + residual
+  patience×cap×fail_closed reconnect (`enable_*` / `probe_*`; flags
+  off; dual 153→159p). Do **not** flip spectrum-safe/policy/mass/
+  enable_dual defaults; mass/density/benchmark stay `@awaiting`.
+  **Do not close #43.**

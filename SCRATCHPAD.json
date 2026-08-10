@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-10T05:50:00Z",
-  "turn": 61,
+  "updated_at": "2026-08-10T06:40:00Z",
+  "turn": 62,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "MERGE_DONE triple-scoop; queues T72+/T89+/T95+/T94+/T96+"
+    "goal": "MERGE_DONE quad-scoop; queues T74+/T92+/T101+/T100+/T103+"
   },
   "recent": [
-    "Triple-scoop A2-T70/T71 + A3 SI + A4-T89..T94 + A5-T88..T93 + A6-T90..T95",
-    "densify cliff NON-MONOTONIC 296/300/308/312",
-    "half-life thr-invariant; LW |log L| seed2-only"
+    "Quad-scoop A2-T72/T73 + A3 SI + A4-T95..T100 + A5-T94..T99 + A6-T96..T102",
+    "densify306 mild/310 full; mult3@0.22 tissue-robust",
+    "half-life mid-closest; circle/swiss densify doubles"
   ],
   "discoveries": [
-    "youden denser mid-band singleton; majors keep NOT seed-stable",
-    "densify308 recovers after 300 mild; cliff non-mono",
-    "near-peak stab-skip\equiv seed2\equiv fastest Phi half-life"
+    "majors-pin multi-seed NOT seed-stable; denser kills seed1 soft inflate",
+    "erase bridge/mass same dirty-reintro class as MST",
+    "half-life proximity≠fine-leaf; mid uniquely closest"
   ],
   "open_threads": [
-    "A2-T72 majors multi-seed; A3 SI T89..T91",
-    "A4 densify304; A5 T94 bridges; A6 half-life\times thr",
+    "A2-T74 youden×majors compose; A3 SI T92..T94",
+    "A4 densify302/314; A5 T100 bridges; A6 half-life×LW",
     "#45 deferred until #44 sample-ARI"
   ],
-  "next_step": "Push MERGE_DONE; workers pull; next turn scoop T72+/T95+",
+  "next_step": "Push MERGE_DONE; workers pull; next turn scoop T74+/T101+",
   "blockers": []
 }
