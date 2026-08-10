@@ -82,9 +82,15 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   harness only; does not flip ``@awaiting``). A spectrum-safe × policy ×
   mass_loopy *patience compose* lands behind
   ``enable_spectrum_safe_policy_mass_patience_probe`` (A5-T81; harness
-  only; does not flip ``@awaiting``). Remaining real-BP gaps: true
-  spectrum-safe production loopy BP certificate; true-manifold flux
-  zeroing (S6.3).
+  only; does not flip ``@awaiting``). A residual-stop × mass_loopy ×
+  policy-in-loopy *cap sweep* lands behind
+  ``enable_residual_mass_policy_cap_probe`` (A5-T82; proposal-path;
+  does not flip ``@awaiting``). A spectrum×policy×mass traj ×
+  fail_closed EvidenceGate *matrix bridge* lands behind
+  ``enable_spectrum_policy_mass_traj_fail_closed_bridge_probe``
+  (A5-T83; harness only; does not flip ``@awaiting``). Remaining
+  real-BP gaps: true spectrum-safe production loopy BP certificate;
+  true-manifold flux zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
   seams land behind ``enable_boundary_taxonomy`` (proposed; default off).
   Heuristic single-owner → true-manifold; hint sets override. Seam stitch /
@@ -237,6 +243,17 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
   ``None``; when on, sweeps ``bp_residual_stop_patience`` under
   spectrum-safe×policy pin + mass×loopy compose (A5-T81; harness only
   — **not** a production certificate; does not flip ``@awaiting``).
+* ``DualFlowConfig.enable_residual_mass_policy_cap_probe`` — when off,
+  :func:`probe_residual_mass_policy_cap` returns ``None``; when on,
+  cap-sweeps mass×loopy compose with residual-stop **and**
+  ``enable_bp_policy_in_loopy`` (A5-T82; proposal-path; does not flip
+  ``@awaiting``).
+* ``DualFlowConfig.enable_spectrum_policy_mass_traj_fail_closed_bridge_probe``
+  — when off,
+  :func:`probe_spectrum_policy_mass_traj_fail_closed_bridge` returns
+  ``None``; when on, bridges spectrum×policy×mass traj with fail_closed
+  dry_run reconnect×EvidenceGate (A5-T83; harness only; does not flip
+  ``@awaiting`` / GateConfig defaults).
 * Call sites that opt in (tests / experimental dry-runs) pass flags ``True``
   and feed results into the gate or diagnostics.
 
@@ -384,6 +401,8 @@ __all__ = [
     "probe_residual_mass_policy_patience",
     "probe_spectrum_policy_mass_fail_closed_bridge",
     "probe_spectrum_safe_policy_mass_patience",
+    "probe_residual_mass_policy_cap",
+    "probe_spectrum_policy_mass_traj_fail_closed_bridge",
     "probe_fail_closed_dual_adjacency_plan",
     "probe_gate_fail_closed_switch",
 ]
@@ -610,6 +629,18 @@ class DualFlowConfig:
         under spectrum-safe×policy pin + mass×loopy compose at
         ``spectrum_cond_cap`` (A5-T81; harness only — **not** a
         production certificate; does not flip ``@awaiting``).
+    enable_residual_mass_policy_cap_probe:
+        When ``False`` (default),
+        :func:`probe_residual_mass_policy_cap` returns ``None``. When
+        ``True``, cap-sweeps mass×loopy compose with residual-stop
+        early-exit **and** ``enable_bp_policy_in_loopy`` (A5-T82;
+        proposal-path; does not flip mass/density ``@awaiting``).
+    enable_spectrum_policy_mass_traj_fail_closed_bridge_probe:
+        When ``False`` (default),
+        :func:`probe_spectrum_policy_mass_traj_fail_closed_bridge`
+        returns ``None``. When ``True``, bridges spectrum×policy×mass
+        traj with fail_closed dry_run reconnect×EvidenceGate (A5-T83;
+        harness only; does not flip ``@awaiting`` / GateConfig).
     bp_residual_stop_tol:
         Absolute plateau tolerance on ``|Δr_data|`` / ``|Δr_cons|`` for
         the residual-stop sketch / early-exit (default ``1e-3``).
@@ -693,6 +724,8 @@ class DualFlowConfig:
     enable_residual_mass_policy_patience_probe: bool = False
     enable_spectrum_policy_mass_fail_closed_bridge_probe: bool = False
     enable_spectrum_safe_policy_mass_patience_probe: bool = False
+    enable_residual_mass_policy_cap_probe: bool = False
+    enable_spectrum_policy_mass_traj_fail_closed_bridge_probe: bool = False
     bp_residual_stop_tol: float = 1e-3
     bp_residual_stop_patience: int = 2
     bp_damping: float = 0.5
@@ -6432,4 +6465,285 @@ def probe_spectrum_safe_policy_mass_patience(
         patience_grid=grid,
         spectrum_cond_cap=cap,
         cases=tuple(cases),
+    )
+
+
+@dataclass(frozen=True)
+class ResidualMassPolicyCapCase:
+    """One ``spectrum_cond_cap`` cell of residual×mass×policy cap sweep (A5-T82)."""
+
+    spectrum_cond_cap: float
+    epsilon_mass: float
+    mass_total_before: float
+    compose_n_samples: int
+    compose_n_online_simplices: int
+    compose_loopy_message_updates: int
+    compose_loopy_r_cons: float
+    compose_policy_applied: bool
+    compose_spectrum_ridge_applied: bool
+    compose_residual_stop_enabled: bool
+    compose_residual_stop_reason: str | None
+    compose_loopy_iters: int
+    compose_max_iters: int
+
+
+@dataclass(frozen=True)
+class ResidualMassPolicyCapProbe:
+    """Residual-stop × mass_loopy × policy cap sweep (SI S6.2; A5-T82).
+
+    Mass-normalizes online winners once, then for each ``spectrum_cond_cap``
+    runs online→offline loopy compose under residual-stop early-exit
+    with ``enable_bp_policy_in_loopy``. Proposal-path only — **not** a
+    production certificate. Do **not** flip mass/density ``@awaiting``.
+    """
+
+    probe_flag_default_off: bool
+    caps: tuple[float, ...]
+    cases: tuple[ResidualMassPolicyCapCase, ...]
+    note: str = (
+        "sketch only: mass-norm × policy-in-loopy × loopy compose "
+        "residual-stop spectrum_cond_cap sweep; not a production "
+        "certificate; do not flip mass/density @awaiting"
+    )
+
+
+def probe_residual_mass_policy_cap(
+    samples: Sequence[np.ndarray],
+    simplex_positions: Mapping[Hashable, np.ndarray],
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]],
+    *,
+    masses: Mapping[Hashable, float] | None = None,
+    spectrum_cond_caps: Sequence[float] | None = None,
+    config: DualFlowConfig | None = None,
+) -> ResidualMassPolicyCapProbe | None:
+    """Cap-sweep mass×policy×loopy compose under residual-stop (A5-T82).
+
+    When ``enable_residual_mass_policy_cap_probe`` is off, returns
+    ``None``. When on:
+
+    1. **Mass** — mass-normalize online winners.
+    2. **Cap sweep** — for each cap in ``spectrum_cond_caps`` (default
+       ``(1e-12, 1.0, 1e6, 1e12)``), run online→offline loopy compose
+       with residual-stop early-exit **and** ``enable_bp_policy_in_loopy``.
+
+    Does **not** flip mass/density ``@awaiting``.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_residual_mass_policy_cap_probe:
+        return None
+    if not samples:
+        raise ValueError("samples must be non-empty")
+    if not simplex_positions:
+        raise ValueError("simplex_positions must be non-empty")
+    caps = tuple(
+        float(c)
+        for c in (
+            spectrum_cond_caps
+            if spectrum_cond_caps is not None
+            else (1e-12, 1.0, 1e6, 1e12)
+        )
+    )
+    if not caps:
+        raise ValueError("spectrum_cond_caps must be non-empty")
+    if any(not np.isfinite(c) or c <= 0.0 for c in caps):
+        raise ValueError("spectrum_cond_caps must be finite and > 0")
+
+    tally_cfg = DualFlowConfig(
+        enable_live_bmu_tally=True,
+        tally_scale=float(cfg.tally_scale),
+    )
+    live = route_live_bmu_face_tallies(
+        samples, simplex_positions, config=tally_cfg
+    )
+    if live is None:
+        raise RuntimeError("live BMU tallies unexpectedly None")
+
+    if masses is None:
+        mass_map: dict[Hashable, float] = {
+            sid: 1.0 for sid in live.tallies_by_simplex
+        }
+    else:
+        mass_map = {k: float(v) for k, v in masses.items()}
+    if not mass_map:
+        raise ValueError(
+            "masses must be non-empty for residual×mass×policy cap sweep"
+        )
+
+    mass_cfg = DualFlowConfig(enable_mass_normalization=True)
+    mass_out = normalize_simplex_masses(mass_map, config=mass_cfg)
+    if mass_out is None:
+        raise RuntimeError("mass normalization unexpectedly None under probe cfg")
+
+    compose_max = max(int(cfg.bp_max_iters), 4)
+    cases: list[ResidualMassPolicyCapCase] = []
+    for cap in caps:
+        compose_cfg = DualFlowConfig(
+            enable_online_offline_loopy_compose=True,
+            enable_loopy_bp_residual_stop=True,
+            enable_bp_policy_in_loopy=True,
+            bp_damping=float(cfg.bp_damping),
+            bp_max_iters=compose_max,
+            bp_residual_stop_tol=float(cfg.bp_residual_stop_tol),
+            bp_residual_stop_patience=int(cfg.bp_residual_stop_patience),
+            tally_scale=float(cfg.tally_scale),
+            mu_scale=float(cfg.mu_scale),
+            as_eps=float(cfg.as_eps),
+            whiten_floor=float(cfg.whiten_floor),
+            spectrum_cond_cap=float(cap),
+            enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+        )
+        compose = run_online_offline_loopy_compose(
+            samples, simplex_positions, simplices, config=compose_cfg
+        )
+        if compose is None:
+            raise RuntimeError(
+                "loopy compose unexpectedly None under residual×mass×policy cap cfg"
+            )
+        cases.append(
+            ResidualMassPolicyCapCase(
+                spectrum_cond_cap=float(cap),
+                epsilon_mass=float(mass_out.epsilon_mass),
+                mass_total_before=float(mass_out.total_before),
+                compose_n_samples=int(compose.n_samples),
+                compose_n_online_simplices=int(compose.n_online_simplices),
+                compose_loopy_message_updates=int(compose.loopy_message_updates),
+                compose_loopy_r_cons=float(compose.loopy_r_cons),
+                compose_policy_applied=bool(compose.loopy_policy_applied),
+                compose_spectrum_ridge_applied=bool(
+                    compose.loopy_spectrum_ridge_applied
+                ),
+                compose_residual_stop_enabled=bool(
+                    compose.loopy_residual_stop_enabled
+                ),
+                compose_residual_stop_reason=compose.loopy_residual_stop_reason,
+                compose_loopy_iters=int(compose.loopy_iters),
+                compose_max_iters=compose_max,
+            )
+        )
+
+    return ResidualMassPolicyCapProbe(
+        probe_flag_default_off=not DualFlowConfig().enable_residual_mass_policy_cap_probe,
+        caps=caps,
+        cases=tuple(cases),
+    )
+
+
+@dataclass(frozen=True)
+class SpectrumPolicyMassTrajFailClosedBridgeProbe:
+    """Spectrum×policy×mass traj × fail_closed reconnect bridge (A5-T83).
+
+    Harness only — packages :func:`probe_spectrum_safe_policy_mass_traj`
+    with :func:`proteus.evidence.gate.probe_fail_closed_dry_run_reconnect_bridge`.
+    Does **not** flip mass/density ``@awaiting`` or GateConfig defaults.
+    """
+
+    probe_flag_default_off: bool
+    spectrum_mass_traj: SpectrumSafePolicyMassTrajProbe
+    fail_closed_reconnect_all_matched: bool
+    fail_closed_n_cases: int
+    fail_closed_n_matched: int
+    fail_closed_disconnect_connected: bool
+    fail_closed_reconnect_connected: bool
+    gate_apply_dual_default: bool
+    gate_fail_closed_default: bool
+    dual_adjacency_default: bool
+    note: str = (
+        "harness only: spectrum×policy×mass traj bridged to "
+        "fail_closed dry_run disconnect→reconnect × EvidenceGate; "
+        "defaults unchanged; do not flip @awaiting / apply_dual / "
+        "fail_closed / enable_dual_adjacency"
+    )
+
+
+def probe_spectrum_policy_mass_traj_fail_closed_bridge(
+    samples: Sequence[np.ndarray],
+    simplex_positions: Mapping[Hashable, np.ndarray],
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]],
+    keep_region: Sequence[object],
+    edit_region: Sequence[object],
+    proposal: object,
+    *,
+    masses: Mapping[Hashable, float] | None = None,
+    spectrum_cond_caps: Sequence[float] | None = None,
+    max_traj_iters: int | None = None,
+    edit_stars: Mapping[int, np.ndarray] | None = None,
+    keep_stars: Mapping[int, np.ndarray] | None = None,
+    complex_path: object | None = None,
+    config: DualFlowConfig | None = None,
+) -> SpectrumPolicyMassTrajFailClosedBridgeProbe | None:
+    """Bridge spectrum×policy×mass traj with fail_closed reconnect (A5-T83).
+
+    When ``enable_spectrum_policy_mass_traj_fail_closed_bridge_probe`` is
+    off, returns ``None``. When on:
+
+    1. Run :func:`probe_spectrum_safe_policy_mass_traj` (flag forced on
+       for the nested call).
+    2. Run gate :func:`probe_fail_closed_dry_run_reconnect_bridge` on the
+       provided edit regions / proposal.
+
+    Does **not** flip mass/density ``@awaiting`` or GateConfig defaults.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_spectrum_policy_mass_traj_fail_closed_bridge_probe:
+        return None
+    if not samples:
+        raise ValueError("samples must be non-empty")
+
+    from proteus.evidence.gate import (
+        GateConfig,
+        probe_fail_closed_dry_run_reconnect_bridge,
+    )
+
+    nested = DualFlowConfig(
+        enable_spectrum_safe_policy_mass_traj_probe=True,
+        bp_damping=float(cfg.bp_damping),
+        bp_max_iters=max(int(cfg.bp_max_iters), 4),
+        bp_residual_stop_tol=float(cfg.bp_residual_stop_tol),
+        bp_residual_stop_patience=int(cfg.bp_residual_stop_patience),
+        tally_scale=float(cfg.tally_scale),
+        mu_scale=float(cfg.mu_scale),
+        as_eps=float(cfg.as_eps),
+        whiten_floor=float(cfg.whiten_floor),
+        spectrum_cond_cap=float(cfg.spectrum_cond_cap),
+        enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+    )
+    spectrum_mass_traj = probe_spectrum_safe_policy_mass_traj(
+        samples,
+        simplex_positions,
+        simplices,
+        masses=masses,
+        spectrum_cond_caps=spectrum_cond_caps,
+        max_traj_iters=max_traj_iters,
+        config=nested,
+    )
+    if spectrum_mass_traj is None:
+        raise RuntimeError(
+            "spectrum×policy×mass traj unexpectedly None under bridge cfg"
+        )
+
+    fc = probe_fail_closed_dry_run_reconnect_bridge(
+        keep_region,  # type: ignore[arg-type]
+        edit_region,  # type: ignore[arg-type]
+        proposal,  # type: ignore[arg-type]
+        edit_stars=edit_stars,
+        keep_stars=keep_stars,
+        complex_path=complex_path,
+    )
+    gate_defaults = GateConfig()
+    dual_defaults = DualFlowConfig()
+    return SpectrumPolicyMassTrajFailClosedBridgeProbe(
+        probe_flag_default_off=not DualFlowConfig().enable_spectrum_policy_mass_traj_fail_closed_bridge_probe,
+        spectrum_mass_traj=spectrum_mass_traj,
+        fail_closed_reconnect_all_matched=bool(fc.all_matched),
+        fail_closed_n_cases=int(fc.n_cases),
+        fail_closed_n_matched=int(fc.n_matched),
+        fail_closed_disconnect_connected=bool(fc.disconnect_connected),
+        fail_closed_reconnect_connected=bool(fc.reconnect_connected),
+        gate_apply_dual_default=bool(gate_defaults.apply_dual_adjacency),
+        gate_fail_closed_default=bool(gate_defaults.fail_closed_dual_adjacency),
+        dual_adjacency_default=bool(dual_defaults.enable_dual_adjacency),
     )
