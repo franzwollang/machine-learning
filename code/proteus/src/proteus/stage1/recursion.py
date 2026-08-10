@@ -233,6 +233,9 @@ class RecursionConfig:
     A2-T54: soft×persist_agree at operational tau* e2e — seed1 nested
     K=2 chance-ARI survives soft×persist (majors-absent ≠ e2e kill);
     defaults off.
+    A2-T55: denser soft×Youden seed0 tori ARI window — soft_frac≤0.12
+    keeps tori K=2 chance-ARI; soft≥0.15 collapses (tighter than T50);
+    defaults off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +

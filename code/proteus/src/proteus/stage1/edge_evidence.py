@@ -156,6 +156,12 @@ class HollowEdgeConfig:
     see :data:`SOFT_X_PERSIST_TAU_STAR_*`. Seed1 nested K=2 chance-ARI
     survives soft×persist; majors-absent (T52) ≠ e2e leaf recovery.
     Defaults off.
+
+    A2-T55: denser soft×Youden seed0 tori ARI window — see
+    :data:`DENSER_SOFT_SEED0_TORI_ARI_WINDOW_*`. Fine soft_frac grid on
+    denser scaffolds: soft_frac≤0.12 keeps tori K=2 chance-ARI≈0.16–0.18;
+    soft≥0.15 collapses to 1 (tighter than T50's soft≥0.25 coarse grid).
+    Nested stays ≤1. Still not sample-ARI recovery; defaults off.
     """
 
     mid_radius_frac: float = 0.35
@@ -1451,6 +1457,90 @@ def format_soft_x_persist_tau_star_table() -> str:
         for mode, leaves in mode_table.items():
             lines.append(f"{dataset}\t{mode}\t{leaves}")
     lines.append(f"# {SOFT_X_PERSIST_TAU_STAR_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Denser soft×Youden seed0 tori ARI window (A2-T55 → A3 SI)
+# ---------------------------------------------------------------------------
+# denser n=160/240, max_nodes=128, seed0 only. Fine soft_frac grid around
+# the T50 soft_0.1 keep / soft≥0.25 collapse coarse boundary. Measured:
+# soft_frac∈{0.05,0.08,0.10,0.12} → tori K=2 chance-ARI≈0.16–0.18;
+# soft≥0.15 → collapse K=1. Nested ≤1 throughout. Tighter window than
+# T50's 0.1-vs-0.25 coarse grid; still not sample-ARI recovery.
+
+DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SEED: int = 0
+DENSER_SOFT_SEED0_TORI_ARI_WINDOW_FRACS: tuple[float, ...] = (
+    0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25,
+)
+DENSER_SOFT_SEED0_TORI_ARI_WINDOW_NESTED_N: int = DENSER_PROPOSED_H0_NESTED_N
+DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TORI_N: int = DENSER_PROPOSED_H0_TORI_N
+DENSER_SOFT_SEED0_TORI_ARI_WINDOW_MAX_NODES: int = DENSER_PROPOSED_H0_MAX_NODES
+DENSER_SOFT_SEED0_TORI_ARI_WINDOW_NESTED_TAU: float = 0.27
+DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TORI_TAU: float = 0.5
+DENSER_SOFT_SEED0_TORI_ARI_WINDOW_METHOD: str = "betweenness"
+DENSER_SOFT_SEED0_TORI_ARI_WINDOW_H0: float = PROPOSED_H0_YOUDEN
+DENSER_SOFT_SEED0_TORI_ARI_WINDOW_KEEP_MAX_FRAC: float = 0.12
+DENSER_SOFT_SEED0_TORI_ARI_WINDOW_COLLAPSE_MIN_FRAC: float = 0.15
+
+# mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TABLE: dict[
+    str, tuple[int, float | None, int, float | None]
+] = {
+    "youden": (1, None, 2, 0.14),
+    "soft_0.05": (1, None, 2, 0.16),
+    "soft_0.08": (1, None, 2, 0.16),
+    "soft_0.1": (1, None, 2, 0.18),
+    "soft_0.12": (1, None, 2, 0.18),
+    "soft_0.15": (1, None, 1, None),
+    "soft_0.18": (1, None, 1, None),
+    "soft_0.2": (1, None, 1, None),
+    "soft_0.25": (1, None, 1, None),
+}
+
+DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SI_NOTE: str = (
+    "A2-T55 denser soft×Youden seed0 tori ARI window "
+    "(n=160/240, max_nodes=128, mid=0.5 gabriel=False + betweenness): "
+    "fine soft_frac grid shows keep band soft_frac≤0.12 → tori K=2 "
+    "chance-ARI≈0.16–0.18; soft≥0.15 collapses to 1 (tighter than T50 "
+    "soft≥0.25 coarse claim). Nested ≤1 throughout. Chance-ARI ≠ "
+    "sample-ARI recovery; defaults off; no awaiting flip."
+)
+
+
+def format_denser_soft_seed0_tori_ari_window_table() -> str:
+    """TSV export of denser soft×Youden seed0 tori ARI window (A2-T55)."""
+
+    lines = [
+        "# denser soft × Youden seed0 tori ARI window",
+        f"# nested_n={DENSER_SOFT_SEED0_TORI_ARI_WINDOW_NESTED_N} "
+        f"tori_n={DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TORI_N} "
+        f"max_nodes={DENSER_SOFT_SEED0_TORI_ARI_WINDOW_MAX_NODES} "
+        f"h0={DENSER_SOFT_SEED0_TORI_ARI_WINDOW_H0:g} "
+        f"method={DENSER_SOFT_SEED0_TORI_ARI_WINDOW_METHOD} "
+        f"seed={DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SEED} "
+        f"fracs={list(DENSER_SOFT_SEED0_TORI_ARI_WINDOW_FRACS)} "
+        f"keep_max={DENSER_SOFT_SEED0_TORI_ARI_WINDOW_KEEP_MAX_FRAC:g} "
+        f"collapse_min={DENSER_SOFT_SEED0_TORI_ARI_WINDOW_COLLAPSE_MIN_FRAC:g}",
+        "seed\tmode\tdataset\ttau\tmajors\tsample_ari",
+    ]
+    seed = DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SEED
+    for mode, (nm, na, tm, ta) in (
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TABLE.items()
+    ):
+        na_s = "" if na is None else f"{na:.2f}"
+        ta_s = "" if ta is None else f"{ta:.2f}"
+        lines.append(
+            f"{seed}\t{mode}\tnested\t"
+            f"{DENSER_SOFT_SEED0_TORI_ARI_WINDOW_NESTED_TAU:g}\t"
+            f"{nm}\t{na_s}"
+        )
+        lines.append(
+            f"{seed}\t{mode}\ttori\t"
+            f"{DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TORI_TAU:g}\t"
+            f"{tm}\t{ta_s}"
+        )
+    lines.append(f"# {DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SI_NOTE}")
     return "\n".join(lines)
 
 

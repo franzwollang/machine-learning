@@ -1130,3 +1130,46 @@ def test_soft_x_persist_tau_star_export() -> None:
     assert "sample-ARI" in SOFT_X_PERSIST_TAU_STAR_SI_NOTE
     assert "defaults off" in SOFT_X_PERSIST_TAU_STAR_SI_NOTE
     assert "awaiting" in SOFT_X_PERSIST_TAU_STAR_SI_NOTE
+
+
+def test_denser_soft_seed0_tori_ari_window_export() -> None:
+    """#44 / A2-T55: denser soft×Youden seed0 tori ARI window export.
+
+    Keep band soft_frac≤0.12 → tori K=2; soft≥0.15 collapses. Defaults
+    off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_COLLAPSE_MIN_FRAC,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_FRACS,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_H0,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_KEEP_MAX_FRAC,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_MAX_NODES,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_NESTED_N,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SEED,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SI_NOTE,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TABLE,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TORI_N,
+        format_denser_soft_seed0_tori_ari_window_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert abs(DENSER_SOFT_SEED0_TORI_ARI_WINDOW_H0 - 0.73) < 1e-9
+    assert DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SEED == 0
+    assert DENSER_SOFT_SEED0_TORI_ARI_WINDOW_NESTED_N == 160
+    assert DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TORI_N == 240
+    assert DENSER_SOFT_SEED0_TORI_ARI_WINDOW_MAX_NODES == 128
+    assert DENSER_SOFT_SEED0_TORI_ARI_WINDOW_FRACS == (
+        0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25,
+    )
+    assert DENSER_SOFT_SEED0_TORI_ARI_WINDOW_KEEP_MAX_FRAC == 0.12
+    assert DENSER_SOFT_SEED0_TORI_ARI_WINDOW_COLLAPSE_MIN_FRAC == 0.15
+    assert DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TABLE["soft_0.12"][2] == 2
+    assert DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TABLE["soft_0.15"][2] <= 1
+    assert DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TABLE["youden"][2] == 2
+    tsv = format_denser_soft_seed0_tori_ari_window_table()
+    assert "seed0" in tsv and "soft_0.12" in tsv and "soft_0.15" in tsv
+    assert "keep band" in DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SI_NOTE
+    assert "sample-ARI" in DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SI_NOTE
+    assert "defaults off" in DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SI_NOTE
+    assert "awaiting" in DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SI_NOTE

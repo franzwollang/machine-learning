@@ -3725,3 +3725,97 @@ def test_soft_x_persist_tau_star_nested_tori_ari() -> None:
     assert SOFT_X_PERSIST_TAU_STAR_TABLE[1]["soft_x_persist"][0] == 2
     assert SOFT_X_PERSIST_TAU_STAR_UNIFORMS["circle"]["soft_x_persist"] == 1
     assert recovered == 0
+
+
+def test_denser_soft_seed0_tori_ari_window_nested_tori() -> None:
+    """#44 / A2-T55: denser soft×Youden seed0 tori ARI window.
+
+    Fine soft_frac grid on denser scaffolds: soft_frac≤0.12 keeps tori
+    K=2 chance-ARI; soft≥0.15 collapses (tighter than T50 soft≥0.25).
+    Nested ≤1. Not sample-ARI recovery; flags off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_COLLAPSE_MIN_FRAC,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_FRACS,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_KEEP_MAX_FRAC,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_MAX_NODES,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_NESTED_N,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SEED,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TABLE,
+        DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TORI_N,
+        proposed_h0_calibrated_config,
+    )
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().hollow_h0 == 0.35
+    assert RecursionConfig().hollow_soft_capacity_only is False
+
+    seed = DENSER_SOFT_SEED0_TORI_ARI_WINDOW_SEED
+    nested = make_nested_spheres(
+        n_per_sphere=DENSER_SOFT_SEED0_TORI_ARI_WINDOW_NESTED_N,
+        extrusion_dim=1, seed=seed,
+    )
+    tori = make_linked_tori(
+        n_per_torus=DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TORI_N,
+        seed=seed,
+    )
+
+    def _adapt(points, tau: float):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8,
+            max_nodes=DENSER_SOFT_SEED0_TORI_ARI_WINDOW_MAX_NODES,
+            ann_backend="naive", rng=np.random.default_rng(seed),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    sc_n = _adapt(nested.points, 0.27)
+    sc_t = _adapt(tori.points, 0.5)
+    cfgs: dict[str, object] = {
+        "youden": proposed_h0_calibrated_config("youden"),
+    }
+    for frac in DENSER_SOFT_SEED0_TORI_ARI_WINDOW_FRACS:
+        cfgs[f"soft_{frac:g}"] = proposed_h0_calibrated_config(
+            "youden",
+            soft_capacity_only=True,
+            soft_capacity_frac=float(frac),
+        )
+
+    recovered = 0
+    for mode, cfg in cfgs.items():
+        nm, na = _hollow_majors_and_sample_ari(
+            sc_n, nested.points, nested.labels, cfg,
+        )
+        tm, ta = _hollow_majors_and_sample_ari(
+            sc_t, tori.points, tori.labels, cfg,
+        )
+        exp_nm, exp_na, exp_tm, exp_ta = (
+            DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TABLE[mode]
+        )
+        assert nm == exp_nm
+        assert tm == exp_tm
+        if exp_na is not None:
+            assert na is not None and abs(na - exp_na) < 0.08
+        else:
+            assert na is None or na < 0.5
+        if exp_ta is not None:
+            assert ta is not None and abs(ta - exp_ta) < 0.08
+        else:
+            assert ta is None or ta < 0.5
+        for maj, ari in ((nm, na), (tm, ta)):
+            if maj >= 2 and ari is not None and ari >= 0.5:
+                recovered += 1
+
+    # keep band ≤0.12 / collapse ≥0.15 (tighter than T50 soft≥0.25)
+    assert DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TABLE["soft_0.12"][2] == 2
+    assert DENSER_SOFT_SEED0_TORI_ARI_WINDOW_TABLE["soft_0.15"][2] <= 1
+    assert DENSER_SOFT_SEED0_TORI_ARI_WINDOW_KEEP_MAX_FRAC == 0.12
+    assert DENSER_SOFT_SEED0_TORI_ARI_WINDOW_COLLAPSE_MIN_FRAC == 0.15
+    assert recovered == 0
