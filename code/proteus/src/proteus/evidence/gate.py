@@ -70,6 +70,9 @@ class DualAdjacency(Protocol):
       edit dry-run. Connectivity is of the *induced* subgraph on that set (BFS).
     * **``None``** — S6 producer unavailable; :func:`affected_dual_subgraph_connected`
       returns ``True`` (same default as ``score_edit(..., dual_connected=True)``).
+      This open-default is documented by
+      :func:`proteus.stage2.dual_flow.probe_acceptance_none_open_default`
+      (A5-T54); do **not** flip to fail-closed without the A5-T42 plan.
     * **Producer** — :mod:`proteus.stage2.dual_flow` (proposal-path stub;
       ``DualFlowConfig.enable_dual_adjacency``, default off). Full S6 pressure
       solve / density still outstanding (#43). Call path: dry-run adj →
