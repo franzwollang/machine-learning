@@ -2301,3 +2301,96 @@ def test_denser_soft_x_gabriel_majors_seed12_inflate_kill_vs_seed0_keep_table() 
         DENSER_SOFT_X_GABRIEL_MAJORS_SEED12_INFLATE_KILL_VS_SEED0_KEEP_SI_NOTE
     )
 
+
+
+def test_denser_soft_keep_band_x_gabriel_x_persist_youden_x_majors_compose_table() -> None:
+    """#44 / A2-T74: denser soft keep×gabriel×persist youden×majors compose table."""
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_COLLAPSE_MIN_FRAC,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_E2E_TABLE,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_FRACS,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_H0,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_KEEP_MAX_FRAC,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_MAX_NODES,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_NESTED_N,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_SEED,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_SI_NOTE,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_TABLE,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_TORI_N,
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_UNIFORMS,
+        format_denser_soft_keep_band_x_gabriel_x_persist_youden_x_majors_compose_table,
+    )
+
+    assert abs(
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_H0 - 0.73
+    ) < 1e-9
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_SEED == 0
+    assert (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_NESTED_N
+        == 160
+    )
+    assert (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_TORI_N
+        == 240
+    )
+    assert (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_MAX_NODES
+        == 128
+    )
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_FRACS == (
+        0.05, 0.12, 0.15,
+    )
+    assert (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_KEEP_MAX_FRAC
+        == 0.12
+    )
+    assert (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_COLLAPSE_MIN_FRAC
+        == 0.15
+    )
+    # majors keep compose
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_TABLE[
+        "soft_0.12"
+    ][2] == 2
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_TABLE[
+        "soft_x_conj_0.12"
+    ][2] <= 1
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_TABLE[
+        "soft_0.15"
+    ][2] <= 1
+    # youden e2e singleton compose
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_E2E_TABLE[
+        "youden"
+    ][0] == 2
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_E2E_TABLE[
+        "conj"
+    ][0] <= 1
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_E2E_TABLE[
+        "persist"
+    ][0] <= 1
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_E2E_TABLE[
+        "soft_x_persist_0.12"
+    ][0] <= 1
+    assert DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_UNIFORMS[
+        "circle"
+    ]["youden"] == 1
+    tsv = (
+        format_denser_soft_keep_band_x_gabriel_x_persist_youden_x_majors_compose_table()
+    )
+    assert "youden×majors" in tsv and "soft_0.12" in tsv and "majors" in tsv
+    assert "compose" in (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_SI_NOTE
+    )
+    assert "T69" in (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_SI_NOTE
+    )
+    assert "sample-ARI" in (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_SI_NOTE
+    )
+    assert "defaults off" in (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_SI_NOTE
+    )
+    assert "awaiting" in (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_YOUDEN_X_MAJORS_COMPOSE_SI_NOTE
+    )

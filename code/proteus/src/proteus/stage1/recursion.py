@@ -308,6 +308,11 @@ class RecursionConfig:
     (seeds 1–2 soft@0.05/0.12/0.25 all ≤1); seed0 keep soft≤0.12 →
     tori K=2 (gabriel kills; soft=0.25 collapses); e2e only seed0
     youden nested K=2≈0.01; defaults off.
+    A2-T74: denser soft keep×gabriel×persist youden×majors compose
+    seed0 — majors soft≤0.12 → tori K=2 (gabriel kills; soft≥0.15
+    collapses) and e2e bare youden nested K=2≈0.01 coexist; conj /
+    persist / soft×persist e2e all ≤1 (T69/T70 joint compose); defaults
+    off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
