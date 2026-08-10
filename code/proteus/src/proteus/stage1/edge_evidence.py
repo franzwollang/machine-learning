@@ -120,6 +120,16 @@ class HollowEdgeConfig:
     A2-T46: soft×poisson_lr vs Youden vs A4 majors+ARI contrast — see
     :data:`SOFT_H0_METHOD_CONTRAST_*` / :func:`format_soft_h0_method_contrast_table`.
     Under soft, h0∈{0.7,0.73,0.76} is near-null; soft drives the pattern.
+
+    A2-T47: soft_frac × Youden seed1 nested-inflate mechanism — see
+    :data:`SOFT_FRAC_X_YOUDEN_SEED_INFLATE_*`. Seed1 inflate is
+    frac-windowed (soft_frac∈{0.1,0.25,0.5} → nested K=2 ARI≈0.05–0.08;
+    frac≥0.75 collapses ≤1); seed0/2 never inflate. Defaults off.
+
+    A2-T48 / A2-T49: denser soft×Youden multi-seed + h0-only contrast —
+    see :data:`DENSER_SOFT_X_YOUDEN_MULTISEED_*`. Seed0 youden alone keeps
+    tori chance-ARI K=2; soft×* and seeds1–2 collapse both ≤1. Seed1
+    baseline inflate does **not** reproduce on denser. Defaults off.
     """
 
     mid_radius_frac: float = 0.35
@@ -735,6 +745,176 @@ def format_denser_proposed_h0_table() -> str:
             f"{mode}\ttori\t{DENSER_PROPOSED_H0_TORI_TAU:g}\t{tm}\t{ta_s}"
         )
     lines.append(f"# {DENSER_PROPOSED_H0_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Soft_frac × Youden seed1 nested-inflate mechanism (A2-T47 → A3 SI)
+# ---------------------------------------------------------------------------
+# Baseline scaffold (n=80/120, max_nodes=64). Soft×Youden nested inflate on
+# seed1 is frac-windowed: soft_frac∈{0.1,0.25,0.5} yields nested K=2
+# (ARI≈0.05–0.08) while youden alone ≤1 and frac≥0.75 collapses ≤1.
+# Seed0 soft collapses nested at all fracs (tori K=2 until frac≥0.75);
+# seed2 never inflates. Selective soft cuts ≠ sample-ARI recovery.
+
+SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SEEDS: tuple[int, ...] = (0, 1, 2)
+SOFT_FRAC_X_YOUDEN_SEED_INFLATE_FRACS: tuple[float, ...] = (
+    0.1, 0.25, 0.5, 0.75, 0.9,
+)
+SOFT_FRAC_X_YOUDEN_SEED_INFLATE_NESTED_TAU: float = 0.27
+SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TORI_TAU: float = 0.5
+SOFT_FRAC_X_YOUDEN_SEED_INFLATE_METHOD: str = "betweenness"
+SOFT_FRAC_X_YOUDEN_SEED_INFLATE_H0: float = PROPOSED_H0_YOUDEN
+
+# seed → mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+# mode "youden" = h0-only; "soft_{frac}" = soft_capacity_only at that frac
+SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TABLE: dict[
+    int, dict[str, tuple[int, float | None, int, float | None]]
+] = {
+    0: {
+        "youden": (2, 0.12, 2, 0.26),
+        "soft_0.1": (1, None, 2, 0.26),
+        "soft_0.25": (1, None, 2, 0.26),
+        "soft_0.5": (1, None, 2, 0.26),
+        "soft_0.75": (1, None, 1, None),
+        "soft_0.9": (1, None, 1, None),
+    },
+    1: {
+        "youden": (1, None, 1, None),
+        "soft_0.1": (2, 0.05, 1, None),
+        "soft_0.25": (2, 0.08, 1, None),
+        "soft_0.5": (2, 0.08, 1, None),
+        "soft_0.75": (1, None, 1, None),
+        "soft_0.9": (1, None, 1, None),
+    },
+    2: {
+        "youden": (1, None, 2, 0.22),
+        "soft_0.1": (1, None, 2, 0.22),
+        "soft_0.25": (1, None, 1, None),
+        "soft_0.5": (1, None, 1, None),
+        "soft_0.75": (1, None, 1, None),
+        "soft_0.9": (1, None, 1, None),
+    },
+}
+
+SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SI_NOTE: str = (
+    "A2-T47 soft_frac×Youden h0≈0.73 seed1 nested-inflate mechanism "
+    "(mid=0.5 gabriel=False + betweenness, seeds 0..2): seed1 inflate is "
+    "frac-windowed — soft_frac∈{0.1,0.25,0.5} → nested K=2 ARI≈0.05–0.08 "
+    "while youden alone ≤1; frac≥0.75 collapses ≤1. Seed0 soft collapses "
+    "nested at all fracs (tori K=2 until frac≥0.75); seed2 never inflates. "
+    "Selective soft cuts ≠ sample-ARI recovery; defaults off; no awaiting "
+    "flip."
+)
+
+
+def format_soft_frac_x_youden_seed_inflate_table() -> str:
+    """TSV export of soft_frac×Youden seed1 inflate mechanism (A2-T47)."""
+
+    lines = [
+        "# soft_frac × Youden seed1 nested-inflate mechanism (baseline)",
+        f"# h0={SOFT_FRAC_X_YOUDEN_SEED_INFLATE_H0:g} "
+        f"method={SOFT_FRAC_X_YOUDEN_SEED_INFLATE_METHOD} "
+        f"seeds={list(SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SEEDS)} "
+        f"fracs={list(SOFT_FRAC_X_YOUDEN_SEED_INFLATE_FRACS)}",
+        "seed\tmode\tdataset\ttau\tmajors\tsample_ari",
+    ]
+    for seed in SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SEEDS:
+        for mode, (nm, na, tm, ta) in (
+            SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TABLE[seed].items()
+        ):
+            na_s = "" if na is None else f"{na:.2f}"
+            ta_s = "" if ta is None else f"{ta:.2f}"
+            lines.append(
+                f"{seed}\t{mode}\tnested\t"
+                f"{SOFT_FRAC_X_YOUDEN_SEED_INFLATE_NESTED_TAU:g}\t"
+                f"{nm}\t{na_s}"
+            )
+            lines.append(
+                f"{seed}\t{mode}\ttori\t"
+                f"{SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TORI_TAU:g}\t"
+                f"{tm}\t{ta_s}"
+            )
+    lines.append(f"# {SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Denser soft×Youden multi-seed + h0-only contrast (A2-T48 / A2-T49 → A3)
+# ---------------------------------------------------------------------------
+# denser: n_per_sphere=160 / n_per_torus=240, max_nodes=128, k=8, seeds 0..2.
+# Seed0 youden alone: nested≤1 / tori K=2 ARI≈0.14; soft×youden collapses
+# both ≤1. Seeds 1–2: youden and soft×youden both ≤1 on nested+tori.
+# Baseline seed1 soft inflate does **not** reproduce on denser scaffold.
+
+DENSER_SOFT_X_YOUDEN_MULTISEED_SEEDS: tuple[int, ...] = (0, 1, 2)
+DENSER_SOFT_X_YOUDEN_MULTISEED_NESTED_N: int = DENSER_PROPOSED_H0_NESTED_N
+DENSER_SOFT_X_YOUDEN_MULTISEED_TORI_N: int = DENSER_PROPOSED_H0_TORI_N
+DENSER_SOFT_X_YOUDEN_MULTISEED_MAX_NODES: int = DENSER_PROPOSED_H0_MAX_NODES
+DENSER_SOFT_X_YOUDEN_MULTISEED_NESTED_TAU: float = 0.27
+DENSER_SOFT_X_YOUDEN_MULTISEED_TORI_TAU: float = 0.5
+DENSER_SOFT_X_YOUDEN_MULTISEED_SOFT_FRAC: float = 0.25
+DENSER_SOFT_X_YOUDEN_MULTISEED_H0: float = PROPOSED_H0_YOUDEN
+
+# seed → mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+DENSER_SOFT_X_YOUDEN_MULTISEED_TABLE: dict[
+    int, dict[str, tuple[int, float | None, int, float | None]]
+] = {
+    0: {
+        "youden": (1, None, 2, 0.14),
+        "soft_x_youden": (1, None, 1, None),
+    },
+    1: {
+        "youden": (1, None, 1, None),
+        "soft_x_youden": (1, None, 1, None),
+    },
+    2: {
+        "youden": (1, None, 1, None),
+        "soft_x_youden": (1, None, 1, None),
+    },
+}
+
+DENSER_SOFT_X_YOUDEN_MULTISEED_SI_NOTE: str = (
+    "A2-T48/T49 denser soft×Youden multi-seed + h0-only contrast "
+    "(n=160/240, max_nodes=128, mid=0.5 gabriel=False, seeds 0..2): "
+    "seed0 youden alone nested≤1 / tori K=2 ARI≈0.14; soft×youden "
+    "collapses both ≤1. Seeds1–2: h0-only and soft×* both ≤1 on "
+    "nested+tori — baseline seed1 soft inflate does not reproduce on "
+    "denser. Collapse ≠ sample-ARI recovery; defaults off; no awaiting "
+    "flip."
+)
+
+
+def format_denser_soft_x_youden_multiseed_table() -> str:
+    """TSV export of denser soft×Youden multi-seed / h0-only (A2-T48/T49)."""
+
+    lines = [
+        "# denser soft × Youden multi-seed + h0-only contrast",
+        f"# nested_n={DENSER_SOFT_X_YOUDEN_MULTISEED_NESTED_N} "
+        f"tori_n={DENSER_SOFT_X_YOUDEN_MULTISEED_TORI_N} "
+        f"max_nodes={DENSER_SOFT_X_YOUDEN_MULTISEED_MAX_NODES} "
+        f"h0={DENSER_SOFT_X_YOUDEN_MULTISEED_H0:g} "
+        f"soft_frac={DENSER_SOFT_X_YOUDEN_MULTISEED_SOFT_FRAC:g} "
+        f"seeds={list(DENSER_SOFT_X_YOUDEN_MULTISEED_SEEDS)}",
+        "seed\tmode\tdataset\ttau\tmajors\tsample_ari",
+    ]
+    for seed in DENSER_SOFT_X_YOUDEN_MULTISEED_SEEDS:
+        for mode, (nm, na, tm, ta) in (
+            DENSER_SOFT_X_YOUDEN_MULTISEED_TABLE[seed].items()
+        ):
+            na_s = "" if na is None else f"{na:.2f}"
+            ta_s = "" if ta is None else f"{ta:.2f}"
+            lines.append(
+                f"{seed}\t{mode}\tnested\t"
+                f"{DENSER_SOFT_X_YOUDEN_MULTISEED_NESTED_TAU:g}\t"
+                f"{nm}\t{na_s}"
+            )
+            lines.append(
+                f"{seed}\t{mode}\ttori\t"
+                f"{DENSER_SOFT_X_YOUDEN_MULTISEED_TORI_TAU:g}\t"
+                f"{tm}\t{ta_s}"
+            )
+    lines.append(f"# {DENSER_SOFT_X_YOUDEN_MULTISEED_SI_NOTE}")
     return "\n".join(lines)
 
 

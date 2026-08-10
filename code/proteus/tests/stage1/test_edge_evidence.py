@@ -852,3 +852,84 @@ def test_denser_proposed_h0_export() -> None:
     assert "sample-ARI" in DENSER_PROPOSED_H0_SI_NOTE
     assert "defaults off" in DENSER_PROPOSED_H0_SI_NOTE
     assert "awaiting" in DENSER_PROPOSED_H0_SI_NOTE
+
+
+def test_soft_frac_x_youden_seed_inflate_export() -> None:
+    """#44 / A2-T47: soft_frac×Youden seed1 nested-inflate export.
+
+    Frozen majors+ARI across soft_frac grid × seeds 0..2. Seed1 inflate
+    is frac-windowed (0.1–0.5); seed0/2 never inflate. Defaults off.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_FRAC_X_YOUDEN_SEED_INFLATE_FRACS,
+        SOFT_FRAC_X_YOUDEN_SEED_INFLATE_H0,
+        SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SEEDS,
+        SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SI_NOTE,
+        SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TABLE,
+        format_soft_frac_x_youden_seed_inflate_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().h0 == 0.35
+    assert abs(SOFT_FRAC_X_YOUDEN_SEED_INFLATE_H0 - 0.73) < 1e-9
+    assert SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SEEDS == (0, 1, 2)
+    assert SOFT_FRAC_X_YOUDEN_SEED_INFLATE_FRACS == (0.1, 0.25, 0.5, 0.75, 0.9)
+    # seed1: youden alone ≤1; soft_frac in inflate window → nested K=2
+    assert SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TABLE[1]["youden"][0] <= 1
+    for frac in (0.1, 0.25, 0.5):
+        assert SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TABLE[1][f"soft_{frac:g}"][0] == 2
+    for frac in (0.75, 0.9):
+        assert SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TABLE[1][f"soft_{frac:g}"][0] <= 1
+    # seed0/2 never inflate under soft
+    for seed in (0, 2):
+        for frac in SOFT_FRAC_X_YOUDEN_SEED_INFLATE_FRACS:
+            assert SOFT_FRAC_X_YOUDEN_SEED_INFLATE_TABLE[seed][f"soft_{frac:g}"][0] <= 1
+    tsv = format_soft_frac_x_youden_seed_inflate_table()
+    assert "seed\tmode\tdataset\ttau\tmajors\tsample_ari" in tsv
+    assert "soft_0.25" in tsv and "youden" in tsv
+    assert "frac-windowed" in SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SI_NOTE
+    assert "sample-ARI" in SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SI_NOTE
+    assert "defaults off" in SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SI_NOTE
+    assert "awaiting" in SOFT_FRAC_X_YOUDEN_SEED_INFLATE_SI_NOTE
+
+
+def test_denser_soft_x_youden_multiseed_export() -> None:
+    """#44 / A2-T48/T49: denser soft×Youden multi-seed + h0-only export.
+
+    Frozen denser multi-seed table: seed0 youden keeps tori K=2; soft×*
+    and seeds1–2 collapse. Baseline seed1 inflate absent on denser.
+    Defaults off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_X_YOUDEN_MULTISEED_MAX_NODES,
+        DENSER_SOFT_X_YOUDEN_MULTISEED_NESTED_N,
+        DENSER_SOFT_X_YOUDEN_MULTISEED_SEEDS,
+        DENSER_SOFT_X_YOUDEN_MULTISEED_SI_NOTE,
+        DENSER_SOFT_X_YOUDEN_MULTISEED_TABLE,
+        DENSER_SOFT_X_YOUDEN_MULTISEED_TORI_N,
+        format_denser_soft_x_youden_multiseed_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert DENSER_SOFT_X_YOUDEN_MULTISEED_NESTED_N == 160
+    assert DENSER_SOFT_X_YOUDEN_MULTISEED_TORI_N == 240
+    assert DENSER_SOFT_X_YOUDEN_MULTISEED_MAX_NODES == 128
+    assert DENSER_SOFT_X_YOUDEN_MULTISEED_SEEDS == (0, 1, 2)
+    # seed0: h0-only keeps tori K=2; soft collapses
+    assert DENSER_SOFT_X_YOUDEN_MULTISEED_TABLE[0]["youden"][2] == 2
+    assert DENSER_SOFT_X_YOUDEN_MULTISEED_TABLE[0]["soft_x_youden"][2] <= 1
+    # seeds1–2: both modes ≤1 (no seed1 inflate on denser)
+    for seed in (1, 2):
+        assert DENSER_SOFT_X_YOUDEN_MULTISEED_TABLE[seed]["youden"][0] <= 1
+        assert DENSER_SOFT_X_YOUDEN_MULTISEED_TABLE[seed]["youden"][2] <= 1
+        assert DENSER_SOFT_X_YOUDEN_MULTISEED_TABLE[seed]["soft_x_youden"][0] <= 1
+        assert DENSER_SOFT_X_YOUDEN_MULTISEED_TABLE[seed]["soft_x_youden"][2] <= 1
+    tsv = format_denser_soft_x_youden_multiseed_table()
+    assert "seed\tmode\tdataset\ttau\tmajors\tsample_ari" in tsv
+    assert "soft_x_youden" in tsv and "youden" in tsv
+    assert "does not reproduce" in DENSER_SOFT_X_YOUDEN_MULTISEED_SI_NOTE
+    assert "sample-ARI" in DENSER_SOFT_X_YOUDEN_MULTISEED_SI_NOTE
+    assert "defaults off" in DENSER_SOFT_X_YOUDEN_MULTISEED_SI_NOTE
+    assert "awaiting" in DENSER_SOFT_X_YOUDEN_MULTISEED_SI_NOTE
