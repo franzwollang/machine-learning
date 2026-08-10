@@ -1,6 +1,7 @@
 """Stage 2 complex construction, diagnostics, and density reconstruction."""
 
 from .dual_flow import (
+    AcceptanceOpenDefaultProbe,
     ConservativeBPResult,
     DualAdjacencyDict,
     DualDryRunResult,
@@ -38,6 +39,7 @@ from .dual_flow import (
     locate_bmu_simplex,
     mu_S_weight,
     normalize_simplex_masses,
+    probe_acceptance_none_open_default,
     resolve_dual_connected,
     route_live_bmu_face_tallies,
     route_live_density_from_complex,
@@ -67,6 +69,7 @@ from .flag_complex import (
 )
 
 __all__ = [
+    "AcceptanceOpenDefaultProbe",
     "ConservativeBPResult",
     "DualAdjacencyDict",
     "DualDryRunResult",
@@ -110,6 +113,7 @@ __all__ = [
     "locate_bmu_simplex",
     "mu_S_weight",
     "normalize_simplex_masses",
+    "probe_acceptance_none_open_default",
     "query_stage1_ann_bmus",
     "resolve_dual_connected",
     "route_live_bmu_face_tallies",

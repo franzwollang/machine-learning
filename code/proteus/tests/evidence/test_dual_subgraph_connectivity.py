@@ -52,7 +52,8 @@ Gaps vs full SI S6 (do **not** flip these elsewhere yet):
   density open.
 * Mass-conservation / density / benchmark ``@awaiting("stage2.dual_flow")``
   (and ``stage2.density``) remain xfail until that producer lands.
-* Acceptance path still defaults open when adjacency is ``None`` / flags off.
+* Acceptance path still defaults open when adjacency is ``None`` / flags off
+  (A5-T54 :func:`probe_acceptance_none_open_default` locks the matrix).
 """
 from __future__ import annotations
 
@@ -89,6 +90,7 @@ from proteus.stage2 import (
     locate_bmu_simplex,
     mu_S_weight,
     normalize_simplex_masses,
+    probe_acceptance_none_open_default,
     query_stage1_ann_bmus,
     resolve_dual_connected,
     route_live_bmu_face_tallies,
@@ -1734,3 +1736,56 @@ def test_dry_run_stage1_route_requires_samples():
     cfg = DualFlowConfig(enable_complex_ann_incidence=True)
     result = dry_run_dual_from_edit(c, affected_node_ids=[0], config=cfg)
     assert result.stage1_route is None
+
+
+# ---------------------------------------------------------------------------
+# A5-T54: acceptance None⇒True open-default probe (document only; no flip)
+# ---------------------------------------------------------------------------
+
+
+def test_acceptance_none_open_default_probe_matrix():
+    """A5-T54: probe locks current open-default; flag-on still detects disconnect.
+
+    Does **not** flip GateConfig / DualFlowConfig defaults or awaiting markers.
+    """
+
+    probe = probe_acceptance_none_open_default()
+    assert probe.gate_apply_dual_adjacency_default is False
+    assert probe.dual_enable_dual_adjacency_default is False
+    assert probe.none_adjacency_reports_connected is True
+    assert probe.resolve_flag_off_reports_connected is True
+    assert probe.dry_run_flag_off_dual_connected is True
+    assert probe.flag_on_detects_endpoint_disconnect is True
+    assert "open-default" in probe.note.lower() or "None" in probe.note
+
+
+def test_acceptance_open_default_still_accepts_with_none_adj_on_gate():
+    """score_edit with default gate ignores disconnecting adj kwargs; open default."""
+
+    keep, edit, proposal, good_stars = _good_split_fixture()
+    # Induced disconnect if applied — but apply_dual_adjacency default is off.
+    dual = {"S0": ["S1"], "S1": ["S0", "S2"], "S2": ["S1"]}
+    v = score_edit(
+        keep,
+        edit,
+        proposal,
+        edit_stars=good_stars,
+        keep_stars=good_stars,
+        dual_connected=True,
+        dual_adjacency=dual,
+        affected_simplices=["S0", "S2"],
+        config=GateConfig(),  # apply_dual_adjacency=False
+    )
+    assert v.accepted
+    # Counterfactual: same adj under proposal flag would reject.
+    v_flag = score_edit(
+        keep,
+        edit,
+        proposal,
+        edit_stars=good_stars,
+        keep_stars=good_stars,
+        dual_adjacency=dual,
+        affected_simplices=["S0", "S2"],
+        config=GateConfig(apply_dual_adjacency=True),
+    )
+    assert not v_flag.accepted

@@ -126,6 +126,10 @@ are not blocked by a missing Stage-2 producer. Closing #43 requires:
    evidence — never by weakening tests.
 3. Gate default ``apply_dual_adjacency=True`` only after (1)–(2) and SI S6.6
    promotion from proposed → acceptance; keep proposal flags off until then.
+
+A5-T54 :func:`probe_acceptance_none_open_default` locks a snapshot of the
+current open-default matrix (None/flag-off ⇒ connected; flag-on detects
+disconnect). Experiment / documentation only — does **not** flip defaults.
 """
 from __future__ import annotations
 
@@ -138,6 +142,7 @@ import numpy as np
 
 from proteus.evidence.gate import (
     DualAdjacency,
+    GateConfig,
     affected_dual_subgraph_connected,
 )
 from proteus.stage2.flag_complex import simplex_volume
@@ -168,6 +173,7 @@ __all__ = [
     "GlobalFaceSolveResult",
     "LoopyBPScheduleResult",
     "MassNormalizationResult",
+    "AcceptanceOpenDefaultProbe",
     "SharedFacePair",
     "build_dual_adjacency",
     "build_dual_adjacency_from_complex",
@@ -206,6 +212,7 @@ __all__ = [
     "simplex_local_density",
     "affected_subgraph_connected",
     "resolve_dual_connected",
+    "probe_acceptance_none_open_default",
 ]
 
 # Concrete DualAdjacency realization used by this stub (SI S6.2 contract).
@@ -3131,3 +3138,85 @@ def resolve_dual_connected(
 
     adj = build_dual_adjacency(simplices, config=config)
     return affected_subgraph_connected(adj, affected_simplices)
+
+
+@dataclass(frozen=True)
+class AcceptanceOpenDefaultProbe:
+    """Snapshot of the acceptance-path open-default matrix (SI S10.4 A2 / A5-T54).
+
+    Documents that missing / flag-off dual adjacency still reports A2
+    connected (``True``), while the proposal-path producer can detect a
+    real disconnect. Experiment only — does **not** flip gate / dual-flow
+    defaults or ``@awaiting`` markers.
+    """
+
+    gate_apply_dual_adjacency_default: bool
+    dual_enable_dual_adjacency_default: bool
+    none_adjacency_reports_connected: bool
+    resolve_flag_off_reports_connected: bool
+    dry_run_flag_off_dual_connected: bool
+    flag_on_detects_endpoint_disconnect: bool
+    note: str = (
+        "open-default: None adj / flags off ⇒ dual_connected True; "
+        "flag-on dual adj detects path-endpoint disconnect. "
+        "Do not flip defaults until A5-T42 acceptance plan steps land."
+    )
+
+
+def probe_acceptance_none_open_default() -> AcceptanceOpenDefaultProbe:
+    """Probe / document the current None⇒True A2 open-default (A5-T54).
+
+    Uses a three-edge path complex whose middle removal leaves dual endpoints
+    disconnected when adjacency is enabled. With defaults (flags off / ``None``
+    adj) every check still reports connected — the conservative open default
+    that keeps Stage-1 edits unblocked without a Stage-2 producer.
+
+    Returns a frozen snapshot for tests / REQUEST_TRACKER notes. Does **not**
+    change ``GateConfig.apply_dual_adjacency`` or ``DualFlowConfig`` defaults.
+    """
+
+    gate_default = GateConfig()
+    dual_default = DualFlowConfig()
+
+    # Path 0—1—2 of 1-simplices; affecting endpoints only ⇒ induced disconnect
+    # when adjacency is actually built.
+    path_simplices = [(0, 1), (1, 2), (2, 3)]
+    endpoint_affected: tuple[Hashable, ...] = (0, 2)
+
+    none_open = affected_dual_subgraph_connected(None, endpoint_affected)
+    resolve_open = resolve_dual_connected(
+        path_simplices, endpoint_affected, config=dual_default
+    )
+
+    complex_ = Complex(
+        simplices=[
+            Simplex(vertex_ids=(0, 1)),
+            Simplex(vertex_ids=(1, 2)),
+            Simplex(vertex_ids=(2, 3)),
+        ],
+        vertex_positions=np.zeros((4, 2)),
+        intrinsic_dim=1,
+    )
+    dry_off = dry_run_dual_from_edit(
+        complex_, remove_simplex_indices=[1], config=dual_default
+    )
+    dry_on = dry_run_dual_from_edit(
+        complex_,
+        remove_simplex_indices=[1],
+        config=DualFlowConfig(enable_dual_adjacency=True),
+    )
+
+    return AcceptanceOpenDefaultProbe(
+        gate_apply_dual_adjacency_default=bool(
+            gate_default.apply_dual_adjacency
+        ),
+        dual_enable_dual_adjacency_default=bool(
+            dual_default.enable_dual_adjacency
+        ),
+        none_adjacency_reports_connected=bool(none_open),
+        resolve_flag_off_reports_connected=bool(resolve_open),
+        dry_run_flag_off_dual_connected=bool(dry_off.dual_connected),
+        flag_on_detects_endpoint_disconnect=bool(
+            dry_on.dual_adjacency is not None and not dry_on.dual_connected
+        ),
+    )
