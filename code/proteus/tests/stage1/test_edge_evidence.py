@@ -754,6 +754,37 @@ def test_soft_x_proposed_h0_export() -> None:
     assert "awaiting" in SOFT_X_PROPOSED_H0_SI_NOTE
 
 
+def test_soft_h0_method_contrast_export() -> None:
+    """#44 / A2-T46: soft×poisson_lr vs Youden vs A4 contrast export.
+
+    Under soft, h0 method contrast is near-null (identical majors/ARI).
+    Defaults remain off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_H0_METHOD_CONTRAST_MODES,
+        SOFT_H0_METHOD_CONTRAST_SI_NOTE,
+        SOFT_X_PROPOSED_H0_TABLE,
+        format_soft_h0_method_contrast_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert set(SOFT_H0_METHOD_CONTRAST_MODES) <= set(SOFT_X_PROPOSED_H0_TABLE)
+    # soft×* rows share nested≤1 / tori K=2 pattern
+    for mode in ("soft_x_youden", "soft_x_youden_a4", "soft_x_poisson_lr"):
+        nm, _, tm, ta = SOFT_X_PROPOSED_H0_TABLE[mode]
+        assert nm <= 1
+        assert tm == 2
+        assert ta is not None and abs(ta - 0.26) < 0.08
+    tsv = format_soft_h0_method_contrast_table()
+    assert "mode\th0\tdataset\ttau\tmajors\tsample_ari" in tsv
+    assert "soft_x_poisson_lr" in tsv and "0.76" in tsv
+    assert "0.73" in tsv and "0.7" in tsv
+    assert "near-null" in SOFT_H0_METHOD_CONTRAST_SI_NOTE or "identical" in SOFT_H0_METHOD_CONTRAST_SI_NOTE
+    assert "defaults off" in SOFT_H0_METHOD_CONTRAST_SI_NOTE
+    assert "awaiting" in SOFT_H0_METHOD_CONTRAST_SI_NOTE
+
+
 def test_soft_x_youden_multiseed_export() -> None:
     """#44 / A2-T44: multi-seed soft×Youden h0≈0.73 export.
 

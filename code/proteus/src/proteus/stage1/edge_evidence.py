@@ -113,6 +113,13 @@ class HollowEdgeConfig:
     (seed0: nested≤1 / tori K=2; seed1: soft *inflates* nested K=2
     ARI≈0.08 while youden alone ≤1; seed2: both soft collapses). Still
     not sample-ARI recovery; defaults off.
+
+    A2-T45: denser-scaffold × ``proposed_h0_calibrated_config`` ARI —
+    see :data:`DENSER_PROPOSED_H0_*` (retag of follow-on denser table).
+
+    A2-T46: soft×poisson_lr vs Youden vs A4 majors+ARI contrast — see
+    :data:`SOFT_H0_METHOD_CONTRAST_*` / :func:`format_soft_h0_method_contrast_table`.
+    Under soft, h0∈{0.7,0.73,0.76} is near-null; soft drives the pattern.
     """
 
     mid_radius_frac: float = 0.35
@@ -524,11 +531,31 @@ SOFT_X_PROPOSED_H0_TABLE: dict[str, tuple[int, float | None, int, float | None]]
 }
 
 SOFT_X_PROPOSED_H0_SI_NOTE: str = (
-    "A2-T44-followon soft×proposed h0 (mid=0.5 gabriel=False + betweenness "
-    "frac=0.25): youden/youden_a4/poisson_lr alone keep nested+tori chance-ARI "
-    "K=2 (ARI≈0.12/0.26; poisson nested≈0.08); soft×* collapses nested≤1 but "
-    "retains tori K=2 ARI≈0.26. Soft drives collapse; calibrated h0 ≠ sample-ARI "
-    "recovery; defaults off; no awaiting flip."
+    "A2-T44-followon / A2-T46 soft×proposed h0 (mid=0.5 gabriel=False + "
+    "betweenness frac=0.25): youden/youden_a4/poisson_lr alone keep "
+    "nested+tori chance-ARI K=2 (ARI≈0.12/0.26; poisson nested≈0.08); "
+    "soft×youden / soft×youden_a4 / soft×poisson_lr all collapse nested≤1 "
+    "but retain tori K=2 ARI≈0.26 — h0 method contrast is near-null under "
+    "soft. Soft drives collapse; calibrated h0 ≠ sample-ARI recovery; "
+    "defaults off; no awaiting flip."
+)
+
+# Focused soft×h0 method contrast keys (A2-T46).
+SOFT_H0_METHOD_CONTRAST_MODES: tuple[str, ...] = (
+    "youden",
+    "youden_a4",
+    "poisson_lr",
+    "soft_x_youden",
+    "soft_x_youden_a4",
+    "soft_x_poisson_lr",
+)
+
+SOFT_H0_METHOD_CONTRAST_SI_NOTE: str = (
+    "A2-T46 soft×poisson_lr(h0=0.76) vs Youden(0.73) vs A4(0.7) majors+ARI "
+    "contrast (seed0 baseline): alone all chance-ARI K=2; soft×* identical "
+    "collapse pattern (nested≤1, tori K=2 ARI≈0.26). Soft dominates; h0 "
+    "choice among {0.7,0.73,0.76} does not change majors/ARI under soft. "
+    "Defaults off; no awaiting flip."
 )
 
 
@@ -551,6 +578,40 @@ def format_soft_x_proposed_h0_table() -> str:
             f"{mode}\ttori\t{SOFT_X_PROPOSED_H0_TORI_TAU:g}\t{tm}\t{ta_s}"
         )
     lines.append(f"# {SOFT_X_PROPOSED_H0_SI_NOTE}")
+    return "\n".join(lines)
+
+
+def format_soft_h0_method_contrast_table() -> str:
+    """TSV export of soft×poisson_lr vs Youden vs A4 contrast (A2-T46)."""
+
+    lines = [
+        "# soft × h0 method contrast (Youden 0.73 / A4 0.7 / poisson_lr 0.76)",
+        f"# soft_frac={SOFT_X_PROPOSED_H0_SOFT_FRAC:g} "
+        f"method={SOFT_X_PROPOSED_H0_SOFT_METHOD}",
+        "mode\th0\tdataset\ttau\tmajors\tsample_ari",
+    ]
+    h0_of = {
+        "youden": PROPOSED_H0_YOUDEN,
+        "youden_a4": PROPOSED_H0_YOUDEN_A4,
+        "poisson_lr": PROPOSED_H0_POISSON_LR,
+        "soft_x_youden": PROPOSED_H0_YOUDEN,
+        "soft_x_youden_a4": PROPOSED_H0_YOUDEN_A4,
+        "soft_x_poisson_lr": PROPOSED_H0_POISSON_LR,
+    }
+    for mode in SOFT_H0_METHOD_CONTRAST_MODES:
+        nm, na, tm, ta = SOFT_X_PROPOSED_H0_TABLE[mode]
+        na_s = "" if na is None else f"{na:.2f}"
+        ta_s = "" if ta is None else f"{ta:.2f}"
+        h0 = h0_of[mode]
+        lines.append(
+            f"{mode}\t{h0:g}\tnested\t{SOFT_X_PROPOSED_H0_NESTED_TAU:g}\t"
+            f"{nm}\t{na_s}"
+        )
+        lines.append(
+            f"{mode}\t{h0:g}\ttori\t{SOFT_X_PROPOSED_H0_TORI_TAU:g}\t"
+            f"{tm}\t{ta_s}"
+        )
+    lines.append(f"# {SOFT_H0_METHOD_CONTRAST_SI_NOTE}")
     return "\n".join(lines)
 
 
