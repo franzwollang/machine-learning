@@ -38,7 +38,13 @@ re-pick ``tau*`` via ``load_crossover`` or experimental ``mid_interval`` /
 changing the accept/reject arbiter (OPEN_ISSUES #28).
 ``ScaleSearchConfig.halve_grid_steps`` (default ``False``) densifies the
 geometric ``tau`` grid (half log-step) so within-block fractional probes
-see more candidates.  The legacy ``load_band`` scale selector is gone from
+see more candidates.  Experimental
+:attr:`PersistenceConfig.densify_overlap_recover` (default ``"none"``) can
+lower the matched-Jaccard floor to
+:data:`EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD` so a densified
+first-half-step break (e.g. seed~4 ``ov0≈0.39``) recovers a coarse-anchored
+accept; collateral accepts appear on other seeds, so it must not flip the
+acceptance path.  The legacy ``load_band`` scale selector is gone from
 the acceptance path; the controller keeps a deprecated alias that warns and
 redirects to ``load_crossover``.
 
@@ -64,6 +70,15 @@ from typing import Any, Literal, Optional
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
+
+# Experimental densify-recover Jaccard floor (OPEN_ISSUES #28 / A6-T58).
+# Seed-4 × ``halve_grid_steps`` rejects under the default ``overlap_threshold``
+# 0.5 because the inserted half-step neighbor lands at ``ov0≈0.39``.  Setting
+# :attr:`PersistenceConfig.densify_overlap_recover` to ``"lower_threshold"``
+# uses this floor and recovers a full coarse-anchored run on that fixture.
+# Collateral: seed~1 (std + dense) also flips reject→accept.  Operational
+# probe only — do not enable on the acceptance path.
+EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD: float = 0.35
 
 
 @dataclass(frozen=True)
@@ -177,6 +192,16 @@ class PersistenceConfig:
         fields still report the coarse-end arbiter index).  Default off; do
         not flip until a SI-justified within-interval signal exists.
         Operational (S14.3).
+    densify_overlap_recover:
+        Experimental **densify-recover** lever (OPEN_ISSUES #28 / A6-T58).
+        ``"none"`` (default) keeps :attr:`overlap_threshold` as the matched-
+        Jaccard floor.  ``"lower_threshold"`` substitutes
+        :data:`EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD` (0.35) so a
+        densified first-half-step break that sits just below 0.5 (seed~4
+        ``ov0≈0.39``) can recover a coarse-anchored accept.  Empirically
+        collateral: seed~1 also flips reject→accept under the lower floor.
+        Default off; do not enable on the acceptance path.  Operational
+        (S14.3).
     """
 
     min_persistence: int = 2
@@ -196,6 +221,7 @@ class PersistenceConfig:
         "load_weighted_interval",
         "fine_end_of_block",
     ] = "none"
+    densify_overlap_recover: Literal["none", "lower_threshold"] = "none"
 
 
 @dataclass
@@ -334,6 +360,20 @@ def mean_matched_jaccard(labels_a: np.ndarray, labels_b: np.ndarray) -> float:
     return float(np.sum(jaccards) / denom)
 
 
+def _effective_overlap_threshold(config: PersistenceConfig) -> float:
+    """Matched-Jaccard floor, honoring experimental densify-recover override."""
+
+    if config.densify_overlap_recover == "lower_threshold":
+        return float(EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD)
+    if config.densify_overlap_recover != "none":
+        raise ValueError(
+            f"Unknown PersistenceConfig.densify_overlap_recover="
+            f"{config.densify_overlap_recover!r}; expected 'none' or "
+            f"'lower_threshold'"
+        )
+    return float(config.overlap_threshold)
+
+
 def _partitions_agree(
     a: PartitionSnapshot,
     b: PartitionSnapshot,
@@ -344,7 +384,7 @@ def _partitions_agree(
     if a.n_clusters < config.min_clusters or b.n_clusters < config.min_clusters:
         return False, float("nan")
     overlap = mean_matched_jaccard(a.labels, b.labels)
-    return overlap >= config.overlap_threshold, overlap
+    return overlap >= _effective_overlap_threshold(config), overlap
 
 
 def compute_persistence(
