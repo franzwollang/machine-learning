@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-10T05:10:00Z",
+  "updated_at": "2026-08-10T05:12:00Z",
   "turn": 60,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "quad-scoop densify288 cliff + Phi half-life + patience×cap"
+    "goal": "post-MERGE_DONE; workers pull densify288/Phi half-life queues"
   },
   "recent": [
-    "Quad-scoop A2-T67..T69 denser seed0 pin path; A3 si96..si106",
-    "A4-T80..T88 densify288 win / cliff@320; cal4 pin through 0.20",
-    "A5-T81..T87 patience×cap(+fail_closed); A6-T81..T89 half-life"
+    "Pushed MERGE_DONE integ=b6721b9; queues T70+/T86+/T89+",
+    "densify288 win / cliff@320; cal4 pin through noise0.20",
+    "Phi half-life ~3\u20134; patience\u00d7cap(+fail_closed) landed"
   ],
   "discoveries": [
-    "schedule hollow cliff onset after densify288 (304 transitional)",
-    "cal4×frac3 pin survives tissue noise through 0.20 proposal-path",
-    "Phi half-life ~3–4 steps; |L0-1|≪|Lfsa-1|; LC≡coarse"
+    "schedule hollow cliff onset after densify288",
+    "cal4\u00d7frac3 pin survives tissue noise\u22640.20 (proposal)",
+    "Phi half-life~3\u20134; |L0-1|\u226a|Lfsa-1|; LC\u2261coarse"
   ],
   "open_threads": [
-    "A2-T70..T72 youden/majors follow-ons; A3 SI T86..T88",
-    "A4 densify296/312 fine-pin; A5 T88 fail_closed matrix",
+    "A2-T70 youden pin; A3 SI T86..T88; A4 densify296",
+    "A5 T88 fail_closed matrix; A6 half-life\u00d7thr",
     "#45 deferred until #44 sample-ARI"
   ],
-  "next_step": "Push MERGE_DONE; workers pull T70+/T86+/T89+/T88+/T90+",
+  "next_step": "Workers pull integration; next turn scoop T70+/T89+/T88+/T90+",
   "blockers": []
 }
