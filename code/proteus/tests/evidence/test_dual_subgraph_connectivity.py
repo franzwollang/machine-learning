@@ -66,6 +66,7 @@ from proteus.evidence import (
     affected_dual_subgraph_connected,
     bdeu_alpha,
     probe_fail_closed_dry_run_evidence_gate,
+    probe_fail_closed_dry_run_reconnect_bridge,
     probe_fail_closed_evidence_gate_matrix,
     probe_fail_closed_score_edit_matrix,
     score_edit,
@@ -2889,4 +2890,45 @@ def test_residual_mass_loopy_compose_probe_pins_mass_and_stops():
     assert "awaiting" in probe.note.lower()
     assert "mass" in probe.note.lower()
     assert "sketch" in probe.note.lower() or "not" in probe.note.lower()
+
+# ---------------------------------------------------------------------------
+# A5-T75: fail_closed × dry_run disconnect→reconnect bridge × EvidenceGate
+# ---------------------------------------------------------------------------
+
+
+def test_fail_closed_dry_run_reconnect_bridge_matrix():
+    """A5-T75: disconnect rejects / reconnect accepts under apply_dual; defaults off."""
+
+    keep, edit, proposal, good_stars = _good_split_fixture()
+    probe = probe_fail_closed_dry_run_reconnect_bridge(
+        keep,
+        edit,
+        proposal,
+        edit_stars=good_stars,
+        keep_stars=good_stars,
+        complex_path=_path_edge_complex(),
+    )
+    assert probe.defaults_unchanged is True
+    assert probe.apply_dual_default is False
+    assert probe.fail_closed_default is False
+    assert probe.dual_adjacency_default is False
+    assert GateConfig().apply_dual_adjacency is False
+    assert GateConfig().fail_closed_dual_adjacency is False
+    assert DualFlowConfig().enable_dual_adjacency is False
+    assert probe.disconnect_connected is False
+    assert probe.reconnect_connected is True
+    assert probe.n_cases == 6
+    assert probe.n_matched == probe.n_cases
+    assert probe.all_matched is True
+    by_name = {c.name: c for c in probe.cases}
+    assert by_name["disconnect_apply_reject"].dry_connected is False
+    assert by_name["disconnect_apply_reject"].expect_accept is False
+    assert by_name["reconnect_apply_accept"].dry_connected is True
+    assert by_name["reconnect_apply_accept"].expect_accept is True
+    assert by_name["reconnect_apply_fail_closed_accept"].expect_accept is True
+    for case in probe.cases:
+        assert case.match is True
+        assert case.score_edit_accepted is case.expect_accept
+        assert case.evidence_gate_accepted is case.expect_accept
+    assert "awaiting" in probe.note.lower() or "default" in probe.note.lower()
 
