@@ -142,6 +142,15 @@ Remaining work:
   short-block mechanism; multi-seed densify Jaccard first-step table
   seeds0..4 locked (accept both `{0,3}`, std-only `{4}`, reject both
   `{1,2}` + dense `{4}`). Do **not** flip default.
+- **Landed (A6-T61..T66):** densify-recover collateral map flips seed1
+  std+dense + seed4 dense; seed2 stays reject; seed3 std `run0` 3→5;
+  accept `{0,1,3,4}` under thr0.35. Seed3 densify restores seed0
+  fractional landing (mid~2.30× / 2/3~1.00× / 3q~0.76×); std short-block
+  mid≡2/3≡3q@8.83× is quantization. thr sensitivity: `0.35` is the narrow
+  band; `0.30` over-accepts densified seed2; `0.40` loses seed1/seed4
+  dense recovers. densify×`load_weighted` on seed3 stays coarse.
+  `densify_overlap_recover_threshold` probe override (default none).
+  Paper pins. Do **not** flip default.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -301,7 +310,15 @@ re-searched *finer* scales inside a single feature.
   never inflates. soft×youden at operational τ* (`n_grid=12`): seed1 probe
   inflate absent; seed0 tori chance-ARI K≥2. Soft ≠ sample-ARI. **Do not
   flip awaiting.**
-- **Remaining:** denser×bridge_mass; soft×persist_agree at τ*; fuller suite
+- **FINDING (A2-T53..T56):** denser×bridge_mass kills bet/bridge_mass seed1
+  inflate contrast (both ≤1 across frac). soft×persist@τ* e2e: seed1 nested
+  K=2 chance-ARI≈0 **survives** soft×persist (majors-absent ≠ e2e kill);
+  circle youden shatters / soft+persist keep 1. denser soft seed0 tori keep
+  band is **betweenness-only** (`soft≤0.12` ARI≈0.16–0.18; `≥0.15`
+  collapses — tighter than T50 `≥0.25`); bridge_mass collapses the keep
+  band across `soft∈{0.05..0.25}`. Soft ≠ sample-ARI. **Do not flip
+  awaiting.**
+- **Remaining:** denser soft×persist e2e; soft×gabriel@τ*; fuller suite
   green with **sample-ARI** → retire radial/PCA family + awaiting-flip
   review (A1 sign-off). Distinct from #28. Post-track: open #45 open-loop /
   `max_nodes` (`reference/open_loop_growth_and_node_cap.md`) into M4.
@@ -408,9 +425,17 @@ circle `b1 = 1` target of #25.
   cleanup: fixed dirty `(2,1,1)/(1,2,0)`; `n_clean=0`. seed77
   hollow×lifetime×cal-mult: dirty b2 only at SI fine mult=1.5; cal≥3
   kills dirty without cleaning to `(1,2,1)`. Keep `@awaiting`.
-- **Remaining before flipping recovery tests:** densify>256 seed77-only;
-  seed7+hollow; hollow cfg mid/h0 sweep on seed77; keep recovery
-  `@awaiting` until SI-default fitted evidence is green.
+- **FINDING (A4-T50..T55):** densify ladder seed77: 256+512 both-partial
+  `(1,2,0)`; 384 regresses `(1,1,0)`; `max_b2=0`. seed7+hollow: dirty
+  `(2,1,1)` persists (`n_clean=0`). hollow mid×h0: dirty only
+  mid=0.5×h0∈{0.5,0.7}; mid=0.65 preserves both-partial no dirty.
+  mid65×life×cal: `max_b2=0` / no dirty. densify512×hollow: inflates
+  torus0 b1→3 still `max_b2=0` (no dirty lever unlike denser256).
+  seed7×mid65: dirty persists. Clean `(1,2,1)` still unreachable under
+  A4 owns_files probes. Keep `@awaiting`.
+- **Remaining before flipping recovery tests:** seed77 hollow×sigma-scale;
+  seed2 Stage-1×mid65; tissue/noise ablation; keep recovery `@awaiting`
+  until SI-default fitted evidence is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -471,7 +496,13 @@ circle `b1 = 1` target of #25.
 - **Landed (A5-T61..T63):** `enable_bp_policy_in_loopy` wires policy into
   `solve_loopy_bp_schedule`; `enable_loopy_bp_convergence_probe` /
   `probe_loopy_bp_convergence` residual trajectory; compose forwards
-  policy flag. Defaults off. Gaps remain: certified BP stop rule;
+  policy flag. Defaults off.
+- **Landed (A5-T64..T66):** `enable_loopy_bp_residual_stop` /
+  `propose_loopy_bp_residual_stop` (plateau/tol sketch — not a production
+  certificate); `probe_fail_closed_score_edit_matrix` 9-cell accept/reject
+  matrix (`GateConfig` defaults unchanged); `enable_mass_loopy_compose_probe`
+  / `probe_mass_loopy_compose`. Flags off. Gaps remain: wire residual-stop
+  into `solve_loopy_bp_schedule` early-exit; spectrum-safe certificate;
   fail-closed acceptance flip. Mass/density/benchmark stay `@awaiting`.
   **Do not close #43** until acceptance-path default replaces the
   conservative open default / fuller S6.
