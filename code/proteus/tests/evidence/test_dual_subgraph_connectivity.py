@@ -123,6 +123,9 @@ from proteus.stage2 import (
     probe_spectrum_safe_policy_mass_patience_cap_traj,
     probe_residual_mass_policy_patience_cap_fail_closed_matrix,
     probe_spectrum_safe_policy_mass_patience_cap_traj_fail_closed_bridge,
+    probe_residual_mass_policy_patience_cap_traj_fail_closed_dry_run,
+    probe_spectrum_safe_policy_mass_patience_cap_traj_fail_closed_matrix,
+    probe_residual_mass_policy_patience_cap_fail_closed_dry_run,
     propose_bp_damping_policy,
     propose_loopy_bp_residual_stop,
     query_stage1_ann_bmus,
@@ -4451,3 +4454,254 @@ def test_spectrum_safe_policy_mass_patience_cap_traj_fail_closed_bridge_composes
     assert "harness" in probe.note.lower() or "awaiting" in probe.note.lower()
     assert "fail" in probe.note.lower() or "closed" in probe.note.lower()
 
+
+
+# ---------------------------------------------------------------------------
+# A5-T94: residual×mass×policy patience×cap traj × fail_closed dry_run EG
+# ---------------------------------------------------------------------------
+
+
+def test_residual_mass_policy_patience_cap_traj_fail_closed_dry_run_flag_off_returns_none():
+    """enable_residual_mass_policy_patience_cap_traj_fail_closed_dry_run_probe=False ⇒ None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    keep, edit, proposal, stars = _good_split_fixture()
+    assert (
+        probe_residual_mass_policy_patience_cap_traj_fail_closed_dry_run(
+            [np.array([0.3, 0.3])],
+            {0: left},
+            {0: (0, 1, 2)},
+            keep,
+            edit,
+            proposal,
+            edit_stars=stars,
+            keep_stars=stars,
+            config=DualFlowConfig(),
+        )
+        is None
+    )
+
+
+def test_residual_mass_policy_patience_cap_traj_fail_closed_dry_run_composes():
+    """Flag on: residual traj + dry_run×EvidenceGate; defaults stay off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([1.2, 0.2])]
+    grid = (1, 2)
+    caps = (1e-12, 1.0)
+    keep, edit, proposal, stars = _good_split_fixture()
+    probe = probe_residual_mass_policy_patience_cap_traj_fail_closed_dry_run(
+        samples,
+        {0: left, 1: right},
+        {0: (0, 1, 2), 1: (1, 3, 2)},
+        keep,
+        edit,
+        proposal,
+        patience_grid=grid,
+        spectrum_cond_caps=caps,
+        max_traj_iters=3,
+        edit_stars=stars,
+        keep_stars=stars,
+        complex_path=_path_edge_complex(),
+        config=DualFlowConfig(
+            enable_residual_mass_policy_patience_cap_traj_fail_closed_dry_run_probe=True,
+            bp_max_iters=6,
+            bp_residual_stop_tol=1e-3,
+            bp_damping=0.5,
+        ),
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert (
+        DualFlowConfig().enable_residual_mass_policy_patience_cap_traj_fail_closed_dry_run_probe
+        is False
+    )
+    assert DualFlowConfig().enable_residual_mass_policy_patience_cap_traj_probe is False
+    assert DualFlowConfig().enable_residual_mass_policy_patience_cap_traj_fail_closed_bridge_probe is False
+    assert DualFlowConfig().enable_bp_policy_in_loopy is False
+    assert DualFlowConfig().enable_dual_adjacency is False
+    assert GateConfig().apply_dual_adjacency is False
+    assert GateConfig().fail_closed_dual_adjacency is False
+    assert probe.gate_apply_dual_default is False
+    assert probe.gate_fail_closed_default is False
+    assert probe.dual_adjacency_default is False
+    assert probe.residual_patience_cap_traj.patience_grid == grid
+    assert probe.residual_patience_cap_traj.caps == caps
+    assert len(probe.residual_patience_cap_traj.cases) == len(grid) * len(caps)
+    assert probe.fail_closed_n_cases >= 8
+    assert probe.fail_closed_n_matched == probe.fail_closed_n_cases
+    assert probe.fail_closed_dry_run_all_matched is True
+    assert "harness" in probe.note.lower() or "awaiting" in probe.note.lower()
+    assert "dry" in probe.note.lower() or "fail" in probe.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T95: spectrum×policy×mass patience×cap traj × fail_closed EG matrix
+# ---------------------------------------------------------------------------
+
+
+def test_spectrum_safe_policy_mass_patience_cap_traj_fail_closed_matrix_flag_off_returns_none():
+    """enable_spectrum_safe_policy_mass_patience_cap_traj_fail_closed_matrix_probe=False ⇒ None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    keep, edit, proposal, stars = _good_split_fixture()
+    assert (
+        probe_spectrum_safe_policy_mass_patience_cap_traj_fail_closed_matrix(
+            [np.array([0.3, 0.3])],
+            {0: left},
+            {0: (0, 1, 2)},
+            keep,
+            edit,
+            proposal,
+            edit_stars=stars,
+            keep_stars=stars,
+            config=DualFlowConfig(),
+        )
+        is None
+    )
+
+
+def test_spectrum_safe_policy_mass_patience_cap_traj_fail_closed_matrix_composes():
+    """Flag on: spectrum traj + fail_closed EG matrix; defaults stay off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([1.2, 0.2])]
+    grid = (1, 2)
+    caps = (1e-12, 1.0)
+    keep, edit, proposal, stars = _good_split_fixture()
+    connected = {
+        "S0": ("S1", "S2"),
+        "S1": ("S0", "S2"),
+        "S2": ("S0", "S1"),
+    }
+    disconnect = {
+        "S0": ("S1",),
+        "S1": ("S0",),
+        "S2": (),
+    }
+    probe = probe_spectrum_safe_policy_mass_patience_cap_traj_fail_closed_matrix(
+        samples,
+        {0: left, 1: right},
+        {0: (0, 1, 2), 1: (1, 3, 2)},
+        keep,
+        edit,
+        proposal,
+        patience_grid=grid,
+        spectrum_cond_caps=caps,
+        max_traj_iters=3,
+        edit_stars=stars,
+        keep_stars=stars,
+        connected_adj=connected,
+        disconnect_adj=disconnect,
+        affected_simplices=["S0", "S2"],
+        config=DualFlowConfig(
+            enable_spectrum_safe_policy_mass_patience_cap_traj_fail_closed_matrix_probe=True,
+            bp_max_iters=6,
+            bp_residual_stop_tol=1e-3,
+            bp_damping=0.5,
+        ),
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert (
+        DualFlowConfig().enable_spectrum_safe_policy_mass_patience_cap_traj_fail_closed_matrix_probe
+        is False
+    )
+    assert DualFlowConfig().enable_spectrum_safe_policy_mass_patience_cap_traj_probe is False
+    assert DualFlowConfig().enable_spectrum_safe_policy_mass_patience_cap_traj_fail_closed_bridge_probe is False
+    assert DualFlowConfig().enable_bp_policy_in_loopy is False
+    assert DualFlowConfig().enable_dual_adjacency is False
+    assert GateConfig().apply_dual_adjacency is False
+    assert GateConfig().fail_closed_dual_adjacency is False
+    assert probe.gate_apply_dual_default is False
+    assert probe.gate_fail_closed_default is False
+    assert probe.dual_adjacency_default is False
+    assert probe.spectrum_mass_patience_cap_traj.patience_grid == grid
+    assert probe.spectrum_mass_patience_cap_traj.caps == caps
+    assert len(probe.spectrum_mass_patience_cap_traj.cases) == len(grid) * len(caps)
+    assert probe.fail_closed_n_cases >= 8
+    assert probe.fail_closed_n_matched == probe.fail_closed_n_cases
+    assert probe.fail_closed_matrix_all_matched is True
+    assert "harness" in probe.note.lower() or "awaiting" in probe.note.lower()
+    assert "matrix" in probe.note.lower() or "fail" in probe.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T96: residual×mass×policy patience×cap × fail_closed dry_run EG
+# ---------------------------------------------------------------------------
+
+
+def test_residual_mass_policy_patience_cap_fail_closed_dry_run_flag_off_returns_none():
+    """enable_residual_mass_policy_patience_cap_fail_closed_dry_run_probe=False ⇒ None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    keep, edit, proposal, stars = _good_split_fixture()
+    assert (
+        probe_residual_mass_policy_patience_cap_fail_closed_dry_run(
+            [np.array([0.3, 0.3])],
+            {0: left},
+            {0: (0, 1, 2)},
+            keep,
+            edit,
+            proposal,
+            edit_stars=stars,
+            keep_stars=stars,
+            config=DualFlowConfig(),
+        )
+        is None
+    )
+
+
+def test_residual_mass_policy_patience_cap_fail_closed_dry_run_composes():
+    """Flag on: residual patience×cap + dry_run×EvidenceGate; defaults stay off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([1.2, 0.2])]
+    grid = (1, 2)
+    caps = (1e-12, 1.0)
+    keep, edit, proposal, stars = _good_split_fixture()
+    probe = probe_residual_mass_policy_patience_cap_fail_closed_dry_run(
+        samples,
+        {0: left, 1: right},
+        {0: (0, 1, 2), 1: (1, 3, 2)},
+        keep,
+        edit,
+        proposal,
+        patience_grid=grid,
+        spectrum_cond_caps=caps,
+        edit_stars=stars,
+        keep_stars=stars,
+        complex_path=_path_edge_complex(),
+        config=DualFlowConfig(
+            enable_residual_mass_policy_patience_cap_fail_closed_dry_run_probe=True,
+            bp_max_iters=6,
+            bp_residual_stop_tol=1e-3,
+            bp_damping=0.5,
+        ),
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert (
+        DualFlowConfig().enable_residual_mass_policy_patience_cap_fail_closed_dry_run_probe
+        is False
+    )
+    assert DualFlowConfig().enable_residual_mass_policy_patience_cap_probe is False
+    assert DualFlowConfig().enable_residual_mass_policy_patience_cap_fail_closed_matrix_probe is False
+    assert DualFlowConfig().enable_bp_policy_in_loopy is False
+    assert DualFlowConfig().enable_dual_adjacency is False
+    assert GateConfig().apply_dual_adjacency is False
+    assert GateConfig().fail_closed_dual_adjacency is False
+    assert probe.gate_apply_dual_default is False
+    assert probe.gate_fail_closed_default is False
+    assert probe.dual_adjacency_default is False
+    assert probe.residual_patience_cap.patience_grid == grid
+    assert probe.residual_patience_cap.caps == caps
+    assert len(probe.residual_patience_cap.cases) == len(grid) * len(caps)
+    assert probe.fail_closed_n_cases >= 8
+    assert probe.fail_closed_n_matched == probe.fail_closed_n_cases
+    assert probe.fail_closed_dry_run_all_matched is True
+    assert "harness" in probe.note.lower() or "awaiting" in probe.note.lower()
+    assert "dry" in probe.note.lower() or "fail" in probe.note.lower()
