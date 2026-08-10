@@ -4000,6 +4000,150 @@ def test_seed2_thr030_dense_phi_lw_vs_coarse_and_load_screened() -> None:
     assert ScaleSearchConfig().halve_grid_steps is False
 
 
+def test_seed2_thr030_dense_phi_peak_vs_lw_and_lc_hybrid() -> None:
+    # EXPERIMENT (A6-T77-followon): thr=0.30 densified seed~2 full-block Phi
+    # export + load_crossover hybrid vs LW. Pins that in-block argmax Phi lands
+    # at the same unstabilized idx1 that LW picks (so LW≡Phi-peak on this
+    # singleton cell by coincidence of definitions, not because LW uses Phi),
+    # while resolve_within_interval="load_crossover" stays at coarse-end idx0
+    # because the stabilization filter skips idx1 and the eligible straddle
+    # 0↔2 returns the nearer-to-unit endpoint L(0). Defaults stay off.
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+    assert _WITHIN_INTERVAL_LOAD_SCREEN_MIN == 0.5
+
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=2,
+    )
+    gt = dataset.ground_truth
+    assert gt.expected_tau is not None
+    tau_lo, tau_hi = gt.tau_grid_hint
+    result = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=ScaleSearchConfig(
+            tau_min=tau_lo,
+            tau_max=tau_hi,
+            max_grid_points=8,
+            k=8,
+            n_seeds=12,
+            min_nodes=8,
+            max_nodes=128,
+            ann_backend="naive",
+            selector="persistence",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=12
+            ),
+            seed=2,
+            halve_grid_steps=True,
+            persistence=PersistenceConfig(
+                resolve_within_interval="none",
+                densify_overlap_recover="lower_threshold",
+                densify_overlap_recover_threshold=0.30,
+            ),
+        ),
+    )
+    assert result.persistence_result is not None
+    pr = result.persistence_result
+    assert pr.tau_star_index == 0
+    assert int(pr.run_lengths[0]) == 16
+    load = np.asarray(result.load_trace, dtype=float)
+    phi = np.asarray(result.phi_trace, dtype=float)
+    stab = list(result.stabilized_flags)
+    i_lo = 0
+    i_hi = 15
+    expected_tau = float(gt.expected_tau)
+
+    print("\nA6-T77 seed2 thr0.30 dense full-block Phi + LC hybrid vs LW")
+    header = (
+        f"{'idx':>3s} {'tau*/E':>8s} {'Phi':>12s} {'load':>8s} {'stab':>4s}"
+    )
+    print(header)
+    print("-" * len(header))
+    for idx in range(i_lo, i_hi + 1):
+        ratio = float(result.tau_grid[idx]) / expected_tau
+        print(
+            f"{idx:3d} {ratio:8.3f} {float(phi[idx]):12.4g} "
+            f"{float(load[idx]):8.4f} {str(bool(stab[idx])):4s}"
+        )
+
+    finite = [
+        idx for idx in range(i_lo, i_hi + 1) if np.isfinite(float(phi[idx]))
+    ]
+    assert len(finite) == 16
+    phi_peak_idx = max(finite, key=lambda i: float(phi[i]))
+    # In-block Phi jumps at idx1 then decreases toward fine-end.
+    assert phi_peak_idx == 1
+    assert float(phi[1]) > float(phi[0])
+    for idx in range(1, i_hi):
+        assert float(phi[idx]) > float(phi[idx + 1])
+
+    modes = ("none", "load_weighted_interval", "load_crossover")
+    rows: dict[str, dict[str, float | int | bool]] = {}
+    print(
+        f"\n{'mode':24s} {'idx':>3s} {'tau*/E':>8s} {'Phi*':>12s} {'load*':>8s}"
+    )
+    print("-" * 60)
+    for mode in modes:
+        idx = _resolve_persistence_tau_index(
+            pr,
+            load,
+            stab,
+            PersistenceConfig(resolve_within_interval=mode),  # type: ignore[arg-type]
+        )
+        rows[mode] = {
+            "idx": int(idx),
+            "ratio": float(result.tau_grid[idx]) / expected_tau,
+            "phi": float(phi[idx]),
+            "load": float(load[idx]),
+            "stab": bool(stab[idx]),
+        }
+        print(
+            f"{mode:24s} {idx:3d} {float(rows[mode]['ratio']):8.3f} "
+            f"{float(rows[mode]['phi']):12.4g} {float(rows[mode]['load']):8.4f}"
+        )
+
+    # Coarse / LW pins (T70 / T73 / T76).
+    assert int(rows["none"]["idx"]) == 0
+    assert abs(float(rows["none"]["ratio"]) - 16.0) < 0.05
+    assert int(rows["load_weighted_interval"]["idx"]) == 1
+    assert abs(float(rows["load_weighted_interval"]["ratio"]) - 12.126) < 0.05
+    assert abs(float(rows["none"]["load"]) - 0.614) < 0.02
+    assert abs(float(rows["load_weighted_interval"]["load"]) - 1.562) < 0.05
+
+    # LW ≡ in-block Phi peak on this cell (both land at unstabilized idx1).
+    assert int(rows["load_weighted_interval"]["idx"]) == phi_peak_idx
+    assert bool(rows["load_weighted_interval"]["stab"]) is False
+    assert bool(stab[1]) is False
+    assert bool(stab[0]) is True
+    assert bool(stab[2]) is True
+    assert 1e8 < float(rows["load_weighted_interval"]["phi"]) < 2e9
+    assert abs(
+        float(rows["load_weighted_interval"]["phi"]) - float(phi[1])
+    ) < 1e-6
+
+    # load_crossover hybrid ≡ coarse: idx1 is unstabilized, so the eligible
+    # straddle is 0↔2 and nearer-to-unit is L(0)≈0.614.
+    assert int(rows["load_crossover"]["idx"]) == 0
+    assert int(rows["load_crossover"]["idx"]) == int(rows["none"]["idx"])
+    assert abs(float(rows["load_crossover"]["ratio"]) - 16.0) < 0.05
+    assert bool(rows["load_crossover"]["stab"]) is True
+    assert float(load[0]) <= 1.0 < float(load[2])
+    assert abs(float(load[0]) - 1.0) <= abs(float(load[2]) - 1.0)
+
+    # Contrast: LW ≠ LC hybrid on this singleton (stabilization filter).
+    assert int(rows["load_weighted_interval"]["idx"]) != int(
+        rows["load_crossover"]["idx"]
+    )
+
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
 def test_default_selector_is_load_crossover() -> None:
     # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
     assert ScaleSearchConfig().selector == "load_crossover"
