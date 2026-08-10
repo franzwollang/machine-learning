@@ -1288,3 +1288,55 @@ def test_soft_x_gabriel_tau_star_export() -> None:
     assert "sample-ARI" in SOFT_X_GABRIEL_TAU_STAR_SI_NOTE
     assert "defaults off" in SOFT_X_GABRIEL_TAU_STAR_SI_NOTE
     assert "awaiting" in SOFT_X_GABRIEL_TAU_STAR_SI_NOTE
+
+
+def test_denser_soft_seed0_keep_band_x_persist_export() -> None:
+    """#44 / A2-T59: denser soft seed0 keep-band × persist export.
+
+    T55 majors keep-band soft≤0.12 does not survive denser e2e
+    soft/soft×persist for bet or bridge_mass. Defaults off; no awaiting
+    flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_COLLAPSE_MIN_FRAC,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_FRACS,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_H0,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_KEEP_MAX_FRAC,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_MAX_NODES,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_NESTED_N,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SEED,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SI_NOTE,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TABLE,
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TORI_N,
+        format_denser_soft_seed0_keep_band_x_persist_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert abs(DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_H0 - 0.73) < 1e-9
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SEED == 0
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_NESTED_N == 160
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TORI_N == 240
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_MAX_NODES == 128
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_FRACS == (
+        0.05, 0.12, 0.15, 0.25,
+    )
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_KEEP_MAX_FRAC == 0.12
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_COLLAPSE_MIN_FRAC == 0.15
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TABLE["youden"][0] == 2
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TABLE[
+        "soft_x_persist_bet_0.12"
+    ][0] <= 1
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TABLE[
+        "soft_x_persist_bet_0.12"
+    ][2] <= 1
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TABLE[
+        "soft_x_persist_bridge_0.12"
+    ][2] <= 1
+    assert DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TABLE["soft_bet_0.12"][2] <= 1
+    tsv = format_denser_soft_seed0_keep_band_x_persist_table()
+    assert "soft_x_persist_bet_0.12" in tsv and "bridge" in tsv
+    assert "keep-band" in DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SI_NOTE
+    assert "sample-ARI" in DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SI_NOTE
+    assert "defaults off" in DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SI_NOTE
+    assert "awaiting" in DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SI_NOTE

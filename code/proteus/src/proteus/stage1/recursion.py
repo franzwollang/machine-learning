@@ -246,6 +246,9 @@ class RecursionConfig:
     nested K=2 chance-ARI survives soft×conj (contrast T41 fixed-tau
     majors collapse); circle youden shatters, soft/conj keep uniforms;
     defaults off.
+    A2-T59: denser soft seed0 keep-band × persist_agree (bet vs
+    bridge_mass) — T55 majors keep-band soft≤0.12 does not survive denser
+    e2e soft/soft×persist for either method; defaults off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +

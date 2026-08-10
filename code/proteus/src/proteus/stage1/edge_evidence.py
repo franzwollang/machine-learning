@@ -178,6 +178,12 @@ class HollowEdgeConfig:
     survives youden/soft/conj/soft×conj (contrast T41 fixed-tau majors
     collapse under conj); circle youden shatters, soft/conj keep
     uniforms at 1. Soft≠sample-ARI recovery; defaults off.
+
+    A2-T59: denser soft seed0 keep-band under ``persist_agree`` (bet vs
+    bridge_mass) — see :data:`DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_*`.
+    T55 majors keep-band soft≤0.12 does **not** survive denser e2e
+    soft/soft×persist for either method (all ≤1 leaf); youden alone
+    keeps seed0 nested K=2 chance-ARI≈0.01. Defaults off.
     """
 
     mid_radius_frac: float = 0.35
@@ -1846,6 +1852,101 @@ def format_soft_x_gabriel_tau_star_table() -> str:
         for mode, leaves in mode_table.items():
             lines.append(f"{dataset}\t{mode}\t{leaves}")
     lines.append(f"# {SOFT_X_GABRIEL_TAU_STAR_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Denser soft seed0 keep-band × persist_agree bet vs bridge_mass (A2-T59)
+# ---------------------------------------------------------------------------
+# denser n=160/240, max_nodes=128, seed0, Youden h0≈0.73, lean
+# max_grid_points=12, scale_seed=42. Contrast T55 majors keep-band
+# (soft≤0.12 → tori K=2 betweenness): at denser e2e tau*, soft and
+# soft×persist collapse nested+tori to ≤1 across keep/collapse fracs
+# for BOTH betweenness and bridge_mass — T55 keep-band is majors-only;
+# T56 method contrast is moot at e2e. Youden alone still leaves seed0
+# nested K=2 chance-ARI≈0.01 (T57); persist kills it. Soft≠recovery.
+
+DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SEED: int = 0
+DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_FRACS: tuple[float, ...] = (
+    0.05, 0.12, 0.15, 0.25,
+)
+DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_NESTED_N: int = DENSER_PROPOSED_H0_NESTED_N
+DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TORI_N: int = DENSER_PROPOSED_H0_TORI_N
+DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_MAX_NODES: int = DENSER_PROPOSED_H0_MAX_NODES
+DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_H0: float = PROPOSED_H0_YOUDEN
+DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_MAX_GRID_POINTS: int = 12
+DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SCALE_SEED_BASE: int = 42
+DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_KEEP_MAX_FRAC: float = (
+    DENSER_SOFT_SEED0_TORI_ARI_WINDOW_KEEP_MAX_FRAC
+)
+DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_COLLAPSE_MIN_FRAC: float = (
+    DENSER_SOFT_SEED0_TORI_ARI_WINDOW_COLLAPSE_MIN_FRAC
+)
+
+# mode → (nested_leaves, nested_ari, tori_leaves, tori_ari)
+DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TABLE: dict[
+    str, tuple[int, float | None, int, float | None]
+] = {
+    "youden": (2, 0.01, 1, None),
+    "persist": (1, None, 1, None),
+    "soft_bet_0.05": (1, None, 1, None),
+    "soft_x_persist_bet_0.05": (1, None, 1, None),
+    "soft_bet_0.12": (1, None, 1, None),
+    "soft_x_persist_bet_0.12": (1, None, 1, None),
+    "soft_bet_0.15": (1, None, 1, None),
+    "soft_x_persist_bet_0.15": (1, None, 1, None),
+    "soft_bet_0.25": (1, None, 1, None),
+    "soft_x_persist_bet_0.25": (1, None, 1, None),
+    "soft_bridge_0.05": (1, None, 1, None),
+    "soft_x_persist_bridge_0.05": (1, None, 1, None),
+    "soft_bridge_0.12": (1, None, 1, None),
+    "soft_x_persist_bridge_0.12": (1, None, 1, None),
+    "soft_bridge_0.15": (1, None, 1, None),
+    "soft_x_persist_bridge_0.15": (1, None, 1, None),
+    "soft_bridge_0.25": (1, None, 1, None),
+    "soft_x_persist_bridge_0.25": (1, None, 1, None),
+}
+
+DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SI_NOTE: str = (
+    "A2-T59 denser soft seed0 keep-band under persist_agree "
+    "(bet vs bridge_mass) at operational tau* e2e (n=160/240, "
+    "max_nodes=128, Youden h0≈0.73, lean max_grid_points=12, "
+    "scale_seed=42): T55 majors keep-band soft_frac≤0.12 (tori K=2 "
+    "betweenness) does **not** survive denser e2e soft or soft×persist "
+    "— both betweenness and bridge_mass collapse nested+tori to ≤1 "
+    "across soft_frac∈{0.05,0.12,0.15,0.25}; T56 method contrast is "
+    "moot at e2e. Youden alone leaves seed0 nested K=2 chance-ARI≈0.01 "
+    "(T57), killed by persist/soft. Soft≠sample-ARI recovery; defaults "
+    "off; no awaiting flip."
+)
+
+
+def format_denser_soft_seed0_keep_band_x_persist_table() -> str:
+    """TSV export of denser soft seed0 keep-band × persist e2e (A2-T59)."""
+
+    lines = [
+        "# denser soft seed0 keep-band × persist_agree bet vs bridge_mass e2e",
+        f"# nested_n={DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_NESTED_N} "
+        f"tori_n={DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TORI_N} "
+        f"max_nodes={DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_MAX_NODES} "
+        f"h0={DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_H0:g} "
+        f"max_grid_points={DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_MAX_GRID_POINTS} "
+        f"scale_seed_base={DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SCALE_SEED_BASE} "
+        f"seed={DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SEED} "
+        f"fracs={list(DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_FRACS)} "
+        f"keep_max={DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_KEEP_MAX_FRAC:g} "
+        f"collapse_min={DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_COLLAPSE_MIN_FRAC:g}",
+        "seed\tmode\tdataset\tleaves\tsample_ari",
+    ]
+    seed = DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SEED
+    for mode, (nl, na, tl, ta) in (
+        DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_TABLE.items()
+    ):
+        na_s = "" if na is None else f"{na:.2f}"
+        ta_s = "" if ta is None else f"{ta:.2f}"
+        lines.append(f"{seed}\t{mode}\tnested\t{nl}\t{na_s}")
+        lines.append(f"{seed}\t{mode}\ttori\t{tl}\t{ta_s}")
+    lines.append(f"# {DENSER_SOFT_SEED0_KEEP_BAND_X_PERSIST_SI_NOTE}")
     return "\n".join(lines)
 
 
