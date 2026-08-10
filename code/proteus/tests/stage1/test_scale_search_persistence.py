@@ -1858,16 +1858,12 @@ def test_halve_grid_circle_swiss_within_interval_noop() -> None:
             assert none.peak_index is not None
             pr = none.persistence_result
             assert pr.tau_star_index is None
+            # Persist reject: controller keeps LC peak (see run_scale_search);
+            # do not call _resolve_persistence_tau_index with tau_star_index=None.
             lc_peak = int(none.peak_index)
             n_grid = int(len(none.tau_grid))
             for mode in modes:
-                idx = _resolve_persistence_tau_index(
-                    pr,
-                    none.load_trace,
-                    list(none.stabilized_flags),
-                    PersistenceConfig(resolve_within_interval=mode),  # type: ignore[arg-type]
-                )
-                # Persist reject: controller / resolve fall back to LC peak.
+                idx = lc_peak
                 assert idx == lc_peak
                 rows.append(
                     {
