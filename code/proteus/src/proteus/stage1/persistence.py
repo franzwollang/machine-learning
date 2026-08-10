@@ -71,13 +71,15 @@ from typing import Any, Literal, Optional
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-# Experimental densify-recover Jaccard floor (OPEN_ISSUES #28 / A6-T58).
+# Experimental densify-recover Jaccard floor (OPEN_ISSUES #28 / A6-T58/T61).
 # Seed-4 × ``halve_grid_steps`` rejects under the default ``overlap_threshold``
 # 0.5 because the inserted half-step neighbor lands at ``ov0≈0.39``.  Setting
 # :attr:`PersistenceConfig.densify_overlap_recover` to ``"lower_threshold"``
 # uses this floor and recovers a full coarse-anchored run on that fixture.
-# Collateral: seed~1 (std + dense) also flips reject→accept.  Operational
-# probe only — do not enable on the acceptance path.
+# Collateral accept map (seeds 0..4 × std/dense; A6-T61): flips reject→accept
+# for seed~1 on both grids and seed~4 dense; seed~2 stays reject (ov0 below
+# 0.35); seed~3 std keeps accept but lengthens run0 3→5.  Operational probe
+# only — do not enable on the acceptance path.
 EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD: float = 0.35
 
 
@@ -193,15 +195,16 @@ class PersistenceConfig:
         not flip until a SI-justified within-interval signal exists.
         Operational (S14.3).
     densify_overlap_recover:
-        Experimental **densify-recover** lever (OPEN_ISSUES #28 / A6-T58).
+        Experimental **densify-recover** lever (OPEN_ISSUES #28 / A6-T58/T61).
         ``"none"`` (default) keeps :attr:`overlap_threshold` as the matched-
         Jaccard floor.  ``"lower_threshold"`` substitutes
         :data:`EXPERIMENTAL_DENSIFY_OVERLAP_RECOVER_THRESHOLD` (0.35) so a
         densified first-half-step break that sits just below 0.5 (seed~4
         ``ov0≈0.39``) can recover a coarse-anchored accept.  Empirically
-        collateral: seed~1 also flips reject→accept under the lower floor.
-        Default off; do not enable on the acceptance path.  Operational
-        (S14.3).
+        collateral across seeds 0..4: seed~1 flips reject→accept on std and
+        dense; seed~4 dense recovers; seed~2 stays reject; seed~3 std keeps
+        accept but lengthens the short block (run0 3→5).  Default off; do
+        not enable on the acceptance path.  Operational (S14.3).
     """
 
     min_persistence: int = 2
