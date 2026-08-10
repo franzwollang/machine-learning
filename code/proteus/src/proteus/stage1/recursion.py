@@ -280,6 +280,11 @@ class RecursionConfig:
     denser kills T63 seed1 majors soft nested inflate and T63 seed1
     e2e nested inflate; seed1 all compose modes ≤1; only seed0 youden
     remains (majors tori K=2≈0.14; e2e nested K=2≈0.01); defaults off.
+    A2-T68: denser soft keep-band × gabriel × persist multi-seed e2e —
+    soft×persist / soft×conj×persist across soft_frac∈{0.05,0.12,0.15}
+    and seeds 0..2 all ≤1 nested+tori; only seed0 youden nested K=2
+    chance-ARI≈0.01 remains (extends T65 seed0 persist grid); defaults
+    off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
