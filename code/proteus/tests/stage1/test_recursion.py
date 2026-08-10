@@ -5707,3 +5707,256 @@ def test_denser_soft_keep_band_x_gabriel_multiseed() -> None:
         "youden"
     ][0] <= 1
     assert recovered == 0
+
+
+def test_denser_soft_x_gabriel_x_persist_seed1_inflate() -> None:
+    """#44 / A2-T67: denser soft×gabriel×persist seed1 inflate window.
+
+    Denser kills T63 seed1 majors soft nested inflate and T63 seed1 e2e
+    nested inflate under soft×conj×persist; only seed0 youden remains.
+    Not sample-ARI recovery; flags off; no awaiting flip.
+    """
+
+    from sklearn.metrics import adjusted_rand_score
+
+    from proteus.stage1.edge_evidence import (
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_E2E_TABLE,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_H0,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_MAX_GRID_POINTS,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_MAX_NODES,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_NESTED_N,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_NESTED_TAU,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SCALE_SEED_BASE,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SEEDS,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SOFT_FRAC,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TABLE,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TORI_N,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TORI_TAU,
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_UNIFORMS,
+        proposed_h0_calibrated_config,
+    )
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+    from tests.datasets.synthetic.swiss_roll import make_swiss_roll
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_require_gabriel_and_h is False
+    assert RecursionConfig().hollow_require_persistent_agree is False
+    assert abs(DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_H0 - 0.73) < 1e-9
+
+    recovered = 0
+    for seed in DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SEEDS:
+        nested = make_nested_spheres(
+            n_per_sphere=DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_NESTED_N,
+            extrusion_dim=1, seed=seed,
+        )
+        tori = make_linked_tori(
+            n_per_torus=DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TORI_N,
+            seed=seed,
+        )
+
+        def _adapt(points, tau: float, _seed=seed):
+            sc = Stage1Scaffold(
+                dim=int(points.shape[1]), tau=float(tau), k=8,
+                max_nodes=(
+                    DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_MAX_NODES
+                ),
+                ann_backend="naive", rng=np.random.default_rng(_seed),
+            )
+            sc.init_from(points, n_seeds=8)
+            sc.run_until_stable(
+                points,
+                StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+            )
+            return sc
+
+        sc_n = _adapt(
+            nested.points,
+            DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_NESTED_TAU,
+        )
+        sc_t = _adapt(
+            tori.points,
+            DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TORI_TAU,
+        )
+        maj_cfgs = {
+            "youden": proposed_h0_calibrated_config("youden"),
+            "soft": proposed_h0_calibrated_config(
+                "youden",
+                soft_capacity_only=True,
+                soft_capacity_frac=(
+                    DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SOFT_FRAC
+                ),
+            ),
+            "conj": proposed_h0_calibrated_config(
+                "youden", require_gabriel_and_h=True,
+            ),
+            "soft_x_conj": proposed_h0_calibrated_config(
+                "youden",
+                soft_capacity_only=True,
+                soft_capacity_frac=(
+                    DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SOFT_FRAC
+                ),
+                require_gabriel_and_h=True,
+            ),
+        }
+        for mode, cfg in maj_cfgs.items():
+            nm, na = _hollow_majors_and_sample_ari(
+                sc_n, nested.points, nested.labels, cfg,
+            )
+            tm, ta = _hollow_majors_and_sample_ari(
+                sc_t, tori.points, tori.labels, cfg,
+            )
+            exp_nm, exp_na, exp_tm, exp_ta = (
+                DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TABLE[seed][mode]
+            )
+            assert nm == exp_nm
+            assert tm == exp_tm
+            if exp_na is not None:
+                assert na is not None and abs(na - exp_na) < 0.08
+            else:
+                assert na is None or na < 0.5
+            if exp_ta is not None:
+                assert ta is not None and abs(ta - exp_ta) < 0.08
+            else:
+                assert ta is None or ta < 0.5
+            for maj, ari in ((nm, na), (tm, ta)):
+                if maj >= 2 and ari is not None and ari >= 0.5:
+                    recovered += 1
+
+    def _lean(seed: int) -> ScaleSearchConfig:
+        return ScaleSearchConfig(
+            tau_min=1e-3,
+            tau_max=2.0,
+            max_grid_points=(
+                DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_MAX_GRID_POINTS
+            ),
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            max_nodes=DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_MAX_NODES,
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=8,
+            ),
+            seed=(
+                DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SCALE_SEED_BASE
+                + seed
+            ),
+        )
+
+    def _run_e2e(
+        points, labels, dim, *, soft: bool, conj: bool, persist: bool,
+        seed: int, min_samples: int = 40,
+    ):
+        cfg = RecursionConfig(
+            scale_search=_lean(seed),
+            min_samples=min_samples,
+            max_depth=3,
+            require_persistent_split=True,
+            allow_finer_research=False,
+            prefer_hollow_edge_prepass=True,
+            hollow_mid_radius_frac=0.5,
+            hollow_h0=float(DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_H0),
+            hollow_min_end_count=0.5,
+            hollow_gabriel_fallback=False,
+            hollow_soft_capacity_only=soft,
+            hollow_soft_capacity_frac=(
+                DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SOFT_FRAC
+            ),
+            hollow_soft_capacity_method="betweenness",
+            hollow_require_gabriel_and_h=conj,
+            hollow_require_persistent_agree=persist,
+            seed=(
+                DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SCALE_SEED_BASE
+                + seed
+            ),
+        )
+        tree = run_recursive_discovery(points, dim=dim, config=cfg)
+        n_leaves = len(tree.leaves)
+        ari = None
+        if n_leaves >= 2 and labels is not None:
+            pred = np.full(len(points), -1, dtype=int)
+            for lid, leaf in enumerate(tree.leaves):
+                pred[np.asarray(leaf.sample_indices)] = lid
+            mask = (pred >= 0) & (np.asarray(labels) >= 0)
+            if mask.sum() > 0 and len(np.unique(pred[mask])) >= 2:
+                ari = float(adjusted_rand_score(labels[mask], pred[mask]))
+        return n_leaves, ari
+
+    e2e_modes = {
+        "youden": (False, False, False),
+        "soft_x_conj": (True, True, False),
+        "soft_x_persist": (True, False, True),
+        "soft_x_conj_x_persist": (True, True, True),
+    }
+    for seed in DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SEEDS:
+        nested = make_nested_spheres(
+            n_per_sphere=DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_NESTED_N,
+            extrusion_dim=1, seed=seed,
+        )
+        tori = make_linked_tori(
+            n_per_torus=DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TORI_N,
+            seed=seed,
+        )
+        for mode, (soft, conj, persist) in e2e_modes.items():
+            nl, na = _run_e2e(
+                nested.points, nested.labels, nested.points.shape[1],
+                soft=soft, conj=conj, persist=persist, seed=seed,
+            )
+            tl, ta = _run_e2e(
+                tori.points, tori.labels, tori.points.shape[1],
+                soft=soft, conj=conj, persist=persist, seed=seed,
+            )
+            exp_nl, exp_na, exp_tl, exp_ta = (
+                DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_E2E_TABLE[
+                    seed
+                ][mode]
+            )
+            assert nl == exp_nl
+            assert tl == exp_tl
+            if exp_na is not None:
+                assert na is not None and abs(na - exp_na) < 0.08
+            else:
+                assert na is None or na < 0.5
+            if exp_ta is not None:
+                assert ta is not None and abs(ta - exp_ta) < 0.08
+            else:
+                assert ta is None or ta < 0.5
+            for leaves, ari in ((nl, na), (tl, ta)):
+                if leaves >= 2 and ari is not None and ari >= 0.5:
+                    recovered += 1
+
+    circle = make_circle(
+        n_samples=300, radius=1.0, noise=0.02, extrusion_dim=2, seed=0,
+    )
+    swiss = make_swiss_roll(n_samples=400, noise=0.02, seed=0)
+    for mode, (soft, conj, persist) in e2e_modes.items():
+        cl, _ = _run_e2e(
+            circle.points, None, circle.points.shape[1],
+            soft=soft, conj=conj, persist=persist, seed=0, min_samples=80,
+        )
+        sl, _ = _run_e2e(
+            swiss.points, None, swiss.points.shape[1],
+            soft=soft, conj=conj, persist=persist, seed=0, min_samples=80,
+        )
+        assert cl == DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_UNIFORMS[
+            "circle"
+        ][mode]
+        assert sl == DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_UNIFORMS[
+            "swiss"
+        ][mode]
+
+    # denser kills T63 seed1 majors soft + e2e inflate
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TABLE[1][
+        "soft"
+    ][0] <= 1
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_E2E_TABLE[1][
+        "soft_x_conj_x_persist"
+    ][0] <= 1
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_E2E_TABLE[0][
+        "youden"
+    ][0] == 2
+    assert DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_UNIFORMS["circle"][
+        "youden"
+    ] == 1
+    assert recovered == 0

@@ -228,6 +228,13 @@ class HollowEdgeConfig:
     1–2 stay ≤1 at majors (incl. soft keep fracs); gabriel conj kills
     seed0 keep. Lean e2e: only seed0 youden nested K=2 chance-ARI≈0.01;
     soft/soft×conj and seeds 1–2 all ≤1. Defaults off.
+
+    A2-T67: denser soft×gabriel×persist compose seed1 inflate window —
+    see :data:`DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_*`. Denser
+    kills T63 seed1 majors soft nested inflate and T63 seed1 e2e nested
+    inflate; seed1 soft/soft×conj/soft×persist/soft×conj×persist all ≤1
+    on majors+e2e. Only seed0 youden remains (majors tori K=2
+    chance-ARI≈0.14; e2e nested K=2 chance-ARI≈0.01). Defaults off.
     """
 
     mid_radius_frac: float = 0.35
@@ -2935,6 +2942,175 @@ def format_denser_soft_keep_band_x_gabriel_multiseed_table() -> str:
         for mode, leaves in mode_table.items():
             lines.append(f"{dataset}\t{mode}\t{leaves}")
     lines.append(f"# {DENSER_SOFT_KEEP_BAND_X_GABRIEL_MULTISEED_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Denser soft×gabriel×persist compose seed1 inflate window (A2-T67)
+# ---------------------------------------------------------------------------
+# denser n=160/240, max_nodes=128, Youden h0≈0.73, mid=0.5 gabriel=False,
+# soft_frac=0.25 betweenness, seeds 0..2. Fixed-tau majors (0.27/0.5):
+# denser kills T63 seed1 soft nested majors inflate (baseline nested K=2
+# chance-ARI≈0.08 → denser seed1 soft ≤1); soft_frac=0.25 also collapses
+# seed0 denser youden tori K=2 keep. Lean tau* e2e (max_grid_points=12,
+# scale_seed=42+seed): denser kills T63 seed1 nested e2e inflate
+# (baseline nested K=2 chance-ARI≈0 survives soft×conj×persist → denser
+# seed1 all ≤1); only seed0 youden nested K=2 chance-ARI≈0.01 remains
+# (same T61/T66 singleton). Circle/swiss stay 1. Soft≠recovery.
+
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SEEDS: tuple[int, ...] = (0, 1, 2)
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SOFT_FRAC: float = 0.25
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SOFT_METHOD: str = "betweenness"
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_NESTED_N: int = (
+    DENSER_PROPOSED_H0_NESTED_N
+)
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TORI_N: int = (
+    DENSER_PROPOSED_H0_TORI_N
+)
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_MAX_NODES: int = (
+    DENSER_PROPOSED_H0_MAX_NODES
+)
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_NESTED_TAU: float = 0.27
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TORI_TAU: float = 0.5
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_H0: float = PROPOSED_H0_YOUDEN
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_MAX_GRID_POINTS: int = 12
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SCALE_SEED_BASE: int = 42
+
+# seed → mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TABLE: dict[
+    int, dict[str, tuple[int, float | None, int, float | None]]
+] = {
+    0: {
+        "youden": (1, None, 2, 0.14),
+        "soft": (1, None, 1, None),
+        "conj": (1, None, 1, None),
+        "soft_x_conj": (1, None, 1, None),
+    },
+    1: {
+        "youden": (1, None, 1, None),
+        "soft": (1, None, 1, None),
+        "conj": (1, None, 1, None),
+        "soft_x_conj": (1, None, 1, None),
+    },
+    2: {
+        "youden": (1, None, 1, None),
+        "soft": (1, None, 1, None),
+        "conj": (1, None, 1, None),
+        "soft_x_conj": (1, None, 1, None),
+    },
+}
+
+# seed → mode → (nested_leaves, nested_ari, tori_leaves, tori_ari)
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_E2E_TABLE: dict[
+    int, dict[str, tuple[int, float | None, int, float | None]]
+] = {
+    0: {
+        "youden": (2, 0.01, 1, None),
+        "soft_x_conj": (1, None, 1, None),
+        "soft_x_persist": (1, None, 1, None),
+        "soft_x_conj_x_persist": (1, None, 1, None),
+    },
+    1: {
+        "youden": (1, None, 1, None),
+        "soft_x_conj": (1, None, 1, None),
+        "soft_x_persist": (1, None, 1, None),
+        "soft_x_conj_x_persist": (1, None, 1, None),
+    },
+    2: {
+        "youden": (1, None, 1, None),
+        "soft_x_conj": (1, None, 1, None),
+        "soft_x_persist": (1, None, 1, None),
+        "soft_x_conj_x_persist": (1, None, 1, None),
+    },
+}
+
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_UNIFORMS: dict[
+    str, dict[str, int]
+] = {
+    "circle": {
+        "youden": 1,
+        "soft_x_conj": 1,
+        "soft_x_persist": 1,
+        "soft_x_conj_x_persist": 1,
+    },
+    "swiss": {
+        "youden": 1,
+        "soft_x_conj": 1,
+        "soft_x_persist": 1,
+        "soft_x_conj_x_persist": 1,
+    },
+}
+
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SI_NOTE: str = (
+    "A2-T67 denser soft×require_gabriel_and_h×persist_agree compose "
+    "seed1 inflate window (n=160/240, max_nodes=128, Youden h0≈0.73, "
+    "mid=0.5 gabriel=False, soft_frac=0.25 betweenness, fixed-tau majors "
+    "0.27/0.5 + lean tau* e2e max_grid_points=12 scale_seed=42+seed): "
+    "denser kills T63 seed1 majors soft nested inflate (baseline nested "
+    "K=2 chance-ARI≈0.08 → denser seed1 soft ≤1) and T63 seed1 e2e "
+    "nested inflate (baseline nested K=2 chance-ARI≈0 survives "
+    "soft×conj×persist → denser seed1 all ≤1); soft_frac=0.25 also "
+    "collapses denser seed0 youden tori majors keep. Only seed0 youden "
+    "remains (majors tori K=2 chance-ARI≈0.14; e2e nested K=2 "
+    "chance-ARI≈0.01). Circle/swiss stay 1. Soft≠sample-ARI recovery; "
+    "defaults off; no awaiting flip."
+)
+
+
+def format_denser_soft_x_gabriel_x_persist_seed_inflate_table() -> str:
+    """TSV export of denser soft×gabriel×persist seed1 inflate (A2-T67)."""
+
+    lines = [
+        "# denser soft × require_gabriel_and_h × persist_agree compose "
+        "seed1 inflate window",
+        f"# nested_n={DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_NESTED_N} "
+        f"tori_n={DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TORI_N} "
+        f"max_nodes={DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_MAX_NODES} "
+        f"h0={DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_H0:g} "
+        f"soft_frac="
+        f"{DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SOFT_FRAC:g} "
+        f"method={DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SOFT_METHOD} "
+        f"max_grid_points="
+        f"{DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_MAX_GRID_POINTS} "
+        f"scale_seed_base="
+        f"{DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SCALE_SEED_BASE} "
+        f"seeds={list(DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SEEDS)}",
+        "surface\tseed\tmode\tdataset\ttau_or_e2e\tmajors_or_leaves\tsample_ari",
+    ]
+    for seed in DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SEEDS:
+        for mode, (nm, na, tm, ta) in (
+            DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TABLE[seed].items()
+        ):
+            na_s = "" if na is None else f"{na:.2f}"
+            ta_s = "" if ta is None else f"{ta:.2f}"
+            lines.append(
+                f"majors\t{seed}\t{mode}\tnested\t"
+                f"{DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_NESTED_TAU:g}\t"
+                f"{nm}\t{na_s}"
+            )
+            lines.append(
+                f"majors\t{seed}\t{mode}\ttori\t"
+                f"{DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TORI_TAU:g}\t"
+                f"{tm}\t{ta_s}"
+            )
+        for mode, (nl, na, tl, ta) in (
+            DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_E2E_TABLE[
+                seed
+            ].items()
+        ):
+            na_s = "" if na is None else f"{na:.2f}"
+            ta_s = "" if ta is None else f"{ta:.2f}"
+            lines.append(f"e2e\t{seed}\t{mode}\tnested\ttau*\t{nl}\t{na_s}")
+            lines.append(f"e2e\t{seed}\t{mode}\ttori\ttau*\t{tl}\t{ta_s}")
+    lines.append("dataset\tmode\tleaves")
+    for dataset, mode_table in (
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_UNIFORMS.items()
+    ):
+        for mode, leaves in mode_table.items():
+            lines.append(f"{dataset}\t{mode}\t{leaves}")
+    lines.append(
+        f"# {DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SI_NOTE}"
+    )
     return "\n".join(lines)
 
 
