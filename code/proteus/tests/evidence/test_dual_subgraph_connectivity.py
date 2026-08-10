@@ -91,12 +91,15 @@ from proteus.stage2 import (
     mu_S_weight,
     normalize_simplex_masses,
     probe_acceptance_none_open_default,
+    probe_bp_spectrum_damping,
+    probe_fail_closed_dual_adjacency_plan,
     query_stage1_ann_bmus,
     resolve_dual_connected,
     route_live_bmu_face_tallies,
     route_live_density_from_complex,
     route_stage1_bmu_face_tallies,
     route_stage1_from_complex,
+    run_online_offline_schedule,
     simplex_local_density,
     simplex_outward_normals,
     simplex_volume,
@@ -1789,3 +1792,84 @@ def test_acceptance_open_default_still_accepts_with_none_adj_on_gate():
         config=GateConfig(apply_dual_adjacency=True),
     )
     assert not v_flag.accepted
+
+
+# ---------------------------------------------------------------------------
+# A5-T55: BP spectrum damping probe (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_bp_spectrum_damping_probe_flag_off_returns_none():
+    """enable_bp_spectrum_damping_probe=False ⇒ probe is None."""
+
+    assert probe_bp_spectrum_damping() is None
+    assert probe_bp_spectrum_damping(config=DualFlowConfig()) is None
+
+
+def test_bp_spectrum_damping_probe_fires_mu_and_loopy_ridge():
+    """Flag on + spectrum_cond_cap=0 ⇒ μ spectrum_damped + loopy ridge."""
+
+    cfg = DualFlowConfig(enable_bp_spectrum_damping_probe=True)
+    probe = probe_bp_spectrum_damping(config=cfg)
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert probe.mu_spectrum_damped is True
+    assert probe.mu_hessian_cond > 0.0
+    assert probe.loopy_spectrum_ridge_applied is True
+    assert probe.loopy_message_updates > 0
+    assert probe.spectrum_cond_cap_used == 0.0
+    assert "spectrum" in probe.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T56: online tallies → offline μ schedule (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_online_offline_schedule_flag_off_returns_none():
+    """enable_online_offline_schedule=False ⇒ harness is None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    assert (
+        run_online_offline_schedule(
+            [np.array([0.3, 0.3])], {0: left}, config=DualFlowConfig()
+        )
+        is None
+    )
+
+
+def test_online_offline_schedule_runs_tally_then_solve():
+    """Flag on: live BMU tallies then offline μ soft-solve per winner."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([0.4, 0.2])]
+    cfg = DualFlowConfig(
+        enable_online_offline_schedule=True,
+        bp_max_iters=6,
+        as_step=0.5,
+    )
+    out = run_online_offline_schedule(samples, {0: left}, config=cfg)
+    assert out is not None
+    assert out.n_samples == 2
+    assert out.n_online_simplices >= 1
+    assert out.n_offline_solves >= 1
+    assert out.offline_r_cons_mean >= 0.0
+    assert isinstance(out.offline_spectrum_damped_any, bool)
+    assert "online" in out.note.lower() and "offline" in out.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T57: fail-closed dual-adjacency plan stub (document only; no flip)
+# ---------------------------------------------------------------------------
+
+
+def test_fail_closed_dual_adjacency_plan_probe():
+    """A5-T57: plan stub keeps open-default active; documents fail-closed steps."""
+
+    probe = probe_fail_closed_dual_adjacency_plan()
+    assert probe.open_default_still_active is True
+    assert probe.gate_apply_dual_adjacency_default is False
+    assert probe.dual_enable_dual_adjacency_default is False
+    assert len(probe.plan_steps) >= 4
+    assert any("fail-closed" in s.lower() or "apply_dual" in s for s in probe.plan_steps)
+    assert "fail-closed" in probe.note.lower() or "None" in probe.note

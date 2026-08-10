@@ -36,9 +36,13 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   ``enable_mass_normalization`` (A5-EXP-mass; ungated ``epsilon_mass``
   helper). Complex → node-star incidence + ANN BMU query for
   Stage-1 tally wiring lands behind ``enable_complex_ann_incidence``
-  (A5-EXP-ann-inc). Remaining real-BP gaps: production loopy BP with
-  robust spectrum damping / online→offline schedule; true-manifold
-  flux zeroing (S6.3).
+  (A5-EXP-ann-inc). A BP spectrum-damping *probe* lands behind
+  ``enable_bp_spectrum_damping_probe`` (A5-T55; documents step-shrink /
+  loopy ridge on poorly conditioned spectra — still not production). An
+  online-tallies→offline-solve *schedule* harness lands behind
+  ``enable_online_offline_schedule`` (A5-T56). Remaining real-BP gaps:
+  production loopy BP with certified spectrum-safe convergence; true-
+  manifold flux zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
   seams land behind ``enable_boundary_taxonomy`` (proposed; default off).
   Heuristic single-owner → true-manifold; hint sets override. Seam stitch /
@@ -109,6 +113,12 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
 * ``DualFlowConfig.enable_live_density`` — when off,
   :func:`route_live_density_from_complex` returns ``None`` (A5-T50
   harness: Complex/ANN BMU → S6.4 density per sample).
+* ``DualFlowConfig.enable_bp_spectrum_damping_probe`` — when off,
+  :func:`probe_bp_spectrum_damping` returns ``None``; when on, runs the
+  A5-T55 spectrum step-shrink / loopy-ridge probe (proposal-path).
+* ``DualFlowConfig.enable_online_offline_schedule`` — when off,
+  :func:`run_online_offline_schedule` returns ``None``; when on, runs the
+  A5-T56 online-tallies → offline-solve schedule sketch.
 * Call sites that opt in (tests / experimental dry-runs) pass flags ``True``
   and feed results into the gate or diagnostics.
 
@@ -130,6 +140,12 @@ are not blocked by a missing Stage-2 producer. Closing #43 requires:
 A5-T54 :func:`probe_acceptance_none_open_default` locks a snapshot of the
 current open-default matrix (None/flag-off ⇒ connected; flag-on detects
 disconnect). Experiment / documentation only — does **not** flip defaults.
+
+A5-T55 :func:`probe_bp_spectrum_damping` (flag-gated) documents SI S6.2
+spectrum damping on the μ-soft solve and loopy BP ridge path. A5-T56
+:func:`run_online_offline_schedule` sketches online tallies → offline
+solve. A5-T57 :func:`probe_fail_closed_dual_adjacency_plan` documents the
+path to replace None⇒True — still does **not** flip defaults.
 """
 from __future__ import annotations
 
@@ -174,6 +190,9 @@ __all__ = [
     "LoopyBPScheduleResult",
     "MassNormalizationResult",
     "AcceptanceOpenDefaultProbe",
+    "BpSpectrumDampingProbe",
+    "OnlineOfflineScheduleResult",
+    "FailClosedDualPlanProbe",
     "SharedFacePair",
     "build_dual_adjacency",
     "build_dual_adjacency_from_complex",
@@ -213,6 +232,9 @@ __all__ = [
     "affected_subgraph_connected",
     "resolve_dual_connected",
     "probe_acceptance_none_open_default",
+    "probe_bp_spectrum_damping",
+    "run_online_offline_schedule",
+    "probe_fail_closed_dual_adjacency_plan",
 ]
 
 # Concrete DualAdjacency realization used by this stub (SI S6.2 contract).
@@ -324,6 +346,16 @@ class DualFlowConfig:
         returns ``None``. When ``True``, routes samples via Complex/ANN
         incidence then evaluates S6.4 density on the winning simplex
         (A5-T50 harness). Still proposal-path; does not flip ``@awaiting``.
+    enable_bp_spectrum_damping_probe:
+        When ``False`` (default), :func:`probe_bp_spectrum_damping` returns
+        ``None``. When ``True``, runs the A5-T55 spectrum step-shrink /
+        loopy-ridge probe on a poorly conditioned fixture (proposal-path;
+        does not change production defaults or ``@awaiting``).
+    enable_online_offline_schedule:
+        When ``False`` (default), :func:`run_online_offline_schedule`
+        returns ``None``. When ``True``, runs the A5-T56 online face
+        tallies → offline μ soft-solve schedule sketch (SI S6.2
+        paragraph; proposal-path only).
     bp_damping:
         Operational damping in ``[0, 1]`` for the BP sketch
         (``p <- (1-d)*hat_p + d*p_prev``). Default ``0.5``.
@@ -381,6 +413,8 @@ class DualFlowConfig:
     enable_seam_ghost: bool = False
     enable_simplex_density: bool = False
     enable_live_density: bool = False
+    enable_bp_spectrum_damping_probe: bool = False
+    enable_online_offline_schedule: bool = False
     bp_damping: float = 0.5
     bp_max_iters: int = 1
     tally_scale: float = 1.0
@@ -2348,6 +2382,7 @@ class LoopyBPScheduleResult:
     n_interior_faces: int
     n_factors: int
     message_updates: int
+    spectrum_ridge_applied: bool = False
     registry: GlobalFaceRegistry
     note: str = (
         "sketch only: loopy Gaussian BP message schedule on face/factor "
@@ -2756,6 +2791,7 @@ def solve_loopy_bp_schedule(
             face_owners[g].append((sid, li))
 
     message_updates = 0
+    spectrum_ridge_applied = False
     for _ in range(iters):
         for sid, A_S, n in zip(ids, blocks_A, block_sizes, strict=True):
             g_ids = factor_faces[sid]
@@ -2789,6 +2825,7 @@ def solve_loopy_bp_schedule(
             if not np.isfinite(cond) or cond > cond_cap:
                 ridge = float(np.mean(np.abs(np.diag(J)))) + float(cfg.as_eps)
                 J = J + ridge * np.eye(n)
+                spectrum_ridge_applied = True
             try:
                 mean = np.linalg.solve(J, i_cav)
             except np.linalg.LinAlgError:
@@ -2871,6 +2908,7 @@ def solve_loopy_bp_schedule(
         n_interior_faces=registry.n_interior,
         n_factors=len(ids),
         message_updates=message_updates,
+        spectrum_ridge_applied=bool(spectrum_ridge_applied),
         registry=registry,
     )
 
@@ -3219,4 +3257,238 @@ def probe_acceptance_none_open_default() -> AcceptanceOpenDefaultProbe:
         flag_on_detects_endpoint_disconnect=bool(
             dry_on.dual_adjacency is not None and not dry_on.dual_connected
         ),
+    )
+
+
+@dataclass(frozen=True)
+class BpSpectrumDampingProbe:
+    """SI S6.2 spectrum-damping probe snapshot (A5-T55; proposal-path).
+
+    Documents that ``spectrum_cond_cap`` triggers μ-soft step-shrink
+    (``spectrum_damped``) and loopy-BP factor ridge
+    (``spectrum_ridge_applied``) on a poorly conditioned fixture. Does
+    **not** flip defaults or ``@awaiting``.
+    """
+
+    probe_flag_default_off: bool
+    mu_spectrum_damped: bool
+    mu_hessian_cond: float
+    loopy_spectrum_ridge_applied: bool
+    loopy_message_updates: int
+    spectrum_cond_cap_used: float
+    note: str = (
+        "spectrum damping probe: μ soft-solve step-shrink + loopy ridge "
+        "when Hessian/factor cond exceeds spectrum_cond_cap; sketch only"
+    )
+
+
+def probe_bp_spectrum_damping(
+    *,
+    config: DualFlowConfig | None = None,
+) -> BpSpectrumDampingProbe | None:
+    """Probe BP spectrum damping / ridge on a poorly conditioned fixture.
+
+    When ``enable_bp_spectrum_damping_probe`` is off, returns ``None``.
+    When on, forces ``spectrum_cond_cap=0`` on a triangle μ soft-solve and
+    a two-simplex loopy BP schedule so both spectrum paths fire, then
+    returns a frozen snapshot (A5-T55). Proposal-path only — keep mass /
+    density ``@awaiting`` xfail.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_bp_spectrum_damping_probe:
+        return None
+
+    default_off = not DualFlowConfig().enable_bp_spectrum_damping_probe
+    # Force spectrum paths: any finite cond exceeds cap=0.
+    probe_cap = 0.0
+    P = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]], dtype=float)
+    A_S = build_divergence_stencil(P)
+    hat = np.array([2.0, 0.1, 0.1], dtype=float)
+    mu_cfg = DualFlowConfig(
+        enable_mu_weighted_solve=True,
+        bp_max_iters=4,
+        as_step=0.5,
+        spectrum_cond_cap=probe_cap,
+    )
+    mu_out = solve_mu_weighted_pressures(hat, A_S, config=mu_cfg)
+    if mu_out is None:
+        raise RuntimeError("μ soft-solve unexpectedly None under probe cfg")
+
+    left = P
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]], dtype=float)
+    A0 = build_divergence_stencil(left)
+    A1 = build_divergence_stencil(right)
+    hats = {
+        0: np.array([2.0, 0.1, 0.1], dtype=float),
+        1: np.array([0.2, 1.5, 0.2], dtype=float),
+    }
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    loopy_cfg = DualFlowConfig(
+        enable_loopy_bp_schedule=True,
+        bp_damping=0.5,
+        bp_max_iters=2,
+        spectrum_cond_cap=probe_cap,
+    )
+    loopy_out = solve_loopy_bp_schedule(
+        hats, {0: A0, 1: A1}, simplices, config=loopy_cfg
+    )
+    if loopy_out is None:
+        raise RuntimeError("loopy BP unexpectedly None under probe cfg")
+
+    return BpSpectrumDampingProbe(
+        probe_flag_default_off=bool(default_off),
+        mu_spectrum_damped=bool(mu_out.spectrum_damped),
+        mu_hessian_cond=float(mu_out.hessian_cond),
+        loopy_spectrum_ridge_applied=bool(loopy_out.spectrum_ridge_applied),
+        loopy_message_updates=int(loopy_out.message_updates),
+        spectrum_cond_cap_used=float(probe_cap),
+    )
+
+
+@dataclass(frozen=True)
+class OnlineOfflineScheduleResult:
+    """Online tallies → offline μ soft-solve schedule sketch (SI S6.2; A5-T56).
+
+    Online phase writes face tallies during sample routing; offline phase
+    solves the conservative field after tallies settle. Proposal-path only.
+    """
+
+    n_samples: int
+    n_online_simplices: int
+    n_offline_solves: int
+    offline_r_cons_mean: float
+    offline_spectrum_damped_any: bool
+    note: str = (
+        "sketch only: online live-BMU tallies → offline μ soft-solve; "
+        "not production online→offline BP schedule"
+    )
+
+
+def run_online_offline_schedule(
+    samples: Sequence[np.ndarray],
+    simplex_positions: Mapping[Hashable, np.ndarray],
+    *,
+    config: DualFlowConfig | None = None,
+) -> OnlineOfflineScheduleResult | None:
+    """Online face tallies then offline μ soft-solve (SI S6.2; A5-T56).
+
+    When ``enable_online_offline_schedule`` is off, returns ``None``. When
+    on:
+
+    1. **Online** — route samples via the live-BMU tally harness
+       (internally enables that path for this call).
+    2. **Offline** — after tallies settle, soft-solve whitened ``λ_f`` +
+       ``μ_S`` on each BMU winner's face pressures.
+
+    Does **not** flip mass/density ``@awaiting``. Production loopy BP
+    online→offline remains future work.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_online_offline_schedule:
+        return None
+    if not samples:
+        raise ValueError("samples must be non-empty")
+    if not simplex_positions:
+        raise ValueError("simplex_positions must be non-empty")
+
+    tally_cfg = DualFlowConfig(
+        enable_live_bmu_tally=True,
+        tally_scale=float(cfg.tally_scale),
+    )
+    live = route_live_bmu_face_tallies(
+        samples, simplex_positions, config=tally_cfg
+    )
+    if live is None:
+        raise RuntimeError("live BMU tallies unexpectedly None")
+
+    solve_cfg = DualFlowConfig(
+        enable_mu_weighted_solve=True,
+        bp_damping=float(cfg.bp_damping),
+        bp_max_iters=max(int(cfg.bp_max_iters), 4),
+        as_step=float(cfg.as_step),
+        mu_scale=float(cfg.mu_scale),
+        whiten_floor=float(cfg.whiten_floor),
+        spectrum_cond_cap=float(cfg.spectrum_cond_cap),
+        as_eps=float(cfg.as_eps),
+        enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+    )
+    r_cons_vals: list[float] = []
+    spectrum_any = False
+    n_solves = 0
+    for sid, tally in live.tallies_by_simplex.items():
+        if sid not in simplex_positions:
+            continue
+        A_S = build_divergence_stencil(
+            np.asarray(simplex_positions[sid], dtype=float)
+        )
+        out = solve_mu_weighted_pressures(
+            tally.tallies, A_S, config=solve_cfg
+        )
+        if out is None:
+            continue
+        n_solves += 1
+        r_cons_vals.append(float(out.r_cons))
+        spectrum_any = spectrum_any or bool(out.spectrum_damped)
+
+    r_mean = float(np.mean(r_cons_vals)) if r_cons_vals else 0.0
+    return OnlineOfflineScheduleResult(
+        n_samples=len(samples),
+        n_online_simplices=len(live.tallies_by_simplex),
+        n_offline_solves=n_solves,
+        offline_r_cons_mean=r_mean,
+        offline_spectrum_damped_any=bool(spectrum_any),
+    )
+
+
+@dataclass(frozen=True)
+class FailClosedDualPlanProbe:
+    """Stub plan to replace None⇒True open-default (SI S10.4 A2; A5-T57).
+
+    Documents the acceptance-path steps toward fail-closed dual adjacency
+    without flipping ``GateConfig`` / ``DualFlowConfig`` defaults.
+    """
+
+    open_default_still_active: bool
+    gate_apply_dual_adjacency_default: bool
+    dual_enable_dual_adjacency_default: bool
+    plan_steps: tuple[str, ...]
+    note: str = (
+        "fail-closed plan stub: keep None⇒True until dual producer + "
+        "real S6.2 BP green; then gate apply_dual_adjacency=True"
+    )
+
+
+def probe_fail_closed_dual_adjacency_plan() -> FailClosedDualPlanProbe:
+    """Document the fail-closed path replacing None⇒True (A5-T57).
+
+    Always returns a frozen plan snapshot (stub / documentation). Does
+    **not** flip defaults or ``@awaiting`` markers — acceptance-path
+    promotion waits on A5-T42 steps and green dual-flow evidence.
+    """
+
+    gate_default = GateConfig()
+    dual_default = DualFlowConfig()
+    open_default = (
+        (not gate_default.apply_dual_adjacency)
+        and (not dual_default.enable_dual_adjacency)
+        and affected_dual_subgraph_connected(None, (0, 1))
+    )
+    steps = (
+        "Keep None adj / flags off ⇒ dual_connected True (current open default)",
+        "Land default-on dual adjacency producer so None is unreachable on acceptance path",
+        "Land real S6.2 BP (not identity sketch) with spectrum-safe convergence",
+        "Green evidence for mass/density @awaiting before flipping markers",
+        "Then set GateConfig.apply_dual_adjacency=True (fail-closed on disconnect)",
+    )
+    return FailClosedDualPlanProbe(
+        open_default_still_active=bool(open_default),
+        gate_apply_dual_adjacency_default=bool(
+            gate_default.apply_dual_adjacency
+        ),
+        dual_enable_dual_adjacency_default=bool(
+            dual_default.enable_dual_adjacency
+        ),
+        plan_steps=steps,
     )
