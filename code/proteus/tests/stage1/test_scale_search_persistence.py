@@ -6423,6 +6423,116 @@ def test_phi_half_life_x_fractional_landing_proximity_thr030_dense() -> None:
     assert ScaleSearchConfig().halve_grid_steps is False
 
 
+def test_phi_half_life_circle_swiss_x_halve_grid_no_persist() -> None:
+    # EXPERIMENT (A6-T101): Phi half-life on circle / swiss-roll (no accepted
+    # persist split) × ``halve_grid_steps`` off/on. Pins that half-life is
+    # defined without a persistence block, and densify roughly doubles the
+    # peak/half indices. Defaults stay off.
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+    fixtures = (
+        (
+            "circle",
+            make_circle(
+                n_samples=800, radius=1.0, noise=0.02, extrusion_dim=2, seed=21,
+            ),
+        ),
+        ("swiss", make_swiss_roll(n_samples=800, seed=0)),
+    )
+    expect = {
+        ("circle", False): {"n": 8, "peak": 4, "half": 6, "frac": 1.632},
+        ("circle", True): {"n": 16, "peak": 8, "half": 12, "frac": 3.150},
+        ("swiss", False): {"n": 8, "peak": 4, "half": 5, "frac": 0.960},
+        ("swiss", True): {"n": 16, "peak": 8, "half": 10, "frac": 1.935},
+    }
+    by: dict[tuple[str, bool], dict[str, object]] = {}
+    print("\nA6-T101 Phi half-life circle/swiss × halve_grid (no persist)")
+    header = (
+        f"{'name':>6s} {'dense':>5s} {'n':>3s} {'peak':>4s} {'half':>4s} "
+        f"{'frac':>7s} {'LC':>3s}"
+    )
+    print(header)
+    print("-" * len(header))
+    for name, dataset in fixtures:
+        gt = dataset.ground_truth
+        assert gt.expected_tau is not None
+        tau_lo, tau_hi = gt.tau_grid_hint
+        for dense in (False, True):
+            result = run_scale_search(
+                dataset.points,
+                dim=gt.ambient_dim,
+                config=ScaleSearchConfig(
+                    tau_min=tau_lo,
+                    tau_max=tau_hi,
+                    max_grid_points=8,
+                    k=8,
+                    n_seeds=12,
+                    min_nodes=8,
+                    max_nodes=128,
+                    ann_backend="naive",
+                    selector="persistence",
+                    stabilization=StabilizationConfig(
+                        min_equilibrium_epochs=2, max_epochs=12,
+                    ),
+                    seed=0,
+                    halve_grid_steps=dense,
+                    persistence=PersistenceConfig(resolve_within_interval="none"),
+                ),
+            )
+            assert result.persistence_result is not None
+            assert result.persistence_result.tau_star_index is None
+            phi = np.asarray(result.phi_trace, dtype=float)
+            n = len(phi)
+            finite = [
+                idx for idx in range(n) if np.isfinite(float(phi[idx]))
+            ]
+            peak = max(finite, key=lambda i: float(phi[i]))
+            phi_p = float(phi[peak])
+            half_idx: int | None = None
+            frac_off: float | None = None
+            prev_r = 1.0
+            for off in range(1, n - peak):
+                r = float(phi[peak + off]) / phi_p
+                if r <= 0.5:
+                    half_idx = peak + off
+                    t = (prev_r - 0.5) / (prev_r - r) if prev_r != r else 0.0
+                    frac_off = float(off - 1) + float(t)
+                    break
+                prev_r = r
+            assert half_idx is not None and frac_off is not None
+            by[(name, dense)] = {
+                "n": int(n),
+                "peak": int(peak),
+                "half": int(half_idx),
+                "frac": float(frac_off),
+                "lc": int(result.peak_index),
+            }
+            print(
+                f"{name:>6s} {str(dense):>5s} {n:3d} {peak:4d} {half_idx:4d} "
+                f"{frac_off:7.3f} {int(result.peak_index):3d}"
+            )
+
+    for key, want in expect.items():
+        row = by[key]
+        assert int(row["n"]) == int(want["n"])
+        assert int(row["peak"]) == int(want["peak"])
+        assert int(row["half"]) == int(want["half"])
+        assert abs(float(row["frac"]) - float(want["frac"])) < 0.05
+        assert int(row["half"]) > int(row["peak"])
+
+    # Densify doubles grid length and roughly doubles peak/half indices.
+    for name in ("circle", "swiss"):
+        assert int(by[(name, True)]["n"]) == 2 * int(by[(name, False)]["n"])
+        assert int(by[(name, True)]["peak"]) == 2 * int(by[(name, False)]["peak"])
+        assert int(by[(name, True)]["half"]) == 2 * int(by[(name, False)]["half"])
+
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
 def test_default_selector_is_load_crossover() -> None:
     # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
     assert ScaleSearchConfig().selector == "load_crossover"
