@@ -239,6 +239,9 @@ class RecursionConfig:
     A2-T56: denser soft seed0 window × bridge_mass — T55 keep band is
     betweenness-specific (bridge_mass collapses soft∈{0.05..0.25});
     defaults off.
+    A2-T57: denser soft×persist@tau* e2e — denser kills T54 seed1 nested
+    inflate; denser-youden seed0 nested K=2 killed by soft/persist;
+    defaults off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
