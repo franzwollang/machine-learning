@@ -1033,6 +1033,145 @@ def format_filtration_mult_sweep_table(result: FiltrationMultSweepResult) -> str
     return "\n".join(lines)
 
 
+@dataclass(frozen=True)
+class LifetimeMultGridRow:
+    """One region × (lifetime_frac, filtration_mult) cell (#41 / A4-T37)."""
+
+    region_id: int
+    n_points: int
+    sigma_star: float
+    lifetime_frac: float
+    filtration_mult: float
+    betti: tuple[int, ...]
+    match: bool | None
+    b1: int
+
+
+@dataclass(frozen=True)
+class LifetimeMultGridResult:
+    """Per-region lifetime reading over a (frac × mult) grid."""
+
+    rows: tuple[LifetimeMultGridRow, ...]
+    fracs: tuple[float, ...]
+    mults: tuple[float, ...]
+    expected_betti: tuple[int, ...] | None
+    any_full_match: bool
+    any_b1_target: bool
+    b1_target: int
+    scenario: str
+
+
+def sweep_lifetime_mult_grid_per_region(
+    all_positions: np.ndarray,
+    region_labels: np.ndarray,
+    sigma_star: float | Sequence[float],
+    *,
+    fracs: Sequence[float],
+    mults: Sequence[float],
+    scenario: str = "lifetime_mult_grid",
+    include_labels: Optional[Iterable[int]] = None,
+    max_dim: int = 2,
+    expected_betti: tuple[int, ...] | None = None,
+    b1_target: int = 2,
+) -> LifetimeMultGridResult:
+    """Sweep lifetime reading over ``lifetime_frac × filtration_mult`` (#41).
+
+    Evidence-gathering for linked-tori recovery where uniform mult sweeps and
+    schedules alone left ``b1`` stuck below 2. Does not change SI defaults.
+    """
+    frac_list = [float(f) for f in fracs]
+    mult_list = [float(m) for m in mults]
+    if not frac_list:
+        raise ValueError("fracs must be non-empty")
+    if not mult_list:
+        raise ValueError("mults must be non-empty")
+    if include_labels is None:
+        labs = sorted(int(x) for x in np.unique(np.asarray(region_labels)))
+    else:
+        labs = [int(x) for x in include_labels]
+    if not labs:
+        raise ValueError("include_labels resolved empty")
+
+    if np.isscalar(sigma_star):
+        sig_map = {lab: float(sigma_star) for lab in labs}  # type: ignore[arg-type]
+    else:
+        sig_seq = [float(s) for s in sigma_star]  # type: ignore[arg-type]
+        if len(sig_seq) != len(labs):
+            raise ValueError(
+                f"sigma_star length {len(sig_seq)} != n_labels {len(labs)}"
+            )
+        sig_map = {lab: sig for lab, sig in zip(labs, sig_seq)}
+
+    rows: list[LifetimeMultGridRow] = []
+    any_full = False
+    any_b1 = False
+    for lab in labs:
+        for frac in frac_list:
+            for mult in mult_list:
+                result = run_per_region_ph(
+                    all_positions,
+                    region_labels,
+                    sig_map[lab],
+                    scenario=f"{scenario}_r{lab}_f{frac:g}_m{mult:g}",
+                    include_labels=[lab],
+                    reading="lifetime",
+                    max_dim=max_dim,
+                    filtration_mult=float(mult),
+                    lifetime_frac=float(frac),
+                    expected_betti=expected_betti,
+                )
+                if not result.reports:
+                    continue
+                rep = result.reports[0]
+                betti = tuple(int(x) for x in rep.betti)
+                match: bool | None = None
+                if expected_betti is not None:
+                    match = betti == tuple(expected_betti)
+                    if match:
+                        any_full = True
+                b1 = int(betti[1]) if len(betti) > 1 else 0
+                if b1 == int(b1_target):
+                    any_b1 = True
+                rows.append(
+                    LifetimeMultGridRow(
+                        region_id=int(lab),
+                        n_points=int(rep.n_points),
+                        sigma_star=float(rep.sigma_star),
+                        lifetime_frac=float(frac),
+                        filtration_mult=float(mult),
+                        betti=betti,
+                        match=match,
+                        b1=b1,
+                    )
+                )
+
+    return LifetimeMultGridResult(
+        rows=tuple(rows),
+        fracs=tuple(frac_list),
+        mults=tuple(mult_list),
+        expected_betti=(
+            tuple(expected_betti) if expected_betti is not None else None
+        ),
+        any_full_match=bool(any_full),
+        any_b1_target=bool(any_b1),
+        b1_target=int(b1_target),
+        scenario=str(scenario),
+    )
+
+
+def format_lifetime_mult_grid_table(result: LifetimeMultGridResult) -> str:
+    """Compact TSV for lifetime_frac × filtration_mult grids."""
+    header = "region_id\tn\tsigma\tfrac\tmult\tbetti\tb1\tmatch"
+    lines = [header]
+    for r in result.rows:
+        lines.append(
+            f"{r.region_id}\t{r.n_points}\t{r.sigma_star:g}\t"
+            f"{r.lifetime_frac:g}\t{r.filtration_mult:g}\t"
+            f"{r.betti}\t{r.b1}\t{r.match}"
+        )
+    return "\n".join(lines)
+
+
 def median_nn_gap(points: np.ndarray) -> float:
     """Median nearest-neighbour gap (exclude self) for a point cloud.
 

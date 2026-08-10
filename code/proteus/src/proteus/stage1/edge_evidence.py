@@ -86,6 +86,21 @@ class HollowEdgeConfig:
     :data:`SOFT_CAPACITY_FRAC_SWEEP_*` exports.  Soft×persist-agree leaf
     harness stays uniform-safe and unrecovered on nested/tori.  Defaults
     remain off; sheet-null / collapse ≠ sample-ARI recovery.
+
+    A2-T41: soft×``require_gabriel_and_h`` conjunction (successive
+    intersections) — see :data:`SOFT_X_GABRIEL_CONJ_*`.  Soft alone keeps
+    tori@0.5 chance-ARI K=2; conj alone and soft×conj collapse both
+    nested@0.27 and tori@0.5 to ≤1 major (still not sample-ARI recovery).
+    Flags remain default-off.
+
+    A2-T42: multi-seed ``soft_capacity_frac`` sweep (seeds 0..2) — see
+    :data:`SOFT_CAPACITY_FRAC_MULTISEED_*`.  Nested collapses across
+    seeds; tori chance-ARI K=2 is seed-fragile.  Defaults off.
+
+    A2-T43: proposed Youden / Poisson-LR ``h0`` calibration from the
+    sheet-null export + mid=0.5 adversarial ROC — see
+    :data:`PROPOSED_H0_CALIBRATION_*` / :func:`proposed_h0_calibrated_config`.
+    Proposed only; never the HollowEdgeConfig / RecursionConfig default.
     """
 
     mid_radius_frac: float = 0.35
@@ -189,6 +204,101 @@ def format_poisson_null_h0_table(
 
 
 # ---------------------------------------------------------------------------
+# Proposed Youden / Poisson-LR h0 calibration (A2-T43 → A3 SI)
+# ---------------------------------------------------------------------------
+# Derived from the frozen sheet-null export (mid=0.5) and the mid=0.5
+# adversarial ROC (sheet negatives vs empty-gap bridges).  Proposed
+# acceptance-path candidates only — never wired as HollowEdgeConfig /
+# RecursionConfig defaults.  Sheet/bridge ROC safe ≠ nested/tori
+# sample-ARI recovery.
+
+PROPOSED_H0_CALIBRATION_MID: float = A4_PRIMARY_MID_RADIUS_FRAC  # 0.5
+PROPOSED_H0_OPERATIONAL: float = 0.35  # current HollowEdgeConfig default
+# Max Youden J = TPR−FPR on mid=0.5 pooled adversarial ROC (~h0≈0.734).
+PROPOSED_H0_YOUDEN: float = 0.73
+PROPOSED_H0_YOUDEN_TPR: float = 1.0
+PROPOSED_H0_YOUDEN_FPR: float = 0.029
+# A4 primary (conservative Youden-family): sheet FPR≈0, bridge TPR≈0.9.
+PROPOSED_H0_YOUDEN_A4: float = A4_PRIMARY_H0  # 0.7
+# Poisson-LR / null lower-tail: sheet export q01 at mid=0.5 (snap).
+PROPOSED_H0_POISSON_LR: float = 0.76
+PROPOSED_H0_POISSON_LR_SHEET_Q01: float = POISSON_NULL_SHEET_H_QUANTILES[0.5]["q0.01"]
+
+# method → (h0, sheet_role_note)
+PROPOSED_H0_CALIBRATION_TABLE: dict[str, tuple[float, str]] = {
+    "operational": (PROPOSED_H0_OPERATIONAL, "HollowEdgeConfig default; weak Youden"),
+    "youden": (PROPOSED_H0_YOUDEN, "max TPR-FPR mid=0.5 adversarial ROC"),
+    "youden_a4": (PROPOSED_H0_YOUDEN_A4, "A4 primary FPR≈0 TPR≈0.9"),
+    "poisson_lr": (PROPOSED_H0_POISSON_LR, "sheet-null q01 lower-tail snap"),
+}
+
+PROPOSED_H0_CALIBRATION_SI_NOTE: str = (
+    "A2-T43 proposed h0 calibration (mid=0.5, gabriel=False): Youden max "
+    "J≈0.97 at h0≈0.73 (TPR=1 FPR≈0.03); A4 primary h0=0.7 (FPR≈0 TPR≈0.9); "
+    f"Poisson-LR sheet q01≈{PROPOSED_H0_POISSON_LR_SHEET_Q01:.2f}→h0=0.76; "
+    "operational h0=0.35 weak on Youden. Proposed only — defaults off; "
+    "sheet/bridge ROC ≠ nested/tori sample-ARI recovery; no awaiting flip."
+)
+
+
+def proposed_h0_calibrated_config(
+    method: str = "youden_a4",
+    **overrides: object,
+) -> HollowEdgeConfig:
+    """Proposed calibrated HollowEdgeConfig (A2-T43); never the default.
+
+    ``method`` is one of ``operational`` / ``youden`` / ``youden_a4`` /
+    ``poisson_lr``.  Base knobs match A4 primary (mid=0.5, gabriel off)
+    except ``operational``, which keeps mid=0.35 + gabriel fallback.
+    """
+
+    if method not in PROPOSED_H0_CALIBRATION_TABLE:
+        raise ValueError(
+            f"unknown h0 calibration method {method!r}; "
+            f"expected one of {sorted(PROPOSED_H0_CALIBRATION_TABLE)}"
+        )
+    h0, _ = PROPOSED_H0_CALIBRATION_TABLE[method]
+    if method == "operational":
+        base = dict(
+            mid_radius_frac=0.35,
+            h0=float(h0),
+            min_end_count=0.5,
+            gabriel_fallback=True,
+            require_gabriel_and_h=False,
+            soft_capacity_only=False,
+        )
+    else:
+        base = dict(
+            mid_radius_frac=PROPOSED_H0_CALIBRATION_MID,
+            h0=float(h0),
+            min_end_count=A4_PRIMARY_MIN_END_COUNT,
+            gabriel_fallback=A4_PRIMARY_GABRIEL_FALLBACK,
+            require_gabriel_and_h=False,
+            soft_capacity_only=False,
+        )
+    base.update(overrides)
+    return HollowEdgeConfig(**base)  # type: ignore[arg-type]
+
+
+def format_proposed_h0_calibration_table() -> str:
+    """TSV export of proposed Youden / Poisson-LR h0 candidates (A2-T43)."""
+
+    lines = [
+        "# proposed Youden / Poisson-LR h0 calibration (mid=0.5 adversarial)",
+        "method\th0\tnote",
+    ]
+    for method, (h0, note) in PROPOSED_H0_CALIBRATION_TABLE.items():
+        lines.append(f"{method}\t{h0:g}\t{note}")
+    lines.append(
+        f"# youden_raw TPR={PROPOSED_H0_YOUDEN_TPR:g} "
+        f"FPR={PROPOSED_H0_YOUDEN_FPR:g}; "
+        f"poisson_lr_sheet_q01={PROPOSED_H0_POISSON_LR_SHEET_Q01:.4f}"
+    )
+    lines.append(f"# {PROPOSED_H0_CALIBRATION_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Soft-capacity frac sweep export (A2-T40 → A3/A4 SI sync)
 # ---------------------------------------------------------------------------
 # Snapshot majors under A4 primary + soft_capacity_only (betweenness) on
@@ -246,6 +356,135 @@ def format_soft_capacity_frac_sweep_table() -> str:
             f"{frac:g}\t{maj}\t{ari_s}"
         )
     lines.append(f"# {SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Soft × Gabriel∧H conjunction export (A2-T41 → A3/A4 SI sync)
+# ---------------------------------------------------------------------------
+# Snapshot majors+sample-ARI under A4 primary with soft_capacity_only,
+# require_gabriel_and_h, and their successive intersection (soft×conj).
+# Soft alone collapses nested spurious K=2 but keeps tori chance-ARI K=2;
+# conj alone and soft×conj collapse both scaffolds to ≤1 major.  Collapse
+# ≠ sample-ARI recovery; keep flags default-off.
+
+SOFT_X_GABRIEL_CONJ_NESTED_TAU: float = 0.27
+SOFT_X_GABRIEL_CONJ_TORI_TAU: float = 0.5
+SOFT_X_GABRIEL_CONJ_SOFT_FRAC: float = 0.25
+SOFT_X_GABRIEL_CONJ_SOFT_METHOD: str = "betweenness"
+
+# mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+SOFT_X_GABRIEL_CONJ_TABLE: dict[str, tuple[int, float | None, int, float | None]] = {
+    "a4": (2, 0.12, 2, 0.26),
+    "soft": (1, None, 2, 0.26),
+    "conj": (1, None, 1, None),
+    "soft_x_conj": (1, None, 1, None),
+}
+
+SOFT_X_GABRIEL_CONJ_SI_NOTE: str = (
+    "A2-T41 soft×require_gabriel_and_h (A4 primary+betweenness frac=0.25): "
+    "soft alone nested@0.27→≤1 major, tori@0.5 keeps K=2 ARI≈0.26; "
+    "conj and soft×conj collapse nested+tori to ≤1 major. Collapse ≠ "
+    "sample-ARI recovery; HollowEdgeConfig / RecursionConfig defaults off; "
+    "no awaiting flip."
+)
+
+
+def format_soft_x_gabriel_conj_table() -> str:
+    """TSV export of soft×Gabriel∧H conjunction majors+ARI (A2-T41)."""
+
+    lines = [
+        "# soft × require_gabriel_and_h conjunction (A4 primary)",
+        f"# soft_frac={SOFT_X_GABRIEL_CONJ_SOFT_FRAC:g} "
+        f"method={SOFT_X_GABRIEL_CONJ_SOFT_METHOD}",
+        "mode\tdataset\ttau\tmajors\tsample_ari",
+    ]
+    for mode, (nm, na, tm, ta) in SOFT_X_GABRIEL_CONJ_TABLE.items():
+        na_s = "" if na is None else f"{na:.2f}"
+        ta_s = "" if ta is None else f"{ta:.2f}"
+        lines.append(
+            f"{mode}\tnested\t{SOFT_X_GABRIEL_CONJ_NESTED_TAU:g}\t{nm}\t{na_s}"
+        )
+        lines.append(
+            f"{mode}\ttori\t{SOFT_X_GABRIEL_CONJ_TORI_TAU:g}\t{tm}\t{ta_s}"
+        )
+    lines.append(f"# {SOFT_X_GABRIEL_CONJ_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Multi-seed soft-capacity frac sweep (A2-T42 → A3/A4 SI sync)
+# ---------------------------------------------------------------------------
+# Extends A2-T40 seed-0 frac sweep across dataset seeds 0..2 (scaffold RNG
+# matched to dataset seed).  Nested stays ≤1 major under soft for all
+# seeds/fracs; tori chance-ARI K=2 is seed-fragile (seed0 until frac=0.9;
+# seed2 only at frac=0.1; seed1 already ≤1).  No sample-ARI recovery.
+
+SOFT_CAPACITY_FRAC_MULTISEED_SEEDS: tuple[int, ...] = (0, 1, 2)
+SOFT_CAPACITY_FRAC_MULTISEED_FRACS: tuple[float, ...] = (0.1, 0.25, 0.5, 0.9)
+SOFT_CAPACITY_FRAC_MULTISEED_NESTED_TAU: float = 0.27
+SOFT_CAPACITY_FRAC_MULTISEED_TORI_TAU: float = 0.5
+SOFT_CAPACITY_FRAC_MULTISEED_METHOD: str = "betweenness"
+
+# seed → frac → nested majors
+SOFT_CAPACITY_FRAC_MULTISEED_NESTED: dict[int, dict[float, int]] = {
+    0: {0.1: 1, 0.25: 1, 0.5: 1, 0.9: 1},
+    1: {0.1: 1, 0.25: 1, 0.5: 1, 0.9: 1},
+    2: {0.1: 1, 0.25: 1, 0.5: 1, 0.9: 1},
+}
+
+# seed → frac → (tori majors, sample_ARI_or_None)
+SOFT_CAPACITY_FRAC_MULTISEED_TORI: dict[int, dict[float, tuple[int, float | None]]] = {
+    0: {
+        0.1: (2, 0.26),
+        0.25: (2, 0.26),
+        0.5: (2, 0.26),
+        0.9: (1, None),
+    },
+    1: {
+        0.1: (1, None),
+        0.25: (1, None),
+        0.5: (1, None),
+        0.9: (1, None),
+    },
+    2: {
+        0.1: (2, 0.22),
+        0.25: (1, None),
+        0.5: (1, None),
+        0.9: (1, None),
+    },
+}
+
+SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE: str = (
+    "A2-T42 multi-seed soft_capacity_frac sweep (A4 primary+betweenness, "
+    "seeds 0..2): nested@0.27 majors≤1 all seeds/fracs; tori@0.5 chance-ARI "
+    "K=2 is seed-fragile (seed0 until frac=0.9; seed2 only frac=0.1 ARI≈0.22; "
+    "seed1 already ≤1). No sample-ARI recovery; defaults off; no awaiting flip."
+)
+
+
+def format_soft_capacity_frac_multiseed_table() -> str:
+    """TSV export of multi-seed soft-capacity frac sweep (A2-T42)."""
+
+    lines = [
+        "# multi-seed soft_capacity_frac sweep (A4 primary + soft betweenness)",
+        f"# method={SOFT_CAPACITY_FRAC_MULTISEED_METHOD} "
+        f"seeds={list(SOFT_CAPACITY_FRAC_MULTISEED_SEEDS)}",
+        "seed\tdataset\ttau\tfrac\tmajors\tsample_ari",
+    ]
+    for seed in SOFT_CAPACITY_FRAC_MULTISEED_SEEDS:
+        for frac, maj in SOFT_CAPACITY_FRAC_MULTISEED_NESTED[seed].items():
+            lines.append(
+                f"{seed}\tnested\t{SOFT_CAPACITY_FRAC_MULTISEED_NESTED_TAU:g}\t"
+                f"{frac:g}\t{maj}\t"
+            )
+        for frac, (maj, ari) in SOFT_CAPACITY_FRAC_MULTISEED_TORI[seed].items():
+            ari_s = "" if ari is None else f"{ari:.2f}"
+            lines.append(
+                f"{seed}\ttori\t{SOFT_CAPACITY_FRAC_MULTISEED_TORI_TAU:g}\t"
+                f"{frac:g}\t{maj}\t{ari_s}"
+            )
+    lines.append(f"# {SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE}")
     return "\n".join(lines)
 
 
