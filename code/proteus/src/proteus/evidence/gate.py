@@ -36,11 +36,14 @@ from proteus.evidence.star_matrix import RHO_MIN_DEFAULT, quarantined_nodes
 __all__ = [
     "DualAdjacency",
     "GateConfig",
+    "FailClosedScoreEditCase",
+    "FailClosedScoreEditMatrixProbe",
     "gate_window",
     "hysteresis_window",
     "edit_budget",
     "affected_dual_subgraph_connected",
     "score_edit",
+    "probe_fail_closed_score_edit_matrix",
     "EvidenceGate",
 ]
 
@@ -124,7 +127,9 @@ class GateConfig:
         **and** ``apply_dual_adjacency`` is ``True``, a missing
         ``dual_adjacency`` is treated as disconnected (fail-closed). Do
         **not** flip either default until the dual producer + real S6.2
-        BP are acceptance-ready (see A5-T42 / A5-T57 plan).
+        BP are acceptance-ready (see A5-T42 / A5-T57 plan). See
+        :func:`probe_fail_closed_score_edit_matrix` (A5-T65) for the
+        expanded default-path accept/reject matrix.
     """
 
     tau_bf: float = 3.0
@@ -132,6 +137,131 @@ class GateConfig:
     rho_min: float = RHO_MIN_DEFAULT
     apply_dual_adjacency: bool = False
     fail_closed_dual_adjacency: bool = False
+
+
+@dataclass(frozen=True)
+class FailClosedScoreEditCase:
+    """One cell of the fail-closed ``score_edit`` matrix (A5-T65)."""
+
+    name: str
+    apply_dual: bool
+    fail_closed: bool
+    adj_kind: str
+    dual_connected_kwarg: bool
+    expect_accept: bool
+
+
+@dataclass(frozen=True)
+class FailClosedScoreEditMatrixProbe:
+    """Documents fail-closed × apply_dual × adj matrix (A5-T65).
+
+    Defaults stay off. Probe only — does **not** flip GateConfig.
+    """
+
+    defaults_unchanged: bool
+    apply_dual_default: bool
+    fail_closed_default: bool
+    n_cases: int
+    cases: tuple[FailClosedScoreEditCase, ...]
+    note: str = (
+        "fail-closed score_edit matrix expansion; defaults unchanged; "
+        "do not flip apply_dual / fail_closed until A5-T42 green"
+    )
+
+
+def probe_fail_closed_score_edit_matrix() -> FailClosedScoreEditMatrixProbe:
+    """Expand the fail-closed default-path accept/reject matrix (A5-T65).
+
+    Returns a frozen documentation snapshot of expected ``score_edit``
+    outcomes under well-conditioned stars / F_DM-accepting transitions.
+    Does **not** mutate :class:`GateConfig` defaults.
+    """
+
+    gate = GateConfig()
+    cases = (
+        FailClosedScoreEditCase(
+            name="defaults_none_kw_true",
+            apply_dual=False,
+            fail_closed=False,
+            adj_kind="none",
+            dual_connected_kwarg=True,
+            expect_accept=True,
+        ),
+        FailClosedScoreEditCase(
+            name="defaults_none_kw_false",
+            apply_dual=False,
+            fail_closed=False,
+            adj_kind="none",
+            dual_connected_kwarg=False,
+            expect_accept=False,
+        ),
+        FailClosedScoreEditCase(
+            name="fail_closed_alone_none",
+            apply_dual=False,
+            fail_closed=True,
+            adj_kind="none",
+            dual_connected_kwarg=True,
+            expect_accept=True,
+        ),
+        FailClosedScoreEditCase(
+            name="apply_alone_none_open",
+            apply_dual=True,
+            fail_closed=False,
+            adj_kind="none",
+            dual_connected_kwarg=True,
+            expect_accept=True,
+        ),
+        FailClosedScoreEditCase(
+            name="apply_fail_closed_none_reject",
+            apply_dual=True,
+            fail_closed=True,
+            adj_kind="none",
+            dual_connected_kwarg=True,
+            expect_accept=False,
+        ),
+        FailClosedScoreEditCase(
+            name="apply_connected_accept",
+            apply_dual=True,
+            fail_closed=False,
+            adj_kind="connected",
+            dual_connected_kwarg=False,
+            expect_accept=True,
+        ),
+        FailClosedScoreEditCase(
+            name="apply_disconnect_reject",
+            apply_dual=True,
+            fail_closed=False,
+            adj_kind="disconnect",
+            dual_connected_kwarg=True,
+            expect_accept=False,
+        ),
+        FailClosedScoreEditCase(
+            name="apply_fail_closed_connected_accept",
+            apply_dual=True,
+            fail_closed=True,
+            adj_kind="connected",
+            dual_connected_kwarg=False,
+            expect_accept=True,
+        ),
+        FailClosedScoreEditCase(
+            name="apply_fail_closed_disconnect_reject",
+            apply_dual=True,
+            fail_closed=True,
+            adj_kind="disconnect",
+            dual_connected_kwarg=True,
+            expect_accept=False,
+        ),
+    )
+    return FailClosedScoreEditMatrixProbe(
+        defaults_unchanged=(
+            (not gate.apply_dual_adjacency)
+            and (not gate.fail_closed_dual_adjacency)
+        ),
+        apply_dual_default=bool(gate.apply_dual_adjacency),
+        fail_closed_default=bool(gate.fail_closed_dual_adjacency),
+        n_cases=len(cases),
+        cases=cases,
+    )
 
 
 def gate_window(n_nodes: int, queue_len: int, k: int) -> int:
