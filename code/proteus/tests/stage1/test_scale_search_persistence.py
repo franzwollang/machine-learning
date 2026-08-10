@@ -3866,7 +3866,8 @@ def test_seed2_thr030_dense_phi_lw_vs_coarse_and_load_screened() -> None:
     # EXPERIMENT (A6-T76-followon): on thr=0.30 densified seed~2 (the sole
     # LW≠coarse cell), export Phi_C at coarse-end idx0 vs LW idx1, and contrast
     # load-screened mid / two-thirds / three-quarter vs their raw landings.
-    # Expect: Phi drops one step finer with LW; load-screened ≡ raw because
+    # Expect: Phi *rises* one step finer with LW (not monotone along the block,
+    # so LW is not a Phi-peak or Phi-descent rule); load-screened ≡ raw because
     # loads at fractional indices clear the ≪1 screen (0.5). Defaults stay off.
     assert PersistenceConfig().resolve_within_interval == "none"
     assert PersistenceConfig().densify_overlap_recover == "none"
@@ -3955,15 +3956,21 @@ def test_seed2_thr030_dense_phi_lw_vs_coarse_and_load_screened() -> None:
     assert int(rows["load_weighted_interval"]["idx"]) == 1
     assert abs(float(rows["load_weighted_interval"]["ratio"]) - 12.126) < 0.05
 
-    # Phi at LW idx1 is finite and strictly below Phi at coarse idx0
-    # (one-step finer landing on a descending-tau / rising-load grid).
+    # Phi at LW idx1 is finite and *above* Phi at coarse idx0 — Phi is not
+    # monotone along the accepted block, so the closest-to-unit load nudge is
+    # not a Phi-descent (nor a global in-block Phi-peak: mid Phi sits between).
     phi0 = float(rows["none"]["phi"])
     phi1 = float(rows["load_weighted_interval"]["phi"])
-    assert np.isfinite(phi0) and np.isfinite(phi1)
-    assert phi1 < phi0
-    # Published magnitude pins (diagnostic; not acceptance-path).
+    phi_mid = float(rows["mid_interval"]["phi"])
+    assert np.isfinite(phi0) and np.isfinite(phi1) and np.isfinite(phi_mid)
+    assert phi1 > phi0
+    assert phi1 > phi_mid
     assert abs(phi0 - float(phi[0])) < 1e-12
     assert abs(phi1 - float(phi[1])) < 1e-12
+    # Order-of-magnitude pins (diagnostic; response scale is fixture-local).
+    assert 1e7 < phi0 < 1e8
+    assert 1e8 < phi1 < 2e9
+    assert 1e8 < phi_mid < 5e8
 
     # Fractional raw landings match densify hierarchy (T73).
     assert int(rows["mid_interval"]["idx"]) == 7
