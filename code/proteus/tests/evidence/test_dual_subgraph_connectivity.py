@@ -93,12 +93,15 @@ from proteus.stage2 import (
     probe_acceptance_none_open_default,
     probe_bp_spectrum_damping,
     probe_fail_closed_dual_adjacency_plan,
+    probe_gate_fail_closed_switch,
+    propose_bp_damping_policy,
     query_stage1_ann_bmus,
     resolve_dual_connected,
     route_live_bmu_face_tallies,
     route_live_density_from_complex,
     route_stage1_bmu_face_tallies,
     route_stage1_from_complex,
+    run_online_offline_loopy_compose,
     run_online_offline_schedule,
     simplex_local_density,
     simplex_outward_normals,
@@ -882,6 +885,11 @@ def test_acceptance_path_plan_documented_in_dual_flow_module():
     assert cfg.enable_seam_ghost is False
     assert cfg.enable_simplex_density is False
     assert cfg.enable_live_density is False
+    assert cfg.enable_bp_spectrum_damping_probe is False
+    assert cfg.enable_bp_damping_policy is False
+    assert cfg.enable_online_offline_schedule is False
+    assert cfg.enable_online_offline_loopy_compose is False
+    assert GateConfig().fail_closed_dual_adjacency is False
 
 
 # ---------------------------------------------------------------------------
@@ -1873,3 +1881,136 @@ def test_fail_closed_dual_adjacency_plan_probe():
     assert len(probe.plan_steps) >= 4
     assert any("fail-closed" in s.lower() or "apply_dual" in s for s in probe.plan_steps)
     assert "fail-closed" in probe.note.lower() or "None" in probe.note
+
+
+# ---------------------------------------------------------------------------
+# A5-T58: production BP damping policy sketch (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_bp_damping_policy_flag_off_returns_none():
+    """enable_bp_damping_policy=False ⇒ propose_bp_damping_policy is None."""
+
+    assert propose_bp_damping_policy(1e9) is None
+    assert propose_bp_damping_policy(1e9, config=DualFlowConfig()) is None
+
+
+def test_bp_damping_policy_recommends_ridge_when_cond_exceeds_cap():
+    """Flag on: cond>cap ⇒ apply_ridge + raised damping; cond<=cap keeps base."""
+
+    cfg = DualFlowConfig(
+        enable_bp_damping_policy=True,
+        bp_damping=0.5,
+        spectrum_cond_cap=1e3,
+    )
+    ok = propose_bp_damping_policy(10.0, config=cfg)
+    assert ok is not None
+    assert ok.policy_flag_default_off is True
+    assert ok.apply_ridge is False
+    assert ok.recommended_damping == pytest.approx(0.5)
+    assert ok.overshoot_decades == pytest.approx(0.0)
+
+    bad = propose_bp_damping_policy(1e9, config=cfg)
+    assert bad is not None
+    assert bad.apply_ridge is True
+    assert bad.recommended_damping > 0.5
+    assert bad.recommended_damping <= 1.0
+    assert bad.overshoot_decades > 0.0
+    assert "damping" in bad.note.lower() or "ridge" in bad.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T59: online → offline loopy compose wire (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_online_offline_loopy_compose_flag_off_returns_none():
+    """enable_online_offline_loopy_compose=False ⇒ harness is None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    assert (
+        run_online_offline_loopy_compose(
+            [np.array([0.3, 0.3])],
+            {0: left},
+            {0: (0, 1, 2)},
+            config=DualFlowConfig(),
+        )
+        is None
+    )
+
+
+def test_online_offline_loopy_compose_runs_tally_then_loopy():
+    """Flag on: live BMU tallies then offline loopy BP on shared face graph."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([1.2, 0.2])]
+    cfg = DualFlowConfig(
+        enable_online_offline_loopy_compose=True,
+        bp_damping=0.5,
+        bp_max_iters=2,
+    )
+    out = run_online_offline_loopy_compose(
+        samples,
+        {0: left, 1: right},
+        {0: (0, 1, 2), 1: (1, 3, 2)},
+        config=cfg,
+    )
+    assert out is not None
+    assert out.n_samples == 2
+    assert out.n_online_simplices >= 1
+    assert out.loopy_message_updates > 0
+    assert out.loopy_r_cons >= 0.0
+    assert isinstance(out.loopy_spectrum_ridge_applied, bool)
+    assert "loopy" in out.note.lower() and "online" in out.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T60: GateConfig fail_closed_dual_adjacency switch (default off)
+# ---------------------------------------------------------------------------
+
+
+def test_gate_fail_closed_switch_default_off_probe():
+    """A5-T60: switch default off; probe documents fail-closed path."""
+
+    probe = probe_gate_fail_closed_switch()
+    assert probe.switch_default_off is True
+    assert probe.apply_dual_adjacency_default is False
+    assert probe.open_default_none_still_connected is True
+    assert probe.flag_on_none_rejects is True
+    assert GateConfig().fail_closed_dual_adjacency is False
+
+
+def test_gate_fail_closed_none_adj_rejects_when_switch_on():
+    """apply_dual + fail_closed + None adj ⇒ evidence reject; default path open."""
+
+    keep, edit, proposal, good_stars = _good_split_fixture()
+
+    v_open = score_edit(
+        keep,
+        edit,
+        proposal,
+        edit_stars=good_stars,
+        keep_stars=good_stars,
+        dual_connected=True,
+        dual_adjacency=None,
+        affected_simplices=["S0", "S2"],
+        config=GateConfig(),  # both flags off
+    )
+    assert v_open.accepted
+
+    v_closed = score_edit(
+        keep,
+        edit,
+        proposal,
+        edit_stars=good_stars,
+        keep_stars=good_stars,
+        dual_connected=True,
+        dual_adjacency=None,
+        affected_simplices=["S0", "S2"],
+        config=GateConfig(
+            apply_dual_adjacency=True,
+            fail_closed_dual_adjacency=True,
+        ),
+    )
+    assert not v_closed.accepted
