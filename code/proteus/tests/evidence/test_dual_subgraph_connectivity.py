@@ -3261,3 +3261,79 @@ def test_residual_mass_policy_patience_pins_compose():
     assert "awaiting" in probe.note.lower()
     assert "mass" in probe.note.lower()
     assert "policy" in probe.note.lower() or "sketch" in probe.note.lower()
+
+# ---------------------------------------------------------------------------
+# A5-T80: spectrum×policy×mass × fail_closed dry_run reconnect bridge (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_spectrum_policy_mass_fail_closed_bridge_flag_off_returns_none():
+    """enable_spectrum_policy_mass_fail_closed_bridge_probe=False ⇒ None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    keep, edit, proposal, stars = _good_split_fixture()
+    assert (
+        probe_spectrum_policy_mass_fail_closed_bridge(
+            [np.array([0.3, 0.3])],
+            {0: left},
+            {0: (0, 1, 2)},
+            keep,
+            edit,
+            proposal,
+            edit_stars=stars,
+            keep_stars=stars,
+            config=DualFlowConfig(),
+        )
+        is None
+    )
+
+
+def test_spectrum_policy_mass_fail_closed_bridge_composes():
+    """Flag on: spectrum×mass compose + fail_closed reconnect; defaults stay off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([1.2, 0.2])]
+    caps = (1e-12, 1.0, 1e6)
+    keep, edit, proposal, stars = _good_split_fixture()
+    probe = probe_spectrum_policy_mass_fail_closed_bridge(
+        samples,
+        {0: left, 1: right},
+        {0: (0, 1, 2), 1: (1, 3, 2)},
+        keep,
+        edit,
+        proposal,
+        spectrum_cond_caps=caps,
+        edit_stars=stars,
+        keep_stars=stars,
+        complex_path=_path_edge_complex(),
+        config=DualFlowConfig(
+            enable_spectrum_policy_mass_fail_closed_bridge_probe=True,
+            bp_max_iters=6,
+            bp_residual_stop_tol=1e-3,
+            bp_residual_stop_patience=2,
+            bp_damping=0.5,
+        ),
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert DualFlowConfig().enable_spectrum_policy_mass_fail_closed_bridge_probe is False
+    assert DualFlowConfig().enable_spectrum_safe_policy_mass_compose_probe is False
+    assert DualFlowConfig().enable_bp_policy_in_loopy is False
+    assert DualFlowConfig().enable_dual_adjacency is False
+    assert GateConfig().apply_dual_adjacency is False
+    assert GateConfig().fail_closed_dual_adjacency is False
+    assert probe.gate_apply_dual_default is False
+    assert probe.gate_fail_closed_default is False
+    assert probe.dual_adjacency_default is False
+    assert probe.spectrum_mass.caps == caps
+    assert len(probe.spectrum_mass.cases) == len(caps)
+    assert probe.spectrum_mass.cases[0].policy_applied is True
+    assert probe.fail_closed_disconnect_connected is False
+    assert probe.fail_closed_reconnect_connected is True
+    assert probe.fail_closed_n_cases == 6
+    assert probe.fail_closed_n_matched == probe.fail_closed_n_cases
+    assert probe.fail_closed_reconnect_all_matched is True
+    assert "harness" in probe.note.lower() or "awaiting" in probe.note.lower()
+    assert "fail" in probe.note.lower() or "closed" in probe.note.lower()
+
