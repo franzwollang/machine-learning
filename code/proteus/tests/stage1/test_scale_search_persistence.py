@@ -1995,6 +1995,292 @@ def test_seed4_dense_persist_reject_is_first_step_overlap() -> None:
     assert ScaleSearchConfig().halve_grid_steps is False
 
 
+def test_seed3_short_persist_block_collapses_fractional_landings() -> None:
+    # EXPERIMENT (A6-T55): seed-3 hierarchical Gaussian has a *short* accepted
+    # persist block on the standard grid (run_lengths[0]=3 ⇒ [i_lo,i_hi]=[0,2]).
+    # Integer mid / two-thirds / three-quarter all floor to the same interior
+    # index 1, so mid≡2/3≡3q land at τ*/E≈8.83× — discrete short-block
+    # quantization, not an intrinsic shared preference. Densifying expands the
+    # block to the full half-step grid (len=16) and restores separated
+    # fractional landings (incl. densify flip 2/3≈1.00× vs 3q undershoot).
+    # Defaults stay off.
+    from proteus.stage1.controller import (
+        _mid_interval_index,
+        _three_quarter_index,
+        _two_thirds_index,
+    )
+
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=3,
+    )
+    gt = dataset.ground_truth
+    assert gt.expected_tau is not None
+    tau_lo, tau_hi = gt.tau_grid_hint
+    modes = (
+        "none",
+        "mid_interval",
+        "two_thirds_interval",
+        "three_quarter_interval",
+        "fine_end_of_block",
+        "load_weighted_interval",
+    )
+    by: dict[tuple[bool, str], dict[str, float | int | bool]] = {}
+    for dense in (False, True):
+        none = run_scale_search(
+            dataset.points,
+            dim=gt.ambient_dim,
+            config=ScaleSearchConfig(
+                tau_min=tau_lo,
+                tau_max=tau_hi,
+                max_grid_points=8,
+                k=8,
+                n_seeds=12,
+                min_nodes=8,
+                max_nodes=128,
+                ann_backend="naive",
+                selector="persistence",
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2, max_epochs=12
+                ),
+                seed=3,
+                halve_grid_steps=dense,
+                persistence=PersistenceConfig(resolve_within_interval="none"),
+            ),
+        )
+        assert none.persistence_result is not None
+        pr = none.persistence_result
+        assert pr.tau_star_index is not None
+        i_lo = int(pr.tau_star_index)
+        run = int(pr.run_lengths[i_lo])
+        i_hi = min(i_lo + run - 1, len(none.load_trace) - 1)
+        print(
+            f"\nA6-T55 seed3 dense={dense}: n_grid={len(none.tau_grid)} "
+            f"block=[{i_lo},{i_hi}] len={run} "
+            f"ov0={float(pr.match_overlaps[0]):.3f}"
+        )
+        for mode in modes:
+            idx = _resolve_persistence_tau_index(
+                pr,
+                none.load_trace,
+                list(none.stabilized_flags),
+                PersistenceConfig(resolve_within_interval=mode),  # type: ignore[arg-type]
+            )
+            ratio = float(none.tau_grid[idx] / gt.expected_tau)
+            by[(dense, mode)] = {
+                "peak_index": int(idx),
+                "tau_over_expected": ratio,
+                "run": run,
+                "i_lo": i_lo,
+                "i_hi": i_hi,
+            }
+            print(
+                f"  {mode:24s} idx={idx} tau*/E={ratio:.3f}"
+            )
+
+    # Standard grid: short block forces mid≡2/3≡3q via integer floor.
+    assert int(by[(False, "none")]["run"]) == 3
+    assert int(by[(False, "none")]["i_lo"]) == 0
+    assert int(by[(False, "none")]["i_hi"]) == 2
+    assert _mid_interval_index(0, 2) == 1
+    assert _two_thirds_index(0, 2) == 1
+    assert _three_quarter_index(0, 2) == 1
+    assert int(by[(False, "mid_interval")]["peak_index"]) == 1
+    assert int(by[(False, "two_thirds_interval")]["peak_index"]) == 1
+    assert int(by[(False, "three_quarter_interval")]["peak_index"]) == 1
+    for mode in ("mid_interval", "two_thirds_interval", "three_quarter_interval"):
+        assert abs(float(by[(False, mode)]["tau_over_expected"]) - 8.833) < 0.05
+    assert int(by[(False, "fine_end_of_block")]["peak_index"]) == 2
+    assert abs(float(by[(False, "none")]["tau_over_expected"]) - 16.0) < 0.05
+    assert abs(float(by[(False, "fine_end_of_block")]["tau_over_expected"]) - 4.876) < 0.05
+    # load_weighted still reproduces coarse-end on this fixture.
+    assert int(by[(False, "load_weighted_interval")]["peak_index"]) == 0
+
+    # Densify: full-grid persist (len=16) separates fractional landings.
+    assert int(by[(True, "none")]["run"]) == 16
+    assert int(by[(True, "mid_interval")]["peak_index"]) != int(
+        by[(True, "two_thirds_interval")]["peak_index"]
+    )
+    assert 0.9 < float(by[(True, "two_thirds_interval")]["tau_over_expected"]) < 1.1
+    assert float(by[(True, "three_quarter_interval")]["tau_over_expected"]) < 0.9
+    assert int(by[(True, "load_weighted_interval")]["peak_index"]) == 0
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
+def test_export_seed4_jaccard_half_step_table() -> None:
+    # EXPORT (A6-T56): seed-4 matched-Jaccard / run_lengths table for A3 SI
+    # S2.6.2 sync. Documents the densified first-half-step break
+    # (ov0=0.39 < 0.5 ⇒ run0=1; long fineward run from idx1 discarded under
+    # coarse_anchored). Standard grid remains fully agreeing (ov≥thr).
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=4,
+    )
+    gt = dataset.ground_truth
+    assert gt.expected_tau is not None
+    tau_lo, tau_hi = gt.tau_grid_hint
+    thr = float(PersistenceConfig().overlap_threshold)
+    min_pers = int(PersistenceConfig().min_persistence)
+    rows: list[dict[str, float | int | bool | None]] = []
+    by_pr: dict[bool, PersistenceResult] = {}
+    for dense in (False, True):
+        result = run_scale_search(
+            dataset.points,
+            dim=gt.ambient_dim,
+            config=ScaleSearchConfig(
+                tau_min=tau_lo,
+                tau_max=tau_hi,
+                max_grid_points=8,
+                k=8,
+                n_seeds=12,
+                min_nodes=8,
+                max_nodes=128,
+                ann_backend="naive",
+                selector="persistence",
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2, max_epochs=12
+                ),
+                seed=4,
+                halve_grid_steps=dense,
+                persistence=PersistenceConfig(resolve_within_interval="none"),
+            ),
+        )
+        assert result.persistence_result is not None
+        pr = result.persistence_result
+        by_pr[dense] = pr
+        header = (
+            f"{'dense':5s} {'i':>3s} {'tau':>10s} {'n_cl':>4s} "
+            f"{'run':>4s} {'ov':>8s} {'agree':>5s}"
+        )
+        print(f"\nA6-T56 seed4 Jaccard half-step table (dense={dense})")
+        print(header)
+        print("-" * len(header))
+        for i, snap in enumerate(pr.snapshots):
+            ov = (
+                float(pr.match_overlaps[i])
+                if i < len(pr.match_overlaps)
+                else float("nan")
+            )
+            agree = bool(np.isfinite(ov) and ov >= thr)
+            rows.append(
+                {
+                    "dense": dense,
+                    "i": i,
+                    "tau": float(snap.tau),
+                    "n_clusters": int(snap.n_clusters),
+                    "run": int(pr.run_lengths[i]),
+                    "overlap": ov,
+                    "agree": agree,
+                    "tsi": pr.tau_star_index,
+                }
+            )
+            print(
+                f"{str(dense):5s} {i:3d} {float(snap.tau):10.4g} "
+                f"{int(snap.n_clusters):4d} {int(pr.run_lengths[i]):4d} "
+                f"{ov:8.3f} {str(agree):>5}"
+            )
+
+    std_pr = by_pr[False]
+    dense_pr = by_pr[True]
+    # Standard: full coarse-anchored accept; every adjacent pair agrees.
+    assert std_pr.tau_star_index == 0
+    assert int(std_pr.run_lengths[0]) >= min_pers
+    for i in range(len(std_pr.match_overlaps)):
+        assert float(std_pr.match_overlaps[i]) >= thr
+    # Dense: first half-step is the only disagreeing adjacent pair at coarse end.
+    assert dense_pr.tau_star_index is None
+    assert int(dense_pr.run_lengths[0]) == 1
+    assert float(dense_pr.match_overlaps[0]) < thr
+    assert abs(float(dense_pr.match_overlaps[0]) - 0.39) < 0.02
+    assert int(dense_pr.snapshots[0].n_clusters) == 5
+    assert int(dense_pr.snapshots[1].n_clusters) == 3
+    assert int(dense_pr.run_lengths[1]) >= min_pers
+    # Remaining dense adjacent pairs (from idx1 onward) agree.
+    for i in range(1, len(dense_pr.match_overlaps)):
+        assert float(dense_pr.match_overlaps[i]) >= thr
+    assert PersistenceConfig().coarse_anchored is True
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+    assert len(rows) == 8 + 16
+
+
+def test_circle_densify_x_load_weighted_lc_identity() -> None:
+    # EXPERIMENT (A6-T57): circle × halve_grid_steps × load_weighted_interval.
+    # No accepted persist split ⇒ load_weighted is a controller LC no-op and
+    # must match resolve=none peak/tau* on both grids (densify may move the LC
+    # peak; it must not create mode divergence). Defaults stay off.
+    dataset = make_circle(
+        n_samples=800, radius=1.0, noise=0.02, extrusion_dim=2, seed=21,
+    )
+    gt = dataset.ground_truth
+    assert gt.expected_tau is not None
+    tau_lo, tau_hi = gt.tau_grid_hint
+    rows: list[dict[str, float | int | bool | None]] = []
+    for dense in (False, True):
+        base = ScaleSearchConfig(
+            tau_min=tau_lo,
+            tau_max=tau_hi,
+            max_grid_points=8,
+            k=8,
+            n_seeds=12,
+            min_nodes=8,
+            max_nodes=128,
+            ann_backend="naive",
+            selector="persistence",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=12
+            ),
+            seed=0,
+            halve_grid_steps=dense,
+        )
+        none = run_scale_search(
+            dataset.points,
+            dim=gt.ambient_dim,
+            config=replace(
+                base,
+                persistence=PersistenceConfig(resolve_within_interval="none"),
+            ),
+        )
+        weighted = run_scale_search(
+            dataset.points,
+            dim=gt.ambient_dim,
+            config=replace(
+                base,
+                persistence=PersistenceConfig(
+                    resolve_within_interval="load_weighted_interval"
+                ),
+            ),
+        )
+        assert none.persistence_result is not None
+        assert weighted.persistence_result is not None
+        assert none.persistence_result.tau_star_index is None
+        assert weighted.persistence_result.tau_star_index is None
+        assert none.peak_index is not None
+        assert weighted.peak_index is not None
+        assert int(weighted.peak_index) == int(none.peak_index)
+        assert float(weighted.tau_star) == float(none.tau_star)
+        rows.append(
+            {
+                "dense": dense,
+                "n_grid": int(len(none.tau_grid)),
+                "peak_index": int(none.peak_index),
+                "tau_star": float(none.tau_star),
+                "tau_over_expected": float(none.tau_star / gt.expected_tau),
+            }
+        )
+        print(
+            f"\nA6-T57 circle densify={dense}: n_grid={len(none.tau_grid)} "
+            f"peak={none.peak_index} tau*/E="
+            f"{float(none.tau_star / gt.expected_tau):.3f} "
+            f"LW≡none"
+        )
+
+    assert int(rows[1]["n_grid"]) > int(rows[0]["n_grid"])
+    # Densify moves the LC peak on this fixture (std idx2 → dense idx4).
+    assert int(rows[1]["peak_index"]) != int(rows[0]["peak_index"])
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
 def test_default_selector_is_load_crossover() -> None:
     # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
     assert ScaleSearchConfig().selector == "load_crossover"
