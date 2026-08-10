@@ -4638,3 +4638,402 @@ def test_denser_soft_x_gabriel_x_persist_tau_star_nested_tori_ari() -> None:
         "youden"
     ] == 1
     assert recovered == 0
+
+
+def test_soft_keep_band_x_persist_majors_nested_tori() -> None:
+    """#44 / A2-T61: non-denser soft keep-band × persist majors baseline.
+
+    Fixed-tau majors keep-band soft≤0.5 → tori K=2 (wider than denser
+    T55 ≤0.12); soft≥0.75 collapses. Soft×persist e2e all ≤1 — keep-band
+    is majors-only. Not sample-ARI recovery; flags off; no awaiting flip.
+    """
+
+    from sklearn.metrics import adjusted_rand_score
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_COLLAPSE_MIN_FRAC,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_E2E_TABLE,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_FRACS,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_H0,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_KEEP_MAX_FRAC,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_MAX_GRID_POINTS,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_MAX_NODES,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_NESTED_N,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_NESTED_TAU,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_SCALE_SEED_BASE,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_SEED,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_TABLE,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_TORI_N,
+        SOFT_KEEP_BAND_X_PERSIST_MAJORS_TORI_TAU,
+        proposed_h0_calibrated_config,
+    )
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_require_persistent_agree is False
+    assert abs(SOFT_KEEP_BAND_X_PERSIST_MAJORS_H0 - 0.73) < 1e-9
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_KEEP_MAX_FRAC == 0.5
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_COLLAPSE_MIN_FRAC == 0.75
+
+    seed = SOFT_KEEP_BAND_X_PERSIST_MAJORS_SEED
+    nested = make_nested_spheres(
+        n_per_sphere=SOFT_KEEP_BAND_X_PERSIST_MAJORS_NESTED_N,
+        extrusion_dim=1, seed=seed,
+    )
+    tori = make_linked_tori(
+        n_per_torus=SOFT_KEEP_BAND_X_PERSIST_MAJORS_TORI_N,
+        seed=seed,
+    )
+
+    def _adapt(points, tau: float):
+        sc = Stage1Scaffold(
+            dim=int(points.shape[1]), tau=float(tau), k=8,
+            max_nodes=SOFT_KEEP_BAND_X_PERSIST_MAJORS_MAX_NODES,
+            ann_backend="naive", rng=np.random.default_rng(seed),
+        )
+        sc.init_from(points, n_seeds=8)
+        sc.run_until_stable(
+            points,
+            StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+        )
+        return sc
+
+    sc_n = _adapt(nested.points, SOFT_KEEP_BAND_X_PERSIST_MAJORS_NESTED_TAU)
+    sc_t = _adapt(tori.points, SOFT_KEEP_BAND_X_PERSIST_MAJORS_TORI_TAU)
+    maj_cfgs: dict[str, object] = {
+        "youden": proposed_h0_calibrated_config("youden"),
+    }
+    for frac in SOFT_KEEP_BAND_X_PERSIST_MAJORS_FRACS:
+        maj_cfgs[f"soft_{frac:g}"] = proposed_h0_calibrated_config(
+            "youden",
+            soft_capacity_only=True,
+            soft_capacity_frac=float(frac),
+        )
+
+    recovered = 0
+    for mode, cfg in maj_cfgs.items():
+        nm, na = _hollow_majors_and_sample_ari(
+            sc_n, nested.points, nested.labels, cfg,
+        )
+        tm, ta = _hollow_majors_and_sample_ari(
+            sc_t, tori.points, tori.labels, cfg,
+        )
+        exp_nm, exp_na, exp_tm, exp_ta = (
+            SOFT_KEEP_BAND_X_PERSIST_MAJORS_TABLE[mode]
+        )
+        assert nm == exp_nm
+        assert tm == exp_tm
+        if exp_na is not None:
+            assert na is not None and abs(na - exp_na) < 0.08
+        else:
+            assert na is None or na < 0.5
+        if exp_ta is not None:
+            assert ta is not None and abs(ta - exp_ta) < 0.08
+        else:
+            assert ta is None or ta < 0.5
+        for maj, ari in ((nm, na), (tm, ta)):
+            if maj >= 2 and ari is not None and ari >= 0.5:
+                recovered += 1
+
+    def _lean() -> ScaleSearchConfig:
+        return ScaleSearchConfig(
+            tau_min=1e-3,
+            tau_max=2.0,
+            max_grid_points=SOFT_KEEP_BAND_X_PERSIST_MAJORS_MAX_GRID_POINTS,
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            max_nodes=SOFT_KEEP_BAND_X_PERSIST_MAJORS_MAX_NODES,
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=8,
+            ),
+            seed=SOFT_KEEP_BAND_X_PERSIST_MAJORS_SCALE_SEED_BASE + seed,
+        )
+
+    def _run_e2e(points, labels, *, soft: bool, persist: bool, frac: float):
+        cfg = RecursionConfig(
+            scale_search=_lean(),
+            min_samples=40,
+            max_depth=3,
+            require_persistent_split=True,
+            allow_finer_research=False,
+            prefer_hollow_edge_prepass=True,
+            hollow_mid_radius_frac=0.5,
+            hollow_h0=float(SOFT_KEEP_BAND_X_PERSIST_MAJORS_H0),
+            hollow_min_end_count=0.5,
+            hollow_gabriel_fallback=False,
+            hollow_soft_capacity_only=soft,
+            hollow_soft_capacity_frac=frac,
+            hollow_soft_capacity_method="betweenness",
+            hollow_require_persistent_agree=persist,
+            seed=SOFT_KEEP_BAND_X_PERSIST_MAJORS_SCALE_SEED_BASE + seed,
+        )
+        tree = run_recursive_discovery(points, dim=points.shape[1], config=cfg)
+        n_leaves = len(tree.leaves)
+        ari = None
+        if n_leaves >= 2 and labels is not None:
+            pred = np.full(len(points), -1, dtype=int)
+            for lid, leaf in enumerate(tree.leaves):
+                pred[np.asarray(leaf.sample_indices)] = lid
+            mask = (pred >= 0) & (np.asarray(labels) >= 0)
+            if mask.sum() > 0 and len(np.unique(pred[mask])) >= 2:
+                ari = float(adjusted_rand_score(labels[mask], pred[mask]))
+        return n_leaves, ari
+
+    e2e_modes: dict[str, tuple[bool, bool, float]] = {
+        "youden": (False, False, 0.25),
+        "persist": (False, True, 0.25),
+    }
+    for frac in (0.12, 0.25, 0.5, 0.75):
+        e2e_modes[f"soft_{frac:g}"] = (True, False, frac)
+        e2e_modes[f"soft_x_persist_{frac:g}"] = (True, True, frac)
+
+    for mode, (soft, persist, frac) in e2e_modes.items():
+        nl, na = _run_e2e(
+            nested.points, nested.labels, soft=soft, persist=persist, frac=frac,
+        )
+        tl, ta = _run_e2e(
+            tori.points, tori.labels, soft=soft, persist=persist, frac=frac,
+        )
+        exp_nl, exp_na, exp_tl, exp_ta = (
+            SOFT_KEEP_BAND_X_PERSIST_MAJORS_E2E_TABLE[mode]
+        )
+        assert nl == exp_nl
+        assert tl == exp_tl
+        if exp_na is not None:
+            assert na is not None and abs(na - exp_na) < 0.08
+        else:
+            assert na is None or na < 0.5
+        if exp_ta is not None:
+            assert ta is not None and abs(ta - exp_ta) < 0.08
+        else:
+            assert ta is None or ta < 0.5
+
+    # wider keep-band than denser T55; e2e kills majors keep
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_TABLE["soft_0.5"][2] == 2
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_TABLE["soft_0.75"][2] <= 1
+    assert SOFT_KEEP_BAND_X_PERSIST_MAJORS_E2E_TABLE["soft_x_persist_0.5"][2] <= 1
+    assert recovered == 0
+
+
+def test_soft_x_gabriel_x_persist_majors_seed1_inflate() -> None:
+    """#44 / A2-T63: soft×gabriel×persist majors seed1 inflate window.
+
+    Seed1 majors soft alone nested K=2 chance-ARI≈0.08 killed by conj;
+    e2e seed1 nested K=2 chance-ARI≈0 survives soft×conj×persist
+    (majors≠e2e). Not sample-ARI recovery; flags off; no awaiting flip.
+    """
+
+    from sklearn.metrics import adjusted_rand_score
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_E2E_TABLE,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_H0,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_MAX_GRID_POINTS,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_MAX_NODES,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_NESTED_N,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_NESTED_TAU,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_SCALE_SEED_BASE,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_SEEDS,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_SOFT_FRAC,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_TABLE,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_TORI_N,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_TORI_TAU,
+        SOFT_X_GABRIEL_X_PERSIST_MAJORS_UNIFORMS,
+        proposed_h0_calibrated_config,
+    )
+    from proteus.stage1.scaffold import Stage1Scaffold
+    from tests.datasets.synthetic.linked_tori import make_linked_tori
+    from tests.datasets.synthetic.nested_spheres import make_nested_spheres
+    from tests.datasets.synthetic.swiss_roll import make_swiss_roll
+
+    assert RecursionConfig().hollow_soft_capacity_only is False
+    assert RecursionConfig().hollow_require_gabriel_and_h is False
+    assert RecursionConfig().hollow_require_persistent_agree is False
+    assert abs(SOFT_X_GABRIEL_X_PERSIST_MAJORS_H0 - 0.73) < 1e-9
+
+    recovered = 0
+    for seed in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SEEDS:
+        nested = make_nested_spheres(
+            n_per_sphere=SOFT_X_GABRIEL_X_PERSIST_MAJORS_NESTED_N,
+            extrusion_dim=1, seed=seed,
+        )
+        tori = make_linked_tori(
+            n_per_torus=SOFT_X_GABRIEL_X_PERSIST_MAJORS_TORI_N,
+            seed=seed,
+        )
+
+        def _adapt(points, tau: float, _seed=seed):
+            sc = Stage1Scaffold(
+                dim=int(points.shape[1]), tau=float(tau), k=8,
+                max_nodes=SOFT_X_GABRIEL_X_PERSIST_MAJORS_MAX_NODES,
+                ann_backend="naive", rng=np.random.default_rng(_seed),
+            )
+            sc.init_from(points, n_seeds=8)
+            sc.run_until_stable(
+                points,
+                StabilizationConfig(max_epochs=30, min_equilibrium_epochs=3),
+            )
+            return sc
+
+        sc_n = _adapt(nested.points, SOFT_X_GABRIEL_X_PERSIST_MAJORS_NESTED_TAU)
+        sc_t = _adapt(tori.points, SOFT_X_GABRIEL_X_PERSIST_MAJORS_TORI_TAU)
+        maj_cfgs = {
+            "youden": proposed_h0_calibrated_config("youden"),
+            "soft": proposed_h0_calibrated_config(
+                "youden",
+                soft_capacity_only=True,
+                soft_capacity_frac=SOFT_X_GABRIEL_X_PERSIST_MAJORS_SOFT_FRAC,
+            ),
+            "conj": proposed_h0_calibrated_config(
+                "youden", require_gabriel_and_h=True,
+            ),
+            "soft_x_conj": proposed_h0_calibrated_config(
+                "youden",
+                soft_capacity_only=True,
+                soft_capacity_frac=SOFT_X_GABRIEL_X_PERSIST_MAJORS_SOFT_FRAC,
+                require_gabriel_and_h=True,
+            ),
+        }
+        for mode, cfg in maj_cfgs.items():
+            nm, na = _hollow_majors_and_sample_ari(
+                sc_n, nested.points, nested.labels, cfg,
+            )
+            tm, ta = _hollow_majors_and_sample_ari(
+                sc_t, tori.points, tori.labels, cfg,
+            )
+            exp_nm, exp_na, exp_tm, exp_ta = (
+                SOFT_X_GABRIEL_X_PERSIST_MAJORS_TABLE[seed][mode]
+            )
+            assert nm == exp_nm
+            assert tm == exp_tm
+            if exp_na is not None:
+                assert na is not None and abs(na - exp_na) < 0.08
+            else:
+                assert na is None or na < 0.5
+            if exp_ta is not None:
+                assert ta is not None and abs(ta - exp_ta) < 0.08
+            else:
+                assert ta is None or ta < 0.5
+            for maj, ari in ((nm, na), (tm, ta)):
+                if maj >= 2 and ari is not None and ari >= 0.5:
+                    recovered += 1
+
+    def _lean(seed: int) -> ScaleSearchConfig:
+        return ScaleSearchConfig(
+            tau_min=1e-3,
+            tau_max=2.0,
+            max_grid_points=SOFT_X_GABRIEL_X_PERSIST_MAJORS_MAX_GRID_POINTS,
+            k=8,
+            n_seeds=8,
+            ann_backend="naive",
+            max_nodes=SOFT_X_GABRIEL_X_PERSIST_MAJORS_MAX_NODES,
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=8,
+            ),
+            seed=SOFT_X_GABRIEL_X_PERSIST_MAJORS_SCALE_SEED_BASE + seed,
+        )
+
+    def _run_e2e(
+        points, labels, dim, *, soft: bool, conj: bool, persist: bool,
+        seed: int, min_samples: int = 40,
+    ):
+        cfg = RecursionConfig(
+            scale_search=_lean(seed),
+            min_samples=min_samples,
+            max_depth=3,
+            require_persistent_split=True,
+            allow_finer_research=False,
+            prefer_hollow_edge_prepass=True,
+            hollow_mid_radius_frac=0.5,
+            hollow_h0=float(SOFT_X_GABRIEL_X_PERSIST_MAJORS_H0),
+            hollow_min_end_count=0.5,
+            hollow_gabriel_fallback=False,
+            hollow_soft_capacity_only=soft,
+            hollow_soft_capacity_frac=(
+                SOFT_X_GABRIEL_X_PERSIST_MAJORS_SOFT_FRAC
+            ),
+            hollow_soft_capacity_method="betweenness",
+            hollow_require_gabriel_and_h=conj,
+            hollow_require_persistent_agree=persist,
+            seed=SOFT_X_GABRIEL_X_PERSIST_MAJORS_SCALE_SEED_BASE + seed,
+        )
+        tree = run_recursive_discovery(points, dim=dim, config=cfg)
+        n_leaves = len(tree.leaves)
+        ari = None
+        if n_leaves >= 2 and labels is not None:
+            pred = np.full(len(points), -1, dtype=int)
+            for lid, leaf in enumerate(tree.leaves):
+                pred[np.asarray(leaf.sample_indices)] = lid
+            mask = (pred >= 0) & (np.asarray(labels) >= 0)
+            if mask.sum() > 0 and len(np.unique(pred[mask])) >= 2:
+                ari = float(adjusted_rand_score(labels[mask], pred[mask]))
+        return n_leaves, ari
+
+    e2e_modes = {
+        "youden": (False, False, False),
+        "soft_x_conj": (True, True, False),
+        "soft_x_persist": (True, False, True),
+        "soft_x_conj_x_persist": (True, True, True),
+    }
+    for seed in SOFT_X_GABRIEL_X_PERSIST_MAJORS_SEEDS:
+        nested = make_nested_spheres(
+            n_per_sphere=SOFT_X_GABRIEL_X_PERSIST_MAJORS_NESTED_N,
+            extrusion_dim=1, seed=seed,
+        )
+        tori = make_linked_tori(
+            n_per_torus=SOFT_X_GABRIEL_X_PERSIST_MAJORS_TORI_N,
+            seed=seed,
+        )
+        for mode, (soft, conj, persist) in e2e_modes.items():
+            nl, na = _run_e2e(
+                nested.points, nested.labels, nested.points.shape[1],
+                soft=soft, conj=conj, persist=persist, seed=seed,
+            )
+            tl, ta = _run_e2e(
+                tori.points, tori.labels, tori.points.shape[1],
+                soft=soft, conj=conj, persist=persist, seed=seed,
+            )
+            exp_nl, exp_na, exp_tl, exp_ta = (
+                SOFT_X_GABRIEL_X_PERSIST_MAJORS_E2E_TABLE[seed][mode]
+            )
+            assert nl == exp_nl
+            assert tl == exp_tl
+            if exp_na is not None:
+                assert na is not None and abs(na - exp_na) < 0.08
+            else:
+                assert na is None or na < 0.5
+            if exp_ta is not None:
+                assert ta is not None and abs(ta - exp_ta) < 0.08
+            else:
+                assert ta is None or ta < 0.5
+            for leaves, ari in ((nl, na), (tl, ta)):
+                if leaves >= 2 and ari is not None and ari >= 0.5:
+                    recovered += 1
+
+    circle = make_circle(
+        n_samples=300, radius=1.0, noise=0.02, extrusion_dim=2, seed=0,
+    )
+    swiss = make_swiss_roll(n_samples=400, noise=0.02, seed=0)
+    for mode, (soft, conj, persist) in e2e_modes.items():
+        cl, _ = _run_e2e(
+            circle.points, None, circle.points.shape[1],
+            soft=soft, conj=conj, persist=persist, seed=0, min_samples=80,
+        )
+        sl, _ = _run_e2e(
+            swiss.points, None, swiss.points.shape[1],
+            soft=soft, conj=conj, persist=persist, seed=0, min_samples=80,
+        )
+        assert cl == SOFT_X_GABRIEL_X_PERSIST_MAJORS_UNIFORMS["circle"][mode]
+        assert sl == SOFT_X_GABRIEL_X_PERSIST_MAJORS_UNIFORMS["swiss"][mode]
+
+    # seed1 majors soft inflate killed by conj; e2e survives compose
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_TABLE[1]["soft"][0] == 2
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_TABLE[1]["soft_x_conj"][0] <= 1
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_E2E_TABLE[1][
+        "soft_x_conj_x_persist"
+    ][0] == 2
+    assert SOFT_X_GABRIEL_X_PERSIST_MAJORS_UNIFORMS["circle"]["youden"] == 2
+    assert recovered == 0
