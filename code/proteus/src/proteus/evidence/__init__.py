@@ -10,6 +10,8 @@ from proteus.evidence.dm_score import (
 from proteus.evidence.gate import (
     DualAdjacency,
     EvidenceGate,
+    FailClosedDryRunEvidenceCase,
+    FailClosedDryRunEvidenceProbe,
     FailClosedEvidenceGateCaseResult,
     FailClosedEvidenceGateMatrixProbe,
     FailClosedScoreEditCase,
@@ -19,6 +21,7 @@ from proteus.evidence.gate import (
     edit_budget,
     gate_window,
     hysteresis_window,
+    probe_fail_closed_dry_run_evidence_gate,
     probe_fail_closed_evidence_gate_matrix,
     probe_fail_closed_score_edit_matrix,
     score_edit,
@@ -50,6 +53,8 @@ __all__ = [
     "FailClosedScoreEditMatrixProbe",
     "FailClosedEvidenceGateCaseResult",
     "FailClosedEvidenceGateMatrixProbe",
+    "FailClosedDryRunEvidenceCase",
+    "FailClosedDryRunEvidenceProbe",
     "gate_window",
     "hysteresis_window",
     "edit_budget",
@@ -57,5 +62,6 @@ __all__ = [
     "score_edit",
     "probe_fail_closed_score_edit_matrix",
     "probe_fail_closed_evidence_gate_matrix",
+    "probe_fail_closed_dry_run_evidence_gate",
     "EvidenceGate",
 ]
