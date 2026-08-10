@@ -38,12 +38,15 @@ __all__ = [
     "GateConfig",
     "FailClosedScoreEditCase",
     "FailClosedScoreEditMatrixProbe",
+    "FailClosedEvidenceGateCaseResult",
+    "FailClosedEvidenceGateMatrixProbe",
     "gate_window",
     "hysteresis_window",
     "edit_budget",
     "affected_dual_subgraph_connected",
     "score_edit",
     "probe_fail_closed_score_edit_matrix",
+    "probe_fail_closed_evidence_gate_matrix",
     "EvidenceGate",
 ]
 
@@ -129,7 +132,9 @@ class GateConfig:
         **not** flip either default until the dual producer + real S6.2
         BP are acceptance-ready (see A5-T42 / A5-T57 plan). See
         :func:`probe_fail_closed_score_edit_matrix` (A5-T65) for the
-        expanded default-path accept/reject matrix.
+        expanded default-path accept/reject matrix, and
+        :func:`probe_fail_closed_evidence_gate_matrix` (A5-T71) for the
+        live :meth:`EvidenceGate.evaluate` parity check.
     """
 
     tau_bf: float = 3.0
@@ -261,6 +266,125 @@ def probe_fail_closed_score_edit_matrix() -> FailClosedScoreEditMatrixProbe:
         fail_closed_default=bool(gate.fail_closed_dual_adjacency),
         n_cases=len(cases),
         cases=cases,
+    )
+
+
+@dataclass(frozen=True)
+class FailClosedEvidenceGateCaseResult:
+    """One live EvidenceGate.evaluate cell vs score_edit (A5-T71)."""
+
+    name: str
+    expect_accept: bool
+    score_edit_accepted: bool
+    evidence_gate_accepted: bool
+    match: bool
+
+
+@dataclass(frozen=True)
+class FailClosedEvidenceGateMatrixProbe:
+    """Live EvidenceGate.evaluate parity vs score_edit matrix (A5-T71).
+
+    Defaults stay off. Probe only — does **not** flip GateConfig.
+    """
+
+    defaults_unchanged: bool
+    apply_dual_default: bool
+    fail_closed_default: bool
+    n_cases: int
+    n_matched: int
+    all_matched: bool
+    cases: tuple[FailClosedEvidenceGateCaseResult, ...]
+    note: str = (
+        "fail-closed live EvidenceGate.evaluate matrix vs score_edit; "
+        "defaults unchanged; do not flip apply_dual / fail_closed until "
+        "A5-T42 green"
+    )
+
+
+def probe_fail_closed_evidence_gate_matrix(
+    keep_region: Sequence[NodeTransition],
+    edit_region: Sequence[NodeTransition],
+    proposal: EditProposal,
+    *,
+    edit_stars: Mapping[int, np.ndarray] | None = None,
+    keep_stars: Mapping[int, np.ndarray] | None = None,
+    connected_adj: DualAdjacency | None = None,
+    disconnect_adj: DualAdjacency | None = None,
+    affected_simplices: Sequence[Hashable] | None = None,
+) -> FailClosedEvidenceGateMatrixProbe:
+    """Run EvidenceGate.evaluate on each fail-closed matrix cell (A5-T71).
+
+    For every case in :func:`probe_fail_closed_score_edit_matrix`, scores
+    via both :func:`score_edit` and a fresh :class:`EvidenceGate` (no
+    cadence lockout / budget pressure) and records parity. Does **not**
+    mutate :class:`GateConfig` defaults.
+    """
+
+    matrix = probe_fail_closed_score_edit_matrix()
+    gate_defaults = GateConfig()
+    affected = list(affected_simplices or [])
+    results: list[FailClosedEvidenceGateCaseResult] = []
+    for case in matrix.cases:
+        if case.adj_kind == "none":
+            adj: DualAdjacency | None = None
+        elif case.adj_kind == "connected":
+            adj = connected_adj
+        elif case.adj_kind == "disconnect":
+            adj = disconnect_adj
+        else:
+            raise ValueError(f"unknown adj_kind {case.adj_kind!r}")
+        cfg = GateConfig(
+            apply_dual_adjacency=case.apply_dual,
+            fail_closed_dual_adjacency=case.fail_closed,
+        )
+        se = score_edit(
+            keep_region,
+            edit_region,
+            proposal,
+            edit_stars=edit_stars,
+            keep_stars=keep_stars,
+            dual_connected=case.dual_connected_kwarg,
+            dual_adjacency=adj,
+            affected_simplices=affected,
+            config=cfg,
+        )
+        eg = EvidenceGate(n_nodes=max(2, len(keep_region)), config=cfg)
+        eg_verdict = eg.evaluate(
+            keep_region,
+            edit_region,
+            proposal,
+            edit_stars=edit_stars,
+            keep_stars=keep_stars,
+            dual_connected=case.dual_connected_kwarg,
+            dual_adjacency=adj,
+            affected_simplices=affected,
+        )
+        matched = bool(
+            se.accepted is case.expect_accept
+            and eg_verdict.accepted is case.expect_accept
+            and se.accepted is eg_verdict.accepted
+        )
+        results.append(
+            FailClosedEvidenceGateCaseResult(
+                name=case.name,
+                expect_accept=bool(case.expect_accept),
+                score_edit_accepted=bool(se.accepted),
+                evidence_gate_accepted=bool(eg_verdict.accepted),
+                match=matched,
+            )
+        )
+    n_matched = sum(1 for r in results if r.match)
+    return FailClosedEvidenceGateMatrixProbe(
+        defaults_unchanged=(
+            (not gate_defaults.apply_dual_adjacency)
+            and (not gate_defaults.fail_closed_dual_adjacency)
+        ),
+        apply_dual_default=bool(gate_defaults.apply_dual_adjacency),
+        fail_closed_default=bool(gate_defaults.fail_closed_dual_adjacency),
+        n_cases=len(results),
+        n_matched=n_matched,
+        all_matched=bool(n_matched == len(results) and len(results) > 0),
+        cases=tuple(results),
     )
 
 
