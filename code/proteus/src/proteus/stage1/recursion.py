@@ -225,7 +225,10 @@ class RecursionConfig:
     chance-ARI K=2 seed-fragile; nested≤1; defaults off.
     A2-T43: proposed Youden/Poisson-LR h0 calibration (mid=0.5 sheet
     q01≈0.76 / Youden≈0.73 / A4=0.7) — proposed only; defaults off.
-   
+    A2-T47: soft_frac×Youden seed1 nested-inflate is frac-windowed
+    (0.1–0.5); A2-T48/T49 denser multi-seed: seed1 inflate absent on
+    denser; h0-only ≠ soft×* recovery; defaults off.
+
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
       ``allow_finer_research`` + ``max_finer_scale_steps<=4`` +
