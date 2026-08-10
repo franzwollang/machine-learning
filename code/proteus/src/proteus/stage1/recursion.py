@@ -313,6 +313,12 @@ class RecursionConfig:
     collapses) and e2e bare youden nested K=2≈0.01 coexist; conj /
     persist / soft×persist e2e all ≤1 (T69/T70 joint compose); defaults
     off.
+    A2-T75: denser soft×gabriel majors seed0 keep×persist compose vs
+    T73 non-persist — seed0 keep+inflate fracs {0.05,0.12,0.25}: majors
+    soft≤0.12 → tori K=2 (gabriel kills; soft=0.25 collapses); e2e
+    non-persist matches T73 (youden nested K=2≈0.01; soft all ≤1);
+    soft×persist e2e also ≤1 — persist does not rescue T73 soft e2e
+    collapse; defaults off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
