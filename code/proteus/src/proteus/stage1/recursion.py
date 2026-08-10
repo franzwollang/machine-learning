@@ -239,6 +239,19 @@ class RecursionConfig:
     A2-T56: denser soft seed0 window × bridge_mass — T55 keep band is
     betweenness-specific (bridge_mass collapses soft∈{0.05..0.25});
     defaults off.
+    A2-T57: denser soft×persist@tau* e2e — denser kills T54 seed1 nested
+    inflate; denser-youden seed0 nested K=2 killed by soft/persist;
+    defaults off.
+    A2-T58: soft×require_gabriel_and_h at operational tau* e2e — seed1
+    nested K=2 chance-ARI survives soft×conj (contrast T41 fixed-tau
+    majors collapse); circle youden shatters, soft/conj keep uniforms;
+    defaults off.
+    A2-T59: denser soft seed0 keep-band × persist_agree (bet vs
+    bridge_mass) — T55 majors keep-band soft≤0.12 does not survive denser
+    e2e soft/soft×persist for either method; defaults off.
+    A2-T60-followon: denser soft×gabriel_and_h@tau* e2e — denser kills
+    T58 seed1 nested inflate; denser-youden seed0 nested K=2 killed by
+    soft/conj; circle youden no shatter on denser; defaults off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +
