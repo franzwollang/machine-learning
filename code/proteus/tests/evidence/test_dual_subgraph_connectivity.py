@@ -94,6 +94,7 @@ from proteus.stage2 import (
     probe_bp_spectrum_damping,
     probe_fail_closed_dual_adjacency_plan,
     probe_gate_fail_closed_switch,
+    probe_loopy_bp_convergence,
     propose_bp_damping_policy,
     query_stage1_ann_bmus,
     resolve_dual_connected,
@@ -889,6 +890,8 @@ def test_acceptance_path_plan_documented_in_dual_flow_module():
     assert cfg.enable_bp_damping_policy is False
     assert cfg.enable_online_offline_schedule is False
     assert cfg.enable_online_offline_loopy_compose is False
+    assert cfg.enable_bp_policy_in_loopy is False
+    assert cfg.enable_loopy_bp_convergence_probe is False
     assert GateConfig().fail_closed_dual_adjacency is False
 
 
@@ -2014,3 +2017,148 @@ def test_gate_fail_closed_none_adj_rejects_when_switch_on():
         ),
     )
     assert not v_closed.accepted
+
+
+# ---------------------------------------------------------------------------
+# A5-T61: wire damping policy into loopy BP (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_bp_policy_in_loopy_flag_off_keeps_fixed_damping():
+    """enable_bp_policy_in_loopy=False ⇒ policy_applied False even if loopy on."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    hats = {
+        0: np.array([1.0, -1.0, 0.5]),
+        1: np.array([-1.0, 0.5, 0.25]),
+    }
+    stencils = {
+        0: build_divergence_stencil(left),
+        1: build_divergence_stencil(right),
+    }
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    cfg = DualFlowConfig(
+        enable_loopy_bp_schedule=True,
+        enable_bp_policy_in_loopy=False,
+        bp_damping=0.5,
+        bp_max_iters=2,
+        spectrum_cond_cap=1e-12,
+    )
+    out = solve_loopy_bp_schedule(hats, stencils, simplices, config=cfg)
+    assert out is not None
+    assert out.policy_applied is False
+    assert out.max_policy_damping == pytest.approx(0.0)
+
+
+def test_bp_policy_in_loopy_raises_damping_when_cond_exceeds_cap():
+    """Flag on + tiny spectrum_cond_cap ⇒ policy_applied + raised damping."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    hats = {
+        0: np.array([1.0, -1.0, 0.5]),
+        1: np.array([-1.0, 0.5, 0.25]),
+    }
+    stencils = {
+        0: build_divergence_stencil(left),
+        1: build_divergence_stencil(right),
+    }
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    cfg = DualFlowConfig(
+        enable_loopy_bp_schedule=True,
+        enable_bp_policy_in_loopy=True,
+        bp_damping=0.5,
+        bp_max_iters=2,
+        spectrum_cond_cap=1e-12,
+    )
+    out = solve_loopy_bp_schedule(hats, stencils, simplices, config=cfg)
+    assert out is not None
+    assert out.policy_applied is True
+    assert out.max_policy_damping > 0.5
+    assert out.max_policy_damping <= 1.0
+    assert out.spectrum_ridge_applied is True
+    assert out.message_updates > 0
+
+
+# ---------------------------------------------------------------------------
+# A5-T62: loopy BP residual trajectory convergence probe (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_loopy_bp_convergence_probe_flag_off_returns_none():
+    """enable_loopy_bp_convergence_probe=False ⇒ probe is None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    hats = {0: np.array([0.1, -0.2, 0.05])}
+    stencils = {0: build_divergence_stencil(left)}
+    assert (
+        probe_loopy_bp_convergence(
+            hats, stencils, {0: (0, 1, 2)}, config=DualFlowConfig()
+        )
+        is None
+    )
+
+
+def test_loopy_bp_convergence_probe_records_residual_trajectory():
+    """Flag on: residual sequences length == max_iters; flag default off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    hats = {
+        0: np.array([1.0, -1.0, 0.5]),
+        1: np.array([-1.0, 0.5, 0.25]),
+    }
+    stencils = {
+        0: build_divergence_stencil(left),
+        1: build_divergence_stencil(right),
+    }
+    simplices = {0: (0, 1, 2), 1: (1, 3, 2)}
+    cfg = DualFlowConfig(
+        enable_loopy_bp_convergence_probe=True,
+        enable_bp_policy_in_loopy=True,
+        bp_damping=0.5,
+        spectrum_cond_cap=1e-12,
+    )
+    probe = probe_loopy_bp_convergence(
+        hats, stencils, simplices, max_iters=3, config=cfg
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert probe.iters == (1, 2, 3)
+    assert len(probe.r_data) == 3
+    assert len(probe.r_cons) == 3
+    assert all(r >= 0.0 for r in probe.r_data)
+    assert all(r >= 0.0 for r in probe.r_cons)
+    assert probe.policy_in_loopy_used is True
+    assert "trajectory" in probe.note.lower() or "residual" in probe.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T63: compose forwards enable_bp_policy_in_loopy (flag off by default)
+# ---------------------------------------------------------------------------
+
+
+def test_online_offline_loopy_compose_forwards_policy_flag():
+    """Compose with enable_bp_policy_in_loopy ⇒ loopy_policy_applied on ill-cond."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([1.2, 0.2])]
+    cfg = DualFlowConfig(
+        enable_online_offline_loopy_compose=True,
+        enable_bp_policy_in_loopy=True,
+        bp_damping=0.5,
+        bp_max_iters=2,
+        spectrum_cond_cap=1e-12,
+    )
+    out = run_online_offline_loopy_compose(
+        samples,
+        {0: left, 1: right},
+        {0: (0, 1, 2), 1: (1, 3, 2)},
+        config=cfg,
+    )
+    assert out is not None
+    assert out.loopy_policy_applied is True
+    assert out.loopy_max_policy_damping > 0.5
+    assert out.loopy_message_updates > 0
