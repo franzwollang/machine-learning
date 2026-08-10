@@ -159,7 +159,19 @@ shape documented on :class:`proteus.evidence.gate.DualAdjacency`.
   (A5-T104; harness only; does not flip ``@awaiting``). A residual×spectrum
   dual-path × fail_closed dry_run EG *compose* lands behind
   ``enable_residual_spectrum_dual_path_fail_closed_dry_run_compose_probe``
-  (A5-T105; harness only; does not flip ``@awaiting``). Remaining
+  (A5-T105; harness only; does not flip ``@awaiting``). A residual×spectrum
+  dual-path patience×cap×traj × fail_closed dry_run EG *compose* lands
+  behind
+  ``enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_dry_run_compose_probe``
+  (A5-T106; harness only; does not flip ``@awaiting``). A residual×spectrum
+  dual-path patience×cap×traj × fail_closed reconnect EG *compose* lands
+  behind
+  ``enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_reconnect_compose_probe``
+  (A5-T107; harness only; does not flip ``@awaiting``). A residual×spectrum
+  dual-path patience×cap×traj × fail_closed matrix EG *compose* lands
+  behind
+  ``enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_matrix_compose_probe``
+  (A5-T108; harness only; does not flip ``@awaiting``). Remaining
   real-BP gaps: true spectrum-safe production loopy BP certificate;
   true-manifold flux zeroing (S6.3).
 * **S6.3** boundary-face taxonomy — manifold / computational / orientation
@@ -459,6 +471,24 @@ Flags (proposal-path, SI S14.3 operational defaults — all default **off**):
   with spectrum×policy×mass patience×cap under a shared fail_closed
   dry_run×EvidenceGate (A5-T105; harness only; does not flip ``@awaiting``
   / GateConfig defaults).
+* ``DualFlowConfig.enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_dry_run_compose_probe``
+  — when off,
+  :func:`probe_residual_spectrum_dual_path_patience_cap_traj_fail_closed_dry_run_compose`
+  returns ``None``; when on, composes residual×spectrum patience×cap traj
+  dual-paths under a shared fail_closed dry_run×EvidenceGate (A5-T106;
+  harness only; does not flip ``@awaiting`` / GateConfig defaults).
+* ``DualFlowConfig.enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_reconnect_compose_probe``
+  — when off,
+  :func:`probe_residual_spectrum_dual_path_patience_cap_traj_fail_closed_reconnect_compose`
+  returns ``None``; when on, composes residual×spectrum patience×cap traj
+  dual-paths under a shared fail_closed reconnect×EvidenceGate (A5-T107;
+  harness only; does not flip ``@awaiting`` / GateConfig defaults).
+* ``DualFlowConfig.enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_matrix_compose_probe``
+  — when off,
+  :func:`probe_residual_spectrum_dual_path_patience_cap_traj_fail_closed_matrix_compose`
+  returns ``None``; when on, composes residual×spectrum patience×cap traj
+  dual-paths under a shared fail_closed EvidenceGate.evaluate matrix
+  (A5-T108; harness only; does not flip ``@awaiting`` / GateConfig defaults).
 * Call sites that opt in (tests / experimental dry-runs) pass flags ``True``
   and feed results into the gate or diagnostics.
 
@@ -630,6 +660,9 @@ __all__ = [
     "probe_residual_spectrum_dual_path_patience_cap_traj_compose",
     "probe_spectrum_safe_policy_mass_patience_cap_traj_fail_closed_dry_run_matrix_reconnect",
     "probe_residual_spectrum_dual_path_fail_closed_dry_run_compose",
+    "probe_residual_spectrum_dual_path_patience_cap_traj_fail_closed_dry_run_compose",
+    "probe_residual_spectrum_dual_path_patience_cap_traj_fail_closed_reconnect_compose",
+    "probe_residual_spectrum_dual_path_patience_cap_traj_fail_closed_matrix_compose",
     "probe_fail_closed_dual_adjacency_plan",
     "probe_gate_fail_closed_switch",
 ]
@@ -1008,6 +1041,24 @@ class DualFlowConfig:
         returns ``None``. When ``True``, composes residual and spectrum
         patience×cap dual-paths with fail_closed dry_run×EvidenceGate
         (A5-T105; harness only; does not flip ``@awaiting`` / GateConfig).
+    enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_dry_run_compose_probe:
+        When ``False`` (default),
+        :func:`probe_residual_spectrum_dual_path_patience_cap_traj_fail_closed_dry_run_compose`
+        returns ``None``. When ``True``, composes residual×spectrum
+        patience×cap traj dual-paths with fail_closed dry_run×EvidenceGate
+        (A5-T106; harness only; does not flip ``@awaiting`` / GateConfig).
+    enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_reconnect_compose_probe:
+        When ``False`` (default),
+        :func:`probe_residual_spectrum_dual_path_patience_cap_traj_fail_closed_reconnect_compose`
+        returns ``None``. When ``True``, composes residual×spectrum
+        patience×cap traj dual-paths with fail_closed reconnect×EvidenceGate
+        (A5-T107; harness only; does not flip ``@awaiting`` / GateConfig).
+    enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_matrix_compose_probe:
+        When ``False`` (default),
+        :func:`probe_residual_spectrum_dual_path_patience_cap_traj_fail_closed_matrix_compose`
+        returns ``None``. When ``True``, composes residual×spectrum
+        patience×cap traj dual-paths with fail_closed EvidenceGate matrix
+        (A5-T108; harness only; does not flip ``@awaiting`` / GateConfig).
     bp_residual_stop_tol:
         Absolute plateau tolerance on ``|Δr_data|`` / ``|Δr_cons|`` for
         the residual-stop sketch / early-exit (default ``1e-3``).
@@ -1115,6 +1166,9 @@ class DualFlowConfig:
     enable_residual_spectrum_dual_path_patience_cap_traj_compose_probe: bool = False
     enable_spectrum_safe_policy_mass_patience_cap_traj_fail_closed_dry_run_matrix_reconnect_probe: bool = False
     enable_residual_spectrum_dual_path_fail_closed_dry_run_compose_probe: bool = False
+    enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_dry_run_compose_probe: bool = False
+    enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_reconnect_compose_probe: bool = False
+    enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_matrix_compose_probe: bool = False
     bp_residual_stop_tol: float = 1e-3
     bp_residual_stop_patience: int = 2
     bp_damping: float = 0.5
@@ -10436,3 +10490,451 @@ def probe_residual_spectrum_dual_path_fail_closed_dry_run_compose(
         dual_adjacency_default=bool(dual_defaults.enable_dual_adjacency),
     )
 
+
+@dataclass(frozen=True)
+class ResidualSpectrumDualPathPatienceCapTrajFailClosedDryRunComposeProbe:
+    """Residual×spectrum traj × fail_closed dry_run EG compose (A5-T106).
+
+    Harness only — packages :func:`probe_residual_mass_policy_patience_cap_traj`
+    and :func:`probe_spectrum_safe_policy_mass_patience_cap_traj` under a shared
+    :func:`proteus.evidence.gate.probe_fail_closed_dry_run_evidence_gate`.
+    Complements A5-T103 (traj compose) and A5-T105 (non-traj dry_run). Does
+    **not** flip mass/density ``@awaiting`` or GateConfig defaults.
+    """
+
+    probe_flag_default_off: bool
+    residual_patience_cap_traj: ResidualMassPolicyPatienceCapTrajProbe
+    spectrum_mass_patience_cap_traj: SpectrumSafePolicyMassPatienceCapTrajProbe
+    fail_closed_dry_run_all_matched: bool
+    fail_closed_dry_run_n_cases: int
+    fail_closed_dry_run_n_matched: int
+    gate_apply_dual_default: bool
+    gate_fail_closed_default: bool
+    dual_adjacency_default: bool
+    note: str = (
+        "harness only: residual×spectrum dual-path patience×cap traj compose "
+        "bridged to fail_closed dry_run × EvidenceGate; "
+        "defaults unchanged; do not flip @awaiting / apply_dual / "
+        "fail_closed / enable_dual_adjacency"
+    )
+
+
+def probe_residual_spectrum_dual_path_patience_cap_traj_fail_closed_dry_run_compose(
+    samples: Sequence[np.ndarray],
+    simplex_positions: Mapping[Hashable, np.ndarray],
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]],
+    keep_region: Sequence[object],
+    edit_region: Sequence[object],
+    proposal: object,
+    *,
+    masses: Mapping[Hashable, float] | None = None,
+    patience_grid: Sequence[int] | None = None,
+    spectrum_cond_caps: Sequence[float] | None = None,
+    max_traj_iters: int | None = None,
+    edit_stars: Mapping[int, np.ndarray] | None = None,
+    keep_stars: Mapping[int, np.ndarray] | None = None,
+    complex_path: object | None = None,
+    config: DualFlowConfig | None = None,
+) -> ResidualSpectrumDualPathPatienceCapTrajFailClosedDryRunComposeProbe | None:
+    """Compose residual + spectrum traj with fail_closed dry_run EG (A5-T106).
+
+    When ``enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_dry_run_compose_probe``
+    is off, returns ``None``. When on:
+
+    1. Run :func:`probe_residual_mass_policy_patience_cap_traj` (flag forced on).
+    2. Run :func:`probe_spectrum_safe_policy_mass_patience_cap_traj` (flag forced on).
+    3. Run gate :func:`probe_fail_closed_dry_run_evidence_gate`.
+
+    Does **not** flip mass/density ``@awaiting`` or GateConfig defaults.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_dry_run_compose_probe:
+        return None
+    if not samples:
+        raise ValueError("samples must be non-empty")
+
+    from proteus.evidence.gate import (
+        GateConfig,
+        probe_fail_closed_dry_run_evidence_gate,
+    )
+
+    nested_res = DualFlowConfig(
+        enable_residual_mass_policy_patience_cap_traj_probe=True,
+        bp_damping=float(cfg.bp_damping),
+        bp_max_iters=max(int(cfg.bp_max_iters), 4),
+        bp_residual_stop_tol=float(cfg.bp_residual_stop_tol),
+        bp_residual_stop_patience=int(cfg.bp_residual_stop_patience),
+        tally_scale=float(cfg.tally_scale),
+        mu_scale=float(cfg.mu_scale),
+        as_eps=float(cfg.as_eps),
+        whiten_floor=float(cfg.whiten_floor),
+        spectrum_cond_cap=float(cfg.spectrum_cond_cap),
+        enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+    )
+    nested_spec = DualFlowConfig(
+        enable_spectrum_safe_policy_mass_patience_cap_traj_probe=True,
+        bp_damping=float(cfg.bp_damping),
+        bp_max_iters=max(int(cfg.bp_max_iters), 4),
+        bp_residual_stop_tol=float(cfg.bp_residual_stop_tol),
+        bp_residual_stop_patience=int(cfg.bp_residual_stop_patience),
+        tally_scale=float(cfg.tally_scale),
+        mu_scale=float(cfg.mu_scale),
+        as_eps=float(cfg.as_eps),
+        whiten_floor=float(cfg.whiten_floor),
+        spectrum_cond_cap=float(cfg.spectrum_cond_cap),
+        enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+    )
+    residual_patience_cap_traj = probe_residual_mass_policy_patience_cap_traj(
+        samples,
+        simplex_positions,
+        simplices,
+        masses=masses,
+        patience_grid=patience_grid,
+        spectrum_cond_caps=spectrum_cond_caps,
+        max_traj_iters=max_traj_iters,
+        config=nested_res,
+    )
+    if residual_patience_cap_traj is None:
+        raise RuntimeError(
+            "residual×mass×policy patience×cap traj unexpectedly None under dual-path traj dry_run compose cfg"
+        )
+    spectrum_mass_patience_cap_traj = probe_spectrum_safe_policy_mass_patience_cap_traj(
+        samples,
+        simplex_positions,
+        simplices,
+        masses=masses,
+        patience_grid=patience_grid,
+        spectrum_cond_caps=spectrum_cond_caps,
+        max_traj_iters=max_traj_iters,
+        config=nested_spec,
+    )
+    if spectrum_mass_patience_cap_traj is None:
+        raise RuntimeError(
+            "spectrum×policy×mass patience×cap traj unexpectedly None under dual-path traj dry_run compose cfg"
+        )
+
+    dry = probe_fail_closed_dry_run_evidence_gate(
+        keep_region,  # type: ignore[arg-type]
+        edit_region,  # type: ignore[arg-type]
+        proposal,  # type: ignore[arg-type]
+        edit_stars=edit_stars,
+        keep_stars=keep_stars,
+        complex_path=complex_path,
+    )
+    gate_defaults = GateConfig()
+    dual_defaults = DualFlowConfig()
+    return ResidualSpectrumDualPathPatienceCapTrajFailClosedDryRunComposeProbe(
+        probe_flag_default_off=not DualFlowConfig().enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_dry_run_compose_probe,
+        residual_patience_cap_traj=residual_patience_cap_traj,
+        spectrum_mass_patience_cap_traj=spectrum_mass_patience_cap_traj,
+        fail_closed_dry_run_all_matched=bool(dry.all_matched),
+        fail_closed_dry_run_n_cases=int(dry.n_cases),
+        fail_closed_dry_run_n_matched=int(dry.n_matched),
+        gate_apply_dual_default=bool(gate_defaults.apply_dual_adjacency),
+        gate_fail_closed_default=bool(gate_defaults.fail_closed_dual_adjacency),
+        dual_adjacency_default=bool(dual_defaults.enable_dual_adjacency),
+    )
+
+
+@dataclass(frozen=True)
+class ResidualSpectrumDualPathPatienceCapTrajFailClosedReconnectComposeProbe:
+    """Residual×spectrum traj × fail_closed reconnect EG compose (A5-T107).
+
+    Harness only — packages :func:`probe_residual_mass_policy_patience_cap_traj`
+    and :func:`probe_spectrum_safe_policy_mass_patience_cap_traj` under a shared
+    :func:`proteus.evidence.gate.probe_fail_closed_dry_run_reconnect_bridge`.
+    Complements A5-T103 (traj) and A5-T100 (non-traj reconnect). Does **not**
+    flip mass/density ``@awaiting`` or GateConfig defaults.
+    """
+
+    probe_flag_default_off: bool
+    residual_patience_cap_traj: ResidualMassPolicyPatienceCapTrajProbe
+    spectrum_mass_patience_cap_traj: SpectrumSafePolicyMassPatienceCapTrajProbe
+    fail_closed_reconnect_all_matched: bool
+    fail_closed_reconnect_n_cases: int
+    fail_closed_reconnect_n_matched: int
+    fail_closed_disconnect_connected: bool
+    fail_closed_reconnect_connected: bool
+    gate_apply_dual_default: bool
+    gate_fail_closed_default: bool
+    dual_adjacency_default: bool
+    note: str = (
+        "harness only: residual×spectrum dual-path patience×cap traj compose "
+        "bridged to fail_closed reconnect × EvidenceGate; "
+        "defaults unchanged; do not flip @awaiting / apply_dual / "
+        "fail_closed / enable_dual_adjacency"
+    )
+
+
+def probe_residual_spectrum_dual_path_patience_cap_traj_fail_closed_reconnect_compose(
+    samples: Sequence[np.ndarray],
+    simplex_positions: Mapping[Hashable, np.ndarray],
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]],
+    keep_region: Sequence[object],
+    edit_region: Sequence[object],
+    proposal: object,
+    *,
+    masses: Mapping[Hashable, float] | None = None,
+    patience_grid: Sequence[int] | None = None,
+    spectrum_cond_caps: Sequence[float] | None = None,
+    max_traj_iters: int | None = None,
+    edit_stars: Mapping[int, np.ndarray] | None = None,
+    keep_stars: Mapping[int, np.ndarray] | None = None,
+    complex_path: object | None = None,
+    config: DualFlowConfig | None = None,
+) -> ResidualSpectrumDualPathPatienceCapTrajFailClosedReconnectComposeProbe | None:
+    """Compose residual + spectrum traj with fail_closed reconnect EG (A5-T107).
+
+    When ``enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_reconnect_compose_probe``
+    is off, returns ``None``. When on:
+
+    1. Run :func:`probe_residual_mass_policy_patience_cap_traj` (flag forced on).
+    2. Run :func:`probe_spectrum_safe_policy_mass_patience_cap_traj` (flag forced on).
+    3. Run gate :func:`probe_fail_closed_dry_run_reconnect_bridge`.
+
+    Does **not** flip mass/density ``@awaiting`` or GateConfig defaults.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_reconnect_compose_probe:
+        return None
+    if not samples:
+        raise ValueError("samples must be non-empty")
+
+    from proteus.evidence.gate import (
+        GateConfig,
+        probe_fail_closed_dry_run_reconnect_bridge,
+    )
+
+    nested_res = DualFlowConfig(
+        enable_residual_mass_policy_patience_cap_traj_probe=True,
+        bp_damping=float(cfg.bp_damping),
+        bp_max_iters=max(int(cfg.bp_max_iters), 4),
+        bp_residual_stop_tol=float(cfg.bp_residual_stop_tol),
+        bp_residual_stop_patience=int(cfg.bp_residual_stop_patience),
+        tally_scale=float(cfg.tally_scale),
+        mu_scale=float(cfg.mu_scale),
+        as_eps=float(cfg.as_eps),
+        whiten_floor=float(cfg.whiten_floor),
+        spectrum_cond_cap=float(cfg.spectrum_cond_cap),
+        enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+    )
+    nested_spec = DualFlowConfig(
+        enable_spectrum_safe_policy_mass_patience_cap_traj_probe=True,
+        bp_damping=float(cfg.bp_damping),
+        bp_max_iters=max(int(cfg.bp_max_iters), 4),
+        bp_residual_stop_tol=float(cfg.bp_residual_stop_tol),
+        bp_residual_stop_patience=int(cfg.bp_residual_stop_patience),
+        tally_scale=float(cfg.tally_scale),
+        mu_scale=float(cfg.mu_scale),
+        as_eps=float(cfg.as_eps),
+        whiten_floor=float(cfg.whiten_floor),
+        spectrum_cond_cap=float(cfg.spectrum_cond_cap),
+        enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+    )
+    residual_patience_cap_traj = probe_residual_mass_policy_patience_cap_traj(
+        samples,
+        simplex_positions,
+        simplices,
+        masses=masses,
+        patience_grid=patience_grid,
+        spectrum_cond_caps=spectrum_cond_caps,
+        max_traj_iters=max_traj_iters,
+        config=nested_res,
+    )
+    if residual_patience_cap_traj is None:
+        raise RuntimeError(
+            "residual×mass×policy patience×cap traj unexpectedly None under dual-path traj reconnect compose cfg"
+        )
+    spectrum_mass_patience_cap_traj = probe_spectrum_safe_policy_mass_patience_cap_traj(
+        samples,
+        simplex_positions,
+        simplices,
+        masses=masses,
+        patience_grid=patience_grid,
+        spectrum_cond_caps=spectrum_cond_caps,
+        max_traj_iters=max_traj_iters,
+        config=nested_spec,
+    )
+    if spectrum_mass_patience_cap_traj is None:
+        raise RuntimeError(
+            "spectrum×policy×mass patience×cap traj unexpectedly None under dual-path traj reconnect compose cfg"
+        )
+
+    recon = probe_fail_closed_dry_run_reconnect_bridge(
+        keep_region,  # type: ignore[arg-type]
+        edit_region,  # type: ignore[arg-type]
+        proposal,  # type: ignore[arg-type]
+        edit_stars=edit_stars,
+        keep_stars=keep_stars,
+        complex_path=complex_path,
+    )
+    gate_defaults = GateConfig()
+    dual_defaults = DualFlowConfig()
+    return ResidualSpectrumDualPathPatienceCapTrajFailClosedReconnectComposeProbe(
+        probe_flag_default_off=not DualFlowConfig().enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_reconnect_compose_probe,
+        residual_patience_cap_traj=residual_patience_cap_traj,
+        spectrum_mass_patience_cap_traj=spectrum_mass_patience_cap_traj,
+        fail_closed_reconnect_all_matched=bool(recon.all_matched),
+        fail_closed_reconnect_n_cases=int(recon.n_cases),
+        fail_closed_reconnect_n_matched=int(recon.n_matched),
+        fail_closed_disconnect_connected=bool(recon.disconnect_connected),
+        fail_closed_reconnect_connected=bool(recon.reconnect_connected),
+        gate_apply_dual_default=bool(gate_defaults.apply_dual_adjacency),
+        gate_fail_closed_default=bool(gate_defaults.fail_closed_dual_adjacency),
+        dual_adjacency_default=bool(dual_defaults.enable_dual_adjacency),
+    )
+
+
+@dataclass(frozen=True)
+class ResidualSpectrumDualPathPatienceCapTrajFailClosedMatrixComposeProbe:
+    """Residual×spectrum traj × fail_closed matrix EG compose (A5-T108).
+
+    Harness only — packages :func:`probe_residual_mass_policy_patience_cap_traj`
+    and :func:`probe_spectrum_safe_policy_mass_patience_cap_traj` under a shared
+    :func:`proteus.evidence.gate.probe_fail_closed_evidence_gate_matrix`.
+    Complements A5-T103 (traj) and matrix bridges. Does **not** flip
+    mass/density ``@awaiting`` or GateConfig defaults.
+    """
+
+    probe_flag_default_off: bool
+    residual_patience_cap_traj: ResidualMassPolicyPatienceCapTrajProbe
+    spectrum_mass_patience_cap_traj: SpectrumSafePolicyMassPatienceCapTrajProbe
+    fail_closed_matrix_all_matched: bool
+    fail_closed_matrix_n_cases: int
+    fail_closed_matrix_n_matched: int
+    gate_apply_dual_default: bool
+    gate_fail_closed_default: bool
+    dual_adjacency_default: bool
+    note: str = (
+        "harness only: residual×spectrum dual-path patience×cap traj compose "
+        "bridged to fail_closed matrix × EvidenceGate; "
+        "defaults unchanged; do not flip @awaiting / apply_dual / "
+        "fail_closed / enable_dual_adjacency"
+    )
+
+
+def probe_residual_spectrum_dual_path_patience_cap_traj_fail_closed_matrix_compose(
+    samples: Sequence[np.ndarray],
+    simplex_positions: Mapping[Hashable, np.ndarray],
+    simplices: Sequence[Sequence[Hashable]]
+    | Mapping[Hashable, Sequence[Hashable]],
+    keep_region: Sequence[object],
+    edit_region: Sequence[object],
+    proposal: object,
+    *,
+    masses: Mapping[Hashable, float] | None = None,
+    patience_grid: Sequence[int] | None = None,
+    spectrum_cond_caps: Sequence[float] | None = None,
+    max_traj_iters: int | None = None,
+    edit_stars: Mapping[int, np.ndarray] | None = None,
+    keep_stars: Mapping[int, np.ndarray] | None = None,
+    connected_adj: Mapping[Hashable, Sequence[Hashable]] | None = None,
+    disconnect_adj: Mapping[Hashable, Sequence[Hashable]] | None = None,
+    affected_simplices: Sequence[Hashable] | None = None,
+    config: DualFlowConfig | None = None,
+) -> ResidualSpectrumDualPathPatienceCapTrajFailClosedMatrixComposeProbe | None:
+    """Compose residual + spectrum traj with fail_closed matrix EG (A5-T108).
+
+    When ``enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_matrix_compose_probe``
+    is off, returns ``None``. When on:
+
+    1. Run :func:`probe_residual_mass_policy_patience_cap_traj` (flag forced on).
+    2. Run :func:`probe_spectrum_safe_policy_mass_patience_cap_traj` (flag forced on).
+    3. Run gate :func:`probe_fail_closed_evidence_gate_matrix`.
+
+    Does **not** flip mass/density ``@awaiting`` or GateConfig defaults.
+    """
+
+    cfg = config or DualFlowConfig()
+    if not cfg.enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_matrix_compose_probe:
+        return None
+    if not samples:
+        raise ValueError("samples must be non-empty")
+
+    from proteus.evidence.gate import (
+        GateConfig,
+        probe_fail_closed_evidence_gate_matrix,
+    )
+
+    nested_res = DualFlowConfig(
+        enable_residual_mass_policy_patience_cap_traj_probe=True,
+        bp_damping=float(cfg.bp_damping),
+        bp_max_iters=max(int(cfg.bp_max_iters), 4),
+        bp_residual_stop_tol=float(cfg.bp_residual_stop_tol),
+        bp_residual_stop_patience=int(cfg.bp_residual_stop_patience),
+        tally_scale=float(cfg.tally_scale),
+        mu_scale=float(cfg.mu_scale),
+        as_eps=float(cfg.as_eps),
+        whiten_floor=float(cfg.whiten_floor),
+        spectrum_cond_cap=float(cfg.spectrum_cond_cap),
+        enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+    )
+    nested_spec = DualFlowConfig(
+        enable_spectrum_safe_policy_mass_patience_cap_traj_probe=True,
+        bp_damping=float(cfg.bp_damping),
+        bp_max_iters=max(int(cfg.bp_max_iters), 4),
+        bp_residual_stop_tol=float(cfg.bp_residual_stop_tol),
+        bp_residual_stop_patience=int(cfg.bp_residual_stop_patience),
+        tally_scale=float(cfg.tally_scale),
+        mu_scale=float(cfg.mu_scale),
+        as_eps=float(cfg.as_eps),
+        whiten_floor=float(cfg.whiten_floor),
+        spectrum_cond_cap=float(cfg.spectrum_cond_cap),
+        enable_count_aware_lambda=bool(cfg.enable_count_aware_lambda),
+    )
+    residual_patience_cap_traj = probe_residual_mass_policy_patience_cap_traj(
+        samples,
+        simplex_positions,
+        simplices,
+        masses=masses,
+        patience_grid=patience_grid,
+        spectrum_cond_caps=spectrum_cond_caps,
+        max_traj_iters=max_traj_iters,
+        config=nested_res,
+    )
+    if residual_patience_cap_traj is None:
+        raise RuntimeError(
+            "residual×mass×policy patience×cap traj unexpectedly None under dual-path traj matrix compose cfg"
+        )
+    spectrum_mass_patience_cap_traj = probe_spectrum_safe_policy_mass_patience_cap_traj(
+        samples,
+        simplex_positions,
+        simplices,
+        masses=masses,
+        patience_grid=patience_grid,
+        spectrum_cond_caps=spectrum_cond_caps,
+        max_traj_iters=max_traj_iters,
+        config=nested_spec,
+    )
+    if spectrum_mass_patience_cap_traj is None:
+        raise RuntimeError(
+            "spectrum×policy×mass patience×cap traj unexpectedly None under dual-path traj matrix compose cfg"
+        )
+
+    matrix = probe_fail_closed_evidence_gate_matrix(
+        keep_region,  # type: ignore[arg-type]
+        edit_region,  # type: ignore[arg-type]
+        proposal,  # type: ignore[arg-type]
+        edit_stars=edit_stars,
+        keep_stars=keep_stars,
+        connected_adj=connected_adj,  # type: ignore[arg-type]
+        disconnect_adj=disconnect_adj,  # type: ignore[arg-type]
+        affected_simplices=affected_simplices,
+    )
+    gate_defaults = GateConfig()
+    dual_defaults = DualFlowConfig()
+    return ResidualSpectrumDualPathPatienceCapTrajFailClosedMatrixComposeProbe(
+        probe_flag_default_off=not DualFlowConfig().enable_residual_spectrum_dual_path_patience_cap_traj_fail_closed_matrix_compose_probe,
+        residual_patience_cap_traj=residual_patience_cap_traj,
+        spectrum_mass_patience_cap_traj=spectrum_mass_patience_cap_traj,
+        fail_closed_matrix_all_matched=bool(matrix.all_matched),
+        fail_closed_matrix_n_cases=int(matrix.n_cases),
+        fail_closed_matrix_n_matched=int(matrix.n_matched),
+        gate_apply_dual_default=bool(gate_defaults.apply_dual_adjacency),
+        gate_fail_closed_default=bool(gate_defaults.fail_closed_dual_adjacency),
+        dual_adjacency_default=bool(dual_defaults.enable_dual_adjacency),
+    )
