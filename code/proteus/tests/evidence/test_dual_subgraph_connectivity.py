@@ -66,6 +66,7 @@ from proteus.evidence import (
     affected_dual_subgraph_connected,
     bdeu_alpha,
     probe_fail_closed_dry_run_evidence_gate,
+    probe_fail_closed_dry_run_reconnect_bridge,
     probe_fail_closed_evidence_gate_matrix,
     probe_fail_closed_score_edit_matrix,
     score_edit,
@@ -103,6 +104,9 @@ from proteus.stage2 import (
     probe_policy_residual_compose,
     probe_spectrum_safe_policy_pin,
     probe_spectrum_safe_policy_traj,
+    probe_residual_mass_loopy_compose,
+    probe_spectrum_safe_policy_mass_compose,
+    probe_residual_mass_patience_sweep,
     propose_bp_damping_policy,
     propose_loopy_bp_residual_stop,
     query_stage1_ann_bmus,
@@ -2820,3 +2824,267 @@ def test_fail_closed_dry_run_evidence_gate_matrix():
         assert case.score_edit_accepted is case.expect_accept
         assert case.evidence_gate_accepted is case.expect_accept
     assert "awaiting" in probe.note.lower() or "default" in probe.note.lower()
+
+# ---------------------------------------------------------------------------
+# A5-T74: residual-stop × mass_loopy compose early-exit pin (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_residual_mass_loopy_compose_probe_flag_off_returns_none():
+    """enable_residual_mass_loopy_compose_probe=False ⇒ probe is None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    assert (
+        probe_residual_mass_loopy_compose(
+            [np.array([0.3, 0.3])],
+            {0: left},
+            {0: (0, 1, 2)},
+            config=DualFlowConfig(),
+        )
+        is None
+    )
+
+
+def test_residual_mass_loopy_compose_probe_pins_mass_and_stops():
+    """Flag on: multi-iter pin + mass×compose residual-stop; defaults stay off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([1.2, 0.2])]
+    cfg = DualFlowConfig(
+        enable_residual_mass_loopy_compose_probe=True,
+        bp_damping=0.5,
+        bp_max_iters=6,
+        bp_residual_stop_tol=1e-3,
+        bp_residual_stop_patience=2,
+    )
+    probe = probe_residual_mass_loopy_compose(
+        samples,
+        {0: left, 1: right},
+        {0: (0, 1, 2), 1: (1, 3, 2)},
+        max_pin_iters=3,
+        config=cfg,
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert DualFlowConfig().enable_residual_mass_loopy_compose_probe is False
+    assert DualFlowConfig().enable_mass_loopy_compose_probe is False
+    assert DualFlowConfig().enable_loopy_bp_residual_stop is False
+    assert DualFlowConfig().enable_mass_normalization is False
+    assert probe.pin_iters == (1, 2, 3)
+    assert len(probe.pin_r_data) == 3
+    assert len(probe.pin_r_cons) == 3
+    assert all(r >= 0.0 for r in probe.pin_r_data)
+    assert all(r >= 0.0 for r in probe.pin_r_cons)
+    assert probe.epsilon_mass == pytest.approx(0.0, abs=1e-9)
+    assert probe.mass_total_before > 0.0
+    assert probe.compose_n_samples == 2
+    assert probe.compose_n_online_simplices >= 1
+    assert probe.compose_loopy_message_updates > 0
+    assert probe.compose_loopy_r_cons >= 0.0
+    assert probe.compose_residual_stop_enabled is True
+    assert probe.compose_residual_stop_reason in (
+        "abs_tol",
+        "plateau",
+        "max_iters",
+    )
+    assert 1 <= probe.compose_loopy_iters <= probe.compose_max_iters
+    assert "awaiting" in probe.note.lower()
+    assert "mass" in probe.note.lower()
+    assert "sketch" in probe.note.lower() or "not" in probe.note.lower()
+
+# ---------------------------------------------------------------------------
+# A5-T75: fail_closed × dry_run disconnect→reconnect bridge × EvidenceGate
+# ---------------------------------------------------------------------------
+
+
+def test_fail_closed_dry_run_reconnect_bridge_matrix():
+    """A5-T75: disconnect rejects / reconnect accepts under apply_dual; defaults off."""
+
+    keep, edit, proposal, good_stars = _good_split_fixture()
+    probe = probe_fail_closed_dry_run_reconnect_bridge(
+        keep,
+        edit,
+        proposal,
+        edit_stars=good_stars,
+        keep_stars=good_stars,
+        complex_path=_path_edge_complex(),
+    )
+    assert probe.defaults_unchanged is True
+    assert probe.apply_dual_default is False
+    assert probe.fail_closed_default is False
+    assert probe.dual_adjacency_default is False
+    assert GateConfig().apply_dual_adjacency is False
+    assert GateConfig().fail_closed_dual_adjacency is False
+    assert DualFlowConfig().enable_dual_adjacency is False
+    assert probe.disconnect_connected is False
+    assert probe.reconnect_connected is True
+    assert probe.n_cases == 6
+    assert probe.n_matched == probe.n_cases
+    assert probe.all_matched is True
+    by_name = {c.name: c for c in probe.cases}
+    assert by_name["disconnect_apply_reject"].dry_connected is False
+    assert by_name["disconnect_apply_reject"].expect_accept is False
+    assert by_name["reconnect_apply_accept"].dry_connected is True
+    assert by_name["reconnect_apply_accept"].expect_accept is True
+    assert by_name["reconnect_apply_fail_closed_accept"].expect_accept is True
+    for case in probe.cases:
+        assert case.match is True
+        assert case.score_edit_accepted is case.expect_accept
+        assert case.evidence_gate_accepted is case.expect_accept
+    assert "awaiting" in probe.note.lower() or "default" in probe.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T76: spectrum-safe × policy × mass_loopy cap-sweep compose (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_spectrum_safe_policy_mass_compose_flag_off_returns_none():
+    """enable_spectrum_safe_policy_mass_compose_probe=False ⇒ probe is None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    assert (
+        probe_spectrum_safe_policy_mass_compose(
+            [np.array([0.3, 0.3])],
+            {0: left},
+            {0: (0, 1, 2)},
+            config=DualFlowConfig(),
+        )
+        is None
+    )
+
+
+def test_spectrum_safe_policy_mass_compose_cap_sweep():
+    """Flag on: spectrum×policy sketch + mass×compose per cap; defaults off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([1.2, 0.2])]
+    caps = (1e-12, 1.0, 1e6, 1e12)
+    probe = probe_spectrum_safe_policy_mass_compose(
+        samples,
+        {0: left, 1: right},
+        {0: (0, 1, 2), 1: (1, 3, 2)},
+        spectrum_cond_caps=caps,
+        config=DualFlowConfig(
+            enable_spectrum_safe_policy_mass_compose_probe=True,
+            bp_max_iters=6,
+            bp_residual_stop_tol=1e-3,
+            bp_residual_stop_patience=2,
+            bp_damping=0.5,
+        ),
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert DualFlowConfig().enable_spectrum_safe_policy_mass_compose_probe is False
+    assert DualFlowConfig().enable_spectrum_safe_policy_pin_probe is False
+    assert DualFlowConfig().enable_residual_mass_loopy_compose_probe is False
+    assert DualFlowConfig().enable_bp_policy_in_loopy is False
+    assert DualFlowConfig().enable_mass_normalization is False
+    assert DualFlowConfig().enable_loopy_bp_residual_stop is False
+    assert probe.caps == caps
+    assert len(probe.cases) == len(caps)
+    # Tight cap should engage the damping-policy path on this fixture.
+    assert probe.cases[0].policy_applied is True
+    for case in probe.cases:
+        assert case.spectrum_cond_cap in caps
+        assert case.r_data >= 0.0
+        assert case.r_cons >= 0.0
+        assert case.residual_stop_reason in ("abs_tol", "plateau", "max_iters")
+        assert 1 <= case.iters_executed <= case.max_iters
+        assert isinstance(case.spectrum_ridge_applied, bool)
+        assert case.max_policy_damping >= 0.0
+        if (
+            case.residual_stop_reason in ("abs_tol", "plateau")
+            and not case.spectrum_ridge_applied
+        ):
+            assert case.spectrum_safe_sketch_ok is True
+        else:
+            assert case.spectrum_safe_sketch_ok is False
+        assert case.epsilon_mass == pytest.approx(0.0, abs=1e-9)
+        assert case.mass_total_before > 0.0
+        assert case.compose_n_samples == 2
+        assert case.compose_n_online_simplices >= 1
+        assert case.compose_loopy_message_updates > 0
+        assert case.compose_loopy_r_cons >= 0.0
+        assert case.compose_residual_stop_enabled is True
+        assert case.compose_residual_stop_reason in (
+            "abs_tol",
+            "plateau",
+            "max_iters",
+        )
+        assert 1 <= case.compose_loopy_iters <= case.compose_max_iters
+        assert isinstance(case.compose_policy_applied, bool)
+        assert isinstance(case.compose_spectrum_ridge_applied, bool)
+    assert "harness" in probe.note.lower() or "not" in probe.note.lower()
+    assert "awaiting" in probe.note.lower()
+    assert "mass" in probe.note.lower()
+
+
+# ---------------------------------------------------------------------------
+# A5-T77: residual-stop × mass_loopy patience sweep (flag off)
+# ---------------------------------------------------------------------------
+
+
+def test_residual_mass_patience_sweep_flag_off_returns_none():
+    """enable_residual_mass_patience_sweep_probe=False ⇒ probe is None."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    assert (
+        probe_residual_mass_patience_sweep(
+            [np.array([0.3, 0.3])],
+            {0: left},
+            {0: (0, 1, 2)},
+            config=DualFlowConfig(),
+        )
+        is None
+    )
+
+
+def test_residual_mass_patience_sweep_pins_compose():
+    """Flag on: mass×compose residual-stop patience sweep; defaults stay off."""
+
+    left = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    right = np.array([[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]])
+    samples = [np.array([0.25, 0.25]), np.array([1.2, 0.2])]
+    grid = (1, 2, 4, 8)
+    probe = probe_residual_mass_patience_sweep(
+        samples,
+        {0: left, 1: right},
+        {0: (0, 1, 2), 1: (1, 3, 2)},
+        patience_grid=grid,
+        config=DualFlowConfig(
+            enable_residual_mass_patience_sweep_probe=True,
+            bp_damping=0.5,
+            bp_max_iters=8,
+            bp_residual_stop_tol=1e-3,
+        ),
+    )
+    assert probe is not None
+    assert probe.probe_flag_default_off is True
+    assert DualFlowConfig().enable_residual_mass_patience_sweep_probe is False
+    assert DualFlowConfig().enable_residual_mass_loopy_compose_probe is False
+    assert DualFlowConfig().enable_loopy_bp_residual_stop is False
+    assert DualFlowConfig().enable_mass_normalization is False
+    assert probe.patience_grid == grid
+    assert len(probe.cases) == len(grid)
+    for case in probe.cases:
+        assert case.patience in grid
+        assert case.epsilon_mass == pytest.approx(0.0, abs=1e-9)
+        assert case.mass_total_before > 0.0
+        assert case.compose_n_samples == 2
+        assert case.compose_n_online_simplices >= 1
+        assert case.compose_loopy_message_updates > 0
+        assert case.compose_loopy_r_cons >= 0.0
+        assert case.compose_residual_stop_enabled is True
+        assert case.compose_residual_stop_reason in (
+            "abs_tol",
+            "plateau",
+            "max_iters",
+        )
+        assert 1 <= case.compose_loopy_iters <= case.compose_max_iters
+    assert "awaiting" in probe.note.lower()
+    assert "mass" in probe.note.lower()
+    assert "sketch" in probe.note.lower() or "not" in probe.note.lower()
+
