@@ -4269,6 +4269,148 @@ def test_thr030_dense_multiseed_phi_peak_vs_lw() -> None:
     assert ScaleSearchConfig().halve_grid_steps is False
 
 
+def test_seed2_thr030_dense_phi_at_lc_eligible_idx2_vs_peak() -> None:
+    # EXPERIMENT (A6-T79): thr=0.30 densified seed~2 — Phi at the LC-eligible
+    # fine straddle endpoint (idx2; stab=True) vs in-block Phi peak (idx1;
+    # unstabilized; LW landing). T77 showed LC hybrid stays at coarse idx0
+    # because the stab filter skips idx1 and nearer-to-unit among {0,2} is
+    # L(0). This pins that the LC fine endpoint is still *Phi-near-peak*
+    # (Phi2/Phi1≈0.78, Phi2≫Phi0) — so stab-skipping the peak leaves an
+    # eligible fine candidate with high Phi, yet the load straddle rule
+    # still picks coarse. Defaults stay off.
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+    assert _WITHIN_INTERVAL_LOAD_SCREEN_MIN == 0.5
+
+    dataset = make_hierarchical_gaussian(
+        children_per_coarse=2, n_samples=600, ambient_dim=4, seed=2,
+    )
+    gt = dataset.ground_truth
+    assert gt.expected_tau is not None
+    tau_lo, tau_hi = gt.tau_grid_hint
+    result = run_scale_search(
+        dataset.points,
+        dim=gt.ambient_dim,
+        config=ScaleSearchConfig(
+            tau_min=tau_lo,
+            tau_max=tau_hi,
+            max_grid_points=8,
+            k=8,
+            n_seeds=12,
+            min_nodes=8,
+            max_nodes=128,
+            ann_backend="naive",
+            selector="persistence",
+            stabilization=StabilizationConfig(
+                min_equilibrium_epochs=2, max_epochs=12
+            ),
+            seed=2,
+            halve_grid_steps=True,
+            persistence=PersistenceConfig(
+                resolve_within_interval="none",
+                densify_overlap_recover="lower_threshold",
+                densify_overlap_recover_threshold=0.30,
+            ),
+        ),
+    )
+    assert result.persistence_result is not None
+    pr = result.persistence_result
+    assert pr.tau_star_index == 0
+    assert int(pr.run_lengths[0]) == 16
+    load = np.asarray(result.load_trace, dtype=float)
+    phi = np.asarray(result.phi_trace, dtype=float)
+    stab = list(result.stabilized_flags)
+    expected_tau = float(gt.expected_tau)
+
+    i_lo = 0
+    i_hi = 15
+    finite = [
+        idx for idx in range(i_lo, i_hi + 1) if np.isfinite(float(phi[idx]))
+    ]
+    assert len(finite) == 16
+    phi_peak_idx = max(finite, key=lambda i: float(phi[i]))
+    assert phi_peak_idx == 1
+
+    idx_lw = _resolve_persistence_tau_index(
+        pr,
+        load,
+        stab,
+        PersistenceConfig(resolve_within_interval="load_weighted_interval"),
+    )
+    idx_lc = _resolve_persistence_tau_index(
+        pr,
+        load,
+        stab,
+        PersistenceConfig(resolve_within_interval="load_crossover"),
+    )
+
+    print("\nA6-T79 seed2 thr0.30 dense Phi at LC-eligible idx2 vs peak")
+    header = (
+        f"{'idx':>3s} {'role':12s} {'tau*/E':>8s} {'Phi':>12s} "
+        f"{'load':>8s} {'stab':>4s}"
+    )
+    print(header)
+    print("-" * len(header))
+    roles = {0: "coarse/LC", 1: "peak/LW", 2: "LC-elig"}
+    for idx in (0, 1, 2):
+        ratio = float(result.tau_grid[idx]) / expected_tau
+        print(
+            f"{idx:3d} {roles[idx]:12s} {ratio:8.3f} {float(phi[idx]):12.4g} "
+            f"{float(load[idx]):8.4f} {str(bool(stab[idx])):4s}"
+        )
+    print(
+        f"modes: LW={idx_lw} LC={idx_lc} peak={phi_peak_idx} "
+        f"phi2/phi1={float(phi[2])/float(phi[1]):.4f} "
+        f"phi2/phi0={float(phi[2])/float(phi[0]):.4f}"
+    )
+
+    # Stabilization topology that drives LC straddle 0↔2 (T77).
+    assert bool(stab[0]) is True
+    assert bool(stab[1]) is False
+    assert bool(stab[2]) is True
+
+    # Load pins: L0 under 1, L1/L2 over 1; nearer-to-unit among {0,2} is L0.
+    assert abs(float(load[0]) - 0.614) < 0.02
+    assert abs(float(load[1]) - 1.562) < 0.05
+    assert abs(float(load[2]) - 2.059) < 0.05
+    assert float(load[0]) <= 1.0 < float(load[2])
+    assert abs(float(load[0]) - 1.0) < abs(float(load[2]) - 1.0)
+
+    # Mode landings: LW≡peak at unstabilized idx1; LC≡coarse idx0.
+    assert int(idx_lw) == 1
+    assert int(idx_lw) == phi_peak_idx
+    assert int(idx_lc) == 0
+    assert abs(float(result.tau_grid[idx_lw]) / expected_tau - 12.126) < 0.05
+    assert abs(float(result.tau_grid[idx_lc]) / expected_tau - 16.0) < 0.05
+
+    # Phi at LC-eligible fine endpoint idx2 remains near the peak
+    # (post-peak decay is shallow at +1 step) and far above coarse Phi —
+    # so LC's load-straddle fine candidate is Phi-near-peak, yet LC still
+    # lands coarse because |L0-1| < |L2-1| (not a Phi rule).
+    phi0 = float(phi[0])
+    phi1 = float(phi[1])
+    phi2 = float(phi[2])
+    assert np.isfinite(phi0) and np.isfinite(phi1) and np.isfinite(phi2)
+    assert phi1 > phi2 > phi0
+    assert 1e8 < phi1 < 2e9
+    assert 1e8 < phi2 < 2e9
+    assert 1e7 < phi0 < 1e8
+    assert 0.70 < phi2 / phi1 < 0.85
+    assert phi2 / phi0 > 20.0
+
+    # Ratio pins for the three indices (densify grid).
+    assert abs(float(result.tau_grid[0]) / expected_tau - 16.0) < 0.05
+    assert abs(float(result.tau_grid[1]) / expected_tau - 12.126) < 0.05
+    assert abs(float(result.tau_grid[2]) / expected_tau - 9.190) < 0.05
+
+    assert PersistenceConfig().resolve_within_interval == "none"
+    assert PersistenceConfig().densify_overlap_recover == "none"
+    assert PersistenceConfig().densify_overlap_recover_threshold is None
+    assert ScaleSearchConfig().halve_grid_steps is False
+
+
 def test_default_selector_is_load_crossover() -> None:
     # Deletion-prep lock (A6-T29): acceptance-path default stays load_crossover.
     assert ScaleSearchConfig().selector == "load_crossover"
