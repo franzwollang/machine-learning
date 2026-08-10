@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-10T01:30-00:00",
+  "updated_at": "2026-08-10T02:40:00Z",
   "integration_branch": "coord/integration",
   "throughput_mode": true,
   "merge_order": [
@@ -25,9 +25,9 @@
           "summary": "Scoop aggressively; keep queues 3-deep; no awaiting flip without green evidence + sample-ARI"
         },
         {
-          "id": "A1-T60",
+          "id": "A1-T62",
           "status": "ready",
-          "summary": "Watch A2 soft×gabriel@tau*; A4 hollow×sigma; A5 residual-stop wire; A6 thr-band SI; hold #45"
+          "summary": "Watch A2 soft keep\u00d7persist majors; A3 denser soft\u00d7gabriel SI; A4 densify384\u00d7hollow\u00d7cal; A5 spectrum cap-sweep; A6 thr0.30 load export; hold #45"
         }
       ]
     },
@@ -45,22 +45,22 @@
       ],
       "queue": [
         {
-          "id": "A2-T57",
+          "id": "A2-T61",
           "status": "ready",
           "issue": 44,
-          "summary": "EXPERIMENT denser soft x persist_agree e2e nested/tori sample-ARI; flags off; NO awaiting flip"
+          "summary": "EXPERIMENT soft keep-band \u00d7 persist majors baseline (non-denser) nested/tori; flags off"
         },
         {
-          "id": "A2-T58",
+          "id": "A2-T62",
           "status": "ready",
           "issue": 44,
-          "summary": "EXPERIMENT soft x gabriel_and_h at operational tau* sample-ARI; flags off; REQUEST_TRACKER"
+          "summary": "EXPERIMENT denser soft \u00d7 gabriel \u00d7 persist compose at tau*; flags off; REQUEST_TRACKER"
         },
         {
-          "id": "A2-T59",
+          "id": "A2-T63",
           "status": "ready",
           "issue": 44,
-          "summary": "EXPERIMENT denser soft seed0 keep-band under persist_agree (bet vs bridge_mass); flags off"
+          "summary": "EXPERIMENT soft\u00d7gabriel\u00d7persist majors non-denser seed1 inflate window; flags off; NO awaiting flip"
         }
       ]
     },
@@ -77,22 +77,22 @@
       ],
       "queue": [
         {
-          "id": "A3-T71",
+          "id": "A3-T74",
           "status": "ready",
           "issue": 44,
-          "summary": "SI S2.6.2 denser soft seed0 keep≤0.12 + bridge_mass kills band (A2-T55/T56); no awaiting flip"
+          "summary": "SI S2.6.2 denser soft\u00d7gabriel@tau* kills T58 seed1 inflate (A2-T60); no awaiting flip"
         },
         {
-          "id": "A3-T72",
-          "status": "ready",
-          "issue": 28,
-          "summary": "SI S2.6.2 densify-recover collateral + thr0.30/0.35/0.40 + seed3 densify×LW (A6-T61..T66); default none"
-        },
-        {
-          "id": "A3-T73",
+          "id": "A3-T75",
           "status": "ready",
           "issue": 43,
-          "summary": "SI S6.x residual-stop + fail_closed score_edit matrix + mass×loopy (A5-T64..T66); keep awaiting"
+          "summary": "SI S6.x spectrum_safe\u00d7policy pin + fail_closed EvidenceGate matrix (A5-T70/T71); keep awaiting"
+        },
+        {
+          "id": "A3-T76",
+          "status": "ready",
+          "issue": 28,
+          "summary": "SI S2.6.2 thr0.30 seed2 LW\u2260coarse load mechanism L0\u22480.61 vs L1\u22481.56 (A6-T70); default none"
         }
       ]
     },
@@ -109,22 +109,22 @@
       ],
       "queue": [
         {
-          "id": "A4-T56",
+          "id": "A4-T65",
           "status": "ready",
           "issue": 41,
-          "summary": "EXPERIMENT seed77 hollow x sigma-scale / filtration_mult sweep toward (1,2,1); stay @awaiting"
+          "summary": "EXPERIMENT densify384 \u00d7 hollow \u00d7 cal-mult toward (1,2,1); stay @awaiting"
         },
         {
-          "id": "A4-T57",
+          "id": "A4-T66",
           "status": "ready",
           "issue": 41,
-          "summary": "EXPERIMENT seed2 Stage-1 denser256 x mid=0.65 hollow; stay @awaiting; REQUEST_TRACKER"
+          "summary": "EXPERIMENT circle lifetime \u00d7 noise ablation; stay @awaiting; REQUEST_TRACKER"
         },
         {
-          "id": "A4-T58",
+          "id": "A4-T67",
           "status": "ready",
           "issue": 41,
-          "summary": "EXPERIMENT tissue/noise ablation on seed77 denser256 partial; stay @awaiting"
+          "summary": "EXPERIMENT nested densify \u00d7 hollow mid-sweep; stay @awaiting"
         }
       ]
     },
@@ -143,22 +143,22 @@
       ],
       "queue": [
         {
-          "id": "A5-T67",
+          "id": "A5-T72",
           "status": "ready",
           "issue": 43,
-          "summary": "EXPERIMENT wire residual-stop into solve_loopy_bp_schedule early-exit (flag off); keep awaiting"
+          "summary": "EXPERIMENT spectrum_safe \u00d7 policy cap-sweep residual traj export (flag off); keep awaiting"
         },
         {
-          "id": "A5-T68",
+          "id": "A5-T73",
           "status": "ready",
           "issue": 43,
-          "summary": "EXPERIMENT spectrum-safe certificate harness vs residual-stop sketch (flag off); REQUEST_TRACKER"
+          "summary": "EXPERIMENT fail_closed \u00d7 live dry_run_dual_from_edit \u00d7 EvidenceGate (flag off); REQUEST_TRACKER"
         },
         {
-          "id": "A5-T69",
+          "id": "A5-T74",
           "status": "ready",
           "issue": 43,
-          "summary": "EXPERIMENT policy x residual-stop compose multi-iter residual pin (flag off); do not flip awaiting"
+          "summary": "EXPERIMENT residual-stop \u00d7 mass_loopy compose early-exit pin (flag off); do not flip awaiting"
         }
       ]
     },
@@ -176,25 +176,25 @@
       ],
       "queue": [
         {
-          "id": "A6-T67",
+          "id": "A6-T73",
           "status": "ready",
           "issue": 28,
-          "summary": "EXPERIMENT densify x LW x recover-thr combo on seeds0..4; flags off"
+          "summary": "EXPORT thr0.30 densified-accept load vectors (all seeds) for A3 SI; flags off"
         },
         {
-          "id": "A6-T68",
+          "id": "A6-T74",
           "status": "ready",
           "issue": 28,
-          "summary": "EXPORT thr0.30 seed2 dense accept mechanism (ov0 pin) for A3 SI; REQUEST_TRACKER"
+          "summary": "EXPERIMENT thr0.30 densified seed2 mid/two-thirds vs LW landing; flags off; REQUEST_TRACKER"
         },
         {
-          "id": "A6-T69",
+          "id": "A6-T75",
           "status": "ready",
           "issue": 28,
-          "summary": "Paper.tex pin thr0.35 narrow-band + densify×LW seed3 coarse; default none"
+          "summary": "Paper.tex pin thr0.30 seed2 LW load mechanism + seed1 densify\u00d7LW coarse; default none"
         }
       ]
     }
   },
-  "notes": "2026-08-10T01:30: Scoop A2-T53..T56 denser×bridge/soft×persist/seed0 keep-band; A3-T68..T70 SI; A4-T50..T55 densify/hollow; A5-T64..T66 residual-stop; A6-T61..T66 densify-recover thr. NO awaiting flip."
+  "notes": "2026-08-10T02:40: Double-scoop A2-T57..T60 denser soft\u00d7persist/gabriel/keep-band; A3-T71..T73+EXP-si74..76 SI; A4-T56..T64 hollow/tissue/cal/lifetime/mid; A5-T67..T71 residual/spectrum/policy/fail_closed matrix; A6-T67..T72 thr\u00d7Phi + LW\u2260coarse seed2. NO awaiting flip."
 }

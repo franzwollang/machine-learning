@@ -151,6 +151,21 @@ Remaining work:
   dense recovers. densify×`load_weighted` on seed3 stays coarse.
   `densify_overlap_recover_threshold` probe override (default none).
   Paper pins. Do **not** flip default.
+- **Landed (A6-T67..T69):** thr×Phi export — threshold is Jaccard
+  accept/reject gate only; shared densified accepts keep `Phi_C`
+  identical across `0.30/0.35/0.40`; seed2 Phi row only at `0.30`.
+  densify×LW seed0/4: LW stays coarse 16× alias when accept; seed0
+  recover-invariant; densified seed4 needs recover to match seed0
+  hierarchy.   Formal densify×LW×thr combo + thr0.30 seed2 ov0 pin +
+  paper pins. Keep `densify_overlap_recover` default none. Do **not**
+  flip default.
+- **Landed (A6-T67..T72 formal+followon):** densify×LW×recover-thr combo —
+  LW≡coarse 16× on accepted cells **except** thr0.30 densified seed2 where
+  LW picks idx1 (~12×) vs none idx0 (first LW≠coarse under recover-thr);
+  mechanism is closest-to-unit load (`L0≈0.61` vs `L1≈1.56`). densified
+  seed2 `ov0≈0.340` only accepts at thr0.30. seed1 densify×LW stays
+  coarse across thr; thr0.40 dense reject `ov0≈0.364`. Paper pins. Keep
+  default none. Do **not** flip default.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -318,10 +333,23 @@ re-searched *finer* scales inside a single feature.
   collapses — tighter than T50 `≥0.25`); bridge_mass collapses the keep
   band across `soft∈{0.05..0.25}`. Soft ≠ sample-ARI. **Do not flip
   awaiting.**
-- **Remaining:** denser soft×persist e2e; soft×gabriel@τ*; fuller suite
-  green with **sample-ARI** → retire radial/PCA family + awaiting-flip
-  review (A1 sign-off). Distinct from #28. Post-track: open #45 open-loop /
-  `max_nodes` (`reference/open_loop_growth_and_node_cap.md`) into M4.
+- **FINDING (A2-T57..T58):** denser soft×persist@τ* e2e: denser **kills**
+  T54 seed1 nested inflate; denser-youden seed0 nested K=2 chance-ARI≈0.01
+  killed by soft/persist; circle youden no shatter. soft×gabriel@τ* e2e:
+  seed1 nested K=2 chance-ARI **survives** soft×conj (contrast T41
+  fixed-τ majors collapse ≠ τ* e2e); circle youden shatters, soft/conj
+  keep uniforms. Soft ≠ sample-ARI. **Do not flip awaiting.**
+- **FINDING (A2-T59..T60):** denser soft keep-band×persist: T55 majors
+  keep≤0.12 does **not** survive denser e2e for bet or bridge_mass (both
+  ≤1); youden nested K=2 chance-ARI≈0.01. denser soft×gabriel@τ*: denser
+  **kills** T58 seed1 nested inflate; denser-youden seed0 nested killed by
+  soft/conj; circle youden no shatter. Soft ≠ sample-ARI. **Do not flip
+  awaiting.**
+- **Remaining:** soft keep-band×persist majors baseline; denser
+  soft×gabriel×persist compose; fuller suite green with **sample-ARI** →
+  retire radial/PCA family + awaiting-flip review (A1 sign-off). Distinct
+  from #28. Post-track: open #45 open-loop / `max_nodes`
+  (`reference/open_loop_growth_and_node_cap.md`) into M4.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
@@ -433,9 +461,22 @@ circle `b1 = 1` target of #25.
   torus0 b1→3 still `max_b2=0` (no dirty lever unlike denser256).
   seed7×mid65: dirty persists. Clean `(1,2,1)` still unreachable under
   A4 owns_files probes. Keep `@awaiting`.
-- **Remaining before flipping recovery tests:** seed77 hollow×sigma-scale;
-  seed2 Stage-1×mid65; tissue/noise ablation; keep recovery `@awaiting`
-  until SI-default fitted evidence is green.
+- **FINDING (A4-T56..T61):** hollow×sigma-scale dirty only at scale=1.0
+  (`n_clean=0`). Stage1×mid65: only seed77 both-partial; seed7 dirty
+  persists. tissue×noise: `max_b2=0`; both-partial only noise=0.02×
+  tissue∈{0,0.03}. densify384×hollow stays `(1,1,0)` / `max_b2=0`
+  (hollow ≠ restore both-partial). circle tissue×mult: SI `b1=0` all
+  tissue; recover min_mult≥3. nested sigma×hollow ≈ no-op
+  (`any_all_either=false`). Clean `(1,2,1)` / SI circle b1 / nested
+  voids still unreachable. Keep `@awaiting`.
+- **FINDING (A4-T62..T64):** densify384×lifetime×cal-mult: signal stays
+  `(1,1,0)`; cal raises `b1` but `max_b2=0` / `n_clean=0`. circle
+  tissue×lifetime: SI mult never recovers; cal mult=6 recovers only at
+  high frac. nested hollow mid-sweep: mid0.35 prunes; mid≥0.5 no-op;
+  `any_all_either=false`. Keep `@awaiting`.
+- **Remaining before flipping recovery tests:** densify384×hollow×cal;
+  circle lifetime×noise; nested densify×hollow; keep recovery
+  `@awaiting` until SI-default fitted evidence is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -501,8 +542,20 @@ circle `b1 = 1` target of #25.
   `propose_loopy_bp_residual_stop` (plateau/tol sketch — not a production
   certificate); `probe_fail_closed_score_edit_matrix` 9-cell accept/reject
   matrix (`GateConfig` defaults unchanged); `enable_mass_loopy_compose_probe`
-  / `probe_mass_loopy_compose`. Flags off. Gaps remain: wire residual-stop
-  into `solve_loopy_bp_schedule` early-exit; spectrum-safe certificate;
-  fail-closed acceptance flip. Mass/density/benchmark stay `@awaiting`.
-  **Do not close #43** until acceptance-path default replaces the
-  conservative open default / fuller S6.
+  / `probe_mass_loopy_compose`. Flags off.
+- **Landed (A5-T67..T69):** residual-stop early-exits
+  `solve_loopy_bp_schedule` (`residual_stop_reason`/`iters`);
+  `enable_loopy_bp_spectrum_safe_cert` /
+  `probe_loopy_bp_spectrum_safe_cert` (no-ridge+stop harness — not
+  production cert); `enable_policy_residual_compose_probe` /
+  `probe_policy_residual_compose` (policy pin + compose residual-stop
+  forward). Flags off.
+- **Landed (A5-T70..T71):** `enable_spectrum_safe_policy_pin_probe` /
+  `probe_spectrum_safe_policy_pin` multi-cond grid; 
+  `probe_fail_closed_evidence_gate_matrix` live `EvidenceGate.evaluate`
+  parity vs `score_edit`. Flags/defaults unchanged. Gaps remain:
+  spectrum×policy cap-sweep residual traj; fail_closed×live
+  `dry_run_dual_from_edit`; fail-closed acceptance flip.
+  Mass/density/benchmark stay `@awaiting`. **Do not close #43** until
+  acceptance-path default replaces the conservative open default /
+  fuller S6.
