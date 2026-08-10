@@ -781,7 +781,7 @@ def test_soft_h0_method_contrast_export() -> None:
     assert "soft_x_poisson_lr" in tsv and "0.76" in tsv
     assert "0.73" in tsv and "0.7" in tsv
     assert "near-null" in SOFT_H0_METHOD_CONTRAST_SI_NOTE or "identical" in SOFT_H0_METHOD_CONTRAST_SI_NOTE
-    assert "defaults off" in SOFT_H0_METHOD_CONTRAST_SI_NOTE
+    assert "Defaults off" in SOFT_H0_METHOD_CONTRAST_SI_NOTE or "defaults off" in SOFT_H0_METHOD_CONTRAST_SI_NOTE
     assert "awaiting" in SOFT_H0_METHOD_CONTRAST_SI_NOTE
 
 
