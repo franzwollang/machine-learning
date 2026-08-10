@@ -268,10 +268,27 @@ class RecursionConfig:
     majors keep-band soft≤0.12 → tori K=2 is killed by gabriel conj at
     majors; lean e2e soft/soft×conj all ≤1 (youden alone keeps seed0
     nested K=2 chance-ARI≈0.01); defaults off.
-    A2-T65-followon: denser soft keep-band × gabriel × persist e2e frac
-    grid — soft×persist / soft×conj×persist across
+    A2-T65-followon / A2-T65: denser soft keep-band × gabriel × persist
+    e2e frac grid — soft×persist / soft×conj×persist across
     soft_frac∈{0.05,0.12,0.15,0.25} all ≤1 nested+tori (youden alone
     keeps seed0 nested K=2 chance-ARI≈0.01); defaults off.
+    A2-T66: denser soft keep-band × gabriel multi-seed majors/e2e —
+    T55/T64 keep soft≤0.12→tori K=2 is seed0-only; seeds 1–2 ≤1;
+    gabriel kills seed0 keep; e2e only seed0 youden nested K=2≈0.01;
+    defaults off.
+    A2-T67: denser soft×gabriel×persist compose seed1 inflate —
+    denser kills T63 seed1 majors soft nested inflate and T63 seed1
+    e2e nested inflate; seed1 all compose modes ≤1; only seed0 youden
+    remains (majors tori K=2≈0.14; e2e nested K=2≈0.01); defaults off.
+    A2-T68: denser soft keep-band × gabriel × persist multi-seed e2e —
+    soft×persist / soft×conj×persist across soft_frac∈{0.05,0.12,0.15}
+    and seeds 0..2 all ≤1 nested+tori; only seed0 youden nested K=2
+    chance-ARI≈0.01 remains (extends T65 seed0 persist grid); defaults
+    off.
+    A2-T69: denser soft keep×gabriel seed0-only keep × soft×persist
+    majors pin — seed0 denser majors soft≤0.12 → tori K=2 (gabriel
+    kills; soft≥0.15 collapses); soft×persist e2e all ≤1 (majors-only
+    under persist compose); defaults off.
 
     **Recommended pairing (A2-T19/T20/T23):**
     - Uniforms (circle/swiss): ``require_persistent_split`` +

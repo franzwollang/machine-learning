@@ -228,6 +228,28 @@ class HollowEdgeConfig:
     1–2 stay ≤1 at majors (incl. soft keep fracs); gabriel conj kills
     seed0 keep. Lean e2e: only seed0 youden nested K=2 chance-ARI≈0.01;
     soft/soft×conj and seeds 1–2 all ≤1. Defaults off.
+
+    A2-T67: denser soft×gabriel×persist compose seed1 inflate window —
+    see :data:`DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_*`. Denser
+    kills T63 seed1 majors soft nested inflate and T63 seed1 e2e nested
+    inflate; seed1 soft/soft×conj/soft×persist/soft×conj×persist all ≤1
+    on majors+e2e. Only seed0 youden remains (majors tori K=2
+    chance-ARI≈0.14; e2e nested K=2 chance-ARI≈0.01). Defaults off.
+
+    A2-T68: denser soft keep-band × gabriel × persist multi-seed e2e —
+    see :data:`DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_*`.
+    Extends T65 seed0 persist frac grid across seeds 0..2 with lean
+    keep fracs {0.05,0.12,0.15}: soft×persist / soft×conj×persist and
+    seeds 1–2 youden all ≤1 nested+tori; only seed0 youden nested K=2
+    chance-ARI≈0.01 remains (T65/T66/T67 singleton). Defaults off.
+
+    A2-T69: denser soft keep-band × gabriel seed0-only keep ×
+    soft×persist majors pin — see
+    :data:`DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_*`.
+    Seed0 denser majors soft≤0.12 → tori K=2 chance-ARI (gabriel kills;
+    soft≥0.15 collapses); soft×persist / soft×conj×persist e2e at lean
+    keep fracs all ≤1 nested+tori — keep-band is majors-only under
+    persist compose (T61 denser+gabriel pin). Defaults off.
     """
 
     mid_radius_frac: float = 0.35
@@ -2935,6 +2957,499 @@ def format_denser_soft_keep_band_x_gabriel_multiseed_table() -> str:
         for mode, leaves in mode_table.items():
             lines.append(f"{dataset}\t{mode}\t{leaves}")
     lines.append(f"# {DENSER_SOFT_KEEP_BAND_X_GABRIEL_MULTISEED_SI_NOTE}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Denser soft×gabriel×persist compose seed1 inflate window (A2-T67)
+# ---------------------------------------------------------------------------
+# denser n=160/240, max_nodes=128, Youden h0≈0.73, mid=0.5 gabriel=False,
+# soft_frac=0.25 betweenness, seeds 0..2. Fixed-tau majors (0.27/0.5):
+# denser kills T63 seed1 soft nested majors inflate (baseline nested K=2
+# chance-ARI≈0.08 → denser seed1 soft ≤1); soft_frac=0.25 also collapses
+# seed0 denser youden tori K=2 keep. Lean tau* e2e (max_grid_points=12,
+# scale_seed=42+seed): denser kills T63 seed1 nested e2e inflate
+# (baseline nested K=2 chance-ARI≈0 survives soft×conj×persist → denser
+# seed1 all ≤1); only seed0 youden nested K=2 chance-ARI≈0.01 remains
+# (same T61/T66 singleton). Circle/swiss stay 1. Soft≠recovery.
+
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SEEDS: tuple[int, ...] = (0, 1, 2)
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SOFT_FRAC: float = 0.25
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SOFT_METHOD: str = "betweenness"
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_NESTED_N: int = (
+    DENSER_PROPOSED_H0_NESTED_N
+)
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TORI_N: int = (
+    DENSER_PROPOSED_H0_TORI_N
+)
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_MAX_NODES: int = (
+    DENSER_PROPOSED_H0_MAX_NODES
+)
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_NESTED_TAU: float = 0.27
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TORI_TAU: float = 0.5
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_H0: float = PROPOSED_H0_YOUDEN
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_MAX_GRID_POINTS: int = 12
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SCALE_SEED_BASE: int = 42
+
+# seed → mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TABLE: dict[
+    int, dict[str, tuple[int, float | None, int, float | None]]
+] = {
+    0: {
+        "youden": (1, None, 2, 0.14),
+        "soft": (1, None, 1, None),
+        "conj": (1, None, 1, None),
+        "soft_x_conj": (1, None, 1, None),
+    },
+    1: {
+        "youden": (1, None, 1, None),
+        "soft": (1, None, 1, None),
+        "conj": (1, None, 1, None),
+        "soft_x_conj": (1, None, 1, None),
+    },
+    2: {
+        "youden": (1, None, 1, None),
+        "soft": (1, None, 1, None),
+        "conj": (1, None, 1, None),
+        "soft_x_conj": (1, None, 1, None),
+    },
+}
+
+# seed → mode → (nested_leaves, nested_ari, tori_leaves, tori_ari)
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_E2E_TABLE: dict[
+    int, dict[str, tuple[int, float | None, int, float | None]]
+] = {
+    0: {
+        "youden": (2, 0.01, 1, None),
+        "soft_x_conj": (1, None, 1, None),
+        "soft_x_persist": (1, None, 1, None),
+        "soft_x_conj_x_persist": (1, None, 1, None),
+    },
+    1: {
+        "youden": (1, None, 1, None),
+        "soft_x_conj": (1, None, 1, None),
+        "soft_x_persist": (1, None, 1, None),
+        "soft_x_conj_x_persist": (1, None, 1, None),
+    },
+    2: {
+        "youden": (1, None, 1, None),
+        "soft_x_conj": (1, None, 1, None),
+        "soft_x_persist": (1, None, 1, None),
+        "soft_x_conj_x_persist": (1, None, 1, None),
+    },
+}
+
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_UNIFORMS: dict[
+    str, dict[str, int]
+] = {
+    "circle": {
+        "youden": 1,
+        "soft_x_conj": 1,
+        "soft_x_persist": 1,
+        "soft_x_conj_x_persist": 1,
+    },
+    "swiss": {
+        "youden": 1,
+        "soft_x_conj": 1,
+        "soft_x_persist": 1,
+        "soft_x_conj_x_persist": 1,
+    },
+}
+
+DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SI_NOTE: str = (
+    "A2-T67 denser soft×require_gabriel_and_h×persist_agree compose "
+    "seed1 inflate window (n=160/240, max_nodes=128, Youden h0≈0.73, "
+    "mid=0.5 gabriel=False, soft_frac=0.25 betweenness, fixed-tau majors "
+    "0.27/0.5 + lean tau* e2e max_grid_points=12 scale_seed=42+seed): "
+    "denser kills T63 seed1 majors soft nested inflate (baseline nested "
+    "K=2 chance-ARI≈0.08 → denser seed1 soft ≤1) and T63 seed1 e2e "
+    "nested inflate (baseline nested K=2 chance-ARI≈0 survives "
+    "soft×conj×persist → denser seed1 all ≤1); soft_frac=0.25 also "
+    "collapses denser seed0 youden tori majors keep. Only seed0 youden "
+    "remains (majors tori K=2 chance-ARI≈0.14; e2e nested K=2 "
+    "chance-ARI≈0.01). Circle/swiss stay 1. Soft≠sample-ARI recovery; "
+    "defaults off; no awaiting flip."
+)
+
+
+def format_denser_soft_x_gabriel_x_persist_seed_inflate_table() -> str:
+    """TSV export of denser soft×gabriel×persist seed1 inflate (A2-T67)."""
+
+    lines = [
+        "# denser soft × require_gabriel_and_h × persist_agree compose "
+        "seed1 inflate window",
+        f"# nested_n={DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_NESTED_N} "
+        f"tori_n={DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TORI_N} "
+        f"max_nodes={DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_MAX_NODES} "
+        f"h0={DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_H0:g} "
+        f"soft_frac="
+        f"{DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SOFT_FRAC:g} "
+        f"method={DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SOFT_METHOD} "
+        f"max_grid_points="
+        f"{DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_MAX_GRID_POINTS} "
+        f"scale_seed_base="
+        f"{DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SCALE_SEED_BASE} "
+        f"seeds={list(DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SEEDS)}",
+        "surface\tseed\tmode\tdataset\ttau_or_e2e\tmajors_or_leaves\tsample_ari",
+    ]
+    for seed in DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SEEDS:
+        for mode, (nm, na, tm, ta) in (
+            DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TABLE[seed].items()
+        ):
+            na_s = "" if na is None else f"{na:.2f}"
+            ta_s = "" if ta is None else f"{ta:.2f}"
+            lines.append(
+                f"majors\t{seed}\t{mode}\tnested\t"
+                f"{DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_NESTED_TAU:g}\t"
+                f"{nm}\t{na_s}"
+            )
+            lines.append(
+                f"majors\t{seed}\t{mode}\ttori\t"
+                f"{DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_TORI_TAU:g}\t"
+                f"{tm}\t{ta_s}"
+            )
+        for mode, (nl, na, tl, ta) in (
+            DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_E2E_TABLE[
+                seed
+            ].items()
+        ):
+            na_s = "" if na is None else f"{na:.2f}"
+            ta_s = "" if ta is None else f"{ta:.2f}"
+            lines.append(f"e2e\t{seed}\t{mode}\tnested\ttau*\t{nl}\t{na_s}")
+            lines.append(f"e2e\t{seed}\t{mode}\ttori\ttau*\t{tl}\t{ta_s}")
+    lines.append("dataset\tmode\tleaves")
+    for dataset, mode_table in (
+        DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_UNIFORMS.items()
+    ):
+        for mode, leaves in mode_table.items():
+            lines.append(f"{dataset}\t{mode}\t{leaves}")
+    lines.append(
+        f"# {DENSER_SOFT_X_GABRIEL_X_PERSIST_SEED_INFLATE_SI_NOTE}"
+    )
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Denser soft keep-band × gabriel × persist multi-seed e2e (A2-T68)
+# ---------------------------------------------------------------------------
+# denser n=160/240, max_nodes=128, Youden h0≈0.73, mid=0.5 gabriel=False,
+# betweenness soft_capacity, seeds 0..2, lean keep fracs {0.05,0.12,0.15}.
+# Lean tau* e2e (max_grid_points=12, scale_seed=42+seed): extends T65
+# seed0 persist frac grid across seeds — soft×persist /
+# soft×conj×persist collapse nested+tori to ≤1 for every seed×frac;
+# seeds 1–2 youden also ≤1; only seed0 youden nested K=2
+# chance-ARI≈0.01 remains (same T65/T66/T67 singleton). Circle/swiss
+# stay 1. Soft≠sample-ARI recovery.
+
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_SEEDS: tuple[int, ...] = (
+    0, 1, 2,
+)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_FRACS: tuple[float, ...] = (
+    0.05, 0.12, 0.15,
+)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_NESTED_N: int = (
+    DENSER_PROPOSED_H0_NESTED_N
+)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_TORI_N: int = (
+    DENSER_PROPOSED_H0_TORI_N
+)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_MAX_NODES: int = (
+    DENSER_PROPOSED_H0_MAX_NODES
+)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_H0: float = (
+    PROPOSED_H0_YOUDEN
+)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_METHOD: str = "betweenness"
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_MAX_GRID_POINTS: int = 12
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_SCALE_SEED_BASE: int = 42
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_KEEP_MAX_FRAC: float = (
+    DENSER_SOFT_SEED0_TORI_ARI_WINDOW_KEEP_MAX_FRAC
+)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_COLLAPSE_MIN_FRAC: float = (
+    DENSER_SOFT_SEED0_TORI_ARI_WINDOW_COLLAPSE_MIN_FRAC
+)
+
+# seed → mode → (nested_leaves, nested_ari, tori_leaves, tori_ari)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_E2E_TABLE: dict[
+    int, dict[str, tuple[int, float | None, int, float | None]]
+] = {
+    0: {
+        "youden": (2, 0.01, 1, None),
+        "persist": (1, None, 1, None),
+        "soft_x_persist_0.05": (1, None, 1, None),
+        "soft_x_conj_x_persist_0.05": (1, None, 1, None),
+        "soft_x_persist_0.12": (1, None, 1, None),
+        "soft_x_conj_x_persist_0.12": (1, None, 1, None),
+        "soft_x_persist_0.15": (1, None, 1, None),
+        "soft_x_conj_x_persist_0.15": (1, None, 1, None),
+    },
+    1: {
+        "youden": (1, None, 1, None),
+        "persist": (1, None, 1, None),
+        "soft_x_persist_0.05": (1, None, 1, None),
+        "soft_x_conj_x_persist_0.05": (1, None, 1, None),
+        "soft_x_persist_0.12": (1, None, 1, None),
+        "soft_x_conj_x_persist_0.12": (1, None, 1, None),
+        "soft_x_persist_0.15": (1, None, 1, None),
+        "soft_x_conj_x_persist_0.15": (1, None, 1, None),
+    },
+    2: {
+        "youden": (1, None, 1, None),
+        "persist": (1, None, 1, None),
+        "soft_x_persist_0.05": (1, None, 1, None),
+        "soft_x_conj_x_persist_0.05": (1, None, 1, None),
+        "soft_x_persist_0.12": (1, None, 1, None),
+        "soft_x_conj_x_persist_0.12": (1, None, 1, None),
+        "soft_x_persist_0.15": (1, None, 1, None),
+        "soft_x_conj_x_persist_0.15": (1, None, 1, None),
+    },
+}
+
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_UNIFORMS: dict[
+    str, dict[str, int]
+] = {
+    "circle": {
+        "youden": 1,
+        "persist": 1,
+        "soft_x_persist_0.12": 1,
+        "soft_x_conj_x_persist_0.12": 1,
+    },
+    "swiss": {
+        "youden": 1,
+        "persist": 1,
+        "soft_x_persist_0.12": 1,
+        "soft_x_conj_x_persist_0.12": 1,
+    },
+}
+
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_SI_NOTE: str = (
+    "A2-T68 denser soft keep-band × require_gabriel_and_h × "
+    "persist_agree multi-seed e2e (n=160/240, max_nodes=128, Youden "
+    "h0≈0.73, mid=0.5 gabriel=False, betweenness, seeds 0..2, lean "
+    "keep fracs {0.05,0.12,0.15}, lean tau* max_grid_points=12 "
+    "scale_seed=42+seed): extends T65 seed0 persist frac grid — "
+    "soft×persist / soft×conj×persist collapse nested+tori to ≤1 for "
+    "every seed×frac; seeds 1–2 youden also ≤1; only seed0 youden "
+    "nested K=2 chance-ARI≈0.01 remains (T65/T66/T67 singleton). "
+    "Circle/swiss stay 1. Chance-ARI ≠ sample-ARI recovery; defaults "
+    "off; no awaiting flip."
+)
+
+
+def format_denser_soft_keep_band_x_gabriel_x_persist_multiseed_table() -> str:
+    """TSV export of denser soft keep×gabriel×persist multi-seed e2e (A2-T68)."""
+
+    lines = [
+        "# denser soft keep-band × gabriel × persist multi-seed e2e",
+        f"# nested_n="
+        f"{DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_NESTED_N} "
+        f"tori_n={DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_TORI_N} "
+        f"max_nodes="
+        f"{DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_MAX_NODES} "
+        f"h0={DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_H0:g} "
+        f"method={DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_METHOD} "
+        f"max_grid_points="
+        f"{DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_MAX_GRID_POINTS} "
+        f"scale_seed_base="
+        f"{DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_SCALE_SEED_BASE} "
+        f"seeds="
+        f"{list(DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_SEEDS)} "
+        f"fracs="
+        f"{list(DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_FRACS)} "
+        f"keep_max="
+        f"{DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_KEEP_MAX_FRAC:g} "
+        f"collapse_min="
+        f"{DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_COLLAPSE_MIN_FRAC:g}",
+        "surface\tseed\tmode\tdataset\ttau_or_e2e\tleaves\tsample_ari",
+    ]
+    for seed in DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_SEEDS:
+        for mode, (nl, na, tl, ta) in (
+            DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_E2E_TABLE[
+                seed
+            ].items()
+        ):
+            na_s = "" if na is None else f"{na:.2f}"
+            ta_s = "" if ta is None else f"{ta:.2f}"
+            lines.append(f"e2e\t{seed}\t{mode}\tnested\ttau*\t{nl}\t{na_s}")
+            lines.append(f"e2e\t{seed}\t{mode}\ttori\ttau*\t{tl}\t{ta_s}")
+    lines.append("dataset\tmode\tleaves")
+    for dataset, mode_table in (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_UNIFORMS.items()
+    ):
+        for mode, leaves in mode_table.items():
+            lines.append(f"{dataset}\t{mode}\t{leaves}")
+    lines.append(
+        f"# {DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MULTISEED_SI_NOTE}"
+    )
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Denser soft keep×gabriel seed0-only keep × soft×persist majors pin (A2-T69)
+# ---------------------------------------------------------------------------
+# denser n=160/240, max_nodes=128, Youden h0≈0.73, mid=0.5 gabriel=False,
+# betweenness soft_capacity, seed0 only, lean keep fracs {0.05,0.12,0.15}.
+# Fixed-tau majors (0.27/0.5): T55/T64/T66 seed0-only denser keep-band
+# soft_frac≤0.12 → tori K=2 chance-ARI≈0.16–0.18; gabriel conj kills
+# keep; soft≥0.15 collapses. Lean tau* e2e (max_grid_points=12,
+# scale_seed=42): soft×persist / soft×conj×persist collapse nested+tori
+# to ≤1 across keep/collapse fracs — denser seed0 keep is majors-only
+# under persist compose (T61 denser+gabriel pin). Youden alone leaves
+# nested K=2 chance-ARI≈0.01. Circle/swiss stay 1. Soft≠recovery.
+
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_SEED: int = 0
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_FRACS: tuple[
+    float, ...
+] = (
+    0.05, 0.12, 0.15,
+)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_NESTED_N: int = (
+    DENSER_PROPOSED_H0_NESTED_N
+)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_TORI_N: int = (
+    DENSER_PROPOSED_H0_TORI_N
+)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_MAX_NODES: int = (
+    DENSER_PROPOSED_H0_MAX_NODES
+)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_NESTED_TAU: float = 0.27
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_TORI_TAU: float = 0.5
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_H0: float = (
+    PROPOSED_H0_YOUDEN
+)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_METHOD: str = (
+    "betweenness"
+)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_MAX_GRID_POINTS: int = 12
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_SCALE_SEED_BASE: int = 42
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_KEEP_MAX_FRAC: float = (
+    DENSER_SOFT_SEED0_TORI_ARI_WINDOW_KEEP_MAX_FRAC
+)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_COLLAPSE_MIN_FRAC: float = (
+    DENSER_SOFT_SEED0_TORI_ARI_WINDOW_COLLAPSE_MIN_FRAC
+)
+
+# Fixed-tau majors: mode → (nested_majors, nested_ari, tori_majors, tori_ari)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_TABLE: dict[
+    str, tuple[int, float | None, int, float | None]
+] = {
+    "youden": (1, None, 2, 0.14),
+    "conj": (1, None, 1, None),
+    "soft_0.05": (1, None, 2, 0.16),
+    "soft_x_conj_0.05": (1, None, 1, None),
+    "soft_0.12": (1, None, 2, 0.18),
+    "soft_x_conj_0.12": (1, None, 1, None),
+    "soft_0.15": (1, None, 1, None),
+    "soft_x_conj_0.15": (1, None, 1, None),
+}
+
+# E2E soft×persist pin (seed0): soft×persist / soft×conj×persist ≤1;
+# youden alone keeps nested K=2 chance-ARI≈0.01.
+# mode → (nested_leaves, nested_ari, tori_leaves, tori_ari)
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_E2E_TABLE: dict[
+    str, tuple[int, float | None, int, float | None]
+] = {
+    "youden": (2, 0.01, 1, None),
+    "persist": (1, None, 1, None),
+    "soft_x_persist_0.05": (1, None, 1, None),
+    "soft_x_conj_x_persist_0.05": (1, None, 1, None),
+    "soft_x_persist_0.12": (1, None, 1, None),
+    "soft_x_conj_x_persist_0.12": (1, None, 1, None),
+    "soft_x_persist_0.15": (1, None, 1, None),
+    "soft_x_conj_x_persist_0.15": (1, None, 1, None),
+}
+
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_UNIFORMS: dict[
+    str, dict[str, int]
+] = {
+    "circle": {
+        "youden": 1,
+        "persist": 1,
+        "soft_x_persist_0.12": 1,
+        "soft_x_conj_x_persist_0.12": 1,
+    },
+    "swiss": {
+        "youden": 1,
+        "persist": 1,
+        "soft_x_persist_0.12": 1,
+        "soft_x_conj_x_persist_0.12": 1,
+    },
+}
+
+DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_SI_NOTE: str = (
+    "A2-T69 denser soft keep-band × require_gabriel_and_h seed0-only "
+    "keep × soft×persist majors pin (n=160/240, max_nodes=128, Youden "
+    "h0≈0.73, mid=0.5 gabriel=False, betweenness, seed0, lean keep "
+    "fracs {0.05,0.12,0.15}, fixed-tau majors 0.27/0.5 + lean tau* "
+    "max_grid_points=12 scale_seed=42): T55/T64/T66 seed0 denser majors "
+    "keep soft_frac≤0.12 → tori K=2 chance-ARI≈0.16–0.18; gabriel conj "
+    "kills keep; soft≥0.15 collapses. Soft×persist / soft×conj×persist "
+    "e2e collapse nested+tori to ≤1 across keep/collapse fracs — denser "
+    "seed0 keep is majors-only under persist compose (T61 denser+gabriel "
+    "pin). Youden alone leaves nested K=2 chance-ARI≈0.01. Circle/swiss "
+    "stay 1. Chance-ARI ≠ sample-ARI recovery; defaults off; no "
+    "awaiting flip."
+)
+
+
+def format_denser_soft_keep_band_x_gabriel_x_persist_majors_pin_table() -> str:
+    """TSV export of denser soft keep×gabriel×persist majors pin (A2-T69)."""
+
+    lines = [
+        "# denser soft keep-band × gabriel seed0-only keep × "
+        "soft×persist majors pin",
+        f"# nested_n="
+        f"{DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_NESTED_N} "
+        f"tori_n={DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_TORI_N} "
+        f"max_nodes="
+        f"{DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_MAX_NODES} "
+        f"h0={DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_H0:g} "
+        f"method={DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_METHOD} "
+        f"max_grid_points="
+        f"{DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_MAX_GRID_POINTS} "
+        f"scale_seed_base="
+        f"{DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_SCALE_SEED_BASE} "
+        f"seed={DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_SEED} "
+        f"fracs="
+        f"{list(DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_FRACS)} "
+        f"keep_max="
+        f"{DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_KEEP_MAX_FRAC:g} "
+        f"collapse_min="
+        f"{DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_COLLAPSE_MIN_FRAC:g}",
+        "surface\tseed\tmode\tdataset\ttau_or_e2e\tmajors_or_leaves\tsample_ari",
+    ]
+    seed = DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_SEED
+    for mode, (nm, na, tm, ta) in (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_TABLE.items()
+    ):
+        na_s = "" if na is None else f"{na:.2f}"
+        ta_s = "" if ta is None else f"{ta:.2f}"
+        lines.append(
+            f"majors\t{seed}\t{mode}\tnested\t"
+            f"{DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_NESTED_TAU:g}\t"
+            f"{nm}\t{na_s}"
+        )
+        lines.append(
+            f"majors\t{seed}\t{mode}\ttori\t"
+            f"{DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_TORI_TAU:g}\t"
+            f"{tm}\t{ta_s}"
+        )
+    for mode, (nl, na, tl, ta) in (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_E2E_TABLE.items()
+    ):
+        na_s = "" if na is None else f"{na:.2f}"
+        ta_s = "" if ta is None else f"{ta:.2f}"
+        lines.append(f"e2e\t{seed}\t{mode}\tnested\ttau*\t{nl}\t{na_s}")
+        lines.append(f"e2e\t{seed}\t{mode}\ttori\ttau*\t{tl}\t{ta_s}")
+    lines.append("dataset\tmode\tleaves")
+    for dataset, mode_table in (
+        DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_UNIFORMS.items()
+    ):
+        for mode, leaves in mode_table.items():
+            lines.append(f"{dataset}\t{mode}\t{leaves}")
+    lines.append(
+        f"# {DENSER_SOFT_KEEP_BAND_X_GABRIEL_X_PERSIST_MAJORS_PIN_SI_NOTE}"
+    )
     return "\n".join(lines)
 
 
