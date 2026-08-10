@@ -590,6 +590,49 @@ def test_poisson_null_h0_calibration_export_table() -> None:
     assert "defaults off" in POISSON_NULL_SI_NOTE
 
 
+def test_proposed_h0_calibration_export() -> None:
+    """#44 / A2-T43: Youden / Poisson-LR h0 calibration export (proposed).
+
+    Frozen candidates from sheet-null q01 + mid=0.5 Youden ROC.  Never
+    becomes HollowEdgeConfig / RecursionConfig default; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        A4_PRIMARY_H0,
+        PROPOSED_H0_CALIBRATION_SI_NOTE,
+        PROPOSED_H0_CALIBRATION_TABLE,
+        PROPOSED_H0_POISSON_LR,
+        PROPOSED_H0_POISSON_LR_SHEET_Q01,
+        PROPOSED_H0_YOUDEN,
+        PROPOSED_H0_YOUDEN_A4,
+        format_proposed_h0_calibration_table,
+        proposed_h0_calibrated_config,
+    )
+
+    assert HollowEdgeConfig().h0 == 0.35  # operational default unchanged
+    assert PROPOSED_H0_YOUDEN_A4 == A4_PRIMARY_H0 == 0.7
+    assert PROPOSED_H0_YOUDEN == 0.73
+    assert PROPOSED_H0_POISSON_LR == 0.76
+    assert abs(PROPOSED_H0_POISSON_LR_SHEET_Q01 - 0.7571) < 1e-3
+    assert set(PROPOSED_H0_CALIBRATION_TABLE) >= {
+        "operational", "youden", "youden_a4", "poisson_lr",
+    }
+
+    cfg_y = proposed_h0_calibrated_config("youden")
+    cfg_p = proposed_h0_calibrated_config("poisson_lr")
+    cfg_a4 = proposed_h0_calibrated_config("youden_a4")
+    assert cfg_y.h0 == 0.73 and cfg_y.gabriel_fallback is False
+    assert cfg_p.h0 == 0.76 and cfg_p.mid_radius_frac == 0.5
+    assert cfg_a4.h0 == 0.7
+    assert proposed_h0_calibrated_config("operational").h0 == 0.35
+
+    tsv = format_proposed_h0_calibration_table()
+    assert "method\th0\tnote" in tsv
+    assert "poisson_lr" in tsv and "youden" in tsv
+    assert "Proposed only" in PROPOSED_H0_CALIBRATION_SI_NOTE
+    assert "awaiting" in PROPOSED_H0_CALIBRATION_SI_NOTE
+
+
 def test_soft_capacity_frac_sweep_export() -> None:
     """#44 / A2-T40: soft_capacity_frac sweep export for A3/A4 SI sync.
 
@@ -616,3 +659,67 @@ def test_soft_capacity_frac_sweep_export() -> None:
     assert "nested" in tsv and "tori" in tsv
     assert "Defaults off" in SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE
     assert "awaiting" in SOFT_CAPACITY_FRAC_SWEEP_SI_NOTE
+
+
+def test_soft_x_gabriel_conj_export() -> None:
+    """#44 / A2-T41: soft×Gabriel∧H conjunction export for A3/A4 SI sync.
+
+    Frozen majors+ARI table under A4 primary contrasting soft / conj /
+    soft×conj.  Defaults remain off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_X_GABRIEL_CONJ_SI_NOTE,
+        SOFT_X_GABRIEL_CONJ_SOFT_FRAC,
+        SOFT_X_GABRIEL_CONJ_SOFT_METHOD,
+        SOFT_X_GABRIEL_CONJ_TABLE,
+        format_soft_x_gabriel_conj_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert HollowEdgeConfig().require_gabriel_and_h is False
+    assert SOFT_X_GABRIEL_CONJ_SOFT_FRAC == 0.25
+    assert SOFT_X_GABRIEL_CONJ_SOFT_METHOD == "betweenness"
+    assert SOFT_X_GABRIEL_CONJ_TABLE["a4"][0] == 2
+    assert SOFT_X_GABRIEL_CONJ_TABLE["soft"][2] == 2  # tori majors
+    assert SOFT_X_GABRIEL_CONJ_TABLE["conj"][0] <= 1
+    assert SOFT_X_GABRIEL_CONJ_TABLE["soft_x_conj"][0] <= 1
+    assert SOFT_X_GABRIEL_CONJ_TABLE["soft_x_conj"][2] <= 1
+    tsv = format_soft_x_gabriel_conj_table()
+    assert "mode\tdataset\ttau\tmajors\tsample_ari" in tsv
+    assert "soft_x_conj" in tsv and "nested" in tsv and "tori" in tsv
+    assert "sample-ARI" in SOFT_X_GABRIEL_CONJ_SI_NOTE
+    assert "defaults off" in SOFT_X_GABRIEL_CONJ_SI_NOTE
+    assert "awaiting" in SOFT_X_GABRIEL_CONJ_SI_NOTE
+
+
+def test_soft_capacity_frac_multiseed_export() -> None:
+    """#44 / A2-T42: multi-seed soft_capacity_frac sweep export.
+
+    Frozen majors+ARI across seeds 0..2 under A4 primary + soft
+    betweenness.  Defaults remain off; no awaiting flip.
+    """
+
+    from proteus.stage1.edge_evidence import (
+        SOFT_CAPACITY_FRAC_MULTISEED_METHOD,
+        SOFT_CAPACITY_FRAC_MULTISEED_NESTED,
+        SOFT_CAPACITY_FRAC_MULTISEED_SEEDS,
+        SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE,
+        SOFT_CAPACITY_FRAC_MULTISEED_TORI,
+        format_soft_capacity_frac_multiseed_table,
+    )
+
+    assert HollowEdgeConfig().soft_capacity_only is False
+    assert SOFT_CAPACITY_FRAC_MULTISEED_METHOD == "betweenness"
+    assert SOFT_CAPACITY_FRAC_MULTISEED_SEEDS == (0, 1, 2)
+    for seed in SOFT_CAPACITY_FRAC_MULTISEED_SEEDS:
+        assert all(m <= 1 for m in SOFT_CAPACITY_FRAC_MULTISEED_NESTED[seed].values())
+    assert SOFT_CAPACITY_FRAC_MULTISEED_TORI[0][0.25][0] == 2
+    assert SOFT_CAPACITY_FRAC_MULTISEED_TORI[1][0.25][0] == 1
+    assert SOFT_CAPACITY_FRAC_MULTISEED_TORI[2][0.1][0] == 2
+    assert SOFT_CAPACITY_FRAC_MULTISEED_TORI[2][0.25][0] == 1
+    tsv = format_soft_capacity_frac_multiseed_table()
+    assert "seed\tdataset\ttau\tfrac\tmajors\tsample_ari" in tsv
+    assert "seed-fragile" in SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE
+    assert "defaults off" in SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE
+    assert "awaiting" in SOFT_CAPACITY_FRAC_MULTISEED_SI_NOTE
