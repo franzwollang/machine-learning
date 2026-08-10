@@ -147,3 +147,7 @@
 {"ts":"2026-08-09T19:25-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"8c9faa53cab737992ab9e401858fd3df0f6ad2bf","note":"Final tip SHA after MERGE_DONE mailbox sync","tips":{"A2":"80ee659","A3":"b9aeb52","A4":"d6c9750","A5":"8644cf1","A6":"779b326"}}
 {"ts":"2026-08-09T19:26-05:00","from":"A1","type":"NOTE","note":"integration tip pre-final-sync=3e65c7ed7f24; tips A2-A6 scooped"}
 {"ts":"2026-08-09T19:26-05:00","from":"A1","type":"MERGE_DONE","integration_sha":"fa971518a6f7d73fe937cbd4de6639ed9b111efe","note":"Final tip SHA after MERGE_DONE mailbox sync","tips":{"A2":"80ee659","A3":"b9aeb52","A4":"d6c9750","A5":"8644cf1","A6":"779b326"}}
+{"ts":"2026-08-09T19:35-05:00","from":"A1","type":"HELLO","branch":"coord/A1","note":"tracker online; double-scoop A2-A6 after mid-turn DONEs"}
+{"ts":"2026-08-09T19:35-05:00","from":"A1","type":"NOTE","note":"Double-scoop: A2-T47..T49 soft_frac seed1 inflate windowed/denser-kills; A3-T59..T61 SI; A4-T44/T45 Stage-1 seed fragile+hollow fail; A5-T55..T57 BP damp/offline/fail-closed; A6-T55..T57 seed3 short-block+Jaccard+circle LW. NO awaiting flip."}
+{"ts":"2026-08-09T19:35-05:00","from":"A1","type":"TASK_ASSIGN","note":"Post-double-scoop refill: A2-T50..T52; A3-T62..T64; A4-T46..T48; A5-T58..T60; A6-T58..T60"}
+{"ts":"2026-08-09T19:35-05:00","from":"A1","type":"TASK_REFILL","note":"Queues 3-deep; A1-T49=#45 deferred; throughput_mode on"}

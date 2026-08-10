@@ -132,6 +132,10 @@ Remaining work:
   only). Seed-4 densified persist-reject is mechanical under coarse-anchored:
   first half-step neighbor Jaccard drops below `overlap_threshold`
   (`0.39 < 0.5`) so `run_lengths[0]=1`. Do **not** flip default.
+- **Landed (A6-T55..T57):** seed3 short persist-block (`len=3`) forces
+  mid≡two_thirds≡three_quarter (~8.83×); seed4 Jaccard half-step export
+  table for SI; circle densify×`load_weighted` stays LC identity. Do **not**
+  flip default.
 
 ## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
 
@@ -279,10 +283,15 @@ re-searched *finer* scales inside a single feature.
   contrast (poisson_lr/Youden/A4) identical under soft — **h0 near-null**.
   Soft drives outcomes; calibrated h0 alone ≠ sample-ARI. **Do not flip
   awaiting.**
-- **Remaining:** soft-frac×youden seed1-inflate mechanism; denser×soft
-  multi-seed; fuller suite green with **sample-ARI** → retire radial/PCA
-  family + awaiting-flip review (A1 sign-off). Distinct from #28.
-  Post-track: open #45 open-loop / `max_nodes`
+- **FINDING (A2-T47..T49):** soft_frac×youden seed1 inflate is
+  **frac-windowed** (`soft_frac∈{0.1,0.25,0.5}` → nested K=2 ARI≈0.05–0.08;
+  `≥0.75` collapses); seed0/2 never inflate. denser soft×youden multi-seed
+  **kills** the seed1 inflate. h0-only denser: seed0 youden tori ARI≈0.14;
+  seeds1–2 ≤1. Soft ≠ sample-ARI. **Do not flip awaiting.**
+- **Remaining:** soft_frac denser×seed1 window; bridge_mass×youden;
+  operational-τ* sample-ARI; fuller suite green with **sample-ARI** →
+  retire radial/PCA family + awaiting-flip review (A1 sign-off). Distinct
+  from #28. Post-track: open #45 open-loop / `max_nodes`
   (`reference/open_loop_growth_and_node_cap.md`) into M4.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
@@ -376,10 +385,14 @@ circle `b1 = 1` target of #25.
   gets both tori `(1,2,0)`; still b2=0). lifetime_frac on seed2 denser256
   never unlocks b2 (low frac inflates b0; frac≥2 stays `(1,2,0)`). Keep
   `@awaiting`.
-- **Remaining before flipping recovery tests:** Stage-1 seed sweep /
-  hollow-signal / lifetime×cal on best denser seed toward full
-  `(1,2,1)`; keep recovery `@awaiting` until SI-default fitted evidence
-  is green.
+- **FINDING (A4-T44/T45):** Stage-1 seed sweep denser256 is fragile —
+  seed77 both-tori `(1,2,0)`; seed7 sporadic dirty b2 `(2,1,1)` on
+  torus0; no full `(1,2,1)`. hollow+lifetime on seed2 denser256 keeps
+  most signal but torus1 dirty b2 / inflated b0 across fracs — still no
+  `(1,2,1)`. Keep `@awaiting`.
+- **Remaining before flipping recovery tests:** lifetime×cal-mult on
+  seed2; seed77/seed7 cleanup toward full `(1,2,1)`; keep recovery
+  `@awaiting` until SI-default fitted evidence is green.
 - **Dependency note:** heterogeneous per-patch simplex *dimension* (manifold-zoo S4.2)
   still blocks on #40; pure topology (b-numbers) does not.
 
@@ -427,7 +440,9 @@ circle `b1 = 1` target of #25.
   `solve_loopy_bp_schedule` (cavity msgs); `enable_mass_normalization` +
   `epsilon_mass`; `probe_acceptance_none_open_default` documents current
   open-default matrix (flag-on detects disconnect; defaults unchanged).
-  Gaps remain: production BP spectrum/online-offline; fail-closed only
-  after acceptance plan. Mass/density/benchmark stay `@awaiting`. **Do not
-  close #43** until acceptance-path default replaces the conservative open
-  default / fuller S6.
+- **Landed (A5-T55..T57):** BP spectrum damping probe; online→offline
+  schedule sketch; `probe_fail_closed_dual_adjacency_plan` documents path
+  to replace None=>True (defaults unchanged). Gaps remain: production BP
+  policy; fail-closed acceptance flip. Mass/density/benchmark stay
+  `@awaiting`. **Do not close #43** until acceptance-path default replaces
+  the conservative open default / fuller S6.
