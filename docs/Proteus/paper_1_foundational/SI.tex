@@ -1661,8 +1661,14 @@ budgets are comparable).
 Bottom-up pruning is sequential: (i)~merge branches below the rank-persistence
 floor, (ii)~merge branches below the excess-mass floor, (iii)~ask the
 S2.6.3 background-aware DM homogeneity edit of surviving siblings versus
-their pooled parent. Background is a fixed additional outcome: for signal
-blocks $C_1,\ldots,C_K$ and background $B$, form the $(K+1)$-outcome flow
+their pooled parent. Extraction is then \emph{coarse-anchored}: the
+accepted cut is the coarsest raw $K\ge 2$ level after a relative-mass
+floor
+$\max(n_{\min},\lceil f_{\mathrm{rel}} N\rceil)$ of the region node
+budget. If that coarse cut collapses to one feature or fails DM, the
+region is rejected; finer arc partitions are not candidates. Background is
+a fixed additional outcome: for signal blocks
+$C_1,\ldots,C_K$ and background $B$, form the $(K+1)$-outcome flow
 matrix and compare
 \[
  \sum_{k=1}^{K}\log m(N_k)-\log m\!\left(\sum_{k=1}^{K}N_k\right)
@@ -1689,20 +1695,36 @@ measured null envelope ($P\le 0.642$, $M\le 0.166$) overlaps true two-blob
 and four-clump split branches, so
 \texttt{min\_persistence}${}=0.05$ and
 \texttt{min\_excess\_mass}${}=0.02$ prune only short-lived or low-mass
-runts. The DM sibling test is the remaining connected-manifold guard.
-Full-scene signal-only ARI, background recall, and coverage remain the
-recovery metrics in \texttt{cd\_level\_set\_probe.py}; expected-$K$
+runts. The DM sibling test is the remaining connected-manifold guard at
+mid-tree; coarse-anchoring plus
+\texttt{min\_cluster\_frac}${}=0.15$ of the node budget is what rejects
+tissue-circle / swiss-roll arcs whose leftover child would otherwise
+survive the runt floors. Full-scene signal-only ARI, background recall,
+and coverage remain the recovery metrics in
+\texttt{cd\_level\_set\_probe.py} and
+\texttt{level\_set\_auto\_probe.py}; expected-$K$
 oracle selection is forbidden.
 
-Validation status: the DAG, rank/mass screens, and background-aware DM
-collapse are implemented and unit-locked. Tree containment and the
-scaffold spacing read recover the reference hierarchy, nested shells, and
-repaired linked tori in controlled probes, but a uniform-ring unit reject
-does not yet imply fitted tissue-circle rejection, and nested shells
-remain seed-fragile. Thus the implementation is a reproducible proposal
-path, \emph{not} a default or a resolution of \#44. Promotion still
-requires multi-seed connected-null rejection on fitted scaffolds and
-repaired-benchmark recovery (\#45).
+Measured automatic extraction (no expected $K$; 2026-08-13): on sample
+$k$NN graphs, circle / swiss roll / manifold zoo reject; hierarchical
+Gaussians return the coarse $K{=}3$ cut (signal ARI $0.582$ vs fine
+labels); rods-in-sheets-in-slab returns $K{=}2$ sheets (ARI $0.995$);
+gap-corrected linked tori return $K{=}2$ (ARI $0.922$). Bounded fitted
+scaffolds reproduce circle/swiss reject, hierarchy $K{=}3$, and tori
+ARI $0.963$. Nested shells still do not present a balanced coarse
+$K{=}2$ cut at current node budgets (inner shell activates first; tissue
+bridges the valley before the outer shell closes) --- the node-budget vs
+valley-resolution caveat of \#44, not an extraction-walk defect.
+
+Validation status: the DAG, rank/mass screens, coarse-anchored relative-mass
+cut, and background-aware DM collapse are implemented and unit-locked.
+Automatic extraction recovers hierarchy, the three-level rods/sheets
+fixture, and repaired linked tori without expected $K$, and now rejects
+tissue-circle / swiss-roll sample clouds and bounded fitted scaffolds.
+Nested shells remain unresolved at current node budgets. Thus the
+implementation is a reproducible proposal path, \emph{not} a default or a
+resolution of \#44. Promotion still requires nested-shell recovery on
+fitted scaffolds and repaired-benchmark recovery (\#45).
 
 \paragraph{Landed proposal-path wiring and protocol.}
 Module \texttt{proteus.stage1.edge\_evidence} exposes
@@ -5097,6 +5119,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{LevelSetConfig.n\_levels} & 120\ (\text{quantile sweep; diagnostic discretization}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_persistence} & 0.05\ (\text{core-radius rank lifetime; runt screen; connected-null envelope overlaps true splits}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_excess\_mass} & 0.02\ (\text{normalized mass$\times$rank integral; runt screen}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{LevelSetConfig.min\_cluster\_frac} & 0.15\ (\text{fraction of region node budget; coarse satellite / partial-activation floor}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{prefer\_disconnected\_prepass} & \text{false} & \text{S2.6.2} & \text{operational (proposal-path)}\\

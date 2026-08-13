@@ -69,9 +69,9 @@ class RecursionConfig:
     ``use_level_set_clustering`` turns on the OPEN_ISSUES #44 density
     cluster-tree path (proposed / default off). At each equilibrated
     ``tau*`` it reads density from node spacing, builds a
-    Chaudhuri--Dasgupta robust-single-linkage merge DAG, prunes short-lived
-    and low-mass branches, and returns the coarsest retained sibling split
-    that still clears the background-aware DM gate. Inactive low-density
+    Chaudhuri--Dasgupta robust-single-linkage merge DAG, and returns the
+    coarsest relative-mass-filtered sibling split that still clears the
+    background-aware DM gate. Inactive low-density
     nodes remain an explicit background leaf (label ``-1``); no expected
     cluster count enters extraction. ``dm_cluster`` is the single source for
     its Bayes-factor margin. When paired with

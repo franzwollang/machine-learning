@@ -267,30 +267,36 @@ Remaining work:
   C–D tree (`k=8`, `alpha=1`, four-node floor, 120 quantile levels) plus an explicit
   merge DAG (overlap matching, ToMATo survivor), rank persistence, normalized excess
   mass, sequential geometric screens, and a background-aware DM sibling collapse.
-  `RecursionConfig.use_level_set_clustering` returns the coarsest retained sibling
-  split, preserves label `-1` as terminal `RecursionNode.is_background`, and
-  propagates through finer research / child recursion. `dm_partition_background_logbf`
+  `RecursionConfig.use_level_set_clustering` returns the coarsest
+  relative-mass-filtered `K>=2` cut that clears DM, preserves label `-1` as
+  terminal `RecursionNode.is_background`, and propagates through finer
+  research / child recursion. `dm_partition_background_logbf`
   keeps background as a fixed additional outcome (its unchanged row cancels), with an
   exact-edit unit lock. Legacy Q/AP persistence and no-background DM flags are explicitly
   rejected when combined rather than silently mixing outcome spaces; retired geometry /
   hollow prepass flags are likewise rejected instead of ignored. Defaults unchanged.
-- **LANDED (branch extraction, still default off):** expected-K-free coarsest-DM
-  snapshot selection is replaced by the DAG prune above. Uniform-ring unit geometry
-  still rejects; two-blob geometry still splits at the coarsest `K=2` level. Family-wise
-  calibration (`tests/scenarios/synthetic/level_set_branch_calibrate.py`; ring / swiss /
-  line / density-gradient / disk; seeds 0–2; `n` 32/64; tissue 0/0.05) finds that the
-  largest spurious branch per region overlaps true two-blob / four-clump splits
-  (`P≤0.642` / `M≤0.166` vs positive max `0.791` / `0.209`; min-positive minus max-null
-  is negative). Geometric floors therefore stay runt screens (`min_persistence=0.05`,
-  `min_excess_mass=0.02`); they cannot family-wise control connected-manifold false
-  splits without killing power. DM remains the sibling arbiter.
-- **ACCEPTANCE BLOCKER:** promotion still requires multi-seed connected-null rejection
-  on *fitted* scaffolds (a tissue-polluted circle previously false-split under
-  coarsest-DM; rank/mass screens do not close that gap) and repaired-benchmark recovery
-  (#45). Nested remains seed-fragile. Keep the flag off. Do not flip awaiting tests or
-  delete S2.6.1 stand-ins in the same change. Sample-level background-aware ARI is the
-  only recovery metric (component counts are not recovery). Existing Q/AP
-  `PersistenceConfig` snapshots a different partition family and is not reused.
+- **LANDED (coarse-anchor, still default off):** extraction takes the coarsest raw
+  `K>=2` level, drops clusters below `min_cluster_frac=0.15` of the region node
+  budget, and DM-tests only that cut — it does not walk into finer leftover DAG
+  children. That was the tissue-circle false-split: a 212-node mid-tree arc with
+  `excess_mass=0.024` stayed unpruned and was selected instead of the coarse `K=1`
+  tail. Rank/mass floors stay runt screens (null envelope overlaps true splits).
+  Diagnostic: `tests/scenarios/synthetic/level_set_auto_probe.py`.
+- **Measured (2026-08-13, seed 0, no expected K):** sample kNN graphs — circle /
+  swiss / manifold zoo reject; hierarchy `K=3` (signal ARI 0.582 vs fine labels);
+  rods-in-sheets `K=2` ARI 0.995; gap-corrected linked tori `K=2` ARI 0.922.
+  Bounded fitted scaffolds — circle/swiss reject; hierarchy `K=3`; tori ARI 0.963.
+  Nested shells still reject: the C–D tree at current node budgets never presents
+  two large shells at the coarsest `K=2` (inner activates first; tissue bridges the
+  valley before the outer closes). That is the node-budget vs valley-resolution
+  caveat, not the old coarsest-DM walk.
+- **ACCEPTANCE BLOCKER:** nested-shell recovery on fitted scaffolds whose node
+  budget actually contains the valley, repaired-benchmark recovery (#45; repo
+  `make_linked_tori` still unseparable), and a multi-seed connected-null check.
+  Keep the flag off. Do not flip awaiting tests or delete S2.6.1 stand-ins in the
+  same change. Sample-level background-aware ARI is the only recovery metric.
+  Existing Q/AP `PersistenceConfig` snapshots a different partition family and is
+  not reused.
 - Derive/calibrate the node-budget vs valley-resolution requirement (ties into the
   `max_nodes` removal plan, `reference/open_loop_growth_and_node_cap.md`; open a
   follow-up issue when scheduled into M4).

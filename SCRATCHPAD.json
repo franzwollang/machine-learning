@@ -1,27 +1,27 @@
 {
-  "updated_at": "2026-08-13T10:45:00-05:00",
-  "turn": 69,
+  "updated_at": "2026-08-13T10:50:00-05:00",
+  "turn": 70,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "level-set branch DAG prune landed; keep flag off"
+    "goal": "coarse-anchor extraction; nested valley still open"
   },
   "recent": [
-    "C-D merge DAG + rank persistence + excess mass + DM sibling collapse replace coarsest-DM cuts",
-    "Calibration: connected-null P/M envelope overlaps true splits; floors stay 0.05/0.02 runt screens",
-    "Focused level-set/recursion tests 18 passed in 1.0s; sweeps live in level_set_branch_calibrate.py",
-    "SI S2.6.2/S14.3 updated; use_level_set_clustering remains False"
+    "Coarse-anchor + min_cluster_frac=0.15 of node budget; do not walk mid-tree arcs",
+    "Auto-probe: circle/swiss/zoo reject; hierarchy K=3; sheets ARI 0.995; tori ARI 0.922",
+    "Fitted: circle/swiss reject; hier K=3; tori ARI 0.963; nested still no balanced coarse K=2",
+    "Flag remains False; no awaiting flips"
   ],
   "discoveries": [
-    "Rank persistence cannot FWER-reject connected-manifold arcs without killing two-blob power",
-    "Uniform ring still DM-rejects; fitted tissue-circle false-split remains the promotion blocker",
-    "Far tissue is needed for C-D quantile sweep to reach merge radii on clump scenes"
+    "Circle false-split was leftover DAG child (M=0.024) selected before the K=1 tail",
+    "Nested C-D tree never shows two large shells at coarsest K=2; inner activates first",
+    "Rank/mass screens overlap true splits; coarse-anchor is the connected-manifold guard"
   ],
   "open_threads": [
-    "Fitted connected-null rejection (tissue circle) still open; do not promote #44",
-    "Repair linked_tori generator and resolvability metadata (#45)",
-    "Separate fast tests from calibration/simulation workloads (#46)"
+    "Nested valley vs node budget; raise cap or finer tau so both shells exist before merge",
+    "Repair linked_tori generator (#45); current recovery uses uniform_torus probe scene",
+    "Multi-seed connected-null check before any default flip (#46 runtime still open)"
   ],
-  "next_step": "fitted-scaffold connected-null study or #45 generator repair; keep flag off",
+  "next_step": "node-budget nested-shell study or #45 generator repair; keep flag off",
   "blockers": []
 }

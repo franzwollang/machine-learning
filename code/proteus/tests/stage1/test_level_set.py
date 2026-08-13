@@ -16,6 +16,10 @@ from proteus.stage1.level_set import (
     select_level_set_partition,
 )
 from proteus.stage1.recursion import RecursionConfig, run_recursive_discovery
+from tests.datasets.synthetic.circles import make_circle
+from tests.datasets.synthetic.hierarchical_gaussian import (
+    make_hierarchical_gaussian,
+)
 
 
 class _Node:
@@ -112,6 +116,7 @@ def test_level_set_defaults_are_validated_reader() -> None:
     assert config.n_levels == 120
     assert config.min_persistence == 0.05
     assert config.min_excess_mass == 0.02
+    assert config.min_cluster_frac == 0.15
 
 
 def test_inactive_and_runt_nodes_are_distinct() -> None:
@@ -302,6 +307,19 @@ def test_selects_coarsest_dm_accepted_partition_without_expected_k() -> None:
     assert selection.selected_level == max(k2_levels)
 
 
+def _knn_edges(positions: np.ndarray, k: int = 8) -> list[tuple[int, int, float]]:
+    from scipy.spatial import cKDTree
+
+    n = int(positions.shape[0])
+    k_use = max(1, min(int(k), n - 1))
+    _, idx = cKDTree(positions).query(positions, k=k_use + 1)
+    edges: list[tuple[int, int, float]] = []
+    for i, nbrs in enumerate(idx):
+        for j in nbrs[1:]:
+            edges.append((i, int(j), 1.0))
+    return edges
+
+
 def test_uniform_ring_has_no_evidence_bearing_level_set_split() -> None:
     """A uniform manifold must remain one feature, not finite-sample arcs."""
 
@@ -314,6 +332,39 @@ def test_uniform_ring_has_no_evidence_bearing_level_set_split() -> None:
     selection = select_level_set_partition(scaffold)
     assert not selection.accepted
     assert selection.cluster_result is None
+
+
+def test_coarse_tissue_satellite_is_not_a_split() -> None:
+    """A few-percent coarse satellite is background, not a second feature."""
+
+    rng = np.random.default_rng(0)
+    blob = rng.normal((0.0, 0.0), 0.05, size=(40, 2))
+    speck = rng.normal((8.0, 0.0), 0.02, size=(4, 2))
+    positions = np.vstack([blob, speck])
+    selection = select_level_set_partition(_Scaffold(positions, _knn_edges(positions)))
+    assert not selection.accepted
+
+
+def test_faded_circle_is_one_feature() -> None:
+    """Tissue-polluted circle must not split into arcs (the #44 false-split)."""
+
+    ds = make_circle(n_samples=400, tissue_fraction=0.03, seed=0)
+    selection = select_level_set_partition(
+        _Scaffold(ds.points, _knn_edges(ds.points)),
+    )
+    assert not selection.accepted
+
+
+def test_hierarchy_returns_coarsest_three_way_split() -> None:
+    """Root extraction returns the coarse blobs; fine children are recursion."""
+
+    ds = make_hierarchical_gaussian(n_samples=600, seed=0)
+    selection = select_level_set_partition(
+        _Scaffold(ds.points, _knn_edges(ds.points)),
+    )
+    assert selection.accepted
+    assert selection.cluster_result is not None
+    assert selection.cluster_result.n_clusters == 3
 
 
 def test_extraction_does_not_read_expected_k_from_config() -> None:

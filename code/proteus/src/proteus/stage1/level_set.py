@@ -20,6 +20,7 @@ background tier rather than being forcibly absorbed into a signal cluster.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from math import ceil
 from typing import Any
 
 import numpy as np
@@ -64,10 +65,17 @@ class LevelSetConfig:
     ``min_persistence`` and ``min_excess_mass`` are family-wise geometric
     screens (SI S14.3).  Connected-manifold nulls (ring, disk, line) produce
     spurious-branch envelopes that overlap true two-blob / four-clump splits,
-    so the defaults prune only short-lived or low-mass runts; the
-    background-aware DM sibling test remains the connected-manifold guard.
-    They are operational proposal-path defaults, not promoted acceptance
-    constants.
+    so the defaults prune only short-lived or low-mass runts.
+
+    Extraction is coarse-anchored: the accepted cut is the coarsest raw
+    ``K >= 2`` level after a relative-mass floor, confirmed by DM.  Mid-tree
+    fragments that merge before the coarse tail are not candidates — that
+    was the tissue-circle false-split (a leftover 212-node arc with
+    ``excess_mass`` just above the runt floor).  ``min_cluster_frac`` is a
+    fraction of the *region node budget*, so a coarse tissue satellite or a
+    pair of still-inactive core fragments cannot be an evidence-bearing
+    split.  All of these are operational proposal-path defaults, not
+    promoted acceptance constants.
     """
 
     k_neighbors: int = 8
@@ -76,6 +84,7 @@ class LevelSetConfig:
     n_levels: int = 120
     min_persistence: float = 0.05
     min_excess_mass: float = 0.02
+    min_cluster_frac: float = 0.15
 
 
 @dataclass(frozen=True)
@@ -494,6 +503,35 @@ def apply_geometric_screens(
     return tuple(out)
 
 
+def _filter_relative_mass(
+    labels: np.ndarray,
+    min_size: int,
+    min_frac: float,
+) -> np.ndarray:
+    """Map clusters below the relative-mass floor to background.
+
+    Floor is ``max(min_size, ceil(min_frac * n))`` of the region node
+    budget, so a coarse tissue satellite or a still-inactive core fragment
+    cannot be an evidence-bearing sibling.
+    """
+
+    out = np.asarray(labels, dtype=int).copy()
+    n = int(out.shape[0])
+    if n == 0:
+        return out
+    floor = max(int(min_size), int(ceil(float(min_frac) * n)))
+    for lab in set(int(v) for v in out if v >= 0):
+        if int(np.sum(out == lab)) < floor:
+            out[out == lab] = -1
+    remain = sorted(set(int(v) for v in out if v >= 0))
+    remap = {old: i for i, old in enumerate(remain)}
+    compacted = np.full_like(out, -1)
+    for i, lab in enumerate(out):
+        if lab >= 0:
+            compacted[i] = remap[int(lab)]
+    return compacted
+
+
 def _label_sets(labels: np.ndarray) -> tuple[list[set[int]], set[int]]:
     clusters = [
         set(np.where(labels == label)[0].tolist())
@@ -632,12 +670,13 @@ def select_level_set_partition(
     config: LevelSetConfig | None = None,
     dm_config: DMClusterConfig | None = None,
 ) -> LevelSetSelection:
-    """Select the coarsest pruned-tree split that clears the DM margin.
+    """Select the coarsest evidence-bearing split (SI S2.6.2).
 
-    Pipeline: C-D tree → merge DAG → persistence / excess-mass screens →
-    DM sibling collapse → coarsest level with two or more unpruned living
-    signal branches.  No expected cluster count or ground-truth label enters
-    selection.
+    Pipeline: C-D tree → merge DAG (diagnostics + sibling collapse) →
+    coarsest raw ``K >= 2`` level → relative-mass floor → background-aware
+    DM.  If that coarse cut collapses to one feature or fails DM, the region
+    is rejected; finer arc partitions are not candidates.  No expected
+    cluster count enters selection.
     """
 
     config = config or LevelSetConfig()
@@ -655,43 +694,36 @@ def select_level_set_partition(
     screened = apply_dm_sibling_collapse(
         tree, dag, screened, scaffold, dm_config,
     )
-    by_id = {int(b.branch_id): b for b in screened}
 
     best_rejected_bf = float("-inf")
     for level_index in range(len(tree.levels) - 1, -1, -1):
-        alive = [
-            by_id[int(bid)]
-            for bid in dag.level_branch_ids[level_index]
-            if int(bid) in by_id
-            and by_id[int(bid)].prune_reason is None
-            and _branch_alive(by_id[int(bid)], level_index)
-        ]
-        # Unique by id: a continued survivor appears once per level.
-        unique: dict[int, LevelSetBranch] = {}
-        for branch in alive:
-            unique[branch.branch_id] = branch
-        alive = list(unique.values())
-        if len(alive) < 2:
+        if tree.levels[level_index].n_clusters < 2:
             continue
-        labels = _labels_from_branches(tree, dag, alive, level_index)
+        labels = _filter_relative_mass(
+            tree.levels[level_index].labels,
+            config.min_cluster_size,
+            config.min_cluster_frac,
+        )
         clusters, background = _label_sets(labels)
+        # Coarse-anchor: this is the coarsest K>=2 level.  Do not walk
+        # into finer fragments if it is a satellite or DM-rejected.
         if len(clusters) < 2:
-            continue
+            break
         log_bf, accepted = dm_partition_background_verdict(
             scaffold, clusters, background, dm_config,
         )
         best_rejected_bf = max(best_rejected_bf, float(log_bf))
-        if not accepted:
-            continue
-        result = _cluster_result_from_labels(scaffold, labels)
-        return LevelSetSelection(
-            tree=tree,
-            cluster_result=result,
-            selected_level=level_index,
-            log_bf=float(log_bf),
-            dag=replace(dag, branches=screened),
-            branches=screened,
-        )
+        if accepted:
+            result = _cluster_result_from_labels(scaffold, labels)
+            return LevelSetSelection(
+                tree=tree,
+                cluster_result=result,
+                selected_level=level_index,
+                log_bf=float(log_bf),
+                dag=replace(dag, branches=screened),
+                branches=screened,
+            )
+        break
 
     return LevelSetSelection(
         tree=tree,
