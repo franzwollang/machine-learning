@@ -1,6 +1,6 @@
 {
-  "updated_at": "2026-08-12T21:45:00-05:00",
-  "turn": 66,
+  "updated_at": "2026-08-13T01:00:00-05:00",
+  "turn": 67,
   "focus": {
     "milestone": "M1",
     "issue": 44,
@@ -17,7 +17,6 @@
     "Reader that works everywhere: k=8 node-spacing density + C-D linking alpha=1.0; HDBSCAN eom collapses on node lattices"
   ],
   "open_threads": [
-    "Full default suite run on main was still in progress at turn end (imported probe tests are slow); core subsets green (184+54)",
     "Nested seed2 scaffold read weak (0.55) - halo mass steals node resolution",
     "Principled branch extraction (persistence/DM-gated) to replace expected-K probing"
   ],
