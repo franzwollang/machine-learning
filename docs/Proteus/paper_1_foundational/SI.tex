@@ -1546,7 +1546,8 @@ These flags stay proposal-path / default-off pending linked-tori and swiss-roll
 guards and awaiting-flip confirmation --- they are \emph{not} acceptance-path,
 and do not yet retire the S2.6.1 stand-ins.
 
-\paragraph{Hollow-edge / empty-region evidence (proposed; OPEN\_ISSUES~\#44).}
+\paragraph{Hollow-edge / empty-region evidence (historical proposal;
+falsified; OPEN\_ISSUES~\#44).}
 \label{sec:si-hollow-edge}
 Geometry-specific prepasses (radial / PCA / tube / spectral) impose a global
 coordinate and still miss interlocking linked-tori. The deeper diagnosis is a
@@ -1574,12 +1575,14 @@ spans:
 Within-support edges have $H=\mathrm{O}(1)$; void bridges have
 $H\approx\mathrm{tissue}/\mathrm{signal}\approx0$. Cut edges with $H<h_0$
 \emph{before} connected-components / AP clustering, at a hollowness-sensitive
-scaffold scale, with \emph{no} finer descent. The ratio form is robust to a
-uniform tissue background. The proper null is Poisson: under a locally uniform
-manifold of density $\rho$ estimated from the endpoint counts, the mid-ball
-count is $\mathrm{Poisson}(\rho\,V_{\mathrm{ball}})$, so ``hollow'' is a
-calibrated likelihood-ratio (or e-value) decision --- $h_0$ is
-\emph{acceptance-path} once calibrated (S14.3). The mid-ball fraction
+scaffold scale, with \emph{no} finer descent. This prediction was subsequently
+\emph{falsified}: under uniform tissue the support is genuinely connected
+(even an oracle cut of every cross-label edge leaves one component), so the
+relevant distinction is a density dip, not an empty region. Interlocked tori
+also place ordinary data near many cross-component edge midpoints. A Poisson
+null under locally uniform density remains a valid edge-diagnostic calibration,
+but it cannot turn connected tissue into a support cut and is not the Stage~1
+separation acceptance path. The mid-ball fraction
 $f_{\mathrm{mid}}$, a minimum endpoint mass floor $n_{\mathrm{end}}^{\min}$, and
 any online EWMA histogram bins remain \emph{proposal-path} operational
 defaults. Naive $f_{\mathrm{mid}}{=}1/4$ (theory-note $L/4$) false-hollows when
@@ -1615,6 +1618,57 @@ cluster-tree estimator; connectivity radius $+$ density floor); ToMATo
 cleanup aligned with eventual \#27 stand-in deletion). Framing the $\tau$ sweep
 as cluster-tree estimation turns disconnected supports into ordinary high-level
 tree splits and supplies known consistency results.
+
+\paragraph{Node-spacing level-set layer (implemented proposal path;
+default off).}
+\label{sec:si-level-set}
+The falsification above changes the estimated object from support connectivity
+to components of density upper level sets
+$\{\mathbf x:p(\mathbf x)\ge\lambda\}$, with an explicit background class.
+At scaffold equilibrium, hit-mass equalization flattens per-node counts but
+moves the density information into node spacing. If code density obeys a
+magnification law $\rho_{\mathrm{node}}\propto p^\gamma$ for any
+$\gamma>0$, the unknown exponent is immaterial because the density cluster
+tree is invariant under monotone transforms.
+
+Module \texttt{proteus.stage1.level\_set} implements a
+Chaudhuri--Dasgupta robust-single-linkage sweep on equilibrated node positions.
+For each level $r$, node $i$ is active when its $k$-neighbour radius
+$r_k(i)\le r$; active nodes connect when
+$\lVert\mathbf x_i-\mathbf x_j\rVert\le\alpha r$. Components below the
+proposal-path size floor remain label $-1$ (background). The validated
+experimental reader uses $k=8$, $\alpha=1$, four-node minimum, and 120
+quantile levels; all are default-off research settings rather than promoted
+acceptance constants.
+
+Automatic extraction examines levels coarse-to-fine and proposes the first
+multi-component level whose signal rows clear the S2.6.3 DM homogeneity edit.
+Background is a fixed additional outcome: for signal blocks
+$C_1,\ldots,C_K$ and background $B$, form the $(K+1)$-outcome flow matrix and
+compare
+\[
+ \sum_{k=1}^{K}\log m(N_k)-\log m\!\left(\sum_{k=1}^{K}N_k\right)
+ > \log\tau_{\mathrm{BF}}.
+\]
+The background row is unchanged and cancels, so this is an exact
+fixed-outcome DM edit. Recursion exposes the path as
+\texttt{RecursionConfig.use\_level\_set\_clustering} (default false);
+background samples become terminal \texttt{is\_background} leaves, while
+signal children recurse normally. Pairing with
+\texttt{allow\_finer\_research} retries the same reader on finer equilibrated
+scaffolds. The legacy Q/AP persistence and no-background DM flags are rejected
+when combined with this path because their partitions / outcome spaces differ;
+the retired geometry / hollow prepass flags are likewise rejected rather than
+silently ignored.
+
+Validation status: tree containment and the scaffold spacing read recover the
+reference hierarchy, nested shells, and repaired linked tori in controlled
+probes, but automatic DM extraction still false-splits some tissue-polluted
+circle scaffolds into finite-sample arcs and is seed-fragile on nested shells.
+Thus the implementation is a reproducible proposal path, \emph{not} a default
+or a resolution of \#44. Principled branch extraction (tree persistence or a
+background-aware likelihood that rejects uniform-manifold arcs) remains the
+acceptance-path blocker; expected-$K$ oracle selection is forbidden.
 
 \paragraph{Landed proposal-path wiring and protocol.}
 Module \texttt{proteus.stage1.edge\_evidence} exposes
@@ -5002,6 +5056,11 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{PersistenceConfig.densify\_overlap\_recover} & \texttt{"none"}\ (\texttt{"lower\_threshold"} floor 0.35 recovers seed4 dense run0=16 but collateral seed1 flip A6-T58/A3-EXP-si67; collateral map accept\{0,1,3,4\}/reject\{2\} A6-T61/A3-T72; densify$\times$LW$\times$thr combo LW$\neq$coarse exception A6-T67/A3-EXP-si75; seed2 thr0.30 load mech + seed1 coarse A6-T70/T71/A3-T76; fractional-vs-LW + load export A6-T73/T74/A3-EXP-si81; LW$\neq$$\Phi$-descent + load-screened$\equiv$raw A6-T76/A3-EXP-si86; $\Phi$-peak$\equiv$LW + LC$\equiv$coarse stab A6-T77/A3-T79/A3-EXP-si91; multi-seed $\Phi$-peak$\neq$LW except seed2 A6-T78/A3-EXP-si95; LC-eligible idx2 $\Phi$-near-peak still load-rejected A6-T79/A3-T82/A3-EXP-si98; first-stab-after-peak=idx2 + stab-argmax$\neq$LW A6-T81/T82/A3-EXP-si102; post-peak decay +1..+4 + stab-skip$\times$thr LC-invariant A6-T84/T85/A3-EXP-si106; $\Phi$ half-life + $|L0-1|\ll|Lfsa-1|$ A6-T87/T88/A3-T88; half-life thr-invariant + $|Lpeak-1|>|L0-1|$ / seed2 $|\log L|$ sole LW$\neq$coarse A6-T90/T91/A3-EXP-si110; half-life$\times$halve\_grid + stab-skip$\equiv$seed2$\equiv$fastest A6-T93/T94/A3-T91; half-life thr floors + stab-skip$\times$|log L| A6-T96/T97/A3-EXP-si114; half-life$\times$landing mid-closest + circle/swiss half-life A6-T99/T101/A3-T94; half-life$\times$LW farther than mid + seed3 short-block half$\not\equiv$mid A6-T103/T104/A3-T97; half-life$\times$LC farther + std half$\equiv$peak+1 thr-invariant A6-T106/T107/A3-EXP-si117; \#28) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{PersistenceConfig.densify\_overlap\_recover\_threshold} & \texttt{None}\ (\text{module floor }0.35\text{ when unset; }0.30\text{ adds densified seed2 ov0}\approx0.340\text{ A6-T68/A3-EXP-si75; }0.40\text{ loses densified seed1+seed4; Jaccard gate-only Phi pin A6-T64/A3-T72; paper pin thr0.35 narrow A6-T69; LW load mech + seed1 contrast A6-T70..T72/A3-T76; fractional-vs-LW + multi-seed load export A6-T73/T74/A3-EXP-si81; LW$\neq$$\Phi$-descent + load-screened$\equiv$raw A6-T76/A3-EXP-si86; $\Phi$-peak$\equiv$LW + LC$\equiv$coarse stab A6-T77/A3-T79/A3-EXP-si91; multi-seed $\Phi$-peak$\neq$LW except seed2 A6-T78/A3-EXP-si95; LC-eligible idx2 $\Phi$-near-peak still load-rejected A6-T79/A3-T82/A3-EXP-si98; first-stab-after-peak=idx2 + stab-argmax$\neq$LW A6-T81/T82/A3-EXP-si102; post-peak decay +1..+4 + stab-skip$\times$thr LC-invariant A6-T84/T85/A3-EXP-si106; $\Phi$ half-life + $|L0-1|\ll|Lfsa-1|$ A6-T87/T88/A3-T88; half-life thr-invariant + $|Lpeak-1|>|L0-1|$ / seed2 $|\log L|$ sole LW$\neq$coarse A6-T90/T91/A3-EXP-si110; half-life$\times$halve\_grid + stab-skip$\equiv$seed2$\equiv$fastest A6-T93/T94/A3-T91; half-life thr floors + stab-skip$\times$|log L| A6-T96/T97/A3-EXP-si114; half-life$\times$landing mid-closest + circle/swiss half-life A6-T99/T101/A3-T94; half-life$\times$LW farther than mid + seed3 short-block half$\not\equiv$mid A6-T103/T104/A3-T97; half-life$\times$LC farther + std half$\equiv$peak+1 A6-T106/T107/A3-EXP-si117; \#28}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{allow\_finer\_research} & \text{false}\ (\text{finer-than-}\tau^\star\text{ re-search; \#44}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{use\_level\_set\_clustering} & \text{false}\ (\text{node-spacing C--D tree + background-aware DM extraction; \#44}) & \text{S2.6.2} & \text{experimental (proposal path; acceptance unresolved)}\\
+\texttt{LevelSetConfig.k\_neighbors} & 8\ (\text{validated scaffold reader; not promoted}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{LevelSetConfig.alpha} & 1.0\ (\text{C--D connection multiplier; not promoted}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{LevelSetConfig.min\_cluster\_size} & 4\ \text{nodes} & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{LevelSetConfig.n\_levels} & 120\ (\text{quantile sweep; diagnostic discretization}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{prefer\_disconnected\_prepass} & \text{false} & \text{S2.6.2} & \text{operational (proposal-path)}\\

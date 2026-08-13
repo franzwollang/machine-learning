@@ -20,6 +20,8 @@ from proteus.stage1.dm_cluster import (
     DMClusterConfig,
     block_flow_matrix,
     dm_gated_merge,
+    dm_partition_background_logbf,
+    dm_partition_background_verdict,
     dm_partition_logbf,
     dm_partition_verdict,
 )
@@ -99,6 +101,68 @@ def test_dm_partition_verdict_accepts_modular_rejects_homogeneous() -> None:
     )
     log_bf_h, accepted_h = dm_partition_verdict(homogeneous, [{0, 1}, {2, 3}])
     assert not accepted_h and log_bf_h < log(3.0)
+
+
+def test_dm_background_verdict_keeps_background_as_fixed_outcome() -> None:
+    """Background is an outcome; its unchanged row cancels from the edit."""
+
+    scaffold = _Scaffold(
+        6,
+        [
+            (0, 1, 200.0),
+            (1, 0, 200.0),
+            (2, 3, 200.0),
+            (3, 2, 200.0),
+            (1, 2, 1.0),
+            (4, 0, 5.0),
+            (4, 2, 5.0),
+            (5, 1, 5.0),
+            (5, 3, 5.0),
+        ],
+    )
+    clusters = [{0, 1}, {2, 3}]
+    background = {4, 5}
+    log_bf = dm_partition_background_logbf(
+        scaffold, clusters, background,
+    )
+    verdict_bf, accepted = dm_partition_background_verdict(
+        scaffold, clusters, background,
+    )
+
+    # Exact fixed-outcome calculation: columns are C0, C1, background;
+    # only signal rows split vs pool. The background row cancels.
+    N = block_flow_matrix(scaffold, clusters + [background])
+    a0 = bdeu_alpha(1)
+    expected = (
+        _m(N[0], 3, a0)
+        + _m(N[1], 3, a0)
+        - _m(N[0] + N[1], 3, a0)
+    )
+    assert log_bf == pytest.approx(expected, rel=1e-12)
+    assert verdict_bf == pytest.approx(log_bf)
+    assert accepted and log_bf > log(3.0)
+
+
+def test_dm_empty_background_equals_classic_partition_logbf() -> None:
+    """With no background outcome, the new reduction is the classic one."""
+
+    scaffold = _Scaffold(
+        4,
+        [
+            (0, 1, 100.0),
+            (1, 0, 100.0),
+            (2, 3, 100.0),
+            (3, 2, 100.0),
+            (1, 2, 2.0),
+        ],
+    )
+    clusters = [{0, 1}, {2, 3}]
+    N = block_flow_matrix(scaffold, clusters)
+    classic = dm_partition_logbf(N, bdeu_alpha(1))
+    with_empty_background = dm_partition_background_logbf(
+        scaffold, clusters, set(),
+    )
+    assert with_empty_background == pytest.approx(classic, rel=1e-12)
 
 
 def test_dm_gated_merge_collapses_homogeneous_keeps_modular() -> None:

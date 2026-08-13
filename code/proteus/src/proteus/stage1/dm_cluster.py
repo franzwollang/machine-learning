@@ -66,6 +66,8 @@ __all__ = [
     "DMClusterConfig",
     "block_flow_matrix",
     "dm_partition_logbf",
+    "dm_partition_background_logbf",
+    "dm_partition_background_verdict",
     "dm_pair_logbf",
     "dm_gated_merge",
     "dm_partition_verdict",
@@ -145,6 +147,61 @@ def dm_partition_logbf(N: np.ndarray, alpha_0: float) -> float:
     )
     log_keep = float(node_log_marginal(N.sum(axis=0), k, alpha_0))
     return log_split - log_keep
+
+
+def dm_partition_background_logbf(
+    scaffold: Any,
+    clusters: list[set[int]],
+    background: set[int],
+) -> float:
+    """Split-vs-pooled log-BF with an explicit background outcome.
+
+    The signal blocks ``C_1..C_K`` are the rows whose homogeneity is under
+    test.  ``background`` is retained as an additional fixed outcome (and, for
+    the induced flow matrix, a row), but its row is identical under the split
+    and pooled models and therefore cancels.  The outcome space is thus
+    ``K + 1`` when background is non-empty and ``K`` otherwise:
+
+    ``sum_k log m(N[k]) - log m(sum_k N[k])``.
+
+    This is the background-aware reduction needed by the density level-set
+    proposal path (OPEN_ISSUES #44): inactive / low-density nodes are not
+    forcibly absorbed into a signal cluster, while the acceptance comparison
+    remains an exact fixed-outcome DM edit.
+    """
+
+    live = [set(c) for c in clusters if c]
+    if len(live) < 2:
+        return float("-inf")
+    groups = list(live)
+    bg = set(background)
+    if bg:
+        groups.append(bg)
+    N = block_flow_matrix(scaffold, groups)
+    j = int(N.shape[1])
+    members = set().union(*live)
+    a0 = _region_alpha0(scaffold, members)
+    signal_rows = N[: len(live)]
+    log_split = float(
+        sum(node_log_marginal(row, j, a0) for row in signal_rows)
+    )
+    log_keep = float(node_log_marginal(signal_rows.sum(axis=0), j, a0))
+    return log_split - log_keep
+
+
+def dm_partition_background_verdict(
+    scaffold: Any,
+    clusters: list[set[int]],
+    background: set[int],
+    config: DMClusterConfig | None = None,
+) -> tuple[float, bool]:
+    """Background-aware region verdict for a level-set partition."""
+
+    config = config or DMClusterConfig()
+    log_bf = dm_partition_background_logbf(
+        scaffold, clusters, background,
+    )
+    return log_bf, log_bf > float(log(max(config.tau_bf, 1.0)))
 
 
 def dm_pair_logbf(N: np.ndarray, a: int, b: int, alpha_0: float) -> float:

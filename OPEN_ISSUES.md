@@ -5,7 +5,7 @@ here. Numbering is historical and stable: resolved issues are deleted rather tha
 renumbered, so gaps in the sequence are expected. Each entry lists only the work that
 actually remains. See `PLANNING.md` for the suggested order of attack.
 
-Next issue number: 46
+Next issue number: 47
 
 ## 16. Fuzzy title decision
 
@@ -263,12 +263,27 @@ ARI + background recall (full-cloud ARI is capped by fade-halo labels, see #45).
   corrected uniform-sampled tori scene is the fair benchmark.
 
 Remaining work:
-- Implement a first-class level-set clustering layer (node-spacing density + C–D tree +
-  explicit background tier) behind a `RecursionConfig` flag; extend the S3.4 DM gate
-  with a background class as the acceptance arbiter for tree cuts.
+- **LANDED (2026-08-13; default off):** `stage1/level_set.py` implements the node-spacing
+  C–D tree (`k=8`, `alpha=1`, four-node floor, 120 quantile levels);
+  `RecursionConfig.use_level_set_clustering` selects its coarsest background-aware
+  DM-accepted cut, preserves label `-1` as terminal `RecursionNode.is_background`, and
+  propagates through finer research / child recursion. `dm_partition_background_logbf`
+  keeps background as a fixed additional outcome (its unchanged row cancels), with an
+  exact-edit unit lock. Legacy Q/AP persistence and no-background DM flags are explicitly
+  rejected when combined rather than silently mixing outcome spaces; retired geometry /
+  hollow prepass flags are likewise rejected instead of ignored. Defaults unchanged.
+- **ACCEPTANCE BLOCKER (measured immediately after wiring):** expected-K-free coarsest-DM
+  extraction is not yet canonical. On fixed fine scaffolds it recovers nested seed0
+  (`K=2`, signal ARI 0.82) and hierarchy (`K=3` coarse, ARI 0.57), but false-splits a
+  tissue-polluted circle into arcs (`K=2`, signal ARI 0) and nested remains seed-fragile.
+  Sweeping `k in {4,8,16}` or simple active/component-mass floors does not separate these
+  cases consistently. Perfect uniform-ring unit geometry rejects correctly; the fitted
+  finite-sample/tissue case is the blocker. Keep the flag off.
 - Replace expected-K probing with a principled branch extraction (persistence of tree
-  branches / DM-gated cuts); sample-level background-aware ARI is the only recovery
-  metric (component counts are not recovery).
+  branches / a background-aware null that rejects uniform-manifold arcs). Existing
+  Q/AP `PersistenceConfig` cannot be reused unchanged because it snapshots a different
+  partition family; level-set branch persistence needs its own snapshots. Sample-level
+  background-aware ARI is the only recovery metric (component counts are not recovery).
 - Derive/calibrate the node-budget vs valley-resolution requirement (ties into the
   `max_nodes` removal plan, `reference/open_loop_growth_and_node_cap.md`; open a
   follow-up issue when scheduled into M4).
@@ -305,6 +320,24 @@ Discovered while validating the #44 pivot (2026-08-12):
 Work: re-parameterize/fix the linked_tori generator (continuous sampling, declared gap),
 add per-scene resolvability metadata (gap vs expected `r_k`), and re-baseline the
 `@awaiting` recovery expectations (#41, #26) on the repaired scenes.
+
+## 46. Pytest runtime hygiene: simulations are misclassified as tests
+
+The Stage-1 test layout mixes fast correctness checks with full stochastic experiments:
+`tests/stage1/test_recursion.py` currently takes ~55 minutes (69 tests), and a combined
+AP/scale-search/persistence subset was still running after ~54 minutes. This defeats the
+feedback role of pytest and makes routine regression validation impractical.
+
+Work:
+- Profile individual cases with bounded per-test timing; identify any accidental
+  performance regressions separately from intentionally large simulations.
+- Keep deterministic unit/integration tests within a few seconds and the routine Stage-1
+  regression target within roughly two minutes.
+- Move long seed sweeps, calibration studies, and large synthetic reconstructions to
+  explicit diagnostic/benchmark scripts (or a separately selected `slow` suite that is
+  never part of routine pytest).
+- Add a runtime guard in the routine test command so newly misclassified simulations fail
+  visibly instead of silently expanding suite time.
 
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions

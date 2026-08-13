@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
 from proteus.stage1.controller import ScaleSearchConfig
+from proteus.stage1.clustering import ClusterResult
 from proteus.stage1.recursion import (
     RecursionConfig,
     RecursionNode,
     RecursionTree,
+    _descend_into_clusters,
     run_recursive_discovery,
 )
 from proteus.stage1.stabilization import StabilizationConfig
@@ -25,6 +29,181 @@ from tests.harness.hierarchy_recovery import (
     leaf_partition_by_region_id,
     per_sample_leaf_labels,
 )
+
+
+def test_level_set_background_becomes_terminal_background_leaf() -> None:
+    """Label -1 is preserved as background and never recursively clustered."""
+
+    data = np.array([
+        [-2.0, 0.0],
+        [-1.9, 0.0],
+        [2.0, 0.0],
+        [1.9, 0.0],
+        [0.0, 2.0],
+        [0.0, -2.0],
+    ])
+
+    class _Node:
+        def __init__(self, position):
+            self.position = np.asarray(position, dtype=float)
+            self.d_final = 2
+
+    class _ANN:
+        def query_knn(self, point, k=1):
+            dists = np.linalg.norm(data - np.asarray(point), axis=1)
+            idx = int(np.argmin(dists))
+            return np.array([idx]), np.array([dists[idx]])
+
+    class _Links:
+        @staticmethod
+        def lifted_links():
+            return []
+
+    class _Scaffold:
+        nodes = [_Node(p) for p in data]
+        ann = _ANN()
+        links = _Links()
+        prune_beta = 0.5
+
+    labels = np.array([0, 0, 1, 1, -1, -1], dtype=int)
+    result = ClusterResult(
+        labels=labels,
+        exemplar_indices=np.array([0, 2]),
+        n_clusters=2,
+        partition_q_score=1.0,
+    )
+    root = RecursionNode(
+        region_id=0,
+        level=0,
+        parent_id=None,
+        tau_star=1.0,
+        n_samples=len(data),
+        dim=2,
+        n_clusters=2,
+        sample_indices=np.arange(len(data)),
+    )
+    tree = RecursionTree(nodes=[root])
+
+    _descend_into_clusters(
+        data_arr=data,
+        dim=2,
+        config=RecursionConfig(min_samples=3, max_depth=1),
+        tree=tree,
+        node=root,
+        region_id=0,
+        _level=0,
+        orig_rows=np.arange(len(data)),
+        scaffold=_Scaffold(),
+        cluster_result=result,
+    )
+
+    children = [tree.nodes[i] for i in root.children]
+    assert len(children) == 3
+    background = [child for child in children if child.is_background]
+    assert len(background) == 1
+    assert background[0].is_leaf
+    assert set(background[0].sample_indices) == {4, 5}
+    assert sum(not child.is_background for child in children) == 2
+
+
+@pytest.mark.parametrize(
+    "other_flag",
+    [
+        "require_persistent_split",
+        "require_dm_split",
+        "prefer_hollow_edge_prepass",
+    ],
+)
+def test_level_set_rejects_incompatible_legacy_acceptance_paths(
+    other_flag: str,
+) -> None:
+    """Do not silently mix partitions with different outcome spaces."""
+
+    kwargs = {
+        "use_level_set_clustering": True,
+        other_flag: True,
+    }
+    with pytest.raises(ValueError):
+        run_recursive_discovery(
+            np.zeros((4, 2)),
+            dim=2,
+            config=RecursionConfig(min_samples=10, **kwargs),
+        )
+
+
+def test_level_set_flag_runs_end_to_end_and_emits_background(
+    monkeypatch,
+) -> None:
+    """The default-off flag owns root selection and preserves background."""
+
+    data = np.array([
+        [-2.0, 0.0],
+        [-1.9, 0.0],
+        [2.0, 0.0],
+        [1.9, 0.0],
+        [0.0, 2.0],
+        [0.0, -2.0],
+    ])
+
+    class _Node:
+        def __init__(self, position):
+            self.position = np.asarray(position, dtype=float)
+            self.d_final = 2
+
+    class _ANN:
+        def query_knn(self, point, k=1):
+            dists = np.linalg.norm(data - np.asarray(point), axis=1)
+            idx = int(np.argmin(dists))
+            return np.array([idx]), np.array([dists[idx]])
+
+    class _Links:
+        @staticmethod
+        def lifted_links():
+            return []
+
+    class _Scaffold:
+        nodes = [_Node(p) for p in data]
+        ann = _ANN()
+        links = _Links()
+        prune_beta = 0.5
+
+    result = ClusterResult(
+        labels=np.array([0, 0, 1, 1, -1, -1]),
+        exemplar_indices=np.array([0, 2]),
+        n_clusters=2,
+        partition_q_score=-1.0,
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.run_scale_search",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            tau_star=1.0,
+            scaffold_at_star=_Scaffold(),
+        ),
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.select_level_set_partition",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            accepted=True,
+            cluster_result=result,
+        ),
+    )
+
+    tree = run_recursive_discovery(
+        data,
+        dim=2,
+        config=RecursionConfig(
+            min_samples=3,
+            max_depth=1,
+            use_level_set_clustering=True,
+        ),
+    )
+
+    assert tree.nodes[0].n_clusters == 2
+    children = [tree.nodes[i] for i in tree.nodes[0].children]
+    assert len(children) == 3
+    background = [child for child in children if child.is_background]
+    assert len(background) == 1
+    assert set(background[0].sample_indices) == {4, 5}
 
 
 def test_hierarchical_gaussian_recursion_matches_gt() -> None:

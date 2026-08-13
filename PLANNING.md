@@ -13,7 +13,7 @@ bodies below stay static descriptions.
 | Milestone | Status |
 |---|---|
 | M0 — Spec/implementation sync pass | done |
-| M1 — Canonical clustering objective | in progress — #44 pivot validated (density level-set / C-D on node spacing; probe sig-ARI 0.93–1.0 across scenes); next: implement the layer + repair benchmarks (#45) |
+| M1 — Canonical clustering objective | in progress — #44 level-set layer + explicit background DM landed default-off; blocked on principled branch extraction (coarsest-DM false-splits fitted circles) and repaired benchmarks (#45) |
 | M2 — Characteristic-scale selection rebuild | in progress (half×sArg mid-closer except seed2; LC straddle fine>coarse but LC≡0. Do not flip default.) |
 | M3 — Constant audit & calibration tier | done (c_{d,k} + C_Q(d) calibrated on the shared uniform-d-ball ensemble; S14.3 three-tier audit #37 complete; intrinsic-dim estimator #39 validated vs GT + Levina–Bickel cross-check shipped, SI S1.4.1. Operational estimator-wiring divergence surfaced as #40, deferred to the M5 junction-detection consumer.) |
 | M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 traj×fail_closed compose 177p flags off; do not close. #41: densify294/318 both hard-fail; mult3 dip@0.23; denser512 void-absent. Remaining: densify290/320 / #45) |

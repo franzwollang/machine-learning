@@ -1,25 +1,27 @@
 {
-  "updated_at": "2026-08-13T01:00:00-05:00",
-  "turn": 67,
+  "updated_at": "2026-08-13T02:30:00-05:00",
+  "turn": 68,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "implement level-set clustering layer (C-D on node spacing + background tier) behind flag"
+    "goal": "replace coarsest-DM extraction with a principled level-set branch null"
   },
   "recent": [
-    "Burn closed: selective import from coord/integration to main (src flags, core tests, SI, notes, tracking); test_ph_* probe files left behind; retrospective in reference/burn_2026-08_swarm_retrospective.md",
-    "#44 pivot VALIDATED by probe: batch C-D oracle + scaffold node-spacing read recover all scenes (details in #44); probe committed at tests/scenarios/synthetic/cd_level_set_probe.py",
-    "#44 rewritten to remaining-work form (history in log); #45 opened (benchmark defects)"
+    "Added stage1/level_set.py: node-spacing C-D tree, explicit -1 background, coarsest background-aware DM extraction; default off",
+    "Recursion flag use_level_set_clustering wired through finer research + children; background becomes terminal is_background leaf; incompatible legacy paths rejected",
+    "Cross-family Grok audit: no remaining high/medium issues after fixes; focused tests 19 passed",
+    "Stopped 54-minute scale/persistence run; recursion file completed in 55m. Opened #46 to move simulations out of routine pytest"
   ],
   "discoveries": [
-    "linked_tori generator: tube surfaces OVERLAP at default minor_radius=0.5 (core min dist 0.828 < 1.0) + 288-anchor clumpy sampling; GT '2 clusters' unsatisfiable -> #45",
-    "Node budget sets finest resolvable separation valley (node r_k must fit in valley); equalization compresses contrast (gamma<1)",
-    "Reader that works everywhere: k=8 node-spacing density + C-D linking alpha=1.0; HDBSCAN eom collapses on node lattices"
+    "Background-aware DM is exact fixed-outcome: add B as outcome; B row cancels; empty-B equals classic DM",
+    "Coarsest-DM is not canonical: fitted tissue circle false-splits arcs (K2/ARI0); nested seed-fragile. k sweep + simple mass floors did not solve",
+    "Perfect uniform ring rejects; fitted finite-sample/tissue branch null is the acceptance blocker"
   ],
   "open_threads": [
-    "Nested seed2 scaffold read weak (0.55) - halo mass steals node resolution",
-    "Principled branch extraction (persistence/DM-gated) to replace expected-K probing"
+    "Principled level-set branch extraction; existing Q/AP persistence snapshots are a different partition family",
+    "Repair linked_tori generator and resolvability metadata (#45)",
+    "Separate fast tests from calibration/simulation workloads and add runtime guard (#46)"
   ],
-  "next_step": "Build stage1 level_set.py behind RecursionConfig flag; extend DM gate with background class; repair linked_tori generator (#45)",
+  "next_step": "design level-set-native branch persistence/background null that rejects fitted circle arcs",
   "blockers": []
 }

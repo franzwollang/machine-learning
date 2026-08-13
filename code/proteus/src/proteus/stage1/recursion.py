@@ -25,6 +25,10 @@ from proteus.stage1.edge_evidence import (
     a4_roc_primary_config,
     prune_hollow_edges,
 )
+from proteus.stage1.level_set import (
+    LevelSetConfig,
+    select_level_set_partition,
+)
 from proteus.stage1.pruning import demote_lifted_by_cluster
 from proteus.stage1.transfer import apply_t2_transfer
 
@@ -61,6 +65,18 @@ class RecursionConfig:
     persistence (the two flags may be combined).  It is a **proposed /
     operational** path pending validation, and is **not** a licence to delete
     the S2.6.1 stand-ins.  Default off.
+
+    ``use_level_set_clustering`` turns on the OPEN_ISSUES #44 density
+    cluster-tree path (proposed / default off). At each equilibrated
+    ``tau*`` it reads density from node spacing, builds a
+    Chaudhuri--Dasgupta robust-single-linkage tree, and selects the coarsest
+    split that clears the background-aware DM gate. Inactive low-density
+    nodes remain an explicit background leaf (label ``-1``); no expected
+    cluster count enters extraction. ``dm_cluster`` is the single source for
+    its Bayes-factor margin. When paired with
+    ``allow_finer_research``, the same reader is retried on progressively
+    finer equilibrated scaffolds if the characteristic-scale scaffold has no
+    evidence-bearing split.
 
     ``allow_finer_research`` (OPEN_ISSUES #44, **proposed / operational,
     default off**) enables a single finer-than-``tau*`` re-search when the
@@ -348,6 +364,8 @@ class RecursionConfig:
     require_persistent_split: bool = False
     require_dm_split: bool = False
     dm_cluster: DMClusterConfig = field(default_factory=DMClusterConfig)
+    use_level_set_clustering: bool = False
+    level_set: LevelSetConfig = field(default_factory=LevelSetConfig)
     allow_finer_research: bool = False
     finer_tau_cap_ratio: float = 1.0 / np.sqrt(2.0)
     max_finer_scale_steps: int = 8
@@ -400,6 +418,7 @@ class RecursionNode:
     n_clusters: int
     children: list[int] = field(default_factory=list)
     is_leaf: bool = True
+    is_background: bool = False
     sample_indices: np.ndarray = field(
         default_factory=lambda: np.empty(0, dtype=int),
     )
@@ -1544,6 +1563,19 @@ def _research_finer_split(
                 tau_cap *= ratio
                 continue
 
+        # #44 canonical proposal: node-spacing density tree + background-aware
+        # DM extraction. When selected, do not fall through to the retired
+        # geometry-specific prepass family at this scale.
+        if config.use_level_set_clustering:
+            level_set = select_level_set_partition(
+                scaffold, config.level_set, config.dm_cluster,
+            )
+            if level_set.accepted:
+                assert level_set.cluster_result is not None
+                return result, scaffold, level_set.cluster_result
+            tau_cap *= ratio
+            continue
+
         # #44c: cheap disconnected-lifted prepass before general clustering.
         if config.prefer_disconnected_prepass:
             pre = _major_lifted_component_partition(
@@ -1700,6 +1732,11 @@ def _dm_accepts_split(
 ) -> bool:
     """True if DM gate is off, or the K-way partition clears ``log(tau_bf)``."""
 
+    if config.use_level_set_clustering:
+        # The selected level already cleared the exact background-aware DM
+        # edit. Running the legacy no-background verdict again would silently
+        # change the outcome space.
+        return True
     if not config.require_dm_split:
         return True
     clusters = _clusters_from_labels(cluster_result.labels)
@@ -1735,7 +1772,8 @@ def _descend_into_clusters(
 
     children_created: list[int] = []
     for label, child_indices in sorted(sample_map.items()):
-        if len(child_indices) < config.min_samples:
+        is_background = int(label) < 0
+        if is_background or len(child_indices) < config.min_samples:
             child_id = len(tree.nodes)
             global_child = orig_rows[np.asarray(child_indices, dtype=int)]
             tree.nodes.append(RecursionNode(
@@ -1747,6 +1785,7 @@ def _descend_into_clusters(
                 dim=dim,
                 n_clusters=0,
                 is_leaf=True,
+                is_background=is_background,
                 sample_indices=global_child.copy(),
             ))
             children_created.append(child_id)
@@ -1773,6 +1812,8 @@ def _descend_into_clusters(
             require_persistent_split=config.require_persistent_split,
             require_dm_split=config.require_dm_split,
             dm_cluster=config.dm_cluster,
+            use_level_set_clustering=config.use_level_set_clustering,
+            level_set=config.level_set,
             allow_finer_research=config.allow_finer_research,
             finer_tau_cap_ratio=config.finer_tau_cap_ratio,
             max_finer_scale_steps=config.max_finer_scale_steps,
@@ -1847,13 +1888,41 @@ def run_recursive_discovery(
 ) -> RecursionTree:
     """Recursively discover scale structure via scale search + clustering + T2.
 
-    At each level: run scale search to find tau_star, cluster the
-    converged scaffold via Q-score seed merging, and for each cluster
-    with enough samples apply the T2 PCA transfer and recurse into the
-    child.  Recursion is gated by Q(P; v) > 0 on the proposed partition.
+    At each level: run scale search to find tau_star, cluster the converged
+    scaffold, and for each cluster with enough samples apply the T2 PCA
+    transfer and recurse into the child. Legacy paths are gated by
+    ``Q(P; v) > 0`` (optionally DM); the level-set path uses its
+    background-aware DM verdict and preserves inactive nodes as background.
     """
 
     config = config if config is not None else RecursionConfig()
+    if config.use_level_set_clustering and config.require_persistent_split:
+        raise ValueError(
+            "use_level_set_clustering cannot yet be combined with "
+            "require_persistent_split: the existing persistence snapshots "
+            "contain Q/AP partitions, not level-set partitions",
+        )
+    if config.use_level_set_clustering and config.require_dm_split:
+        raise ValueError(
+            "use_level_set_clustering already applies the background-aware "
+            "DM verdict; require_dm_split would use a different outcome space",
+        )
+    legacy_prepasses = (
+        config.prefer_disconnected_prepass,
+        config.prefer_radial_gap_prepass,
+        config.prefer_radial_band_prepass,
+        config.prefer_noncentroid_radial_band_prepass,
+        config.prefer_signal_density_band_prepass,
+        config.prefer_pca_axis_gap_prepass,
+        config.prefer_tube_major_radius_prepass,
+        config.prefer_spectral_gap_prepass,
+        config.prefer_hollow_edge_prepass,
+    )
+    if config.use_level_set_clustering and any(legacy_prepasses):
+        raise ValueError(
+            "use_level_set_clustering replaces the legacy geometry/hollow "
+            "prepasses; do not combine their flags",
+        )
     tree = _tree if _tree is not None else RecursionTree()
     data_arr = np.asarray(data, dtype=float)
     n_samples = data_arr.shape[0]
@@ -1908,9 +1977,24 @@ def run_recursive_discovery(
     need_finer = False
     cluster_result = None
 
+    if config.use_level_set_clustering:
+        level_set = select_level_set_partition(
+            scaffold, config.level_set, config.dm_cluster,
+        )
+        if level_set.accepted:
+            cluster_result = level_set.cluster_result
+            assert cluster_result is not None
+            node.n_clusters = cluster_result.n_clusters
+        else:
+            need_finer = True
+
     # #44 hollow-edge at the region's own tau*: support disconnection is
     # scale-free, so try before persistence / AP and before finer descent.
-    if config.prefer_hollow_edge_prepass:
+    if (
+        cluster_result is None
+        and not need_finer
+        and config.prefer_hollow_edge_prepass
+    ):
         hollow = _hollow_edge_partition(
             scaffold,
             data_arr,
@@ -1921,7 +2005,11 @@ def run_recursive_discovery(
             cluster_result = hollow
             node.n_clusters = hollow.n_clusters
 
-    if cluster_result is None and config.require_persistent_split:
+    if (
+        cluster_result is None
+        and not need_finer
+        and config.require_persistent_split
+    ):
         # Accept a split only if a multi-cluster partition persists across
         # adjacent scales; a region with no persistent split is a single
         # intrinsic feature (terminal leaf), regardless of any transient
@@ -1939,7 +2027,7 @@ def run_recursive_discovery(
                 or cluster_result.partition_q_score <= 0.0
             ):
                 need_finer = True
-    elif cluster_result is None:
+    elif cluster_result is None and not need_finer:
         cluster_result = _cluster_scaffold(scaffold, config)
         node.n_clusters = cluster_result.n_clusters
         if (

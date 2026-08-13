@@ -238,7 +238,7 @@ def test_multiscale_membership_trajectory_root_to_leaf():
     pytest.fail("Not implemented")
 
 
-@awaiting("stage1.level_set", si="S2.6")
+@awaiting("stage1.level_set.branch_extraction", si="S2.6")
 def test_recursion_recovers_three_level_hierarchy():
     """End-to-end recursion should emit the 3-level dim-decreasing tree.
 
