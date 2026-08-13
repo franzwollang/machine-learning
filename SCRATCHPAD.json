@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-08-10T07:40:00Z",
-  "turn": 65,
+  "updated_at": "2026-08-12T21:45:00-05:00",
+  "turn": 66,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "MERGE_DONE scoop2 T76/si115+/T107+/T106+/T109+; refill T77+/T101+/T110+/T109+/T112+"
+    "goal": "implement level-set clustering layer (C-D on node spacing + background tier) behind flag"
   },
   "recent": [
-    "Scoop1 T75+/T95+/T104+/T103+/T106+; scoop2 T76+si115+/T107+/T106+/T109+",
-    "Tests scoop2: 2+6+177+2 green; no awaiting flip",
-    "Queues refilled 3-deep post-scoop2"
+    "Burn closed: selective import from coord/integration to main (src flags, core tests, SI, notes, tracking); test_ph_* probe files left behind; retrospective in reference/burn_2026-08_swarm_retrospective.md",
+    "#44 pivot VALIDATED by probe: batch C-D oracle + scaffold node-spacing read recover all scenes (details in #44); probe committed at tests/scenarios/synthetic/cd_level_set_probe.py",
+    "#44 rewritten to remaining-work form (history in log); #45 opened (benchmark defects)"
   ],
   "discoveries": [
-    "T76 majors-pin ARI≈0.16–0.18 chance only; Soft≠ARI",
-    "densify294/318 both hard-fail; mult3 dip narrowly@0.23",
-    "half×sArg mid-closer except seed2; LC straddle LC≡0"
+    "linked_tori generator: tube surfaces OVERLAP at default minor_radius=0.5 (core min dist 0.828 < 1.0) + 288-anchor clumpy sampling; GT '2 clusters' unsatisfiable -> #45",
+    "Node budget sets finest resolvable separation valley (node r_k must fit in valley); equalization compresses contrast (gamma<1)",
+    "Reader that works everywhere: k=8 node-spacing density + C-D linking alpha=1.0; HDBSCAN eom collapses on node lattices"
   ],
   "open_threads": [
-    "A2-T77 multiseed; A3 SI T101..T103",
-    "A4 densify290/320; A5 T109 mega-compose; A6 first-stab",
-    "#45 deferred until #44 sample-ARI"
+    "Full default suite run on main was still in progress at turn end (imported probe tests are slow); core subsets green (184+54)",
+    "Nested seed2 scaffold read weak (0.55) - halo mass steals node resolution",
+    "Principled branch extraction (persistence/DM-gated) to replace expected-K probing"
   ],
-  "next_step": "Push MERGE_DONE scoop2; workers pull T77+/T101+/T110+",
+  "next_step": "Build stage1 level_set.py behind RecursionConfig flag; extend DM gate with background class; repair linked_tori generator (#45)",
   "blockers": []
 }

@@ -5,7 +5,7 @@ here. Numbering is historical and stable: resolved issues are deleted rather tha
 renumbered, so gaps in the sequence are expected. Each entry lists only the work that
 actually remains. See `PLANNING.md` for the suggested order of attack.
 
-Next issue number: 45
+Next issue number: 46
 
 ## 16. Fuzzy title decision
 
@@ -225,236 +225,87 @@ Remaining work:
   mid only on seed2. Paper pins T109/T110. Keep default none. Do **not**
   flip default.
 
-## 44. Recursion terminates at a single coarse feature instead of descending to finer scales
+## 44. Stage-1 separation: density level-set clustering layer (validated pivot)
 
-Surfaced by the M1-Part-B fuller-suite validation (#27). **The coarse `tau*` is
-not the bug** — disconnected components *should* unify at a coarse root scale;
-the defect is that recursion treated `K=1`-at-`tau*` as terminal and never
-re-searched *finer* scales inside a single feature.
+Original defect: recursion treats `K=1` at the coarse `tau*` as terminal, so
+multi-component scenes (nested spheres, linked tori) end as one feature. Two hypothesis
+families were run to exhaustion in the 2026-08 swarm burn and are **falsified**:
+(1) finer-tau descent + geometry-specific prepasses (radial/PCA/tube/spectral/linking),
+and (2) hollow-edge (empty-region) edge statistics. Decisive falsifier: with tissue the
+support is *connected* (an oracle cut of every cross-label edge still leaves 1 CC), so
+separation is a density-contrast question, not an emptiness question. Experiment history
+lives in `OPEN_ISSUES_LOG.jsonl`, SI S2.6.1/S2.6.2 (flags stay proposal-path, default
+off), and `reference/burn_2026-08_swarm_retrospective.md`.
 
-- **Evidence:** nested_spheres shells separate only near `tau≈0.004` (vs
-  `tau*≈0.81`); linked_tori near `tau≈0.006` (vs `tau*≈0.50`).
-- **Design settled (A2):** (a) geometric multi-step cap strictly below parent
-  `tau*` (`finer_tau_cap_ratio`); (b) one finer walk per region bounded by
-  `max_finer_scale_steps` + gate reject + `min_samples`/`max_depth`; (c)
-  `prefer_disconnected_prepass` major-lifted-component short-circuit. Acceptance
-  gate owns stop/descent; pair with `require_persistent_split` so uniform manifolds
-  do not shatter (flag alone ~circle 21 leaves; persist+flag+steps≤4+min_samples=80
-  → circle=1 / swiss=1).
-- **Landed (flag-gated, default off):** `RecursionConfig.allow_finer_research` +
-  `prefer_disconnected_prepass` / `finer_prepass_min_frac=0.2` in
-  `stage1/recursion.py`; unit coverage in `tests/stage1/test_recursion.py`.
-  RecursionConfig docstring documents the recommended persist pairing.
-- **FINDING (A2-T4):** under recommended pairing
-  (persist+allow_finer_research+steps≤4+min_samples), nested_spheres and
-  linked_tori still yield **1 leaf** — aspiration not recovered; do not flip
-  awaiting tests.
-- **FINDING (A2-T7..T9 pairing studies):** with unit-test harness `n_seeds=8`,
-  `persist=True` keeps circle = 1 leaf across prepass on/off, `finer_prepass_min_frac`
-  ∈ {0.15,0.2,0.3,0.4}, and `max_finer_scale_steps` ∈ {4,8,12}; dropping persist
-  false-hits (~16–21 leaves) even with prepass. On nested_spheres, none of
-  persist±prepass±`require_dm_split` recovered gt cc=2 with ARI>0.5 (steps≤8 → 1
-  leaf; deeper / dm-without-persist → 5–9 leaves, ARI≲0.09). Blockers: lifted-CC
-  prepass misses concentric shells (same radius-connected graph at recurse caps);
-  persist rejects shell-scale splits; dm over-clusters. Need radius-aware /
-  signal-band / tissue-filtered split — not more pairing knobs. SI A+C still held.
-- **FINDING (A2 radial-gap):** lifted graph **radius-bridges** shells (usually
-  `n_cc=1`; rare splits are noise fragments). Flag-gated
-  `prefer_radial_gap_prepass` (default off) recovers shell membership on clean
-  unit scaffolds / GT-signal-filtered radial gap (ARI_shell=1.0), but e2e
-  tissue-filled nested_spheres still unrecovered (persist+radial+steps≤4 →
-  circle=1 nested=1; deeper shatters circle).
-- **Landed (A2, integrator-hardened):** `prefer_radial_band_prepass` (default
-  off) — histogram-trough / contiguous peak-support mask before radial gap,
-  with Q-maximizing mid-band assignment; unit fixture with mid-band bridges
-  green.
-- **FINDING (A2-T10..T12):** band e2e still unrecovered — persist+band
-  `steps<=8` → 1 leaf; deeper over-fragments (not shells). Hold awaiting + SI A+C.
-- **Landed (A2-T13/T14/T15):** `prefer_noncentroid_radial_band_prepass`
-  (default off) + `finer_radial_min_trough_rel` (noncentroid default 0.35);
-  `prefer_signal_density_band_prepass` (default off) with knn×radial-hist keep
-  (`finer_signal_density_keep_frac=0.55`). Units green (integrator-hardened
-  plain-fail/dens-recover + mean-fail/median-recover contrasts).
-- **FINDING (A2-T15 RECOVERY):** under unit harness (`n_per_sphere=64`,
-  `n_seeds=8`, persist, `steps<=12`), `prefer_signal_density_band_prepass`
-  recovers nested shells **2 leaves / ARI=1.0**; circle stays 1 leaf at
-  `steps<=8`. Band/noncentroid alone still unrecovered. Hold awaiting flip
-  until linked_tori/swiss guards confirmed.
-- **Landed (A3-T28 SI A+C):** SI S2.6.2 + S14.3 document `allow_finer_research`
-  and radial-band / noncentroid / signal-density flags (proposal-path, default
-  off; cites unit nested ARI=1.0). Score is `rho_knn * rho_radial` (A2 restored
-  multiply after divide regression).
-- **FINDING (A2-T18..T20 guards):** linked_tori under persist+signal_density
-  stays **1 leaf** (radial origin unsuitable for offset rings; deeper steps
-  over-fragment, ARI≈0). Swiss: steps≤4 → 1 leaf; steps=8 **shatters** (~17
-  leaves) — keep recommended pairing `max_finer_scale_steps≤4`.
-  `finer_signal_density_keep_frac=0.55` confirmed sweet spot (no default change).
-  **Do not flip awaiting** (tori unrecovered).
-- **Landed (A2-T21..T23):** `prefer_pca_axis_gap_prepass` (default off) +
-  centroid-separation gate; unit offset rings recover ARI=1.0; concentric
-  rejected. Linked_tori e2e under persist+pca(+sd) steps 4/8/12 still **1 leaf**.
-  Docstring documents recommended pairing (uniforms steps≤4; nested sd+steps≥8;
-  tori PCA prototype).
-- **Landed (A3-T37 SI A+C):** SI S2.6.2 + S14.3 document
-  `prefer_pca_axis_gap_prepass` (proposal-path, default off; interlocking
-  unrecovered).
-- **Landed (A2-T24..T26):** `prefer_tube_major_radius_prepass` (Hopf tube
-  residual, default off) — unit interlocking rings ARI=1.0; concentric rejected.
-  `prefer_spectral_gap_prepass` (Fiedler/lifted+kNN, default off) — unit offset
-  rings ok; nested spectral steps=8 shatters (~8 leaves). Linked_tori e2e under
-  persist+tube/pca/spectral/sd+pca+tube steps 4/8/12 still **1 leaf**. Harness
-  guards circle/swiss persist+sd+pca steps=4 → 1. Recursion tests 18 passed.
-  **Do not flip awaiting** (tori unrecovered).
-- **DIRECTIVE (human, 2026-08-09): reframe — stop geometry-specific prepasses.**
-  Disconnection is a scale-free topological property; tau descent + per-geometry
-  coordinate cues (radial/PCA/tube/spectral/linking) is the wrong hypothesis
-  family (probe evidence: same 64 nodes at tau=0.27 and tau=0.004 for
-  nested_spheres — descent buys no resolution). Replace with **hollow-edge
-  (empty-region) evidence**: data-side mid-segment occupancy test per lifted
-  edge (Gabriel/lens ratio `H = n_mid/n_end`, Poisson null), cut hollow edges
-  before clustering at the region's own tau*. Coordinate-free; predicted to
-  cover nested/tori/zoo/swiss in one statistic. Full derivation, literature
-  (Gabriel 1969, Toussaint 1980, Chaudhuri–Dasgupta 2010, ToMATo), and ordered
-  experiment protocol:
-  `docs/Proteus/paper_1_foundational/reference/empty_region_evidence_and_scale.md`.
-- **Landed (A2-T27..T29 + A3-T38 + A4-T18):** frozen-scaffold probe +
-  `stage1/edge_evidence.py` + `prefer_hollow_edge_prepass` (default off; Q on
-  pruned edges) + SI S2.6.1/S2.6.2/S14.3 hollow prose + adversarial-null ROC
-  harness (`hollow_edge_nulls` / `test_hollow_edge_roc`).
-- **FINDING (A2-T27 probe, loud):** note `L/4` mid-ball alone mass-false-hollows
-  (`n_end~0` ⇒ `H=0`, prune shatters). Operational hit cfg `mid_frac=0.35`,
-  `h0=0.35`, `min_end=0.5` + Gabriel-empty fallback recovers nested+tori majors=2
-  at seed0 but is **multi-seed fragile**. Cross-tori interlocking H50 med~1;
-  oracle cut-label-cross still 1 CC via tissue. Zoo/swiss/circle stay 1 under
-  hit cfg. Theory direction supported; **universal `h_0` not calibrated**.
-- **FINDING (A2-T29/T30 LOUD):** persist+hollow e2e unrecovered. Fixed-τ
-  majors=2 at nested@0.27 / tori@0.5 is **not recovery** — sample ARI~chance.
-  `mid_frac=0.35` is empty-ball (H nondiscriminative); at `0.5` H separates
-  but lifted prune is not a cut-set. Default `H|Gabriel` drives spurious K=2
-  via Gabriel at low `n_end`. **Never treat major-CC count as recovery.**
-- **Landed (A2-T30..T32):** multi-τ prune→CC harness; `require_gabriel_and_h`
-  + `hollow_require_persistent_agree` (both default off). Conjunction
-  suppresses probe K=2 seed-stable; conj+agree keeps uniforms/nested/tori at
-  1 leaf under harness. Raising `min_end` alone *increases* Gabriel usage —
-  prefer conjunction or `gabriel_fallback=False` + calibrated h0/mid.
-- **Landed (A4-T24 ROC export):** `recommend_hollow_edge_configs` primary
-  **mid=0.5, h0=0.7, gabriel=False, min_end=0.5** (sheet FPR=0, TPR=0.9,
-  q01≈0.82, AUC≈0.999); A2 `(0.35,0.35)` kept as alt. Sheet-null safety ≠
-  nested ARI recovery.
-- **Landed (A3-T45/T48 SI):** ROC mid_frac table + A4 primary +
-  `require_gabriel_and_h` prose (proposed; no default flip).
-- **Landed (A2-T33..T35 + A4-T27 multi-τ ROC):** `a4_roc_primary_config` /
-  `hollow_use_a4_primary` (def off); `mst_critical_only` (def off); sample-ARI
-  harness (K=2≠recovery). Uniforms/zoo ok; **nested/tori unrecovered**.
-  Multi-τ ROC: primary dens1 sheet-safe; mid>0.5 TPR collapses; thinning
-  raises FPR.
-- **Landed (A2 bridge follow-on):** `bridge_critical_only` /
-  `hollow_bridge_critical_only` (def off) — true cut-set beyond MST;
-  nested@0.27 majors≤1; multi-seed A4+bridge ARI still unrecovered.
-- **Landed (A2-T36..T40 + A3 SI soft/Poisson):** denser-scaffold hollow ARI
-  unrecovered (nests collapse K→≤1; tori ARI~chance); `soft_capacity_only` +
-  `soft_capacity_method` (`betweenness`|`bridge_mass`, def off) +
-  `soft_capacity_frac` sweep — nested@0.27 majors≤1 all fracs; denser×soft /
-  soft×persist_agree unrecovered; Poisson-null sheet export
-  (`format_poisson_null_h0_table`; mid q01≈0.15/0.43/0.76; primary h0=0.7≤q01).
-  **Do not flip awaiting.**
-- **Landed (A2-T41..T43 + A3-T53 SI):** soft×`require_gabriel_and_h` conj
-  collapses majors≤1 (soft alone tori K=2 ARI≈0.26); multi-seed soft_frac
-  seeds0–2 nested≤1 / tori seed-fragile; proposed Youden/Poisson-LR h0
-  (`proposed_h0_calibrated_config`: Youden≈0.73, poisson_lr≈0.76, A4=0.7;
-  defaults unchanged) — nested/tori still unrecovered. **Do not flip
-  awaiting.**
-- **FINDING (A2-T44..T46 + A3-EXP-si63 SI):** multi-seed soft×Youden
-  h0≈0.73 is **seed-fragile** (seed0 nested≤1/tori K=2 ARI≈0.26; seed1
-  soft **inflates** nested K=2 ARI≈0.08; seed2 both≤1). denser×proposed_h0:
-  youden alone tori ARI≈0.14; soft×* collapses both≤1. soft×h0 method
-  contrast (poisson_lr/Youden/A4) identical under soft — **h0 near-null**.
-  Soft drives outcomes; calibrated h0 alone ≠ sample-ARI. **Do not flip
-  awaiting.**
-- **FINDING (A2-T47..T49):** soft_frac×youden seed1 inflate is
-  **frac-windowed** (`soft_frac∈{0.1,0.25,0.5}` → nested K=2 ARI≈0.05–0.08;
-  `≥0.75` collapses); seed0/2 never inflate. denser soft×youden multi-seed
-  **kills** the seed1 inflate. h0-only denser: seed0 youden tori ARI≈0.14;
-  seeds1–2 ≤1. Soft ≠ sample-ARI. **Do not flip awaiting.**
-- **FINDING (A2-T50..T52):** denser soft_frac×youden seed1 inflate
-  **ABSENT** across `frac∈{0.1..0.9}` (denser kills baseline window); seed0
-  soft_0.1 tori K=2 ARI≈0.18 then soft≥0.25 collapses. bridge_mass vs
-  betweenness: seed1 inflate is **betweenness-method-specific**; bridge_mass
-  never inflates. soft×youden at operational τ* (`n_grid=12`): seed1 probe
-  inflate absent; seed0 tori chance-ARI K≥2. Soft ≠ sample-ARI. **Do not
-  flip awaiting.**
-- **FINDING (A2-T53..T56):** denser×bridge_mass kills bet/bridge_mass seed1
-  inflate contrast (both ≤1 across frac). soft×persist@τ* e2e: seed1 nested
-  K=2 chance-ARI≈0 **survives** soft×persist (majors-absent ≠ e2e kill);
-  circle youden shatters / soft+persist keep 1. denser soft seed0 tori keep
-  band is **betweenness-only** (`soft≤0.12` ARI≈0.16–0.18; `≥0.15`
-  collapses — tighter than T50 `≥0.25`); bridge_mass collapses the keep
-  band across `soft∈{0.05..0.25}`. Soft ≠ sample-ARI. **Do not flip
-  awaiting.**
-- **FINDING (A2-T57..T58):** denser soft×persist@τ* e2e: denser **kills**
-  T54 seed1 nested inflate; denser-youden seed0 nested K=2 chance-ARI≈0.01
-  killed by soft/persist; circle youden no shatter. soft×gabriel@τ* e2e:
-  seed1 nested K=2 chance-ARI **survives** soft×conj (contrast T41
-  fixed-τ majors collapse ≠ τ* e2e); circle youden shatters, soft/conj
-  keep uniforms. Soft ≠ sample-ARI. **Do not flip awaiting.**
-- **FINDING (A2-T59..T60):** denser soft keep-band×persist: T55 majors
-  keep≤0.12 does **not** survive denser e2e for bet or bridge_mass (both
-  ≤1); youden nested K=2 chance-ARI≈0.01. denser soft×gabriel@τ*: denser
-  **kills** T58 seed1 nested inflate; denser-youden seed0 nested killed by
-  soft/conj; circle youden no shatter. Soft ≠ sample-ARI. **Do not flip
-  awaiting.**
-- **FINDING (A2-T61..T64):** non-denser soft keep×persist majors:
-  soft≤0.5→tori K=2 chance-ARI≈0.26 (wider than denser T55≤0.12); e2e
-  soft×persist kills band (all≤1). denser soft×gabriel×persist compose
-  does **not** unlock beyond T57/T60 pairwise denser collapse. soft×
-  gabriel×persist majors: seed1 soft inflate killed by conj; e2e seed1
-  nested survives soft×conj×persist (majors≠e2e). denser soft keep×
-  gabriel majors: T55 soft≤0.12 keep **gabriel-fragile** (conj kills);
-  e2e soft/soft×conj≤1. Soft ≠ sample-ARI. **Do not flip awaiting.**
-- **FINDING (A2-T65..T66):** denser soft keep×gabriel×persist e2e frac
-  grid: soft×persist / soft×conj×persist all≤1 across
-  frac∈{0.05,0.12,0.15,0.25} (keep≠e2e). denser soft keep×gabriel
-  multi-seed: T55/T64 keep soft≤0.12→tori K=2 is **seed0-only**;
-  seeds1–2 ≤1; gabriel kills seed0 keep; lean e2e only seed0 youden
-  nested K=2≈0.01. Soft ≠ sample-ARI. **Do not flip awaiting.**
-- **FINDING (A2-T67..T69):** denser soft×gabriel×persist seed1 inflate
-  kills T63 seed1 majors+e2e; multi-seed e2e seeds0..2 all≤1 except
-  seed0 youden nested K=2≈0.01; denser seed0 keep×gabriel × soft×persist
-  = **majors-only pin** (soft≤0.12→tori K=2; gabriel kills; e2e soft×
-  persist all≤1). Soft ≠ sample-ARI. **Do not flip awaiting.**
-- **FINDING (A2-T70..T71):** denser mid-band soft fracs
-  `{0.03,0.08,0.1,0.12,0.18,0.25}` — bare youden alone nested K=2≈0.01
-  (conj/persist/soft×persist ≤1); soft×gabriel majors keep window is
-  **NOT seed-stable** (seed0-only soft≤0.12→tori K=2; seeds1–2 ≤1). Soft
-  ≠ sample-ARI. **Do not flip awaiting.**
-- **FINDING (A2-T72..T73):** denser soft keep×gabriel×persist majors-pin
-  multi-seed confirm — lean fracs `{0.05,0.12,0.15}`: seed0 soft≤0.12→tori
-  K=2 (gabriel kills; soft≥0.15 collapses); seeds1–2 all≤1 (**NOT**
-  seed-stable); soft×persist e2e all≤1. denser kills T63 seed1 soft@0.25
-  nested majors inflate (seeds1–2 soft@0.05/0.12/0.25 all≤1; no soft-
-  inflate for gabriel to kill); seed0 keep singleton. Soft ≠ sample-ARI.
-  **Do not flip awaiting.**
-- **FINDING (A2-T74):** denser soft keep×gabriel×persist youden×majors
-  compose seed0 — majors soft≤0.12→tori K=2 (gabriel kills; soft≥0.15
-  collapses) **and** e2e bare youden nested K=2≈0.01 coexist; conj/
-  persist/soft×persist e2e all≤1 (T69/T70 joint). Soft ≠ sample-ARI.
-  **Do not flip awaiting.**
-- **FINDING (A2-T75):** denser soft×gabriel majors seed0 keep×persist
-  compose vs T73 non-persist — majors soft≤0.12→tori K=2 (gabriel kills;
-  soft=0.25 collapses); e2e non-persist matches T73 (youden nested
-  K=2≈0.01; soft all≤1); soft×persist/soft×conj×persist e2e also≤1 —
-  **persist does NOT rescue** T73 soft e2e collapse. Soft ≠ sample-ARI.
-  **Do not flip awaiting.**
-- **FINDING (A2-T76):** denser soft keep×gabriel×persist majors-pin
-  seed0-only ARI probe — fine T55 soft_frac grid under T69 compose:
-  soft≤0.12→tori K=2 chance-ARI≈0.16–0.18 (gabriel kills; soft≥0.15
-  collapses); soft×persist e2e all≤1 across fine grid; only youden
-  nested K=2≈0.01. Soft ≠ sample-ARI. **Do not flip awaiting.**
-- **Remaining:** denser soft keep×gabriel×persist youden×majors
-  multi-seed vs T74 seed0-only; fuller suite green with **sample-ARI** →
-  retire radial/PCA family + awaiting-flip review (A1 sign-off). Distinct
-  from #28. Post-track: open #45 open-loop / `max_nodes`
-  (`reference/open_loop_growth_and_node_cap.md`) into M4.
+**Validated pivot (orchestrator probes, 2026-08-12):** the right object is the Hartigan
+density cluster tree — components of upper level sets `{p >= lambda}` with an explicit
+background class — estimated by Chaudhuri–Dasgupta robust single linkage; on the
+scaffold, per-node density is read from **node spacing** (equalized code: node density is
+a monotone transform of `p`; the cluster tree is invariant to monotone transforms, so the
+magnification exponent need not be known). Probe:
+`code/proteus/tests/scenarios/synthetic/cd_level_set_probe.py`; scoring is signal-only
+ARI + background recall (full-cloud ARI is capped by fade-halo labels, see #45).
+
+- Batch C–D oracle on raw samples: circle/swiss sig-ARI **1.0/1.0**; nested spheres
+  **0.973**; hierarchical Gaussian **0.99** at K=6 with the coarse K=3 level in the same
+  tree (0.57 vs fine labels); zoo single component as expected; gap-corrected uniform
+  tori **0.99** across seeds 0–2 (at n_per=8000, k=12).
+- Scaffold-native read (fine tau, raised cap, k=8 node-spacing density, C–D linking at
+  alpha=1.0, BMU transfer): circle/swiss **1.0/1.0**; hierarchy **0.93–0.99** at K=6;
+  corrected tori **0.989/0.986/0.998** (seeds 0–2, 768 nodes); nested spheres
+  **0.82/0.92/0.55** (1024 nodes).
+- Measured caveats: (a) hit-equalization compresses density contrast (magnification
+  `gamma < 1`), so the **node budget sets the finest resolvable separation valley**
+  (node `r_k` must sit inside the valley) — nested seed-2 weakness is halo mass stealing
+  node resolution; (b) HDBSCAN condensed-tree (eom) extraction collapses on the
+  quasi-lattice node set — level-sweep reading works, principled automatic extraction is
+  open; (c) the repo linked_tori generator is unseparable by construction (#45), so the
+  corrected uniform-sampled tori scene is the fair benchmark.
+
+Remaining work:
+- Implement a first-class level-set clustering layer (node-spacing density + C–D tree +
+  explicit background tier) behind a `RecursionConfig` flag; extend the S3.4 DM gate
+  with a background class as the acceptance arbiter for tree cuts.
+- Replace expected-K probing with a principled branch extraction (persistence of tree
+  branches / DM-gated cuts); sample-level background-aware ARI is the only recovery
+  metric (component counts are not recovery).
+- Derive/calibrate the node-budget vs valley-resolution requirement (ties into the
+  `max_nodes` removal plan, `reference/open_loop_growth_and_node_cap.md`; open a
+  follow-up issue when scheduled into M4).
+- After the layer validates on repaired benchmarks (#45): deprecate the prepass-flag zoo
+  in `recursion.py` / `edge_evidence.py` (all proposal-path, default off; keep the
+  ROC/adversarial-null calibration infrastructure) and run the awaiting-flip review.
+
+## 45. Synthetic benchmark defects: linked tori unseparable by construction; fade-halo dominates GT labels
+
+Discovered while validating the #44 pivot (2026-08-12):
+
+- `make_linked_tori`: the Hopf-pair core circles have minimum distance
+  `2*sqrt(3-2*sqrt(2)) ~ 0.828`; with the default `minor_radius=0.5` the tube surfaces
+  **overlap** by ~0.17 — the two "tori" are welded into one connected component and the
+  GT expectation of 2 clusters is unsatisfiable for *any* method (this silently doomed
+  every tori-recovery attempt of the burn). `minor_radius <= ~0.35` leaves a real gap
+  (0.3 gives gap ~0.23; 0.25 gives ~0.33).
+- Same generator: each torus is sampled from a 24x12 = 288 kernel-anchor grid with
+  `sigma = 0.02`, so the sampled density is a lattice of clumps whose *intra-torus* gaps
+  (major-circle anchor spacing ~0.45–0.6) exceed the *inter-torus* gap even after the
+  radius fix — the true density cluster tree merges the tori before either ring closes.
+  Needs continuous surface sampling (cf. `uniform_torus` in
+  `tests/scenarios/synthetic/cd_level_set_probe.py`) or a much denser anchor grid.
+- Resolvability is a sampling statement: separation requires the k-NN radius to fit
+  inside the gap (`r_k < gap`). At `n_per_torus=1000` even corrected geometry is
+  marginal; the probe needed n_per ~ 4000–8000 for robust batch separation. Scene
+  metadata should declare gap width so tests can assert `r_k < gap` before expecting
+  recovery.
+- Faded-density generators label everything below `lambda = 0.5` as -1, which puts
+  ~half of all samples in the halo/tissue class (nested spheres default: 48%). Full-cloud
+  metrics are therefore dominated by halo points; recovery scoring must be signal-only
+  ARI + background recall (as in the #44 probe).
+
+Work: re-parameterize/fix the linked_tori generator (continuous sampling, declared gap),
+add per-scene resolvability metadata (gap vs expected `r_k`), and re-baseline the
+`@awaiting` recovery expectations (#41, #26) on the repaired scenes.
+
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
