@@ -264,26 +264,33 @@ ARI + background recall (full-cloud ARI is capped by fade-halo labels, see #45).
 
 Remaining work:
 - **LANDED (2026-08-13; default off):** `stage1/level_set.py` implements the node-spacing
-  C–D tree (`k=8`, `alpha=1`, four-node floor, 120 quantile levels);
-  `RecursionConfig.use_level_set_clustering` selects its coarsest background-aware
-  DM-accepted cut, preserves label `-1` as terminal `RecursionNode.is_background`, and
+  C–D tree (`k=8`, `alpha=1`, four-node floor, 120 quantile levels) plus an explicit
+  merge DAG (overlap matching, ToMATo survivor), rank persistence, normalized excess
+  mass, sequential geometric screens, and a background-aware DM sibling collapse.
+  `RecursionConfig.use_level_set_clustering` returns the coarsest retained sibling
+  split, preserves label `-1` as terminal `RecursionNode.is_background`, and
   propagates through finer research / child recursion. `dm_partition_background_logbf`
   keeps background as a fixed additional outcome (its unchanged row cancels), with an
   exact-edit unit lock. Legacy Q/AP persistence and no-background DM flags are explicitly
   rejected when combined rather than silently mixing outcome spaces; retired geometry /
   hollow prepass flags are likewise rejected instead of ignored. Defaults unchanged.
-- **ACCEPTANCE BLOCKER (measured immediately after wiring):** expected-K-free coarsest-DM
-  extraction is not yet canonical. On fixed fine scaffolds it recovers nested seed0
-  (`K=2`, signal ARI 0.82) and hierarchy (`K=3` coarse, ARI 0.57), but false-splits a
-  tissue-polluted circle into arcs (`K=2`, signal ARI 0) and nested remains seed-fragile.
-  Sweeping `k in {4,8,16}` or simple active/component-mass floors does not separate these
-  cases consistently. Perfect uniform-ring unit geometry rejects correctly; the fitted
-  finite-sample/tissue case is the blocker. Keep the flag off.
-- Replace expected-K probing with a principled branch extraction (persistence of tree
-  branches / a background-aware null that rejects uniform-manifold arcs). Existing
-  Q/AP `PersistenceConfig` cannot be reused unchanged because it snapshots a different
-  partition family; level-set branch persistence needs its own snapshots. Sample-level
-  background-aware ARI is the only recovery metric (component counts are not recovery).
+- **LANDED (branch extraction, still default off):** expected-K-free coarsest-DM
+  snapshot selection is replaced by the DAG prune above. Uniform-ring unit geometry
+  still rejects; two-blob geometry still splits at the coarsest `K=2` level. Family-wise
+  calibration (`tests/scenarios/synthetic/level_set_branch_calibrate.py`; ring / swiss /
+  line / density-gradient / disk; seeds 0–2; `n` 32/64; tissue 0/0.05) finds that the
+  largest spurious branch per region overlaps true two-blob / four-clump splits
+  (`P≤0.642` / `M≤0.166` vs positive max `0.791` / `0.209`; min-positive minus max-null
+  is negative). Geometric floors therefore stay runt screens (`min_persistence=0.05`,
+  `min_excess_mass=0.02`); they cannot family-wise control connected-manifold false
+  splits without killing power. DM remains the sibling arbiter.
+- **ACCEPTANCE BLOCKER:** promotion still requires multi-seed connected-null rejection
+  on *fitted* scaffolds (a tissue-polluted circle previously false-split under
+  coarsest-DM; rank/mass screens do not close that gap) and repaired-benchmark recovery
+  (#45). Nested remains seed-fragile. Keep the flag off. Do not flip awaiting tests or
+  delete S2.6.1 stand-ins in the same change. Sample-level background-aware ARI is the
+  only recovery metric (component counts are not recovery). Existing Q/AP
+  `PersistenceConfig` snapshots a different partition family and is not reused.
 - Derive/calibrate the node-budget vs valley-resolution requirement (ties into the
   `max_nodes` removal plan, `reference/open_loop_growth_and_node_cap.md`; open a
   follow-up issue when scheduled into M4).

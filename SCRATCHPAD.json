@@ -1,27 +1,27 @@
 {
-  "updated_at": "2026-08-13T02:30:00-05:00",
-  "turn": 68,
+  "updated_at": "2026-08-13T10:45:00-05:00",
+  "turn": 69,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "replace coarsest-DM extraction with a principled level-set branch null"
+    "goal": "level-set branch DAG prune landed; keep flag off"
   },
   "recent": [
-    "Added stage1/level_set.py: node-spacing C-D tree, explicit -1 background, coarsest background-aware DM extraction; default off",
-    "Recursion flag use_level_set_clustering wired through finer research + children; background becomes terminal is_background leaf; incompatible legacy paths rejected",
-    "Cross-family Grok audit: no remaining high/medium issues after fixes; focused tests 19 passed",
-    "Stopped 54-minute scale/persistence run; recursion file completed in 55m. Opened #46 to move simulations out of routine pytest"
+    "C-D merge DAG + rank persistence + excess mass + DM sibling collapse replace coarsest-DM cuts",
+    "Calibration: connected-null P/M envelope overlaps true splits; floors stay 0.05/0.02 runt screens",
+    "Focused level-set/recursion tests 18 passed in 1.0s; sweeps live in level_set_branch_calibrate.py",
+    "SI S2.6.2/S14.3 updated; use_level_set_clustering remains False"
   ],
   "discoveries": [
-    "Background-aware DM is exact fixed-outcome: add B as outcome; B row cancels; empty-B equals classic DM",
-    "Coarsest-DM is not canonical: fitted tissue circle false-splits arcs (K2/ARI0); nested seed-fragile. k sweep + simple mass floors did not solve",
-    "Perfect uniform ring rejects; fitted finite-sample/tissue branch null is the acceptance blocker"
+    "Rank persistence cannot FWER-reject connected-manifold arcs without killing two-blob power",
+    "Uniform ring still DM-rejects; fitted tissue-circle false-split remains the promotion blocker",
+    "Far tissue is needed for C-D quantile sweep to reach merge radii on clump scenes"
   ],
   "open_threads": [
-    "Principled level-set branch extraction; existing Q/AP persistence snapshots are a different partition family",
+    "Fitted connected-null rejection (tissue circle) still open; do not promote #44",
     "Repair linked_tori generator and resolvability metadata (#45)",
-    "Separate fast tests from calibration/simulation workloads and add runtime guard (#46)"
+    "Separate fast tests from calibration/simulation workloads (#46)"
   ],
-  "next_step": "design level-set-native branch persistence/background null that rejects fitted circle arcs",
+  "next_step": "fitted-scaffold connected-null study or #45 generator repair; keep flag off",
   "blockers": []
 }

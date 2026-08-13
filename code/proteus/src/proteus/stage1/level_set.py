@@ -7,18 +7,19 @@ single-linkage sweep over node positions therefore estimates the Hartigan
 density cluster tree without volumetric cells or a known magnification
 exponent.
 
-Tree construction and automatic extraction are proposal-path and default-off:
-inspect candidate partitions from coarse to fine and select the coarsest one
-whose signal blocks clear the background-aware Dirichlet--multinomial
-homogeneity Bayes factor. This is the intended acceptance reduction, but the
-finite-sample branch null remains unresolved (#44). Nodes inactive at the
-chosen density level retain label ``-1`` as an explicit background tier rather
-than being forcibly absorbed into a signal cluster.
+Tree construction is proposal-path and default-off.  Automatic extraction
+builds an explicit merge DAG, prunes short-lived and low-mass branches
+(ToMATo-style rank persistence and normalized excess mass), then confirms
+surviving sibling groups with the background-aware Dirichlet--multinomial
+homogeneity Bayes factor.  The finite-sample connected-manifold null remains
+the acceptance blocker (#44); this path is not a default.  Nodes inactive or
+runt-sized at the chosen density level retain label ``-1`` as an explicit
+background tier rather than being forcibly absorbed into a signal cluster.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import numpy as np
@@ -40,8 +41,13 @@ __all__ = [
     "LevelSetConfig",
     "LevelSetLevel",
     "LevelSetTree",
+    "LevelSetBranch",
+    "LevelSetDAG",
     "LevelSetSelection",
     "build_level_set_tree",
+    "build_level_set_dag",
+    "apply_geometric_screens",
+    "apply_dm_sibling_collapse",
     "select_level_set_partition",
 ]
 
@@ -53,24 +59,40 @@ class LevelSetConfig:
     ``k_neighbors=8`` and ``alpha=1`` are the validated proposal-path reader
     from the #44 probes.  ``n_levels`` samples the monotone density sweep; it
     does not choose the accepted partition.  ``min_cluster_size`` suppresses
-    components too small to be evidence-bearing.  The DM gate is the sole
-    automatic split arbiter.
+    components too small to be evidence-bearing.
+
+    ``min_persistence`` and ``min_excess_mass`` are family-wise geometric
+    screens (SI S14.3).  Connected-manifold nulls (ring, disk, line) produce
+    spurious-branch envelopes that overlap true two-blob / four-clump splits,
+    so the defaults prune only short-lived or low-mass runts; the
+    background-aware DM sibling test remains the connected-manifold guard.
+    They are operational proposal-path defaults, not promoted acceptance
+    constants.
     """
 
     k_neighbors: int = 8
     alpha: float = 1.0
     min_cluster_size: int = 4
     n_levels: int = 120
+    min_persistence: float = 0.05
+    min_excess_mass: float = 0.02
 
 
 @dataclass(frozen=True)
 class LevelSetLevel:
-    """One density level in the estimated cluster tree."""
+    """One density level in the estimated cluster tree.
+
+    Public ``labels`` map runt and inactive nodes to ``-1``.  ``n_inactive``
+    counts nodes with ``r_k > r``; ``n_runt`` counts active components below
+    ``min_cluster_size``.  Both contribute to ``n_background``.
+    """
 
     radius: float
     labels: np.ndarray
     n_clusters: int
     n_background: int
+    n_inactive: int = 0
+    n_runt: int = 0
 
 
 @dataclass(frozen=True)
@@ -82,6 +104,41 @@ class LevelSetTree:
 
 
 @dataclass(frozen=True)
+class LevelSetBranch:
+    """One persistent component in the C-D merge DAG.
+
+    ``persistence`` is the core-radius rank lifetime
+    ``rank(merge) - rank(birth)`` (or ``1 - rank(birth)`` if the branch
+    survives to the coarsest level).  ``excess_mass`` is the integral of
+    per-level node-mass fraction along that rank interval.  ``prune_reason``
+    is ``None`` for retained branches and one of ``"persistence"``,
+    ``"excess_mass"``, or ``"dm"`` after screening.
+    """
+
+    branch_id: int
+    birth_level: int
+    merge_level: int | None
+    parent_id: int | None
+    child_ids: tuple[int, ...]
+    node_ids: frozenset[int]
+    persistence: float
+    excess_mass: float
+    prune_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class LevelSetDAG:
+    """Merge DAG plus per-level cluster-to-branch map.
+
+    ``level_branch_ids[ℓ][k]`` is the branch id of public cluster ``k`` at
+    structural level ``ℓ`` (fine-to-coarse, matching ``tree.levels``).
+    """
+
+    branches: tuple[LevelSetBranch, ...]
+    level_branch_ids: tuple[tuple[int, ...], ...]
+
+
+@dataclass(frozen=True)
 class LevelSetSelection:
     """Automatic extraction result and diagnostics."""
 
@@ -89,6 +146,8 @@ class LevelSetSelection:
     cluster_result: ClusterResult | None
     selected_level: int | None
     log_bf: float
+    dag: LevelSetDAG | None = None
+    branches: tuple[LevelSetBranch, ...] = ()
 
     @property
     def accepted(self) -> bool:
@@ -112,11 +171,9 @@ def build_level_set_tree(
 
     At radius ``r``, activate nodes whose distance to their k-th *other*
     neighbour is at most ``r`` and connect active pairs within ``alpha * r``.
-    Components with fewer than ``min_cluster_size`` nodes remain background.
-    Thus label ``-1`` operationally combines inactive low-density nodes and
-    active runt components; distinguishing those background subtypes is part
-    of the unresolved branch-extraction work. Levels are ordered from
-    fine/high-density to coarse/low-density.
+    Components with fewer than ``min_cluster_size`` nodes remain background
+    (runts), distinct in the ``n_runt`` count from never-activated nodes.
+    Levels are ordered from fine/high-density to coarse/low-density.
     """
 
     config = config or LevelSetConfig()
@@ -137,6 +194,8 @@ def build_level_set_tree(
                     labels=labels,
                     n_clusters=0,
                     n_background=1,
+                    n_inactive=1,
+                    n_runt=0,
                 ),
             ),
         )
@@ -159,7 +218,8 @@ def build_level_set_tree(
     for radius in radii:
         active = np.where(core_radii <= float(radius))[0]
         labels = np.full(n, -1, dtype=int)
-        if active.size >= min_size:
+        n_runt = 0
+        if active.size:
             sub = points[active]
             pairs = cKDTree(sub).query_pairs(
                 alpha * float(radius),
@@ -182,20 +242,22 @@ def build_level_set_tree(
             remap = {int(c): i for i, c in enumerate(major)}
             for node_id, comp_id in zip(active, component, strict=True):
                 labels[int(node_id)] = remap.get(int(comp_id), -1)
+            n_runt = int(np.sum(sizes[sizes < min_size]))
 
-        # Multiple adjacent radii can induce the same partition.  Keep only
-        # structural changes; labels are already dense and deterministic.
         if previous is not None and np.array_equal(labels, previous):
             continue
         previous = labels.copy()
         live = labels[labels >= 0]
         n_clusters = len(set(int(v) for v in live))
+        n_inactive = int(n - active.size)
         levels.append(
             LevelSetLevel(
                 radius=float(radius),
                 labels=labels,
                 n_clusters=n_clusters,
                 n_background=int(np.sum(labels < 0)),
+                n_inactive=n_inactive,
+                n_runt=n_runt,
             ),
         )
 
@@ -203,6 +265,233 @@ def build_level_set_tree(
         core_radii=core_radii,
         levels=tuple(levels),
     )
+
+
+def _cluster_sets(labels: np.ndarray) -> dict[int, set[int]]:
+    groups: dict[int, set[int]] = {}
+    for i, lab in enumerate(np.asarray(labels, dtype=int)):
+        if lab < 0:
+            continue
+        groups.setdefault(int(lab), set()).add(int(i))
+    return groups
+
+
+def _map_fine_to_coarse(
+    fine: dict[int, set[int]],
+    coarse: dict[int, set[int]],
+) -> dict[int, int | None]:
+    """Map each fine cluster to the coarse cluster of maximum overlap.
+
+    Empty overlap is background absorption.  C-D components only grow and
+    merge as radius increases, so this recovers the unique tree parent.
+    """
+
+    mapping: dict[int, int | None] = {}
+    for fine_id, fine_nodes in fine.items():
+        best_id: int | None = None
+        best_overlap = 0
+        for coarse_id, coarse_nodes in coarse.items():
+            overlap = len(fine_nodes & coarse_nodes)
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_id = int(coarse_id)
+        mapping[int(fine_id)] = best_id if best_overlap > 0 else None
+    return mapping
+
+
+def _level_ranks(tree: LevelSetTree) -> np.ndarray:
+    """Empirical core-radius CDF at each structural level (monotone rank)."""
+
+    radii = np.asarray(tree.core_radii, dtype=float)
+    n_levels = len(tree.levels)
+    ranks = np.zeros(n_levels, dtype=float)
+    if radii.size == 0:
+        if n_levels:
+            ranks[:] = np.linspace(0.0, 1.0, n_levels)
+        return ranks
+    for i, level in enumerate(tree.levels):
+        ranks[i] = float(np.mean(radii <= float(level.radius)))
+    return ranks
+
+
+def _branch_stats(
+    nodes_by_level: dict[int, frozenset[int]],
+    birth_level: int,
+    merge_level: int | None,
+    ranks: np.ndarray,
+    n_nodes: int,
+) -> tuple[float, float]:
+    """Return ``(persistence, excess_mass)`` on the rank scale."""
+
+    n_rank = int(ranks.shape[0])
+    birth_rank = float(ranks[birth_level]) if n_rank else 0.0
+    if merge_level is None:
+        death_rank = 1.0
+        last = n_rank
+    else:
+        death_rank = float(ranks[merge_level]) if merge_level < n_rank else 1.0
+        last = int(merge_level)
+    persistence = max(0.0, death_rank - birth_rank)
+    if n_nodes <= 0 or last <= birth_level:
+        return persistence, 0.0
+
+    mass = 0.0
+    denom = float(n_nodes)
+    living = sorted(ℓ for ℓ in nodes_by_level if birth_level <= ℓ < last)
+    for idx, level in enumerate(living):
+        if idx + 1 < len(living):
+            nxt = living[idx + 1]
+            delta = float(ranks[nxt] - ranks[level])
+        else:
+            delta = death_rank - float(ranks[level])
+        if delta <= 0.0:
+            continue
+        mass += (len(nodes_by_level[level]) / denom) * delta
+    return persistence, float(mass)
+
+
+def build_level_set_dag(tree: LevelSetTree) -> LevelSetDAG:
+    """Recover stable branch identities from adjacent C-D partitions.
+
+    Matching uses set overlap.  When several fine components merge, the
+    oldest (earliest birth, then larger mass) continues and the others die
+    into it — the ToMATo survivor rule.  Unmatched fine components are
+    absorbed into background.
+    """
+
+    if not tree.levels:
+        return LevelSetDAG(branches=(), level_branch_ids=())
+
+    n_nodes = int(tree.levels[0].labels.shape[0])
+    ranks = _level_ranks(tree)
+    next_id = 0
+    records: dict[int, dict[str, Any]] = {}
+    level_maps: list[dict[int, int]] = []
+
+    first = _cluster_sets(tree.levels[0].labels)
+    cmap: dict[int, int] = {}
+    for lab, nodes in first.items():
+        bid = next_id
+        next_id += 1
+        records[bid] = {
+            "birth_level": 0,
+            "merge_level": None,
+            "parent_id": None,
+            "child_ids": [],
+            "nodes_by_level": {0: frozenset(nodes)},
+        }
+        cmap[int(lab)] = bid
+    level_maps.append(cmap)
+
+    for i in range(len(tree.levels) - 1):
+        fine = _cluster_sets(tree.levels[i].labels)
+        coarse = _cluster_sets(tree.levels[i + 1].labels)
+        mapping = _map_fine_to_coarse(fine, coarse)
+        prev_cmap = level_maps[i]
+        next_cmap: dict[int, int] = {}
+        children_of: dict[int, list[int]] = {int(c): [] for c in coarse}
+        unmatched: list[int] = []
+        for fine_id, coarse_id in mapping.items():
+            if coarse_id is None:
+                unmatched.append(int(fine_id))
+            else:
+                children_of[int(coarse_id)].append(int(fine_id))
+
+        for fine_id in unmatched:
+            bid = prev_cmap[fine_id]
+            records[bid]["merge_level"] = i + 1
+
+        for coarse_id, fine_ids in children_of.items():
+            cnodes = frozenset(coarse[coarse_id])
+            if not fine_ids:
+                bid = next_id
+                next_id += 1
+                records[bid] = {
+                    "birth_level": i + 1,
+                    "merge_level": None,
+                    "parent_id": None,
+                    "child_ids": [],
+                    "nodes_by_level": {i + 1: cnodes},
+                }
+                next_cmap[coarse_id] = bid
+                continue
+            if len(fine_ids) == 1:
+                bid = prev_cmap[fine_ids[0]]
+                records[bid]["nodes_by_level"][i + 1] = cnodes
+                next_cmap[coarse_id] = bid
+                continue
+            child_bids = [prev_cmap[f] for f in fine_ids]
+            survivor = min(
+                child_bids,
+                key=lambda b: (
+                    int(records[b]["birth_level"]),
+                    -len(records[b]["nodes_by_level"][i]),
+                    b,
+                ),
+            )
+            for bid in child_bids:
+                if bid == survivor:
+                    continue
+                records[bid]["merge_level"] = i + 1
+                records[bid]["parent_id"] = survivor
+                records[survivor]["child_ids"].append(bid)
+            records[survivor]["nodes_by_level"][i + 1] = cnodes
+            next_cmap[coarse_id] = survivor
+        level_maps.append(next_cmap)
+
+    branches: list[LevelSetBranch] = []
+    for bid, rec in sorted(records.items()):
+        persistence, excess = _branch_stats(
+            rec["nodes_by_level"],
+            int(rec["birth_level"]),
+            rec["merge_level"],
+            ranks,
+            n_nodes,
+        )
+        last_level = max(rec["nodes_by_level"])
+        branches.append(
+            LevelSetBranch(
+                branch_id=int(bid),
+                birth_level=int(rec["birth_level"]),
+                merge_level=rec["merge_level"],
+                parent_id=rec["parent_id"],
+                child_ids=tuple(int(c) for c in rec["child_ids"]),
+                node_ids=frozenset(rec["nodes_by_level"][last_level]),
+                persistence=float(persistence),
+                excess_mass=float(excess),
+            ),
+        )
+
+    level_branch_ids = tuple(
+        tuple(cmap[k] for k in sorted(cmap))
+        for cmap in level_maps
+    )
+    return LevelSetDAG(
+        branches=tuple(branches),
+        level_branch_ids=level_branch_ids,
+    )
+
+
+def apply_geometric_screens(
+    branches: tuple[LevelSetBranch, ...],
+    config: LevelSetConfig | None = None,
+) -> tuple[LevelSetBranch, ...]:
+    """Prune branches that fail rank persistence or excess-mass floors."""
+
+    config = config or LevelSetConfig()
+    min_p = float(config.min_persistence)
+    min_m = float(config.min_excess_mass)
+    out: list[LevelSetBranch] = []
+    for branch in branches:
+        reason = branch.prune_reason
+        if reason is None and branch.persistence < min_p:
+            reason = "persistence"
+        if reason is None and branch.excess_mass < min_m:
+            reason = "excess_mass"
+        out.append(branch if reason == branch.prune_reason else replace(
+            branch, prune_reason=reason,
+        ))
+    return tuple(out)
 
 
 def _label_sets(labels: np.ndarray) -> tuple[list[set[int]], set[int]]:
@@ -214,18 +503,141 @@ def _label_sets(labels: np.ndarray) -> tuple[list[set[int]], set[int]]:
     return clusters, background
 
 
+def _branch_alive(branch: LevelSetBranch, level: int) -> bool:
+    if branch.birth_level > level:
+        return False
+    if branch.merge_level is None:
+        return True
+    return level < int(branch.merge_level)
+
+
+def _branch_nodes_at(
+    tree: LevelSetTree,
+    dag: LevelSetDAG,
+    branch_id: int,
+    level: int,
+) -> set[int]:
+    if not (0 <= level < len(dag.level_branch_ids)):
+        return set()
+    ids = dag.level_branch_ids[level]
+    labels = tree.levels[level].labels
+    for cluster_id, bid in enumerate(ids):
+        if int(bid) == int(branch_id):
+            return set(np.where(labels == cluster_id)[0].tolist())
+    return set()
+
+
+def _labels_from_branches(
+    tree: LevelSetTree,
+    dag: LevelSetDAG,
+    alive: list[LevelSetBranch],
+    level: int,
+) -> np.ndarray:
+    n = int(tree.levels[level].labels.shape[0])
+    labels = np.full(n, -1, dtype=int)
+    for new_id, branch in enumerate(alive):
+        for node in _branch_nodes_at(tree, dag, branch.branch_id, level):
+            labels[int(node)] = new_id
+    return labels
+
+
+def apply_dm_sibling_collapse(
+    tree: LevelSetTree,
+    dag: LevelSetDAG,
+    branches: tuple[LevelSetBranch, ...],
+    scaffold: Any,
+    dm_config: DMClusterConfig,
+) -> tuple[LevelSetBranch, ...]:
+    """Collapse geometrically surviving siblings that fail the DM split test."""
+
+    by_id = {int(b.branch_id): b for b in branches}
+    parents = [
+        b for b in branches
+        if b.child_ids and b.prune_reason is None
+    ]
+    parents.sort(
+        key=lambda p: min(
+            (
+                int(by_id[c].merge_level)
+                for c in p.child_ids
+                if c in by_id and by_id[c].merge_level is not None
+            ),
+            default=0,
+        ),
+    )
+    for parent in parents:
+        parent = by_id[parent.branch_id]
+        if parent.prune_reason is not None:
+            continue
+        kids = [
+            by_id[c] for c in parent.child_ids
+            if c in by_id and by_id[c].prune_reason is None
+        ]
+        if not kids:
+            continue
+        merge_at = min(
+            int(k.merge_level) for k in kids if k.merge_level is not None
+        ) if any(k.merge_level is not None for k in kids) else None
+        if merge_at is None or merge_at < 1:
+            continue
+        level = merge_at - 1
+        group = [parent, *kids]
+        clusters = [
+            _branch_nodes_at(tree, dag, g.branch_id, level) for g in group
+        ]
+        clusters = [c for c in clusters if c]
+        if len(clusters) < 2:
+            continue
+        assigned: set[int] = set()
+        for cluster in clusters:
+            assigned |= cluster
+        background = set(range(int(tree.levels[level].labels.shape[0]))) - assigned
+        _log_bf, accepted = dm_partition_background_verdict(
+            scaffold, clusters, background, dm_config,
+        )
+        if accepted:
+            continue
+        for kid in kids:
+            by_id[kid.branch_id] = replace(kid, prune_reason="dm")
+    return tuple(by_id[k] for k in sorted(by_id))
+
+
+def _cluster_result_from_labels(
+    scaffold: Any,
+    labels: np.ndarray,
+) -> ClusterResult:
+    clusters, _background = _label_sets(labels)
+    n = int(labels.shape[0])
+    hits = np.asarray(
+        [float(node.hit_count) for node in scaffold.nodes],
+        dtype=float,
+    )
+    exemplars = np.asarray(
+        [int(max(c, key=lambda node_id: hits[node_id])) for c in clusters],
+        dtype=int,
+    ) if clusters else np.empty(0, dtype=int)
+    graph_lifted = scaffold.links.neighbour_graph(n)
+    weights = compute_edge_weights(scaffold)
+    q_value = partition_q_score(clusters, n, weights, graph_lifted) if clusters else 0.0
+    return ClusterResult(
+        labels=labels.copy(),
+        exemplar_indices=exemplars,
+        n_clusters=len(clusters),
+        partition_q_score=float(q_value),
+    )
+
+
 def select_level_set_partition(
     scaffold: Any,
     config: LevelSetConfig | None = None,
     dm_config: DMClusterConfig | None = None,
 ) -> LevelSetSelection:
-    """Select the coarsest evidence-bearing split in the node-density tree.
+    """Select the coarsest pruned-tree split that clears the DM margin.
 
-    Candidate levels are inspected from coarse to fine.  The first partition
-    with at least two signal components that clears the background-aware DM
-    margin is returned.  This is hierarchy-preserving: recursion receives the
-    coarsest accepted split, then can discover finer branches inside each
-    child.  No expected cluster count or ground-truth label enters selection.
+    Pipeline: C-D tree → merge DAG → persistence / excess-mass screens →
+    DM sibling collapse → coarsest level with two or more unpruned living
+    signal branches.  No expected cluster count or ground-truth label enters
+    selection.
     """
 
     config = config or LevelSetConfig()
@@ -238,49 +650,47 @@ def select_level_set_partition(
     if not tree.levels:
         return LevelSetSelection(tree, None, None, float("-inf"))
 
+    dag = build_level_set_dag(tree)
+    screened = apply_geometric_screens(dag.branches, config)
+    screened = apply_dm_sibling_collapse(
+        tree, dag, screened, scaffold, dm_config,
+    )
+    by_id = {int(b.branch_id): b for b in screened}
+
     best_rejected_bf = float("-inf")
     for level_index in range(len(tree.levels) - 1, -1, -1):
-        level = tree.levels[level_index]
-        if level.n_clusters < 2:
+        alive = [
+            by_id[int(bid)]
+            for bid in dag.level_branch_ids[level_index]
+            if int(bid) in by_id
+            and by_id[int(bid)].prune_reason is None
+            and _branch_alive(by_id[int(bid)], level_index)
+        ]
+        # Unique by id: a continued survivor appears once per level.
+        unique: dict[int, LevelSetBranch] = {}
+        for branch in alive:
+            unique[branch.branch_id] = branch
+        alive = list(unique.values())
+        if len(alive) < 2:
             continue
-        clusters, background = _label_sets(level.labels)
+        labels = _labels_from_branches(tree, dag, alive, level_index)
+        clusters, background = _label_sets(labels)
+        if len(clusters) < 2:
+            continue
         log_bf, accepted = dm_partition_background_verdict(
-            scaffold,
-            clusters,
-            background,
-            dm_config,
+            scaffold, clusters, background, dm_config,
         )
         best_rejected_bf = max(best_rejected_bf, float(log_bf))
         if not accepted:
             continue
-
-        hits = np.asarray(
-            [float(node.hit_count) for node in scaffold.nodes],
-            dtype=float,
-        )
-        exemplars = np.asarray(
-            [int(max(c, key=lambda node_id: hits[node_id])) for c in clusters],
-            dtype=int,
-        )
-        graph_lifted = scaffold.links.neighbour_graph(len(scaffold.nodes))
-        weights = compute_edge_weights(scaffold)
-        q_value = partition_q_score(
-            clusters,
-            len(scaffold.nodes),
-            weights,
-            graph_lifted,
-        )
-        result = ClusterResult(
-            labels=level.labels.copy(),
-            exemplar_indices=exemplars,
-            n_clusters=len(clusters),
-            partition_q_score=float(q_value),
-        )
+        result = _cluster_result_from_labels(scaffold, labels)
         return LevelSetSelection(
             tree=tree,
             cluster_result=result,
             selected_level=level_index,
             log_bf=float(log_bf),
+            dag=replace(dag, branches=screened),
+            branches=screened,
         )
 
     return LevelSetSelection(
@@ -288,4 +698,6 @@ def select_level_set_partition(
         cluster_result=None,
         selected_level=None,
         log_bf=best_rejected_bf,
+        dag=replace(dag, branches=screened),
+        branches=screened,
     )
