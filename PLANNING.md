@@ -13,10 +13,10 @@ bodies below stay static descriptions.
 | Milestone | Status |
 |---|---|
 | M0 — Spec/implementation sync pass | done |
-| M1 — Canonical clustering objective | blocked on #44 (#27: coarse-anchoring fixes circle/hierarchy heuristic-free; cold-start recheck (ii') REFUTED. Part B: DM cluster-acceptance reduction IMPLEMENTED behind a flag (`stage1/dm_cluster.py`, `RecursionConfig.require_dm_split`, proposed SI S2.6.3) + validated + cross-family audited. `persist+dm` recovers circle 1 / hierarchy 6 / swiss 1 heuristic-free. FULLER-SUITE FINDING: `persist+dm` does NOT generalize to disconnected scenes (nested_spheres/linked_tori/manifold_zoo) — no path recovers gt component count because the `L=1` selector picks tau* too coarse (single-scale K=1 at tau* and at expected_tau; components separate only ~80× finer), so recursion terminates before the gate. Filed #44; stand-in deletion / default flip now gated on it) |
-| M2 — Characteristic-scale selection rebuild | in progress (load-crossover default; persistence signal + tau/heat bridge landed; c_{d,k} calibrated + shipped, SI S2.5.5; #31 hierarchy-recovery harness now uses per-frame tau + gates tightened vs canonical tau*I (S2.5.4), RESOLVED; remaining: persistence coarse-end refinement, delete legacy load-band selector) |
+| M1 — Canonical clustering objective | blocked on #44 (T76 majors-pin ARI≈0.16–0.18 chance only; Soft≠sample-ARI. No awaiting flip.) |
+| M2 — Characteristic-scale selection rebuild | in progress (half×sArg mid-closer except seed2; LC straddle fine>coarse but LC≡0. Do not flip default.) |
 | M3 — Constant audit & calibration tier | done (c_{d,k} + C_Q(d) calibrated on the shared uniform-d-ball ensemble; S14.3 three-tier audit #37 complete; intrinsic-dim estimator #39 validated vs GT + Levina–Bickel cross-check shipped, SI S1.4.1. Operational estimator-wiring divergence surfaced as #40, deferred to the M5 junction-detection consumer.) |
-| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (step 1a flag-complex construction landed — `stage2/flag_complex.py`, S4.1/S4.2/S4.5/S13.4. step 2 DM EVIDENCE GATE landed — `evidence/dm_score.py`+`star_matrix.py`+`gate.py`, S3.4/S3.5/S3.6/S10.4; 7 awaiting tests flipped + 6 new, cross-family audited. Remaining: wire gate into runtime scaffold loop (unblocks M1 Part B), T3 count transfer (S4.3/S4.4), dual-connectivity #43, topology-recovery #41, S6 dual flow) |
+| M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 traj×fail_closed compose 177p flags off; do not close. #41: densify294/318 both hard-fail; mult3 dip@0.23; denser512 void-absent. Remaining: densify290/320 / #45) |
 | M5 — Inference interface & diagnostics | not started |
 | M6 — Evaluation, benchmarks, paper finalization | not started |
 
@@ -140,6 +140,10 @@ Suggested internal order (each step flips its strict-xfail "awaiting" tests):
 2. **DM evidence gate** (S3.4–S3.6): closed-form score, affected-region localization,
    rerouting, Bayes-factor margin, cadence/hysteresis/edit budgets; star-matrix
    conditioning check (S10.4). Reduction tests: DM consistency (S3.5).
+   **Also (post-#44 hollow-edge):** wire this gate into the Stage-1 split loop as the
+   split arbiter so `max_nodes` can become a safety assert — diagnosis and remedy order
+   in `reference/open_loop_growth_and_node_cap.md` (A1 opens a numbered issue when #44
+   frees capacity; same wiring effort as the runtime scaffold loop).
 3. **Dual flow + density** (S6.1–S6.4): online face-pressure tallies, conservative solve
    (loopy Gaussian BP), simplex-local density, mass-conservation and flux health checks.
    Reduction tests: simplex–node correspondence (S9.3), mass conservation properties.

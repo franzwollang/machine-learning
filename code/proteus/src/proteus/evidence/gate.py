@@ -21,9 +21,11 @@ backstopped by the gate itself (SI S14.3): ``tau_bf`` in ``[1, 3]`` for splits,
 from __future__ import annotations
 
 import heapq
-from collections.abc import Mapping, Sequence
+from collections import deque
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from math import log
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 
@@ -32,13 +34,77 @@ from proteus.evidence.dm_score import NodeTransition, evaluate_edit, f_dm
 from proteus.evidence.star_matrix import RHO_MIN_DEFAULT, quarantined_nodes
 
 __all__ = [
+    "DualAdjacency",
     "GateConfig",
+    "FailClosedScoreEditCase",
+    "FailClosedScoreEditMatrixProbe",
+    "FailClosedEvidenceGateCaseResult",
+    "FailClosedEvidenceGateMatrixProbe",
+    "FailClosedDryRunEvidenceCase",
+    "FailClosedDryRunEvidenceProbe",
+    "FailClosedDryRunReconnectCase",
+    "FailClosedDryRunReconnectProbe",
     "gate_window",
     "hysteresis_window",
     "edit_budget",
+    "affected_dual_subgraph_connected",
     "score_edit",
+    "probe_fail_closed_score_edit_matrix",
+    "probe_fail_closed_evidence_gate_matrix",
+    "probe_fail_closed_dry_run_evidence_gate",
+    "probe_fail_closed_dry_run_reconnect_bridge",
     "EvidenceGate",
 ]
+
+
+@runtime_checkable
+class DualAdjacency(Protocol):
+    """S6 dual / face-graph adjacency list shape (SI S6.2 / S10.4; #43).
+
+    SI anchors (read-only cross-links; no SI prose change this turn):
+
+    * Producer home — SI **S6 Dual Flow** ``\\label{sec:si-dual-flow}``;
+      subsection **S6.2 Conservative Reconstruction** (face/factor graph that
+      yields simplex adjacency once dual-flow lands as ``stage2.dual_flow``).
+    * Consumer home — SI **S10.4 Star Matrix Identifiability**, paragraph
+      **Dynamic preservation rule** (condition A2: affected dual subgraph
+      remains connected for an edit to be evidence-bearing). Operational
+      star-matrix proxy labeled ``\\label{par:si-star-runtime-matrix}``.
+
+    Contract for values passed as ``dual_adjacency`` (not invented here):
+
+    * **Vertices** — simplex ids of the *post-edit dry-run* complex.
+    * **Edges** — undirected; two simplices are adjacent iff they share a facet
+      (codim-1 face). Producer should keep the list symmetric.
+    * **Representation** — adjacency list ``Mapping``-like: ``adj.get(u, ())``
+      yields neighbor ids. A *missing* key is an isolated vertex (empty nbrs).
+    * **Affected set** — separate ``affected_simplices`` arg: ids touched by the
+      edit dry-run. Connectivity is of the *induced* subgraph on that set (BFS).
+    * **``None``** — S6 producer unavailable; :func:`affected_dual_subgraph_connected`
+      returns ``True`` (same default as ``score_edit(..., dual_connected=True)``).
+      This open-default is documented by
+      :func:`proteus.stage2.dual_flow.probe_acceptance_none_open_default`
+      (A5-T54); do **not** flip to fail-closed without the A5-T42 plan.
+    * **Producer** — :mod:`proteus.stage2.dual_flow` (proposal-path stub;
+      ``DualFlowConfig.enable_dual_adjacency``, default off). Full S6 pressure
+      solve / density still outstanding (#43). Call path: dry-run adj →
+      ``affected_dual_subgraph_connected(adj, affected)`` →
+      ``score_edit(..., dual_connected=bool)`` or gated
+      ``apply_dual_adjacency`` kwargs on :func:`score_edit`.
+
+    Vacuous ``True`` for empty / singleton affected sets. No behavior change vs
+    plain ``Mapping[Hashable, Sequence[Hashable]]`` — this Protocol documents the
+    S6 shape for typed call sites.
+    """
+
+    def get(
+        self,
+        key: Hashable,
+        default: Sequence[Hashable] = (),
+        /,
+    ) -> Sequence[Hashable]:
+        """Neighbors of ``key``, or ``default`` when missing / isolated."""
+        ...
 
 
 @dataclass(frozen=True)
@@ -55,11 +121,660 @@ class GateConfig:
         Neighbour count used in the equilibration-window formula (SI S3.6).
     rho_min:
         Star-matrix conditioning flag threshold (SI S10.4).
+    apply_dual_adjacency:
+        Proposal-path flag (#43 / SI S10.4 A2). When ``False`` (default),
+        ``score_edit`` / :meth:`EvidenceGate.evaluate` honour the caller-supplied
+        ``dual_connected`` bool and ignore any ``dual_adjacency`` kwarg —
+        acceptance path unchanged. When ``True`` and both ``dual_adjacency`` and
+        ``affected_simplices`` are provided, connectivity is computed via
+        :func:`affected_dual_subgraph_connected` (Stage-2 dual-flow stub).
+        Operational default off until full S6 dual-flow is acceptance-ready.
+    fail_closed_dual_adjacency:
+        Proposal-path stub switch (A5-T60 / SI S10.4 A2). When ``False``
+        (default), missing ``dual_adjacency`` keeps the open-default
+        (caller ``dual_connected`` / ``None`` ⇒ connected). When ``True``
+        **and** ``apply_dual_adjacency`` is ``True``, a missing
+        ``dual_adjacency`` is treated as disconnected (fail-closed). Do
+        **not** flip either default until the dual producer + real S6.2
+        BP are acceptance-ready (see A5-T42 / A5-T57 plan). See
+        :func:`probe_fail_closed_score_edit_matrix` (A5-T65) for the
+        expanded default-path accept/reject matrix,
+        :func:`probe_fail_closed_evidence_gate_matrix` (A5-T71) for the
+        live :meth:`EvidenceGate.evaluate` parity check,
+        :func:`probe_fail_closed_dry_run_evidence_gate` (A5-T73) for the
+        live dry-run dual × EvidenceGate matrix, and
+        :func:`probe_fail_closed_dry_run_reconnect_bridge` (A5-T75) for
+        disconnect→reconnect bridge dry-run under fail-closed.
     """
 
     tau_bf: float = 3.0
     k: int = 10
     rho_min: float = RHO_MIN_DEFAULT
+    apply_dual_adjacency: bool = False
+    fail_closed_dual_adjacency: bool = False
+
+
+@dataclass(frozen=True)
+class FailClosedScoreEditCase:
+    """One cell of the fail-closed ``score_edit`` matrix (A5-T65)."""
+
+    name: str
+    apply_dual: bool
+    fail_closed: bool
+    adj_kind: str
+    dual_connected_kwarg: bool
+    expect_accept: bool
+
+
+@dataclass(frozen=True)
+class FailClosedScoreEditMatrixProbe:
+    """Documents fail-closed × apply_dual × adj matrix (A5-T65).
+
+    Defaults stay off. Probe only — does **not** flip GateConfig.
+    """
+
+    defaults_unchanged: bool
+    apply_dual_default: bool
+    fail_closed_default: bool
+    n_cases: int
+    cases: tuple[FailClosedScoreEditCase, ...]
+    note: str = (
+        "fail-closed score_edit matrix expansion; defaults unchanged; "
+        "do not flip apply_dual / fail_closed until A5-T42 green"
+    )
+
+
+def probe_fail_closed_score_edit_matrix() -> FailClosedScoreEditMatrixProbe:
+    """Expand the fail-closed default-path accept/reject matrix (A5-T65).
+
+    Returns a frozen documentation snapshot of expected ``score_edit``
+    outcomes under well-conditioned stars / F_DM-accepting transitions.
+    Does **not** mutate :class:`GateConfig` defaults.
+    """
+
+    gate = GateConfig()
+    cases = (
+        FailClosedScoreEditCase(
+            name="defaults_none_kw_true",
+            apply_dual=False,
+            fail_closed=False,
+            adj_kind="none",
+            dual_connected_kwarg=True,
+            expect_accept=True,
+        ),
+        FailClosedScoreEditCase(
+            name="defaults_none_kw_false",
+            apply_dual=False,
+            fail_closed=False,
+            adj_kind="none",
+            dual_connected_kwarg=False,
+            expect_accept=False,
+        ),
+        FailClosedScoreEditCase(
+            name="fail_closed_alone_none",
+            apply_dual=False,
+            fail_closed=True,
+            adj_kind="none",
+            dual_connected_kwarg=True,
+            expect_accept=True,
+        ),
+        FailClosedScoreEditCase(
+            name="apply_alone_none_open",
+            apply_dual=True,
+            fail_closed=False,
+            adj_kind="none",
+            dual_connected_kwarg=True,
+            expect_accept=True,
+        ),
+        FailClosedScoreEditCase(
+            name="apply_fail_closed_none_reject",
+            apply_dual=True,
+            fail_closed=True,
+            adj_kind="none",
+            dual_connected_kwarg=True,
+            expect_accept=False,
+        ),
+        FailClosedScoreEditCase(
+            name="apply_connected_accept",
+            apply_dual=True,
+            fail_closed=False,
+            adj_kind="connected",
+            dual_connected_kwarg=False,
+            expect_accept=True,
+        ),
+        FailClosedScoreEditCase(
+            name="apply_disconnect_reject",
+            apply_dual=True,
+            fail_closed=False,
+            adj_kind="disconnect",
+            dual_connected_kwarg=True,
+            expect_accept=False,
+        ),
+        FailClosedScoreEditCase(
+            name="apply_fail_closed_connected_accept",
+            apply_dual=True,
+            fail_closed=True,
+            adj_kind="connected",
+            dual_connected_kwarg=False,
+            expect_accept=True,
+        ),
+        FailClosedScoreEditCase(
+            name="apply_fail_closed_disconnect_reject",
+            apply_dual=True,
+            fail_closed=True,
+            adj_kind="disconnect",
+            dual_connected_kwarg=True,
+            expect_accept=False,
+        ),
+    )
+    return FailClosedScoreEditMatrixProbe(
+        defaults_unchanged=(
+            (not gate.apply_dual_adjacency)
+            and (not gate.fail_closed_dual_adjacency)
+        ),
+        apply_dual_default=bool(gate.apply_dual_adjacency),
+        fail_closed_default=bool(gate.fail_closed_dual_adjacency),
+        n_cases=len(cases),
+        cases=cases,
+    )
+
+
+@dataclass(frozen=True)
+class FailClosedEvidenceGateCaseResult:
+    """One live EvidenceGate.evaluate cell vs score_edit (A5-T71)."""
+
+    name: str
+    expect_accept: bool
+    score_edit_accepted: bool
+    evidence_gate_accepted: bool
+    match: bool
+
+
+@dataclass(frozen=True)
+class FailClosedEvidenceGateMatrixProbe:
+    """Live EvidenceGate.evaluate parity vs score_edit matrix (A5-T71).
+
+    Defaults stay off. Probe only — does **not** flip GateConfig.
+    """
+
+    defaults_unchanged: bool
+    apply_dual_default: bool
+    fail_closed_default: bool
+    n_cases: int
+    n_matched: int
+    all_matched: bool
+    cases: tuple[FailClosedEvidenceGateCaseResult, ...]
+    note: str = (
+        "fail-closed live EvidenceGate.evaluate matrix vs score_edit; "
+        "defaults unchanged; do not flip apply_dual / fail_closed until "
+        "A5-T42 green"
+    )
+
+
+def probe_fail_closed_evidence_gate_matrix(
+    keep_region: Sequence[NodeTransition],
+    edit_region: Sequence[NodeTransition],
+    proposal: EditProposal,
+    *,
+    edit_stars: Mapping[int, np.ndarray] | None = None,
+    keep_stars: Mapping[int, np.ndarray] | None = None,
+    connected_adj: DualAdjacency | None = None,
+    disconnect_adj: DualAdjacency | None = None,
+    affected_simplices: Sequence[Hashable] | None = None,
+) -> FailClosedEvidenceGateMatrixProbe:
+    """Run EvidenceGate.evaluate on each fail-closed matrix cell (A5-T71).
+
+    For every case in :func:`probe_fail_closed_score_edit_matrix`, scores
+    via both :func:`score_edit` and a fresh :class:`EvidenceGate` (no
+    cadence lockout / budget pressure) and records parity. Does **not**
+    mutate :class:`GateConfig` defaults.
+    """
+
+    matrix = probe_fail_closed_score_edit_matrix()
+    gate_defaults = GateConfig()
+    affected = list(affected_simplices or [])
+    results: list[FailClosedEvidenceGateCaseResult] = []
+    for case in matrix.cases:
+        if case.adj_kind == "none":
+            adj: DualAdjacency | None = None
+        elif case.adj_kind == "connected":
+            adj = connected_adj
+        elif case.adj_kind == "disconnect":
+            adj = disconnect_adj
+        else:
+            raise ValueError(f"unknown adj_kind {case.adj_kind!r}")
+        cfg = GateConfig(
+            apply_dual_adjacency=case.apply_dual,
+            fail_closed_dual_adjacency=case.fail_closed,
+        )
+        se = score_edit(
+            keep_region,
+            edit_region,
+            proposal,
+            edit_stars=edit_stars,
+            keep_stars=keep_stars,
+            dual_connected=case.dual_connected_kwarg,
+            dual_adjacency=adj,
+            affected_simplices=affected,
+            config=cfg,
+        )
+        eg = EvidenceGate(n_nodes=max(2, len(keep_region)), config=cfg)
+        eg_verdict = eg.evaluate(
+            keep_region,
+            edit_region,
+            proposal,
+            edit_stars=edit_stars,
+            keep_stars=keep_stars,
+            dual_connected=case.dual_connected_kwarg,
+            dual_adjacency=adj,
+            affected_simplices=affected,
+        )
+        matched = bool(
+            se.accepted is case.expect_accept
+            and eg_verdict.accepted is case.expect_accept
+            and se.accepted is eg_verdict.accepted
+        )
+        results.append(
+            FailClosedEvidenceGateCaseResult(
+                name=case.name,
+                expect_accept=bool(case.expect_accept),
+                score_edit_accepted=bool(se.accepted),
+                evidence_gate_accepted=bool(eg_verdict.accepted),
+                match=matched,
+            )
+        )
+    n_matched = sum(1 for r in results if r.match)
+    return FailClosedEvidenceGateMatrixProbe(
+        defaults_unchanged=(
+            (not gate_defaults.apply_dual_adjacency)
+            and (not gate_defaults.fail_closed_dual_adjacency)
+        ),
+        apply_dual_default=bool(gate_defaults.apply_dual_adjacency),
+        fail_closed_default=bool(gate_defaults.fail_closed_dual_adjacency),
+        n_cases=len(results),
+        n_matched=n_matched,
+        all_matched=bool(n_matched == len(results) and len(results) > 0),
+        cases=tuple(results),
+    )
+
+
+@dataclass(frozen=True)
+class FailClosedDryRunEvidenceCase:
+    """One fail_closed × dry_run_dual × EvidenceGate cell (A5-T73)."""
+
+    name: str
+    enable_dual_adjacency: bool
+    apply_dual: bool
+    fail_closed: bool
+    dry_adj_none: bool
+    dry_connected: bool
+    expect_accept: bool
+    score_edit_accepted: bool
+    evidence_gate_accepted: bool
+    match: bool
+
+
+@dataclass(frozen=True)
+class FailClosedDryRunEvidenceProbe:
+    """Live dry_run_dual_from_edit × fail_closed × EvidenceGate (A5-T73).
+
+    Defaults stay off. Probe only — does **not** flip GateConfig /
+    DualFlowConfig.
+    """
+
+    defaults_unchanged: bool
+    apply_dual_default: bool
+    fail_closed_default: bool
+    dual_adjacency_default: bool
+    n_cases: int
+    n_matched: int
+    all_matched: bool
+    cases: tuple[FailClosedDryRunEvidenceCase, ...]
+    note: str = (
+        "fail-closed live dry_run_dual_from_edit × EvidenceGate matrix; "
+        "defaults unchanged; do not flip apply_dual / fail_closed / "
+        "enable_dual_adjacency until A5-T42 green"
+    )
+
+
+def probe_fail_closed_dry_run_evidence_gate(
+    keep_region: Sequence[NodeTransition],
+    edit_region: Sequence[NodeTransition],
+    proposal: EditProposal,
+    *,
+    edit_stars: Mapping[int, np.ndarray] | None = None,
+    keep_stars: Mapping[int, np.ndarray] | None = None,
+    complex_path: object | None = None,
+) -> FailClosedDryRunEvidenceProbe:
+    """Run EvidenceGate on dry-run dual under fail-closed configs (A5-T73).
+
+    Lazily imports :func:`proteus.stage2.dual_flow.dry_run_dual_from_edit`
+    to avoid an import cycle. For each (enable_dual_adjacency, apply_dual,
+    fail_closed, edit-kind) cell, dry-runs a path-edge complex (remove
+    middle for disconnect; node-scoped intact for connected) and scores
+    via both :func:`score_edit` and :class:`EvidenceGate`. Does **not**
+    mutate :class:`GateConfig` / ``DualFlowConfig`` defaults.
+
+    Parameters
+    ----------
+    complex_path:
+        Optional ``Complex`` with three path edges (dual path 0—1—2).
+        When ``None``, a minimal path complex is constructed.
+    """
+
+    # Lazy import: dual_flow imports this module at top level.
+    from proteus.stage2.dual_flow import DualFlowConfig, dry_run_dual_from_edit
+    from proteus.types import Complex, Simplex
+
+    if complex_path is None:
+        complex_path = Complex(
+            simplices=[
+                Simplex(vertex_ids=(0, 1)),
+                Simplex(vertex_ids=(1, 2)),
+                Simplex(vertex_ids=(2, 3)),
+            ],
+            vertex_positions=np.zeros((4, 2)),
+            intrinsic_dim=1,
+        )
+
+    gate_defaults = GateConfig()
+    dual_defaults = DualFlowConfig()
+
+    # Precompute dry-run snapshots used by matrix cells.
+    dry_off = dry_run_dual_from_edit(
+        complex_path,  # type: ignore[arg-type]
+        remove_simplex_indices=[1],
+        config=DualFlowConfig(enable_dual_adjacency=False),
+    )
+    dry_disc = dry_run_dual_from_edit(
+        complex_path,  # type: ignore[arg-type]
+        remove_simplex_indices=[1],
+        config=DualFlowConfig(enable_dual_adjacency=True),
+    )
+    dry_conn = dry_run_dual_from_edit(
+        complex_path,  # type: ignore[arg-type]
+        affected_node_ids=[1, 2],
+        config=DualFlowConfig(enable_dual_adjacency=True),
+    )
+
+    # Document expected outcomes under well-conditioned F_DM-accepting
+    # stars: fail-closed needs *both* apply_dual and fail_closed for
+    # None⇒reject; disconnect rejects whenever apply_dual is on.
+    plan: tuple[
+        tuple[str, bool, bool, bool, object, bool],
+        ...,
+    ] = (
+        ("adj_off_defaults_open", False, False, False, dry_off, True),
+        ("adj_off_fail_closed_alone_open", False, False, True, dry_off, True),
+        ("adj_off_apply_alone_open", False, True, False, dry_off, True),
+        ("adj_off_apply_fail_closed_reject", False, True, True, dry_off, False),
+        ("adj_on_disconnect_apply_reject", True, True, False, dry_disc, False),
+        (
+            "adj_on_disconnect_apply_fail_closed_reject",
+            True,
+            True,
+            True,
+            dry_disc,
+            False,
+        ),
+        ("adj_on_connected_apply_accept", True, True, False, dry_conn, True),
+        (
+            "adj_on_connected_apply_fail_closed_accept",
+            True,
+            True,
+            True,
+            dry_conn,
+            True,
+        ),
+    )
+
+    results: list[FailClosedDryRunEvidenceCase] = []
+    for name, en_dual, apply_dual, fail_closed, dry, expect in plan:
+        cfg = GateConfig(
+            apply_dual_adjacency=apply_dual,
+            fail_closed_dual_adjacency=fail_closed,
+        )
+        se = score_edit(
+            keep_region,
+            edit_region,
+            proposal,
+            edit_stars=edit_stars,
+            keep_stars=keep_stars,
+            dual_connected=True,
+            dual_adjacency=dry.dual_adjacency,
+            affected_simplices=list(dry.affected_simplices),
+            config=cfg,
+        )
+        eg = EvidenceGate(n_nodes=max(2, len(keep_region)), config=cfg)
+        eg_verdict = eg.evaluate(
+            keep_region,
+            edit_region,
+            proposal,
+            edit_stars=edit_stars,
+            keep_stars=keep_stars,
+            dual_connected=True,
+            dual_adjacency=dry.dual_adjacency,
+            affected_simplices=list(dry.affected_simplices),
+        )
+        matched = bool(
+            se.accepted is expect
+            and eg_verdict.accepted is expect
+            and se.accepted is eg_verdict.accepted
+        )
+        results.append(
+            FailClosedDryRunEvidenceCase(
+                name=name,
+                enable_dual_adjacency=en_dual,
+                apply_dual=apply_dual,
+                fail_closed=fail_closed,
+                dry_adj_none=dry.dual_adjacency is None,
+                dry_connected=bool(dry.dual_connected),
+                expect_accept=bool(expect),
+                score_edit_accepted=bool(se.accepted),
+                evidence_gate_accepted=bool(eg_verdict.accepted),
+                match=matched,
+            )
+        )
+    n_matched = sum(1 for r in results if r.match)
+    return FailClosedDryRunEvidenceProbe(
+        defaults_unchanged=(
+            (not gate_defaults.apply_dual_adjacency)
+            and (not gate_defaults.fail_closed_dual_adjacency)
+            and (not dual_defaults.enable_dual_adjacency)
+        ),
+        apply_dual_default=bool(gate_defaults.apply_dual_adjacency),
+        fail_closed_default=bool(gate_defaults.fail_closed_dual_adjacency),
+        dual_adjacency_default=bool(dual_defaults.enable_dual_adjacency),
+        n_cases=len(results),
+        n_matched=n_matched,
+        all_matched=bool(n_matched == len(results) and len(results) > 0),
+        cases=tuple(results),
+    )
+
+
+@dataclass(frozen=True)
+class FailClosedDryRunReconnectCase:
+    """One fail_closed × disconnect/reconnect dry-run × EvidenceGate cell (A5-T75)."""
+
+    name: str
+    edit_kind: str
+    apply_dual: bool
+    fail_closed: bool
+    dry_connected: bool
+    expect_accept: bool
+    score_edit_accepted: bool
+    evidence_gate_accepted: bool
+    match: bool
+
+
+@dataclass(frozen=True)
+class FailClosedDryRunReconnectProbe:
+    """Disconnect→reconnect bridge dry-run × fail_closed × EvidenceGate (A5-T75).
+
+    Defaults stay off. Probe only — does **not** flip GateConfig /
+    DualFlowConfig.
+    """
+
+    defaults_unchanged: bool
+    apply_dual_default: bool
+    fail_closed_default: bool
+    dual_adjacency_default: bool
+    disconnect_connected: bool
+    reconnect_connected: bool
+    n_cases: int
+    n_matched: int
+    all_matched: bool
+    cases: tuple[FailClosedDryRunReconnectCase, ...]
+    note: str = (
+        "fail-closed dry_run disconnect→reconnect bridge × EvidenceGate; "
+        "defaults unchanged; do not flip apply_dual / fail_closed / "
+        "enable_dual_adjacency until A5-T42 green"
+    )
+
+
+def probe_fail_closed_dry_run_reconnect_bridge(
+    keep_region: Sequence[NodeTransition],
+    edit_region: Sequence[NodeTransition],
+    proposal: EditProposal,
+    *,
+    edit_stars: Mapping[int, np.ndarray] | None = None,
+    keep_stars: Mapping[int, np.ndarray] | None = None,
+    complex_path: object | None = None,
+) -> FailClosedDryRunReconnectProbe:
+    """Score disconnect vs reconnect-bridge dry-runs under fail-closed (A5-T75).
+
+    Lazily imports :func:`proteus.stage2.dual_flow.dry_run_dual_from_edit`.
+    Builds two dual snapshots on a path-edge complex:
+
+    1. **disconnect** — remove middle edge ⇒ dual endpoints disconnected.
+    2. **reconnect** — remove middle + add bridge facet ⇒ dual reconnects.
+
+    Then scores each under ``(apply_dual, fail_closed)`` via both
+    :func:`score_edit` and :class:`EvidenceGate`. Does **not** mutate
+    defaults.
+    """
+
+    from proteus.stage2.dual_flow import DualFlowConfig, dry_run_dual_from_edit
+    from proteus.types import Complex, Simplex
+
+    if complex_path is None:
+        complex_path = Complex(
+            simplices=[
+                Simplex(vertex_ids=(0, 1)),
+                Simplex(vertex_ids=(1, 2)),
+                Simplex(vertex_ids=(2, 3)),
+            ],
+            vertex_positions=np.zeros((4, 2)),
+            intrinsic_dim=1,
+        )
+
+    gate_defaults = GateConfig()
+    dual_defaults = DualFlowConfig()
+    dual_on = DualFlowConfig(enable_dual_adjacency=True)
+
+    dry_disc = dry_run_dual_from_edit(
+        complex_path,  # type: ignore[arg-type]
+        remove_simplex_indices=[1],
+        config=dual_on,
+    )
+    dry_re = dry_run_dual_from_edit(
+        complex_path,  # type: ignore[arg-type]
+        remove_simplex_indices=[1],
+        add_simplices=[(1, 2)],
+        config=dual_on,
+    )
+
+    # With apply_dual on: disconnect rejects; reconnect accepts.
+    # Fail-closed alone does not change outcomes when adj is present.
+    plan: tuple[
+        tuple[str, str, bool, bool, object, bool],
+        ...,
+    ] = (
+        ("disconnect_defaults_open", "disconnect", False, False, dry_disc, True),
+        ("disconnect_apply_reject", "disconnect", True, False, dry_disc, False),
+        (
+            "disconnect_apply_fail_closed_reject",
+            "disconnect",
+            True,
+            True,
+            dry_disc,
+            False,
+        ),
+        ("reconnect_defaults_open", "reconnect", False, False, dry_re, True),
+        ("reconnect_apply_accept", "reconnect", True, False, dry_re, True),
+        (
+            "reconnect_apply_fail_closed_accept",
+            "reconnect",
+            True,
+            True,
+            dry_re,
+            True,
+        ),
+    )
+
+    results: list[FailClosedDryRunReconnectCase] = []
+    for name, kind, apply_dual, fail_closed, dry, expect in plan:
+        cfg = GateConfig(
+            apply_dual_adjacency=apply_dual,
+            fail_closed_dual_adjacency=fail_closed,
+        )
+        se = score_edit(
+            keep_region,
+            edit_region,
+            proposal,
+            edit_stars=edit_stars,
+            keep_stars=keep_stars,
+            dual_connected=True,
+            dual_adjacency=dry.dual_adjacency,
+            affected_simplices=list(dry.affected_simplices),
+            config=cfg,
+        )
+        eg = EvidenceGate(n_nodes=max(2, len(keep_region)), config=cfg)
+        eg_verdict = eg.evaluate(
+            keep_region,
+            edit_region,
+            proposal,
+            edit_stars=edit_stars,
+            keep_stars=keep_stars,
+            dual_connected=True,
+            dual_adjacency=dry.dual_adjacency,
+            affected_simplices=list(dry.affected_simplices),
+        )
+        matched = bool(
+            se.accepted is expect
+            and eg_verdict.accepted is expect
+            and se.accepted is eg_verdict.accepted
+        )
+        results.append(
+            FailClosedDryRunReconnectCase(
+                name=name,
+                edit_kind=kind,
+                apply_dual=apply_dual,
+                fail_closed=fail_closed,
+                dry_connected=bool(dry.dual_connected),
+                expect_accept=bool(expect),
+                score_edit_accepted=bool(se.accepted),
+                evidence_gate_accepted=bool(eg_verdict.accepted),
+                match=matched,
+            )
+        )
+    n_matched = sum(1 for r in results if r.match)
+    return FailClosedDryRunReconnectProbe(
+        defaults_unchanged=(
+            (not gate_defaults.apply_dual_adjacency)
+            and (not gate_defaults.fail_closed_dual_adjacency)
+            and (not dual_defaults.enable_dual_adjacency)
+        ),
+        apply_dual_default=bool(gate_defaults.apply_dual_adjacency),
+        fail_closed_default=bool(gate_defaults.fail_closed_dual_adjacency),
+        dual_adjacency_default=bool(dual_defaults.enable_dual_adjacency),
+        disconnect_connected=bool(dry_disc.dual_connected),
+        reconnect_connected=bool(dry_re.dual_connected),
+        n_cases=len(results),
+        n_matched=n_matched,
+        all_matched=bool(n_matched == len(results) and len(results) > 0),
+        cases=tuple(results),
+    )
 
 
 def gate_window(n_nodes: int, queue_len: int, k: int) -> int:
@@ -87,6 +802,59 @@ def edit_budget(n_nodes: int) -> int:
     return max(1, int(n / log(n)))
 
 
+def affected_dual_subgraph_connected(
+    dual_adjacency: DualAdjacency | None,
+    affected_simplices: Sequence[Hashable],
+) -> bool:
+    """Whether the induced dual subgraph on ``affected_simplices`` is connected.
+
+    SI S10.4's dynamic-preservation rule (A2) requires the *affected* dual
+    subgraph to stay connected for an edit to be evidence-bearing. Vertices of
+    the dual graph are simplices; an edge joins two simplices that share a
+    facet (codim-1 face). That adjacency is a Stage-2 dual-flow / face-graph
+    artifact (SI S6 / S10.4). Experimental producer:
+    :mod:`proteus.stage2.dual_flow` (proposal-path, flag-gated; full S6 pressure
+    solve still outstanding — OPEN_ISSUES #43).
+
+    ``dual_adjacency`` shape: see :class:`DualAdjacency` (S6 adjacency contract).
+
+    Behavior of this stub:
+
+    * ``dual_adjacency is None`` — S6 graph unavailable; conservatively return
+      ``True`` so callers without a dual graph assert connectivity (same default
+      as ``score_edit(..., dual_connected=True)``).
+    * Empty or singleton ``affected_simplices`` — vacuously connected.
+    * Otherwise — BFS on the *induced* subgraph (only walk neighbors that are
+      themselves in the affected set). Returns ``False`` if any affected
+      simplex is unreachable from the first.
+
+    Call sites should compute this on the post-edit dry-run complex and pass the
+    boolean into :func:`score_edit` / :meth:`EvidenceGate.evaluate` as
+    ``dual_connected=...``, or (proposal-path) pass ``dual_adjacency`` +
+    ``affected_simplices`` with ``GateConfig.apply_dual_adjacency=True`` so the
+    gate computes connectivity from the ``stage2.dual_flow`` stub.
+    """
+
+    if dual_adjacency is None:
+        return True
+
+    affected = list(dict.fromkeys(affected_simplices))
+    if len(affected) <= 1:
+        return True
+
+    affected_set = set(affected)
+    start = affected[0]
+    seen: set[Hashable] = {start}
+    queue: deque[Hashable] = deque([start])
+    while queue:
+        u = queue.popleft()
+        for v in dual_adjacency.get(u, ()):
+            if v in affected_set and v not in seen:
+                seen.add(v)
+                queue.append(v)
+    return seen == affected_set
+
+
 def score_edit(
     keep_region: Sequence[NodeTransition],
     edit_region: Sequence[NodeTransition],
@@ -96,6 +864,8 @@ def score_edit(
     edit_stars: Mapping[int, np.ndarray] | None = None,
     keep_stars: Mapping[int, np.ndarray] | None = None,
     dual_connected: bool = True,
+    dual_adjacency: DualAdjacency | None = None,
+    affected_simplices: Sequence[Hashable] | None = None,
 ) -> EvidenceVerdict:
     """Score one edit under the S10.4 dynamic-preservation rule (SI S3.4, S10.4).
 
@@ -111,9 +881,25 @@ def score_edit(
     (see :mod:`proteus.evidence.star_matrix`); when omitted the caller asserts the
     stars are conditioned. ``dual_connected`` is the affected dual-subgraph
     connectivity result from the dry run (Stage-2 dual graph; OPEN_ISSUES #43).
+
+    When ``config.apply_dual_adjacency`` is true and both ``dual_adjacency`` and
+    ``affected_simplices`` are provided, ``dual_connected`` is overwritten by
+    :func:`affected_dual_subgraph_connected` (proposal-path wiring for the
+    ``stage2.dual_flow`` stub). When ``apply_dual_adjacency`` is true,
+    ``fail_closed_dual_adjacency`` is true, and ``dual_adjacency`` is
+    ``None``, connectivity fails closed (``False``) — stub switch default
+    off (A5-T60). Flags off ⇒ kwargs ignored; acceptance path unchanged.
     """
 
     config = config or GateConfig()
+    if config.apply_dual_adjacency:
+        if dual_adjacency is None and config.fail_closed_dual_adjacency:
+            dual_connected = False
+        elif dual_adjacency is not None and affected_simplices is not None:
+            dual_connected = affected_dual_subgraph_connected(
+                dual_adjacency, affected_simplices
+            )
+
     ill: set[int] = set()
     if edit_stars is not None:
         ill |= quarantined_nodes(edit_stars, config.rho_min)
@@ -237,6 +1023,8 @@ class EvidenceGate:
         edit_stars: Mapping[int, np.ndarray] | None = None,
         keep_stars: Mapping[int, np.ndarray] | None = None,
         dual_connected: bool = True,
+        dual_adjacency: DualAdjacency | None = None,
+        affected_simplices: Sequence[Hashable] | None = None,
     ) -> EvidenceVerdict:
         """Score ``proposal``; force-reject if cadence/budget forbids it now (S3.6)."""
 
@@ -251,6 +1039,8 @@ class EvidenceGate:
             edit_stars=edit_stars,
             keep_stars=keep_stars,
             dual_connected=dual_connected,
+            dual_adjacency=dual_adjacency,
+            affected_simplices=affected_simplices,
         )
         if verdict.accepted and not self.can_accept(proposal):
             verdict = EvidenceVerdict(
