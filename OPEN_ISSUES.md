@@ -275,24 +275,31 @@ Remaining work:
   exact-edit unit lock. Legacy Q/AP persistence and no-background DM flags are explicitly
   rejected when combined rather than silently mixing outcome spaces; retired geometry /
   hollow prepass flags are likewise rejected instead of ignored. Defaults unchanged.
-- **LANDED (coarse-anchor, still default off):** extraction takes the coarsest raw
-  `K>=2` level, drops clusters below `min_cluster_frac=0.15` of the region node
-  budget, and DM-tests only that cut — it does not walk into finer leftover DAG
-  children. That was the tissue-circle false-split: a 212-node mid-tree arc with
-  `excess_mass=0.024` stayed unpruned and was selected instead of the coarse `K=1`
-  tail. Rank/mass floors stay runt screens (null envelope overlaps true splits).
-  Diagnostic: `tests/scenarios/synthetic/level_set_auto_probe.py`.
-- **Measured (2026-08-13, seed 0, no expected K):** sample kNN graphs — circle /
-  swiss / manifold zoo reject; hierarchy `K=3` (signal ARI 0.582 vs fine labels);
-  rods-in-sheets `K=2` ARI 0.995; gap-corrected linked tori `K=2` ARI 0.922.
-  Bounded fitted scaffolds — circle/swiss reject; hierarchy `K=3`; tori ARI 0.963.
-  Nested shells still reject: the C–D tree at current node budgets never presents
-  two large shells at the coarsest `K=2` (inner activates first; tissue bridges the
-  valley before the outer closes). That is the node-budget vs valley-resolution
-  caveat, not the old coarsest-DM walk.
-- **ACCEPTANCE BLOCKER:** nested-shell recovery on fitted scaffolds whose node
-  budget actually contains the valley, repaired-benchmark recovery (#45; repo
-  `make_linked_tori` still unseparable), and a multi-seed connected-null check.
+- **LANDED (mass-filtered coarse anchor + flow-bottleneck guard, still default
+  off; 2026-08-13):** the single candidate is the coarsest level whose cut keeps
+  `K>=2` after `min_cluster_frac=0.15` of the region node budget; satellite-only
+  levels are skipped, so tissue-bridged balanced mid-tree cuts (nested shells,
+  tori) are reachable. Position statistics cannot make that visit safe — rank
+  persistence, excess mass, subsample stability, and k-perturbation stability
+  were all measured inseparable between circle arc cuts and nested shell cuts —
+  so the guard is `max_bottleneck_ratio=0.25`: cross-cut max-flow over the weaker
+  block's internal (max-variance bisection) max-flow, on the fitted Hebbian
+  flows. Measured on fitted scaffolds: arcs 0.60–1.29, true splits 0.000–0.070
+  (~8x gap). DM confirms cuts that pass the guard; failure rejects the region
+  outright. Unit-locked with a paired arc-cut/weak-bridge fixture.
+- **Measured (2026-08-13, fitted scaffolds, no expected K):** circle rejects on
+  both seeds (incl. a fit retaining a balanced arc cut, phi=1.29); swiss rejects;
+  hierarchy `K=3` (ARI 0.571); gap-corrected tori `K=2` ARI 0.986/0.998 (seeds
+  0/2); nested spheres (n_per=3000, 1024 nodes) `K=2` ARI 0.820 — first automatic
+  shell recovery. Nested seed 1's fit lacks a large outer-shell branch and
+  rejects (node-budget vs valley-resolution caveat). kNN-graph probe
+  (`level_set_auto_probe.py`, density-kernel flows) stays a smoke check only:
+  position-derived flows cannot emulate fitted-flow physics for sampling-gap
+  arcs.
+- **ACCEPTANCE BLOCKER:** repaired-benchmark recovery (#45; repo
+  `make_linked_tori` still unseparable), multi-seed fitted connected-null and
+  nested sweeps (incl. budget-sufficient nested seed 1), and a
+  node-budget-vs-valley resolvability statement for when rejection is expected.
   Keep the flag off. Do not flip awaiting tests or delete S2.6.1 stand-ins in the
   same change. Sample-level background-aware ARI is the only recovery metric.
   Existing Q/AP `PersistenceConfig` snapshots a different partition family and is

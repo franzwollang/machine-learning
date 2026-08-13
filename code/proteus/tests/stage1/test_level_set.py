@@ -117,6 +117,7 @@ def test_level_set_defaults_are_validated_reader() -> None:
     assert config.min_persistence == 0.05
     assert config.min_excess_mass == 0.02
     assert config.min_cluster_frac == 0.15
+    assert config.max_bottleneck_ratio == 0.25
 
 
 def test_inactive_and_runt_nodes_are_distinct() -> None:
@@ -365,6 +366,57 @@ def test_hierarchy_returns_coarsest_three_way_split() -> None:
     assert selection.accepted
     assert selection.cluster_result is not None
     assert selection.cluster_result.n_clusters == 3
+
+
+def _two_arcs(gap_flow: float) -> _Scaffold:
+    """A ring with two position gaps whose coarsest filtered cut is 2 arcs.
+
+    ``gap_flow`` sets the Hebbian counts on the edges crossing the gaps.
+    High gap flow is fitted-manifold physics (traffic crosses a sampling
+    gap on a connected feature); near-zero gap flow is a genuine density
+    valley between two weakly linked features.
+    """
+
+    arc_a = np.linspace(0.0, 110.0, 12) * np.pi / 180.0
+    arc_b = np.linspace(180.0, 290.0, 12) * np.pi / 180.0
+    theta = np.concatenate([arc_a, arc_b])
+    positions = np.c_[np.cos(theta), np.sin(theta)]
+    edges = [(i, i + 1, 6.0) for i in range(11)]
+    edges += [(i, i + 1, 6.0) for i in range(12, 23)]
+    edges += [(11, 12, gap_flow), (23, 0, gap_flow)]
+    return _Scaffold(positions, edges)
+
+
+def test_bottleneck_guard_rejects_arc_cut_with_manifold_flow() -> None:
+    """A balanced arc cut whose boundary carries manifold flow is rejected.
+
+    Position statistics cannot separate sampling-gap arcs from true
+    valleys (persistence, excess mass, and stability were all measured
+    inseparable); the cross-cut flow bottleneck can.
+    """
+
+    scaffold = _two_arcs(gap_flow=6.0)
+    selection = select_level_set_partition(
+        scaffold,
+        LevelSetConfig(k_neighbors=4, min_cluster_size=4, n_levels=60),
+    )
+    assert not selection.accepted
+    assert selection.cluster_result is None
+
+
+def test_weak_bridge_split_passes_bottleneck_guard() -> None:
+    """The same geometry with near-zero bridge flow is a real valley."""
+
+    scaffold = _two_arcs(gap_flow=0.05)
+    selection = select_level_set_partition(
+        scaffold,
+        LevelSetConfig(k_neighbors=4, min_cluster_size=4, n_levels=60),
+    )
+    assert selection.accepted
+    assert selection.cluster_result is not None
+    assert selection.cluster_result.n_clusters == 2
+    labels = selection.cluster_result.labels
+    assert len(set(labels[:12]) | set(labels[12:])) == 2
 
 
 def test_extraction_does_not_read_expected_k_from_config() -> None:

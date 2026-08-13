@@ -25,7 +25,7 @@ from typing import Any
 
 import numpy as np
 from scipy.sparse import csr_matrix
-from scipy.sparse.csgraph import connected_components
+from scipy.sparse.csgraph import connected_components, maximum_flow
 from scipy.spatial import cKDTree
 
 from proteus.stage1.clustering import (
@@ -67,15 +67,25 @@ class LevelSetConfig:
     spurious-branch envelopes that overlap true two-blob / four-clump splits,
     so the defaults prune only short-lived or low-mass runts.
 
-    Extraction is coarse-anchored: the accepted cut is the coarsest raw
-    ``K >= 2`` level after a relative-mass floor, confirmed by DM.  Mid-tree
-    fragments that merge before the coarse tail are not candidates — that
-    was the tissue-circle false-split (a leftover 212-node arc with
-    ``excess_mass`` just above the runt floor).  ``min_cluster_frac`` is a
-    fraction of the *region node budget*, so a coarse tissue satellite or a
-    pair of still-inactive core fragments cannot be an evidence-bearing
-    split.  All of these are operational proposal-path defaults, not
-    promoted acceptance constants.
+    Extraction is coarse-anchored on *mass-filtered* cuts: the single
+    candidate is the coarsest level whose cut still has ``K >= 2`` clusters
+    after the relative-mass floor.  ``min_cluster_frac`` is a fraction of
+    the *region node budget*, so a coarse tissue satellite or a pair of
+    still-inactive core fragments cannot be an evidence-bearing split.
+    Nested features whose valley is bridged by tissue before the coarse
+    tail (nested shells, linked tori) surface as balanced mid-tree cuts and
+    are now visited.
+
+    ``max_bottleneck_ratio`` is the flow-bottleneck guard that makes the
+    mid-tree visit safe.  Sampling-gap arcs of a connected manifold pass
+    every position-only screen (persistence, excess mass, subsample and
+    ``k`` stability all measured inseparable on 2026-08-13), but the cut
+    boundary of an arc is not a *flow* bottleneck: the cross-cut max-flow
+    is comparable to either arc's own internal throughput (ratio 0.6-1.3
+    measured on fitted circles), while true valleys carry near-zero cross
+    flow relative to each side's internal bisection flow (0.0-0.07 on
+    fitted hierarchy / tori / nested shells).  All of these are operational
+    proposal-path defaults, not promoted acceptance constants.
     """
 
     k_neighbors: int = 8
@@ -85,6 +95,7 @@ class LevelSetConfig:
     min_persistence: float = 0.05
     min_excess_mass: float = 0.02
     min_cluster_frac: float = 0.15
+    max_bottleneck_ratio: float = 0.25
 
 
 @dataclass(frozen=True)
@@ -532,6 +543,101 @@ def _filter_relative_mass(
     return compacted
 
 
+_FLOW_SCALE = 100.0
+"""Integer capacity scale for ``scipy`` max-flow on Hebbian counts."""
+
+
+def _flow_graph(scaffold: Any) -> tuple[list[int], list[int], list[int]]:
+    """Undirected integer-capacity edge lists from the Hebbian link counts."""
+
+    rows: list[int] = []
+    cols: list[int] = []
+    caps: list[int] = []
+    for link in scaffold.links.as_list():
+        weight = float(link.count_ij) + float(link.count_ji)
+        cap = int(round(_FLOW_SCALE * weight))
+        if cap > 0:
+            i, j = int(link.i), int(link.j)
+            rows += [i, j]
+            cols += [j, i]
+            caps += [cap, cap]
+    return rows, cols, caps
+
+
+def _set_maxflow(
+    graph: tuple[list[int], list[int], list[int]],
+    n: int,
+    source_set: list[int],
+    sink_set: list[int],
+) -> float:
+    """Max flow between two node sets, routed through the full flow graph."""
+
+    if not source_set or not sink_set:
+        return 0.0
+    rows, cols, caps = graph
+    big = 2 ** 30
+    r = rows + [n] * len(source_set) + list(sink_set)
+    c = cols + list(source_set) + [n + 1] * len(sink_set)
+    p = caps + [big] * (len(source_set) + len(sink_set))
+    matrix = csr_matrix((p, (r, c)), shape=(n + 2, n + 2))
+    return float(maximum_flow(matrix, n, n + 1).flow_value) / _FLOW_SCALE
+
+
+def _bisection_flow(
+    graph: tuple[list[int], list[int], list[int]],
+    n: int,
+    members: np.ndarray,
+    positions: np.ndarray,
+) -> float:
+    """Internal throughput: max flow across a max-variance spatial bisection."""
+
+    points = positions[members]
+    axis = int(np.argmax(points.var(axis=0)))
+    median = float(np.median(points[:, axis]))
+    half_a = members[points[:, axis] <= median].tolist()
+    half_b = members[points[:, axis] > median].tolist()
+    if not half_a or not half_b:
+        order = np.argsort(points[:, axis])
+        mid = max(1, len(members) // 2)
+        half_a = members[order[:mid]].tolist()
+        half_b = members[order[mid:]].tolist()
+    return _set_maxflow(graph, n, half_a, half_b)
+
+
+def _flow_bottleneck_ratio(
+    scaffold: Any,
+    labels: np.ndarray,
+    positions: np.ndarray,
+) -> float:
+    """Worst pairwise cross-cut max-flow over internal bisection flow.
+
+    Dimensionless arc-vs-valley discriminant (SI S2.6.2): for a sampling-gap
+    arc cut of a connected manifold the cross-cut max-flow matches either
+    side's own internal throughput (ratio near 1), while a true density
+    valley carries near-zero cross flow.  Returns ``inf`` when a block has
+    no measurable internal throughput, which rejects the cut.
+    """
+
+    n = int(labels.shape[0])
+    graph = _flow_graph(scaffold)
+    keys = sorted(set(int(v) for v in labels if v >= 0))
+    blocks = [np.where(labels == key)[0] for key in keys]
+    internal = [
+        _bisection_flow(graph, n, members, positions) for members in blocks
+    ]
+    worst = 0.0
+    for a in range(len(blocks)):
+        for b in range(a + 1, len(blocks)):
+            cross = _set_maxflow(
+                graph, n, blocks[a].tolist(), blocks[b].tolist(),
+            )
+            denom = min(internal[a], internal[b])
+            if denom <= 0.0:
+                return float("inf")
+            worst = max(worst, cross / denom)
+    return worst
+
+
 def _label_sets(labels: np.ndarray) -> tuple[list[set[int]], set[int]]:
     clusters = [
         set(np.where(labels == label)[0].tolist())
@@ -673,10 +779,14 @@ def select_level_set_partition(
     """Select the coarsest evidence-bearing split (SI S2.6.2).
 
     Pipeline: C-D tree → merge DAG (diagnostics + sibling collapse) →
-    coarsest raw ``K >= 2`` level → relative-mass floor → background-aware
-    DM.  If that coarse cut collapses to one feature or fails DM, the region
-    is rejected; finer arc partitions are not candidates.  No expected
-    cluster count enters selection.
+    coarsest *mass-filtered* ``K >= 2`` cut → flow-bottleneck guard →
+    background-aware DM.  Levels whose cut collapses below ``K = 2`` after
+    the relative-mass floor (satellite-only structure) are skipped, so a
+    balanced mid-tree cut — nested shells or linked tori whose valley is
+    tissue-bridged before the coarse tail — is reachable.  The single
+    candidate is that coarsest filtered cut: if it fails the bottleneck
+    guard or DM, the region is rejected outright, never walked finer.  No
+    expected cluster count enters selection.
     """
 
     config = config or LevelSetConfig()
@@ -705,9 +815,15 @@ def select_level_set_partition(
             config.min_cluster_frac,
         )
         clusters, background = _label_sets(labels)
-        # Coarse-anchor: this is the coarsest K>=2 level.  Do not walk
-        # into finer fragments if it is a satellite or DM-rejected.
         if len(clusters) < 2:
+            # Satellite-only structure at this level; a genuine balanced
+            # cut may still exist finer (tissue-bridged nested features).
+            continue
+        # Coarse-anchor: this is the coarsest mass-filtered K>=2 cut and
+        # the only candidate.  Guard against sampling-gap arcs (which
+        # carry manifold flow across the cut), then confirm with DM.
+        ratio = _flow_bottleneck_ratio(scaffold, labels, positions)
+        if ratio > config.max_bottleneck_ratio:
             break
         log_bf, accepted = dm_partition_background_verdict(
             scaffold, clusters, background, dm_config,

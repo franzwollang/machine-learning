@@ -1661,12 +1661,36 @@ budgets are comparable).
 Bottom-up pruning is sequential: (i)~merge branches below the rank-persistence
 floor, (ii)~merge branches below the excess-mass floor, (iii)~ask the
 S2.6.3 background-aware DM homogeneity edit of surviving siblings versus
-their pooled parent. Extraction is then \emph{coarse-anchored}: the
-accepted cut is the coarsest raw $K\ge 2$ level after a relative-mass
-floor
+their pooled parent. Extraction is then \emph{coarse-anchored on
+mass-filtered cuts}: the single candidate is the coarsest level whose cut
+still has $K\ge 2$ clusters after the relative-mass floor
 $\max(n_{\min},\lceil f_{\mathrm{rel}} N\rceil)$ of the region node
-budget. If that coarse cut collapses to one feature or fails DM, the
-region is rejected; finer arc partitions are not candidates. Background is
+budget. Levels whose cut collapses below $K{=}2$ after the floor
+(satellite-only structure) are skipped, so a balanced mid-tree cut ---
+nested shells or linked tori whose valley is tissue-bridged before the
+coarse tail --- is reachable; if the candidate fails either guard below,
+the region is rejected outright and finer partitions are never visited.
+
+The mid-tree visit is made safe by a \emph{flow-bottleneck guard}.
+Sampling-gap arcs of a connected manifold pass every position-only
+screen: rank persistence, excess mass, subsample stability, and
+$k$-perturbation stability were all measured inseparable from true
+nested-shell cuts (2026-08-13), because a large sampling gap in a fixed
+sample \emph{is} a density valley of that sample. The discriminating
+information lives in the Hebbian flows of the fitted scaffold:
+equilibration closes sampling gaps (manifold traffic still crosses an
+arc boundary) while a true valley carries near-zero cross flow. For each
+block pair $(A,B)$ of the candidate cut the guard computes
+$\phi = \mathrm{maxflow}(A,B) / \min(\beta_A,\beta_B)$, where
+$\mathrm{maxflow}$ routes the summed directed link counts through the
+full flow graph and $\beta_C$ is block $C$'s internal throughput --- the
+max-flow across a max-variance spatial bisection of $C$. The ratio is
+dimensionless and self-normalizing in block size and flow scale.
+Measured on fitted scaffolds: circle arc cuts $\phi=0.60$--$1.29$;
+hierarchy, linked tori, and nested shells $\phi=0.000$--$0.070$. The
+operational ceiling \texttt{max\_bottleneck\_ratio}${}=0.25$ sits in the
+$\sim 8\times$ gap. Cuts passing the guard are confirmed by the
+background-aware DM edit. Background is
 a fixed additional outcome: for signal blocks
 $C_1,\ldots,C_K$ and background $B$, form the $(K+1)$-outcome flow
 matrix and compare
@@ -1695,8 +1719,7 @@ measured null envelope ($P\le 0.642$, $M\le 0.166$) overlaps true two-blob
 and four-clump split branches, so
 \texttt{min\_persistence}${}=0.05$ and
 \texttt{min\_excess\_mass}${}=0.02$ prune only short-lived or low-mass
-runts. The DM sibling test is the remaining connected-manifold guard at
-mid-tree; coarse-anchoring plus
+runts. The flow-bottleneck guard plus
 \texttt{min\_cluster\_frac}${}=0.15$ of the node budget is what rejects
 tissue-circle / swiss-roll arcs whose leftover child would otherwise
 survive the runt floors. Full-scene signal-only ARI, background recall,
@@ -1705,26 +1728,33 @@ and coverage remain the recovery metrics in
 \texttt{level\_set\_auto\_probe.py}; expected-$K$
 oracle selection is forbidden.
 
-Measured automatic extraction (no expected $K$; 2026-08-13): on sample
-$k$NN graphs, circle / swiss roll / manifold zoo reject; hierarchical
-Gaussians return the coarse $K{=}3$ cut (signal ARI $0.582$ vs fine
-labels); rods-in-sheets-in-slab returns $K{=}2$ sheets (ARI $0.995$);
-gap-corrected linked tori return $K{=}2$ (ARI $0.922$). Bounded fitted
-scaffolds reproduce circle/swiss reject, hierarchy $K{=}3$, and tori
-ARI $0.963$. Nested shells still do not present a balanced coarse
-$K{=}2$ cut at current node budgets (inner shell activates first; tissue
-bridges the valley before the outer shell closes) --- the node-budget vs
-valley-resolution caveat of \#44, not an extraction-walk defect.
+Measured automatic extraction (no expected $K$; 2026-08-13): on
+\emph{fitted scaffolds} --- the substrate whose flows the guard is
+designed for --- circle (both seeds, including one whose fit retains a
+balanced arc cut, $\phi=1.29$) and swiss roll reject; hierarchical
+Gaussians return the coarse $K{=}3$ cut (sample-projected signal ARI
+$0.571$); gap-corrected linked tori return $K{=}2$ at ARI
+$0.986$/$0.998$ (seeds 0/2); nested spheres at $3000$ points per shell
+and a $1024$-node budget return the first automatic $K{=}2$ shell
+recovery (ARI $0.820$, seed 0). Nested seed 1's fit never forms a large
+outer-shell branch and correctly rejects --- the node-budget vs
+valley-resolution caveat of \#44. On sample-$k$NN diagnostics with
+density-kernel flows, circle / swiss / zoo reject and hierarchy /
+sheets / tori recover as before, but such position-derived flows cannot
+emulate fitted-flow physics for sampling-gap arcs (a raw-sample gap
+looks like a real valley from positions alone), so the $k$NN probe is a
+proposal-path smoke check only; acceptance-grade evidence is the fitted
+run.
 
-Validation status: the DAG, rank/mass screens, coarse-anchored relative-mass
-cut, and background-aware DM collapse are implemented and unit-locked.
-Automatic extraction recovers hierarchy, the three-level rods/sheets
-fixture, and repaired linked tori without expected $K$, and now rejects
-tissue-circle / swiss-roll sample clouds and bounded fitted scaffolds.
-Nested shells remain unresolved at current node budgets. Thus the
-implementation is a reproducible proposal path, \emph{not} a default or a
-resolution of \#44. Promotion still requires nested-shell recovery on
-fitted scaffolds and repaired-benchmark recovery (\#45).
+Validation status: the DAG, rank/mass screens, mass-filtered coarse
+anchor, flow-bottleneck guard, and background-aware DM collapse are
+implemented and unit-locked (including a paired arc-cut/weak-bridge
+guard fixture). Automatic extraction on fitted scaffolds now covers the
+full basic suite: connected-manifold rejects, hierarchy, sheets, tori,
+and nested shells at adequate budgets. Thus the implementation is a
+reproducible proposal path, \emph{not} yet a default. Promotion still
+requires the repaired linked-tori generator (\#45) and multi-seed
+fitted-null sweeps.
 
 \paragraph{Landed proposal-path wiring and protocol.}
 Module \texttt{proteus.stage1.edge\_evidence} exposes
@@ -5120,6 +5150,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{LevelSetConfig.min\_persistence} & 0.05\ (\text{core-radius rank lifetime; runt screen; connected-null envelope overlaps true splits}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_excess\_mass} & 0.02\ (\text{normalized mass$\times$rank integral; runt screen}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_cluster\_frac} & 0.15\ (\text{fraction of region node budget; coarse satellite / partial-activation floor}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{LevelSetConfig.max\_bottleneck\_ratio} & 0.25\ (\text{cross-cut max-flow over internal bisection flow; arc-vs-valley guard; fitted gap } 0.07\text{--}0.60) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{prefer\_disconnected\_prepass} & \text{false} & \text{S2.6.2} & \text{operational (proposal-path)}\\

@@ -48,7 +48,14 @@ class _Node:
 
 
 class _KnnScaffold:
-    """Synthetic scaffold: node = sample, lifted edges = undirected kNN."""
+    """Synthetic scaffold: node = sample, lifted edges = undirected kNN.
+
+    Edge counts follow a Gaussian kernel of edge length so that flows are
+    density-proportional, as real Hebbian transition counts are: traffic
+    between BMUs scales with local sample density, so long tissue edges
+    carry near-zero flow.  A uniform-count graph would overweight tissue
+    and defeat the flow-bottleneck guard the probe is meant to exercise.
+    """
 
     def __init__(self, points: np.ndarray, k: int = 8) -> None:
         self.nodes = [_Node(p, points.shape[1]) for p in points]
@@ -56,11 +63,13 @@ class _KnnScaffold:
         self.tau = 1.0
         n = int(points.shape[0])
         k_use = max(1, min(int(k), n - 1))
-        _, idx = cKDTree(points).query(points, k=k_use + 1)
-        for i, nbrs in enumerate(idx):
-            for j in nbrs[1:]:
-                self.links.increment_directed(i, int(j), 1.0, lift=True)
-                self.links.increment_directed(int(j), i, 1.0, lift=True)
+        dist, idx = cKDTree(points).query(points, k=k_use + 1)
+        sigma = float(np.median(dist[:, 1:]))
+        for i, (drow, nbrs) in enumerate(zip(dist, idx)):
+            for d, j in zip(drow[1:], nbrs[1:]):
+                w = float(np.exp(-((float(d) / sigma) ** 2)))
+                self.links.increment_directed(i, int(j), w, lift=True)
+                self.links.increment_directed(int(j), i, w, lift=True)
 
 
 def _run(name: str, points: np.ndarray, labels: np.ndarray, expect: str) -> None:
@@ -104,7 +113,10 @@ def main() -> None:
     ds = make_manifold_zoo(tissue_fraction=0.03, seed=0)
     _run("manifold_zoo", ds.points, ds.labels, "reject / one connected scene")
 
-    ds = make_nested_spheres(n_per_sphere=800, tissue_fraction=0.03, seed=0)
+    # n_per_sphere=800 is below the valley-resolution budget: the outer
+    # shell never forms a large branch and the region correctly rejects.
+    # 3000 per sphere is the resolvable regime (#44 node-budget caveat).
+    ds = make_nested_spheres(n_per_sphere=3000, tissue_fraction=0.03, seed=0)
     _run("nested_spheres", ds.points, ds.labels, "K=2 shells")
 
     ds = make_hierarchical_gaussian(n_samples=600, seed=0)

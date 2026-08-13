@@ -1,27 +1,27 @@
 {
-  "updated_at": "2026-08-13T10:50:00-05:00",
-  "turn": 70,
+  "updated_at": "2026-08-13T17:05:00-05:00",
+  "turn": 71,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "coarse-anchor extraction; nested valley still open"
+    "goal": "flow-bottleneck guard landed; fitted basic suite fully green"
   },
   "recent": [
-    "Coarse-anchor + min_cluster_frac=0.15 of node budget; do not walk mid-tree arcs",
-    "Auto-probe: circle/swiss/zoo reject; hierarchy K=3; sheets ARI 0.995; tori ARI 0.922",
-    "Fitted: circle/swiss reject; hier K=3; tori ARI 0.963; nested still no balanced coarse K=2",
-    "Flag remains False; no awaiting flips"
+    "Falsified 3 position-only arc guards by measurement: valley ratio, k-stability, subsample stability",
+    "Landed mass-filtered coarse anchor + max_bottleneck_ratio=0.25 (cross maxflow / internal bisection flow)",
+    "Fitted: circle both seeds + swiss reject; hier K=3; tori 0.986/0.998; nested s0 K=2 ARI 0.820 (first auto shell recovery)",
+    "32 affected tests pass incl. paired arc/weak-bridge guard fixture; flag remains False"
   ],
   "discoveries": [
-    "Circle false-split was leftover DAG child (M=0.024) selected before the K=1 tail",
-    "Nested C-D tree never shows two large shells at coarsest K=2; inner activates first",
-    "Rank/mass screens overlap true splits; coarse-anchor is the connected-manifold guard"
+    "Sampling-gap arcs are position-indistinguishable from valleys on a fixed sample; only fitted Hebbian flows separate (phi gap 0.07 vs 0.60, ~8x)",
+    "Auto-probe kNN kernel flows invert the guard (position-derived); kNN probe is smoke-check only, fitted runs are acceptance-grade",
+    "Nested needs n_per~3000 + 1024 nodes; seed-1 fit lacks a large outer-shell branch and correctly rejects"
   ],
   "open_threads": [
-    "Nested valley vs node budget; raise cap or finer tau so both shells exist before merge",
     "Repair linked_tori generator (#45); current recovery uses uniform_torus probe scene",
-    "Multi-seed connected-null check before any default flip (#46 runtime still open)"
+    "Multi-seed fitted null + nested sweeps before any default flip; budget-sufficient nested seed 1",
+    "Node-budget vs valley resolvability statement (when is reject the right answer)"
   ],
-  "next_step": "node-budget nested-shell study or #45 generator repair; keep flag off",
+  "next_step": "#45 generator repair, then multi-seed fitted sweeps toward flag promotion",
   "blockers": []
 }
