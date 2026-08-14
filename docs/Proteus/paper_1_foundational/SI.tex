@@ -1728,23 +1728,34 @@ and coverage remain the recovery metrics in
 \texttt{level\_set\_auto\_probe.py}; expected-$K$
 oracle selection is forbidden.
 
-Measured automatic extraction (no expected $K$; 2026-08-13): on
-\emph{fitted scaffolds} --- the substrate whose flows the guard is
-designed for --- circle (both seeds, including one whose fit retains a
-balanced arc cut, $\phi=1.29$) and swiss roll reject; hierarchical
-Gaussians return the coarse $K{=}3$ cut (sample-projected signal ARI
-$0.571$); gap-corrected linked tori return $K{=}2$ at ARI
-$0.986$/$0.998$ (seeds 0/2); nested spheres at $3000$ points per shell
-and a $1024$-node budget return the first automatic $K{=}2$ shell
-recovery (ARI $0.820$, seed 0). Nested seed 1's fit never forms a large
-outer-shell branch and correctly rejects --- the node-budget vs
-valley-resolution caveat of \#44. On sample-$k$NN diagnostics with
-density-kernel flows, circle / swiss / zoo reject and hierarchy /
-sheets / tori recover as before, but such position-derived flows cannot
-emulate fitted-flow physics for sampling-gap arcs (a raw-sample gap
-looks like a real valley from positions alone), so the $k$NN probe is a
-proposal-path smoke check only; acceptance-grade evidence is the fitted
-run.
+Measured automatic extraction (no expected $K$; 2026-08-13):
+\texttt{level\_set\_fitted\_sweep.py} passes 25/25 fitted scene-seeds
+(seeds 0--4). Circle and Swiss-roll connected-manifold nulls reject
+10/10; hierarchical Gaussians return the coarse $K{=}3$ cut with
+sample-projected signal ARI $0.568$--$0.582$; repaired canonical linked
+tori return $K{=}2$ with ARI $0.981$--$0.998$ and signal coverage
+$0.991$--$0.999$; nested spheres return $K{=}2$ with ARI
+$0.727$--$0.914$ and coverage $0.671$--$0.955$. The nested budget is
+material: with $3000$ points per shell and
+\texttt{max\_nodes}${}=1536$, fits settle at 1238--1392 nodes and recover
+5/5; the former 1024 cap truncates the read and recovers only 2/5. On
+sample-$k$NN diagnostics, position-derived flows cannot emulate
+fitted-flow physics for sampling-gap arcs (a raw-sample gap looks like a
+real valley from positions alone), so the $k$NN probe remains a
+proposal-path smoke check; acceptance-grade evidence is the fitted run.
+
+The canonical \texttt{make\_linked\_tori} generator is repaired in the
+same protocol. The default minor radius is $0.25$, leaving surface gap
+$0.328$ between Hopf-linked tubes whose core-circle gap is $0.828$;
+overlapping radius choices now fail validation. A continuous
+area-uniform torus faded component replaces the former $24\times12$
+Gaussian-anchor lattice. Metadata declares core, surface, and faded
+support gaps plus the expected $k{=}8$ neighbour radius and a
+resolvability verdict. At 1000 samples per torus the expected neighbour
+radius $0.224$ exceeds the $\lambda{=}0.5$ gap $0.187$
+(marginal/unresolved); at
+4000 it is $0.112$ (resolved). The fitted five-seed tori results above
+use only this canonical generator.
 
 Validation status: the DAG, rank/mass screens, mass-filtered coarse
 anchor, flow-bottleneck guard, and background-aware DM collapse are
@@ -1752,9 +1763,11 @@ implemented and unit-locked (including a paired arc-cut/weak-bridge
 guard fixture). Automatic extraction on fitted scaffolds now covers the
 full basic suite: connected-manifold rejects, hierarchy, sheets, tori,
 and nested shells at adequate budgets. Thus the implementation is a
-reproducible proposal path, \emph{not} yet a default. Promotion still
-requires the repaired linked-tori generator (\#45) and multi-seed
-fitted-null sweeps.
+reproducible proposal path, \emph{not} yet a default. Generator repair
+and multi-seed fitted validation are complete. Promotion now requires
+wiring the measured node-budget/resolvability condition into normal
+Stage-1 scale selection and an awaiting-flip review; direct fine-$\tau$
+diagnostics alone must not silently change default behavior.
 
 \paragraph{Landed proposal-path wiring and protocol.}
 Module \texttt{proteus.stage1.edge\_evidence} exposes

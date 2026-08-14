@@ -27,13 +27,11 @@ from tests.datasets.synthetic.circles import make_circle
 from tests.datasets.synthetic.hierarchical_gaussian import (
     make_hierarchical_gaussian,
 )
+from tests.datasets.synthetic.linked_tori import make_linked_tori
 from tests.datasets.synthetic.manifold_zoo import make_manifold_zoo
 from tests.datasets.synthetic.nested_spheres import make_nested_spheres
 from tests.datasets.synthetic.swiss_roll import make_swiss_roll
-from tests.scenarios.synthetic.cd_level_set_probe import (
-    make_uniform_linked_tori,
-    score,
-)
+from tests.scenarios.synthetic.cd_level_set_probe import score
 from tests.scenarios.synthetic.test_multiscale_dim_membership import (
     make_rods_sheets_slab,
 )
@@ -72,7 +70,12 @@ class _KnnScaffold:
                 self.links.increment_directed(int(j), i, w, lift=True)
 
 
-def _run(name: str, points: np.ndarray, labels: np.ndarray, expect: str) -> None:
+def _run(
+    name: str,
+    points: np.ndarray,
+    labels: np.ndarray,
+    expect: str,
+) -> None:
     t0 = time.time()
     scaffold = _KnnScaffold(points)
     selection = select_level_set_partition(scaffold, LevelSetConfig())
@@ -83,7 +86,8 @@ def _run(name: str, points: np.ndarray, labels: np.ndarray, expect: str) -> None
         ari, bg, cov = score(labels, pred)
         k = selection.cluster_result.n_clusters
         line = (
-            f"{name:18s} n={len(points):5d} K={k} lvl={selection.selected_level} "
+            f"{name:18s} n={len(points):5d} K={k} "
+            f"lvl={selection.selected_level} "
             f"sig_ARI={ari:.3f} cover={cov:.2f} bg_rec={bg:.2f} "
             f"logBF={selection.log_bf:.1f} t={elapsed:.1f}s"
         )
@@ -120,13 +124,19 @@ def main() -> None:
     _run("nested_spheres", ds.points, ds.labels, "K=2 shells")
 
     ds = make_hierarchical_gaussian(n_samples=600, seed=0)
-    _run("hierarchy", ds.points, ds.labels, "coarsest K=3 (fine K=6 in children)")
+    _run(
+        "hierarchy",
+        ds.points,
+        ds.labels,
+        "coarsest K=3 (fine K=6 in children)",
+    )
 
     pts, rod, sheet = make_rods_sheets_slab(seed=0)
     _run("rods_sheets_slab", pts, sheet, "coarsest K=2 sheets (rods finer)")
 
-    X, y = make_uniform_linked_tori(n_per=800, minor_radius=0.25, seed=0)
-    _run("linked_tori", X, y, "K=2 tori")
+    tori = make_linked_tori(n_per_torus=4_000, seed=0)
+    assert tori.metadata["resolvable_k8"]
+    _run("linked_tori", tori.points, tori.labels, "K=2 tori")
 
 
 if __name__ == "__main__":

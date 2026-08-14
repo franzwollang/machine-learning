@@ -17,8 +17,8 @@ from ..ground_truth import (
 )
 from .faded_density import (
     FadedMixture,
-    KernelMixtureFadedComponent,
     SupportBox,
+    TorusSurfaceFadedComponent,
     assign_labels_by_lambda,
     sample_faded_mixture,
 )
@@ -27,26 +27,10 @@ from .tissue import (
     ideal_nodes_for_uniform_tissue_box,
 )
 
-
-def _sample_torus(
-    n: int,
-    R: float,
-    r: float,
-    rng: np.random.Generator,
-) -> np.ndarray:
-    """Sample uniformly on a torus with major radius R and minor radius r."""
-    theta = rng.uniform(0, 2 * np.pi, n)
-    phi = rng.uniform(0, 2 * np.pi, n)
-    x = (R + r * np.cos(phi)) * np.cos(theta)
-    y = (R + r * np.cos(phi)) * np.sin(theta)
-    z = r * np.sin(phi)
-    return np.stack([x, y, z], axis=1)
-
-
 def make_linked_tori(
     n_per_torus: int = 1000,
     major_radius: float = 2.0,
-    minor_radius: float = 0.5,
+    minor_radius: float = 0.25,
     noise: float = 0.02,
     target_n_nodes: int = 64,
     extrusion_dim: int = 1,
@@ -54,9 +38,26 @@ def make_linked_tori(
     tissue_fraction: float = 0.03,
     seed: int = 0,
 ) -> SyntheticDataset:
-    """Generate two linked thickened tori as exact faded densities."""
+    """Generate two separated Hopf-linked tori as exact faded densities.
+
+    The core-circle separation is
+    ``major_radius * (sqrt(2) - 1)``.  The tube surfaces must leave a
+    positive gap; the former ``minor_radius=0.5`` default violated this
+    condition and welded the two labelled tori together.  Sampling is
+    continuous and area-uniform on each torus rather than drawn from a
+    sparse kernel-anchor lattice.
+    """
     if extrusion_dim < 0:
         raise ValueError("extrusion_dim must be non-negative")
+    if n_per_torus <= 0:
+        raise ValueError("n_per_torus must be positive")
+    centerline_gap = float(major_radius * (np.sqrt(2.0) - 1.0))
+    surface_gap = float(centerline_gap - 2.0 * minor_radius)
+    if surface_gap <= 0.0:
+        raise ValueError(
+            "linked torus surfaces overlap: require "
+            "2 * minor_radius < major_radius * (sqrt(2) - 1)",
+        )
 
     rng = np.random.default_rng(seed)
     ambient_dim = 3 + max(extrusion_dim - 1, 0)
@@ -67,29 +68,31 @@ def make_linked_tori(
     effective_noise_variance = (
         noise**2 if extrusion_dim == 0 else extrusion_dim * tube_sigma**2
     )
+    lambda_half_radius = float(
+        3.0 * tube_sigma * np.sqrt(2.0 * np.log(2.0)),
+    )
+    lambda_half_gap = float(surface_gap - 2.0 * lambda_half_radius)
 
-    theta_grid = np.linspace(0.0, 2.0 * np.pi, num=24, endpoint=False)
-    phi_grid = np.linspace(0.0, 2.0 * np.pi, num=12, endpoint=False)
-    theta_mesh, phi_mesh = np.meshgrid(theta_grid, phi_grid, indexing="ij")
-    torus1_anchors = np.zeros((theta_mesh.size, ambient_dim), dtype=float)
-    torus1_anchors[:, 0] = (major_radius + minor_radius * np.cos(phi_mesh.ravel())) * np.cos(theta_mesh.ravel())
-    torus1_anchors[:, 1] = (major_radius + minor_radius * np.cos(phi_mesh.ravel())) * np.sin(theta_mesh.ravel())
-    torus1_anchors[:, 2] = minor_radius * np.sin(phi_mesh.ravel())
-    torus2_anchors = np.zeros_like(torus1_anchors)
-    torus2_anchors[:, 0] = torus1_anchors[:, 2] + major_radius
-    torus2_anchors[:, 1] = torus1_anchors[:, 1]
-    torus2_anchors[:, 2] = torus1_anchors[:, 0]
-
-    component1 = KernelMixtureFadedComponent(
-        anchors=torus1_anchors,
+    identity = np.eye(3)
+    hopf_rotation = np.array(
+        [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]],
+    )
+    component1 = TorusSurfaceFadedComponent(
+        major_radius=major_radius,
+        minor_radius=minor_radius,
         sigma=tube_sigma,
         transition_radius=3.0,
+        center=np.zeros(ambient_dim),
+        rotation=identity,
         weight=0.5,
     )
-    component2 = KernelMixtureFadedComponent(
-        anchors=torus2_anchors,
+    component2 = TorusSurfaceFadedComponent(
+        major_radius=major_radius,
+        minor_radius=minor_radius,
         sigma=tube_sigma,
         transition_radius=3.0,
+        center=np.r_[major_radius, np.zeros(ambient_dim - 1)],
+        rotation=hopf_rotation,
         weight=0.5,
     )
     torus1 = component1.sample(n_per_torus, np.random.default_rng(seed + 17))
@@ -109,6 +112,9 @@ def make_linked_tori(
         connected_components=1, betti_numbers=(1, 2, 1), intrinsic_dim=2,
     )
     surface_area = 4.0 * (np.pi ** 2) * major_radius * minor_radius
+    expected_knn_radius_k8 = float(np.sqrt(
+        8.0 * surface_area / (np.pi * n_per_torus),
+    ))
     signal_tau = expected_tau_for_surface(
         surface_area=surface_area,
         target_n_nodes=target_n_nodes,
@@ -182,7 +188,16 @@ def make_linked_tori(
             "tissue_fraction_requested": tissue_fraction,
             "support_bounds_lo": tissue_bounds[0].tolist(),
             "support_bounds_hi": tissue_bounds[1].tolist(),
-            "anchor_count": int(torus1_anchors.shape[0] + torus2_anchors.shape[0]),
+            "sampling": "continuous_area_uniform",
+            "centerline_gap": centerline_gap,
+            "surface_gap": surface_gap,
+            "lambda_half_radius": lambda_half_radius,
+            "lambda_half_gap": lambda_half_gap,
+            "expected_knn_radius_k8": expected_knn_radius_k8,
+            "resolvable_k8": bool(
+                lambda_half_gap > 0.0
+                and expected_knn_radius_k8 < lambda_half_gap
+            ),
             **sampler_meta,
         },
     )

@@ -318,6 +318,125 @@ class CircleFadedComponent:
 
 
 @dataclass(frozen=True)
+class TorusSurfaceFadedComponent:
+    """Area-uniform torus surface with Gaussian fade in normal directions.
+
+    ``rotation`` maps local torus coordinates into the first three world
+    coordinates.  Remaining ambient coordinates are independent normal
+    directions.  Unlike a kernel-anchor approximation, this component is
+    continuous around both torus angles and therefore has no artificial
+    lattice of density modes.
+    """
+
+    major_radius: float
+    minor_radius: float
+    sigma: float
+    transition_radius: float
+    center: np.ndarray
+    rotation: np.ndarray
+    weight: float = 1.0
+
+    def __post_init__(self) -> None:
+        center = np.asarray(self.center, dtype=float)
+        rotation = np.asarray(self.rotation, dtype=float)
+        if center.ndim != 1 or center.shape[0] < 3:
+            raise ValueError("center must be 1D with ambient dim >= 3")
+        if rotation.shape != (3, 3):
+            raise ValueError("rotation must have shape (3, 3)")
+        if not np.allclose(rotation @ rotation.T, np.eye(3), atol=1e-10):
+            raise ValueError("rotation must be orthogonal")
+        if self.major_radius <= 0.0 or self.minor_radius <= 0.0:
+            raise ValueError("torus radii must be positive")
+        if self.minor_radius >= self.major_radius:
+            raise ValueError("minor_radius must be smaller than major_radius")
+        if self.sigma <= 0.0:
+            raise ValueError("sigma must be positive")
+        object.__setattr__(self, "center", center)
+        object.__setattr__(self, "rotation", rotation)
+
+    @property
+    def dim(self) -> int:
+        return int(self.center.shape[0])
+
+    def _local(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        rel = np.asarray(x, dtype=float) - self.center[None, :]
+        local3 = rel[:, :3] @ self.rotation
+        return local3, rel[:, 3:]
+
+    def density(self, x: np.ndarray) -> np.ndarray:
+        local, extras = self._local(x)
+        planar_radius = np.linalg.norm(local[:, :2], axis=1)
+        tube_radius = np.sqrt(
+            np.square(planar_radius - self.major_radius)
+            + np.square(local[:, 2])
+        )
+        residual = tube_radius - self.minor_radius
+        radial_pdf = np.exp(
+            -0.5 * np.square(residual / max(self.sigma, _EPS))
+        )
+        radial_pdf /= np.sqrt(2.0 * np.pi) * max(self.sigma, _EPS)
+        level_area = (
+            4.0 * np.pi**2 * self.major_radius
+            * np.maximum(tube_radius, _EPS)
+        )
+        density = radial_pdf / level_area
+        if extras.shape[1] == 0:
+            return density
+        norm_sq = np.sum(extras * extras, axis=1)
+        log_norm = (
+            -0.5 * extras.shape[1] * np.log(2.0 * np.pi)
+            - extras.shape[1] * np.log(max(self.sigma, _EPS))
+        )
+        return density * np.exp(
+            log_norm - 0.5 * norm_sq / max(self.sigma**2, _EPS)
+        )
+
+    def sample(self, n: int, rng: np.random.Generator) -> np.ndarray:
+        radial = self.minor_radius + rng.normal(scale=self.sigma, size=n)
+        radial = np.maximum(radial, _EPS)
+        theta = rng.uniform(0.0, 2.0 * np.pi, size=n)
+        phi = np.empty(n, dtype=float)
+        pending = np.arange(n)
+        while pending.size:
+            proposal = rng.uniform(0.0, 2.0 * np.pi, size=pending.size)
+            numer = self.major_radius + radial[pending] * np.cos(proposal)
+            denom = self.major_radius + radial[pending]
+            accept = rng.random(pending.size) < (numer / denom)
+            phi[pending[accept]] = proposal[accept]
+            pending = pending[~accept]
+
+        local = np.zeros((n, 3), dtype=float)
+        ring_radius = self.major_radius + radial * np.cos(phi)
+        local[:, 0] = ring_radius * np.cos(theta)
+        local[:, 1] = ring_radius * np.sin(theta)
+        local[:, 2] = radial * np.sin(phi)
+        out = np.zeros((n, self.dim), dtype=float)
+        out[:, :3] = local @ self.rotation.T
+        if self.dim > 3:
+            out[:, 3:] = rng.normal(
+                scale=self.sigma, size=(n, self.dim - 3),
+            )
+        return out + self.center[None, :]
+
+    def distance(self, x: np.ndarray) -> np.ndarray:
+        local, extras = self._local(x)
+        planar_radius = np.linalg.norm(local[:, :2], axis=1)
+        tube_radius = np.sqrt(
+            np.square(planar_radius - self.major_radius)
+            + np.square(local[:, 2])
+        )
+        residual_sq = np.square(tube_radius - self.minor_radius)
+        if extras.shape[1]:
+            residual_sq += np.sum(extras * extras, axis=1)
+        return np.sqrt(residual_sq)
+
+    def fade_weight(self, x: np.ndarray) -> np.ndarray:
+        return lambda_from_distance(
+            self.distance(x), self.sigma, self.transition_radius,
+        )
+
+
+@dataclass(frozen=True)
 class AxisAlignedSheetFadedComponent:
     u_range: tuple[float, float]
     v_range: tuple[float, float]

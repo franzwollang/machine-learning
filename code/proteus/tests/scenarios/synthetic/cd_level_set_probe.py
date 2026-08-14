@@ -56,53 +56,26 @@ from tests.datasets.synthetic.circles import make_circle
 from tests.datasets.synthetic.hierarchical_gaussian import (
     make_hierarchical_gaussian,
 )
+from tests.datasets.synthetic.linked_tori import make_linked_tori
 from tests.datasets.synthetic.manifold_zoo import make_manifold_zoo
 from tests.datasets.synthetic.nested_spheres import make_nested_spheres
 from tests.datasets.synthetic.swiss_roll import make_swiss_roll
 
 
 # --------------------------------------------------------------------------
-# corrected linked tori (see OPEN_ISSUES #45: the repo generator's tubes
-# overlap at minor_radius=0.5 and its anchor-kernel sampling is clumpy)
+# canonical repaired linked tori (OPEN_ISSUES #45)
 # --------------------------------------------------------------------------
 
-def uniform_torus(n: int, big_r: float, small_r: float, rng) -> np.ndarray:
-    """Uniform area-correct sampling of a torus surface in R^3."""
-    pts: list[np.ndarray] = []
-    while len(pts) < n:
-        th = rng.uniform(0, 2 * np.pi, n)
-        ph = rng.uniform(0, 2 * np.pi, n)
-        keep = rng.uniform(0, 1, n) < (
-            (big_r + small_r * np.cos(ph)) / (big_r + small_r)
-        )
-        th, ph = th[keep], ph[keep]
-        x = (big_r + small_r * np.cos(ph)) * np.cos(th)
-        y = (big_r + small_r * np.cos(ph)) * np.sin(th)
-        z = small_r * np.sin(ph)
-        pts.extend(np.c_[x, y, z])
-    return np.array(pts[:n])
-
-
 def make_uniform_linked_tori(n_per=4000, minor_radius=0.25, seed=0):
-    """Hopf-linked tori with a real gap and continuous surface sampling."""
-    rng = np.random.default_rng(seed)
-    big_r = 2.0
-    t1 = uniform_torus(n_per, big_r, minor_radius, rng)
-    t1 = t1 + rng.normal(0, 0.02, t1.shape)
-    t2 = uniform_torus(n_per, big_r, minor_radius, rng)
-    t2 = t2 + rng.normal(0, 0.02, t2.shape)
-    t2 = np.c_[t2[:, 2] + big_r, t2[:, 1], t2[:, 0]]
-    n_tissue = n_per // 16
-    lo = np.vstack([t1, t2]).min(0) - 0.3
-    hi = np.vstack([t1, t2]).max(0) + 0.3
-    tissue = rng.uniform(lo, hi, (n_tissue, 3))
-    points = np.vstack([t1, t2, tissue])
-    labels = np.r_[
-        np.zeros(n_per, int),
-        np.ones(n_per, int),
-        -np.ones(n_tissue, int),
-    ]
-    return points, labels
+    """Compatibility wrapper around the repaired canonical generator."""
+    dataset = make_linked_tori(
+        n_per_torus=n_per,
+        minor_radius=minor_radius,
+        noise=0.02,
+        tissue_fraction=0.03,
+        seed=seed,
+    )
+    return dataset.points, dataset.labels
 
 
 # --------------------------------------------------------------------------

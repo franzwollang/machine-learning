@@ -1,27 +1,28 @@
 {
-  "updated_at": "2026-08-13T17:05:00-05:00",
-  "turn": 71,
+  "updated_at": "2026-08-13T20:18:00-05:00",
+  "turn": 72,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "flow-bottleneck guard landed; fitted basic suite fully green"
+    "goal": "canonical tori repaired; 25/25 fitted multi-seed sweep green"
   },
   "recent": [
-    "Falsified 3 position-only arc guards by measurement: valley ratio, k-stability, subsample stability",
-    "Landed mass-filtered coarse anchor + max_bottleneck_ratio=0.25 (cross maxflow / internal bisection flow)",
-    "Fitted: circle both seeds + swiss reject; hier K=3; tori 0.986/0.998; nested s0 K=2 ARI 0.820 (first auto shell recovery)",
-    "32 affected tests pass incl. paired arc/weak-bridge guard fixture; flag remains False"
+    "Repaired make_linked_tori: minor=0.25, continuous area-uniform faded component, overlap validation, gap/resolvability metadata",
+    "Canonical repaired tori fitted seeds 0-4: K=2, ARI 0.981-0.998, coverage 0.991-0.999",
+    "Full fitted sweep 25/25: circle/swiss reject 10/10; hierarchy/tori/nested recover 15/15",
+    "Nested max_nodes=1024 recovers 2/5; 1536 settles at 1238-1392 nodes and recovers 5/5",
+    "38 focused tests pass + 2 expected awaiting xfails; flag remains False"
   ],
   "discoveries": [
-    "Sampling-gap arcs are position-indistinguishable from valleys on a fixed sample; only fitted Hebbian flows separate (phi gap 0.07 vs 0.60, ~8x)",
-    "Auto-probe kNN kernel flows invert the guard (position-derived); kNN probe is smoke-check only, fitted runs are acceptance-grade",
-    "Nested needs n_per~3000 + 1024 nodes; seed-1 fit lacks a large outer-shell branch and correctly rejects"
+    "Canonical tori k8 resolvability: n=1000 r_k~0.224 > lambda-half gap~0.187; n=4000 r_k~0.112 resolves",
+    "Nested recovery failure was cap truncation, not seed instability: max_nodes=1536 gives 5/5",
+    "Direct fitted validation is green, but normal scale search does not yet enforce the measured budget/resolvability condition"
   ],
   "open_threads": [
-    "Repair linked_tori generator (#45); current recovery uses uniform_torus probe scene",
-    "Multi-seed fitted null + nested sweeps before any default flip; budget-sufficient nested seed 1",
-    "Node-budget vs valley resolvability statement (when is reject the right answer)"
+    "Wire budget/resolvability into normal Stage-1 scale selection before flag promotion (#44)",
+    "Define benchmark-wide fade-halo/background semantics; rebaseline awaiting #41/#26 (#45)",
+    "Awaiting-flip review after normal-path integration"
   ],
-  "next_step": "#45 generator repair, then multi-seed fitted sweeps toward flag promotion",
+  "next_step": "wire fitted resolvability/budget condition into normal scale-search path; then awaiting-flip review",
   "blockers": []
 }

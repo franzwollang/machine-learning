@@ -287,23 +287,23 @@ Remaining work:
   flows. Measured on fitted scaffolds: arcs 0.60–1.29, true splits 0.000–0.070
   (~8x gap). DM confirms cuts that pass the guard; failure rejects the region
   outright. Unit-locked with a paired arc-cut/weak-bridge fixture.
-- **Measured (2026-08-13, fitted scaffolds, no expected K):** circle rejects on
-  both seeds (incl. a fit retaining a balanced arc cut, phi=1.29); swiss rejects;
-  hierarchy `K=3` (ARI 0.571); gap-corrected tori `K=2` ARI 0.986/0.998 (seeds
-  0/2); nested spheres (n_per=3000, 1024 nodes) `K=2` ARI 0.820 — first automatic
-  shell recovery. Nested seed 1's fit lacks a large outer-shell branch and
-  rejects (node-budget vs valley-resolution caveat). kNN-graph probe
-  (`level_set_auto_probe.py`, density-kernel flows) stays a smoke check only:
-  position-derived flows cannot emulate fitted-flow physics for sampling-gap
-  arcs.
-- **ACCEPTANCE BLOCKER:** repaired-benchmark recovery (#45; repo
-  `make_linked_tori` still unseparable), multi-seed fitted connected-null and
-  nested sweeps (incl. budget-sufficient nested seed 1), and a
-  node-budget-vs-valley resolvability statement for when rejection is expected.
-  Keep the flag off. Do not flip awaiting tests or delete S2.6.1 stand-ins in the
-  same change. Sample-level background-aware ARI is the only recovery metric.
-  Existing Q/AP `PersistenceConfig` snapshots a different partition family and is
-  not reused.
+- **Measured (2026-08-13, fitted scaffolds, no expected K):**
+  `level_set_fitted_sweep.py` passes **25/25** scene-seeds (seeds 0--4):
+  circle and swiss-roll connected nulls reject 10/10; hierarchy returns `K=3`
+  with ARI 0.568--0.582; repaired canonical linked tori return `K=2` with ARI
+  0.981--0.998 and coverage 0.991--0.999; nested spheres return `K=2` with ARI
+  0.727--0.914 and coverage 0.671--0.955. Nested requires
+  `n_per_sphere=3000`, `max_nodes=1536`; fits stabilize at 1238--1392 nodes.
+  The former 1024 cap truncates the read and only recovers 2/5 seeds. kNN-graph
+  probes remain smoke checks: position-derived flows cannot emulate fitted-flow
+  physics for sampling-gap arcs.
+- **ACCEPTANCE BLOCKER:** wire the validated budget/resolvability rule into the
+  normal Stage-1 scale-search path and run the awaiting-flip review; direct
+  fine-tau fitted diagnostics alone do not justify changing
+  `use_level_set_clustering=False`. Do not delete S2.6.1 stand-ins in the same
+  change. Sample-level background-aware ARI is the recovery metric. Existing
+  Q/AP `PersistenceConfig` snapshots a different partition family and is not
+  reused.
 - Derive/calibrate the node-budget vs valley-resolution requirement (ties into the
   `max_nodes` removal plan, `reference/open_loop_growth_and_node_cap.md`; open a
   follow-up issue when scheduled into M4).
@@ -311,35 +311,18 @@ Remaining work:
   in `recursion.py` / `edge_evidence.py` (all proposal-path, default off; keep the
   ROC/adversarial-null calibration infrastructure) and run the awaiting-flip review.
 
-## 45. Synthetic benchmark defects: linked tori unseparable by construction; fade-halo dominates GT labels
+## 45. Synthetic fade-halo labels need benchmark-wide semantics
 
-Discovered while validating the #44 pivot (2026-08-12):
+The repaired linked-tori generator now exposes the underlying remaining
+benchmark issue: faded-density generators label all samples below
+`lambda=0.5` as background, often about half the cloud. Full-cloud metrics are
+therefore dominated by halo labels even when signal topology/clustering is
+correct.
 
-- `make_linked_tori`: the Hopf-pair core circles have minimum distance
-  `2*sqrt(3-2*sqrt(2)) ~ 0.828`; with the default `minor_radius=0.5` the tube surfaces
-  **overlap** by ~0.17 — the two "tori" are welded into one connected component and the
-  GT expectation of 2 clusters is unsatisfiable for *any* method (this silently doomed
-  every tori-recovery attempt of the burn). `minor_radius <= ~0.35` leaves a real gap
-  (0.3 gives gap ~0.23; 0.25 gives ~0.33).
-- Same generator: each torus is sampled from a 24x12 = 288 kernel-anchor grid with
-  `sigma = 0.02`, so the sampled density is a lattice of clumps whose *intra-torus* gaps
-  (major-circle anchor spacing ~0.45–0.6) exceed the *inter-torus* gap even after the
-  radius fix — the true density cluster tree merges the tori before either ring closes.
-  Needs continuous surface sampling (cf. `uniform_torus` in
-  `tests/scenarios/synthetic/cd_level_set_probe.py`) or a much denser anchor grid.
-- Resolvability is a sampling statement: separation requires the k-NN radius to fit
-  inside the gap (`r_k < gap`). At `n_per_torus=1000` even corrected geometry is
-  marginal; the probe needed n_per ~ 4000–8000 for robust batch separation. Scene
-  metadata should declare gap width so tests can assert `r_k < gap` before expecting
-  recovery.
-- Faded-density generators label everything below `lambda = 0.5` as -1, which puts
-  ~half of all samples in the halo/tissue class (nested spheres default: 48%). Full-cloud
-  metrics are therefore dominated by halo points; recovery scoring must be signal-only
-  ARI + background recall (as in the #44 probe).
-
-Work: re-parameterize/fix the linked_tori generator (continuous sampling, declared gap),
-add per-scene resolvability metadata (gap vs expected `r_k`), and re-baseline the
-`@awaiting` recovery expectations (#41, #26) on the repaired scenes.
+Remaining work: define benchmark-wide halo/background semantics; retain
+signal-only ARI + background recall until then; re-baseline the `@awaiting`
+recovery expectations (#41, #26) on repaired scenes without weakening their
+topology criteria.
 
 ## 46. Pytest runtime hygiene: simulations are misclassified as tests
 
