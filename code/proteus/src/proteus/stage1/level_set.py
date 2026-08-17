@@ -11,15 +11,23 @@ Tree construction is proposal-path and default-off.  Automatic extraction
 builds an explicit merge DAG, prunes short-lived and low-mass branches
 (ToMATo-style rank persistence and normalized excess mass), then confirms
 surviving sibling groups with the background-aware Dirichlet--multinomial
-homogeneity Bayes factor.  The finite-sample connected-manifold null remains
-the acceptance blocker (#44); this path is not a default.  Nodes inactive or
-runt-sized at the chosen density level retain label ``-1`` as an explicit
-background tier rather than being forcibly absorbed into a signal cluster.
+homogeneity Bayes factor.  The split criterion is a Hartigan density
+valley, not support connectivity: a geometrically connected manifold is
+still split when a superlevel set disconnects into evidence-bearing
+modes.  Uniform-density manifolds (circle, swiss roll, disk) remain one
+feature because they have no valley; sampling-gap arcs are rejected by
+the flow-bottleneck guard.  A valley-resolvability trichotomy (resolved
+split / resolved null / under-resolved) governs node-cap growth on this
+path, not whether a finer ``tau`` may still be probed.  This path is not
+a default.  Nodes inactive or runt-sized at the chosen density level
+retain label ``-1`` as an explicit background tier rather than being
+forcibly absorbed into a signal cluster.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from enum import Enum
 from math import ceil
 from typing import Any
 
@@ -45,6 +53,10 @@ __all__ = [
     "LevelSetBranch",
     "LevelSetDAG",
     "LevelSetSelection",
+    "ValleyVerdict",
+    "ValleyResolvability",
+    "assess_valley_resolvability",
+    "next_node_budget",
     "build_level_set_tree",
     "build_level_set_dag",
     "apply_geometric_screens",
@@ -86,6 +98,14 @@ class LevelSetConfig:
     flow relative to each side's internal bisection flow (0.0-0.07 on
     fitted hierarchy / tori / nested shells).  All of these are operational
     proposal-path defaults, not promoted acceptance constants.
+
+    ``grow_nodes_when_underresolved`` raises ``max_nodes`` when a scaffold
+    sits at the cap with no evidence-bearing cut (nested-shell truncation
+    at 1024 vs recovery at 1536).  It is consulted only while
+    ``use_level_set_clustering`` is on.  A resolved null — including a
+    bottleneck-rejected arc cut at the cap — does not grow.  This is an
+    operational stand-in for evidence-gated insertion (#47), not
+    equilibrium ``N*``.
     """
 
     k_neighbors: int = 8
@@ -96,6 +116,9 @@ class LevelSetConfig:
     min_excess_mass: float = 0.02
     min_cluster_frac: float = 0.15
     max_bottleneck_ratio: float = 0.25
+    grow_nodes_when_underresolved: bool = True
+    node_growth_factor: float = 2.0
+    max_node_growth_steps: int = 5
 
 
 @dataclass(frozen=True)
@@ -158,6 +181,30 @@ class LevelSetDAG:
     level_branch_ids: tuple[tuple[int, ...], ...]
 
 
+class ValleyVerdict(str, Enum):
+    """Trichotomy at a fitted ``(tau, N)`` scaffold (SI S2.6.2)."""
+
+    RESOLVED_SPLIT = "resolved_split"
+    RESOLVED_NULL = "resolved_null"
+    UNDER_RESOLVED = "under_resolved"
+
+
+@dataclass(frozen=True)
+class ValleyResolvability:
+    """Node-growth classification for one level-set extraction.
+
+    ``reject_reason`` is ``None`` on an accepted split, otherwise one of
+    ``"bottleneck"``, ``"dm"``, or ``"no_cut"``.
+    """
+
+    verdict: ValleyVerdict
+    saw_balanced_cut: bool
+    at_node_cap: bool
+    n_nodes: int
+    max_nodes: int | None
+    reject_reason: str | None = None
+
+
 @dataclass(frozen=True)
 class LevelSetSelection:
     """Automatic extraction result and diagnostics."""
@@ -168,10 +215,56 @@ class LevelSetSelection:
     log_bf: float
     dag: LevelSetDAG | None = None
     branches: tuple[LevelSetBranch, ...] = ()
+    resolvability: ValleyResolvability | None = None
 
     @property
     def accepted(self) -> bool:
         return self.cluster_result is not None
+
+
+def assess_valley_resolvability(
+    scaffold: Any,
+    *,
+    accepted: bool,
+    saw_balanced_cut: bool,
+    reject_reason: str | None = None,
+) -> ValleyResolvability:
+    """Classify a fitted scaffold as split / null / under-resolved (SI S2.6.2).
+
+    The trichotomy governs node-cap growth, not whether a finer ``tau`` may
+    still be probed.  A resolved null at coarse ``L=1`` can still be a
+    composite feature that separates only below ``tau_sep``.
+    """
+
+    n_nodes = len(getattr(scaffold, "nodes", ()))
+    raw_cap = getattr(scaffold, "max_nodes", None)
+    max_nodes = int(raw_cap) if raw_cap is not None else None
+    at_cap = max_nodes is not None and n_nodes >= max_nodes
+    if accepted:
+        verdict = ValleyVerdict.RESOLVED_SPLIT
+    elif saw_balanced_cut:
+        verdict = ValleyVerdict.RESOLVED_NULL
+    elif at_cap:
+        verdict = ValleyVerdict.UNDER_RESOLVED
+    else:
+        verdict = ValleyVerdict.RESOLVED_NULL
+    return ValleyResolvability(
+        verdict=verdict,
+        saw_balanced_cut=saw_balanced_cut,
+        at_node_cap=at_cap,
+        n_nodes=n_nodes,
+        max_nodes=max_nodes,
+        reject_reason=reject_reason,
+    )
+
+
+def next_node_budget(current: int, factor: float, ceiling: int) -> int:
+    """Next ``max_nodes`` after an under-resolved retry (SI S14.3)."""
+
+    current = max(int(current), 1)
+    ceiling = max(int(ceiling), 1)
+    grown = max(current + 1, int(ceil(float(current) * float(factor))))
+    return min(grown, ceiling)
 
 
 def _validate_positions(positions: np.ndarray) -> np.ndarray:
@@ -786,7 +879,9 @@ def select_level_set_partition(
     tissue-bridged before the coarse tail — is reachable.  The single
     candidate is that coarsest filtered cut: if it fails the bottleneck
     guard or DM, the region is rejected outright, never walked finer.  No
-    expected cluster count enters selection.
+    expected cluster count enters selection.  The returned
+    ``resolvability`` trichotomy tells the orchestrator whether to grow
+    ``N`` (under-resolved at the node cap) or not (resolved null).
     """
 
     config = config or LevelSetConfig()
@@ -797,7 +892,18 @@ def select_level_set_partition(
     )
     tree = build_level_set_tree(positions, config)
     if not tree.levels:
-        return LevelSetSelection(tree, None, None, float("-inf"))
+        return LevelSetSelection(
+            tree,
+            None,
+            None,
+            float("-inf"),
+            resolvability=assess_valley_resolvability(
+                scaffold,
+                accepted=False,
+                saw_balanced_cut=False,
+                reject_reason="no_cut",
+            ),
+        )
 
     dag = build_level_set_dag(tree)
     screened = apply_geometric_screens(dag.branches, config)
@@ -806,6 +912,8 @@ def select_level_set_partition(
     )
 
     best_rejected_bf = float("-inf")
+    saw_balanced_cut = False
+    reject_reason: str | None = "no_cut"
     for level_index in range(len(tree.levels) - 1, -1, -1):
         if tree.levels[level_index].n_clusters < 2:
             continue
@@ -819,11 +927,13 @@ def select_level_set_partition(
             # Satellite-only structure at this level; a genuine balanced
             # cut may still exist finer (tissue-bridged nested features).
             continue
+        saw_balanced_cut = True
         # Coarse-anchor: this is the coarsest mass-filtered K>=2 cut and
         # the only candidate.  Guard against sampling-gap arcs (which
         # carry manifold flow across the cut), then confirm with DM.
         ratio = _flow_bottleneck_ratio(scaffold, labels, positions)
         if ratio > config.max_bottleneck_ratio:
+            reject_reason = "bottleneck"
             break
         log_bf, accepted = dm_partition_background_verdict(
             scaffold, clusters, background, dm_config,
@@ -838,7 +948,13 @@ def select_level_set_partition(
                 log_bf=float(log_bf),
                 dag=replace(dag, branches=screened),
                 branches=screened,
+                resolvability=assess_valley_resolvability(
+                    scaffold,
+                    accepted=True,
+                    saw_balanced_cut=True,
+                ),
             )
+        reject_reason = "dm"
         break
 
     return LevelSetSelection(
@@ -848,4 +964,10 @@ def select_level_set_partition(
         log_bf=best_rejected_bf,
         dag=replace(dag, branches=screened),
         branches=screened,
+        resolvability=assess_valley_resolvability(
+            scaffold,
+            accepted=False,
+            saw_balanced_cut=saw_balanced_cut,
+            reject_reason=reject_reason,
+        ),
     )

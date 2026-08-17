@@ -10,12 +10,18 @@ from proteus.stage1.dm_cluster import DMClusterConfig
 from proteus.stage1.level_set import (
     LevelSetBranch,
     LevelSetConfig,
+    ValleyVerdict,
     apply_geometric_screens,
     build_level_set_dag,
     build_level_set_tree,
+    next_node_budget,
     select_level_set_partition,
 )
-from proteus.stage1.recursion import RecursionConfig, run_recursive_discovery
+from proteus.stage1.recursion import (
+    RecursionConfig,
+    _grow_underresolved_level_set,
+    run_recursive_discovery,
+)
 from tests.datasets.synthetic.circles import make_circle
 from tests.datasets.synthetic.hierarchical_gaussian import (
     make_hierarchical_gaussian,
@@ -35,6 +41,7 @@ class _Scaffold:
         self,
         positions: np.ndarray,
         edges: list[tuple[int, int, float]],
+        max_nodes: int | None = None,
     ) -> None:
         self.nodes = [_Node(p) for p in positions]
         self.links = LinkCounters()
@@ -42,6 +49,8 @@ class _Scaffold:
             self.links.increment_directed(i, j, float(count), lift=True)
             self.links.increment_directed(j, i, float(count), lift=True)
         self.tau = 1.0
+        if max_nodes is not None:
+            self.max_nodes = int(max_nodes)
 
 
 def _cycle_edges(ids: list[int], weight: float) -> list[tuple[int, int, float]]:
@@ -118,6 +127,9 @@ def test_level_set_defaults_are_validated_reader() -> None:
     assert config.min_excess_mass == 0.02
     assert config.min_cluster_frac == 0.15
     assert config.max_bottleneck_ratio == 0.25
+    assert config.grow_nodes_when_underresolved is True
+    assert config.node_growth_factor == 2.0
+    assert config.max_node_growth_steps == 5
 
 
 def test_inactive_and_runt_nodes_are_distinct() -> None:
@@ -438,3 +450,83 @@ def test_recursion_flag_still_defaults_off() -> None:
                 require_persistent_split=True,
             ),
         )
+
+
+def test_two_blob_split_is_resolved_split() -> None:
+    positions, edges = _two_blobs_with_background()
+    selection = select_level_set_partition(
+        _Scaffold(positions, edges),
+        LevelSetConfig(k_neighbors=4, min_cluster_size=4, n_levels=60),
+    )
+    assert selection.accepted
+    assert selection.resolvability is not None
+    assert selection.resolvability.verdict == ValleyVerdict.RESOLVED_SPLIT
+    assert selection.resolvability.saw_balanced_cut
+
+
+def test_arc_cut_at_node_cap_is_resolved_null() -> None:
+    """Bottleneck-rejected arcs must not trigger cap growth, even at max_nodes."""
+
+    scaffold = _two_arcs(gap_flow=6.0)
+    n = len(scaffold.nodes)
+    scaffold.max_nodes = n
+    selection = select_level_set_partition(
+        scaffold,
+        LevelSetConfig(k_neighbors=4, min_cluster_size=4, n_levels=60),
+    )
+    assert not selection.accepted
+    assert selection.resolvability is not None
+    assert selection.resolvability.verdict == ValleyVerdict.RESOLVED_NULL
+    assert selection.resolvability.at_node_cap
+    assert selection.resolvability.saw_balanced_cut
+    assert selection.resolvability.reject_reason == "bottleneck"
+
+    grown_result, _, grown_sel, _ = _grow_underresolved_level_set(
+        np.zeros((n, 2)),
+        dim=2,
+        config=RecursionConfig(use_level_set_clustering=True),
+        scale_search_config=RecursionConfig().scale_search,
+        scaffold=scaffold,
+        selection=selection,
+    )
+    assert grown_result is None
+    assert grown_sel.resolvability is not None
+    assert grown_sel.resolvability.verdict == ValleyVerdict.RESOLVED_NULL
+
+
+def test_weak_bridge_is_resolved_split() -> None:
+    scaffold = _two_arcs(gap_flow=0.05)
+    selection = select_level_set_partition(
+        scaffold,
+        LevelSetConfig(k_neighbors=4, min_cluster_size=4, n_levels=60),
+    )
+    assert selection.accepted
+    assert selection.resolvability is not None
+    assert selection.resolvability.verdict == ValleyVerdict.RESOLVED_SPLIT
+
+
+def test_capped_scaffold_without_balanced_cut_is_under_resolved() -> None:
+    rng = np.random.default_rng(0)
+    blob = rng.normal((0.0, 0.0), 0.02, size=(16, 2))
+    scaffold = _Scaffold(blob, _knn_edges(blob), max_nodes=16)
+    selection = select_level_set_partition(
+        scaffold,
+        LevelSetConfig(
+            k_neighbors=4,
+            min_cluster_size=4,
+            min_cluster_frac=0.4,
+            n_levels=40,
+        ),
+    )
+    assert not selection.accepted
+    assert selection.resolvability is not None
+    assert selection.resolvability.verdict == ValleyVerdict.UNDER_RESOLVED
+    assert selection.resolvability.at_node_cap
+    assert not selection.resolvability.saw_balanced_cut
+
+
+def test_next_node_budget_respects_ceiling() -> None:
+    assert next_node_budget(1024, 2.0, 10_000) == 2048
+    assert next_node_budget(1024, 2.0, 1536) == 1536
+    assert next_node_budget(5, 2.0, 100) == 10
+    assert next_node_budget(1, 2.0, 1) == 1

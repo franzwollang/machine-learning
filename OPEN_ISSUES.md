@@ -5,7 +5,7 @@ here. Numbering is historical and stable: resolved issues are deleted rather tha
 renumbered, so gaps in the sequence are expected. Each entry lists only the work that
 actually remains. See `PLANNING.md` for the suggested order of attack.
 
-Next issue number: 47
+Next issue number: 48
 
 ## 16. Fuzzy title decision
 
@@ -297,16 +297,28 @@ Remaining work:
   The former 1024 cap truncates the read and only recovers 2/5 seeds. kNN-graph
   probes remain smoke checks: position-derived flows cannot emulate fitted-flow
   physics for sampling-gap arcs.
-- **ACCEPTANCE BLOCKER:** wire the validated budget/resolvability rule into the
-  normal Stage-1 scale-search path and run the awaiting-flip review; direct
-  fine-tau fitted diagnostics alone do not justify changing
-  `use_level_set_clustering=False`. Do not delete S2.6.1 stand-ins in the same
-  change. Sample-level background-aware ARI is the recovery metric. Existing
-  Q/AP `PersistenceConfig` snapshots a different partition family and is not
+- **LANDED (2026-08-16; still default off):** SI S2.6.2 now states that
+  recursion splits Hartigan children on connected supports (uniform-manifold
+  null = no valley). Level-set replaces AP/Q/prepasses as the Stage-1
+  structural proposal; background-aware DM stays inside extraction;
+  persistence may later compose on level-set snapshots (flag exclusions
+  remain mixed-outcome-space guards). Valley-resolvability trichotomy
+  (`resolved_split` / `resolved_null` / `under_resolved`) is on
+  `LevelSetSelection` and unit-locked. Under-resolved capped scaffolds raise
+  `max_nodes` at the current `tau` (`grow_nodes_when_underresolved`, factor
+  2, at most 5 steps, ceiling `n/2`); a bottleneck-rejected arc cut at the
+  cap is `resolved_null` and does not grow. Trichotomy does not skip
+  finer-`tau` (composites at coarse `L=1`). Operational stand-in for #47.
+- **ACCEPTANCE BLOCKER:** run level-set + finer-research + cap-growth
+  through the *normal* scale-search path on the five-seed suite, then the
+  awaiting-flip review. Direct fine-tau fitted diagnostics plus operational
+  cap-doubling do not justify `use_level_set_clustering=False` → True. Do
+  not delete S2.6.1 stand-ins in the same change. Sample-level
+  background-aware ARI is the recovery metric. Existing Q/AP
+  `PersistenceConfig` snapshots a different partition family and is not
   reused.
-- Derive/calibrate the node-budget vs valley-resolution requirement (ties into the
-  `max_nodes` removal plan, `reference/open_loop_growth_and_node_cap.md`; open a
-  follow-up issue when scheduled into M4).
+- Evidence-gated insertion so `max_nodes` becomes a safety assert is #47
+  (M4 / `reference/open_loop_growth_and_node_cap.md`).
 - After the layer validates on repaired benchmarks (#45): deprecate the prepass-flag zoo
   in `recursion.py` / `edge_evidence.py` (all proposal-path, default off; keep the
   ROC/adversarial-null calibration infrastructure) and run the awaiting-flip review.
@@ -648,3 +660,16 @@ circle `b1 = 1` target of #25.
   dry_run/reconnect/matrix compose (`enable_*` / `probe_*`; flags off;
   dual 177p). Do **not** flip spectrum-safe/policy/mass/enable_dual
   defaults; mass/density/benchmark stay `@awaiting`. **Do not close #43.**
+
+## 47. Evidence-gated Stage-1 insertion so max_nodes is a safety assert
+
+Operational cap-doubling on under-resolved level-set scaffolds (#44
+trichotomy) is a stand-in, not equilibrium `N*`. Open-loop growth
+(`propose_splits` auto-accepts `variance > tau`; relative prune floors
+self-normalize) is diagnosed in
+`docs/Proteus/paper_1_foundational/reference/open_loop_growth_and_node_cap.md`.
+Remaining: DM-gated insertion (and split acceptance) in the Stage-1
+runtime loop so the mesh grows only while a valley remains unresolved,
+and `max_nodes` becomes a safety ceiling rather than the resolution
+control. Scheduled with M4 evidence-gate wiring. Do not treat
+cap-doubling as the final `N*` story.

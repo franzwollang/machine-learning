@@ -27,6 +27,9 @@ from proteus.stage1.edge_evidence import (
 )
 from proteus.stage1.level_set import (
     LevelSetConfig,
+    LevelSetSelection,
+    ValleyVerdict,
+    next_node_budget,
     select_level_set_partition,
 )
 from proteus.stage1.pruning import demote_lifted_by_cluster
@@ -67,17 +70,23 @@ class RecursionConfig:
     the S2.6.1 stand-ins.  Default off.
 
     ``use_level_set_clustering`` turns on the OPEN_ISSUES #44 density
-    cluster-tree path (proposed / default off). At each equilibrated
-    ``tau*`` it reads density from node spacing, builds a
-    Chaudhuri--Dasgupta robust-single-linkage merge DAG, and returns the
-    coarsest relative-mass-filtered sibling split that still clears the
-    background-aware DM gate. Inactive low-density
-    nodes remain an explicit background leaf (label ``-1``); no expected
-    cluster count enters extraction. ``dm_cluster`` is the single source for
-    its Bayes-factor margin. When paired with
+    cluster-tree path (proposed / default off). This is the Stage-1
+    structural *proposal*, replacing AP/Q cleanup and the geometry/hollow
+    prepass zoo. At each equilibrated ``tau*`` it reads density from node
+    spacing, builds a Chaudhuri--Dasgupta robust-single-linkage merge DAG,
+    and returns the coarsest relative-mass-filtered Hartigan split that
+    still clears the flow-bottleneck guard and background-aware DM gate.
+    Recursion is over density children even on a connected support; a
+    uniform manifold is one feature because it has no valley. Inactive
+    low-density nodes remain an explicit background leaf (label ``-1``);
+    no expected cluster count enters extraction. ``dm_cluster`` is the
+    single source for its Bayes-factor margin. When paired with
     ``allow_finer_research``, the same reader is retried on progressively
     finer equilibrated scaffolds if the characteristic-scale scaffold has no
-    evidence-bearing split.
+    evidence-bearing split. An under-resolved capped scaffold may raise
+    ``max_nodes`` at the current ``tau`` before that finer walk
+    (``LevelSetConfig.grow_nodes_when_underresolved``); a resolved null
+    does not grow.
 
     ``allow_finer_research`` (OPEN_ISSUES #44, **proposed / operational,
     default off**) enables a single finer-than-``tau*`` re-search when the
@@ -1499,6 +1508,70 @@ def _radial_band_gap_partition(
     )
 
 
+def _grow_underresolved_level_set(
+    data: np.ndarray,
+    dim: int,
+    config: RecursionConfig,
+    scale_search_config: ScaleSearchConfig,
+    scaffold: Any,
+    selection: LevelSetSelection,
+) -> tuple[Any | None, Any, LevelSetSelection, int | None]:
+    """Raise ``max_nodes`` while the level-set read is under-resolved.
+
+    Returns ``(result, scaffold, selection, budget)``. ``result`` is
+    ``None`` when no growth search ran (caller keeps its existing scale
+    search). Growth stops on a resolved split, a resolved null, the step
+    budget, or the ``n/2`` ceiling. The returned budget is carried into a
+    finer-``tau`` walk so nested recovery does not fall back to the
+    truncating cap. SI S2.6.2.
+    """
+
+    budget = getattr(scaffold, "max_nodes", None)
+    if budget is None:
+        budget = scale_search_config.max_nodes
+    if budget is not None:
+        budget = int(budget)
+
+    if (
+        selection.accepted
+        or not config.level_set.grow_nodes_when_underresolved
+        or selection.resolvability is None
+        or selection.resolvability.verdict != ValleyVerdict.UNDER_RESOLVED
+    ):
+        return None, scaffold, selection, budget
+
+    ceiling = max(1, int(data.shape[0] // 2))
+    current = int(budget if budget is not None else len(scaffold.nodes))
+    last_result = None
+    last_scaffold = scaffold
+    last_selection = selection
+    for _ in range(int(config.level_set.max_node_growth_steps)):
+        if current >= ceiling:
+            break
+        current = next_node_budget(
+            current, config.level_set.node_growth_factor, ceiling,
+        )
+        grown_cfg = replace(scale_search_config, max_nodes=current)
+        result = run_scale_search(data, dim, grown_cfg)
+        sc = result.scaffold_at_star
+        if sc is None or len(sc.nodes) < 2:
+            break
+        last_result = result
+        last_scaffold = sc
+        last_selection = select_level_set_partition(
+            sc, config.level_set, config.dm_cluster,
+        )
+        if last_selection.accepted:
+            return last_result, last_scaffold, last_selection, current
+        if (
+            last_selection.resolvability is None
+            or last_selection.resolvability.verdict
+            != ValleyVerdict.UNDER_RESOLVED
+        ):
+            return last_result, last_scaffold, last_selection, current
+    return last_result, last_scaffold, last_selection, current
+
+
 def _research_finer_split(
     data: np.ndarray,
     dim: int,
@@ -1539,12 +1612,20 @@ def _research_finer_split(
     tau_min = float(config.scale_search.tau_min)
     tau_cap = float(parent_tau) * ratio
     max_steps = max(1, int(config.max_finer_scale_steps))
+    working_max_nodes = config.scale_search.max_nodes
 
     for _step in range(max_steps):
         if not (tau_min < tau_cap < float(parent_tau)):
             return None
 
-        scale_search_config = replace(config.scale_search, tau_max=tau_cap)
+        if working_max_nodes is not None:
+            scale_search_config = replace(
+                config.scale_search,
+                tau_max=tau_cap,
+                max_nodes=int(working_max_nodes),
+            )
+        else:
+            scale_search_config = replace(config.scale_search, tau_max=tau_cap)
         if config.require_persistent_split:
             scale_search_config = replace(
                 scale_search_config,
@@ -1566,11 +1647,23 @@ def _research_finer_split(
 
         # #44 canonical proposal: node-spacing density tree + background-aware
         # DM extraction. When selected, do not fall through to the retired
-        # geometry-specific prepass family at this scale.
+        # geometry-specific prepass family at this scale. Under-resolved
+        # capped scaffolds raise max_nodes at this tau before stepping finer.
         if config.use_level_set_clustering:
             level_set = select_level_set_partition(
                 scaffold, config.level_set, config.dm_cluster,
             )
+            grown_result, scaffold, level_set, budget = (
+                _grow_underresolved_level_set(
+                    data, dim, config, scale_search_config, scaffold, level_set,
+                )
+            )
+            if grown_result is not None:
+                result = grown_result
+                if budget is not None:
+                    working_max_nodes = budget
+            elif budget is not None and working_max_nodes is None:
+                working_max_nodes = budget
             if level_set.accepted:
                 assert level_set.cluster_result is not None
                 return result, scaffold, level_set.cluster_result
@@ -1982,11 +2075,25 @@ def run_recursive_discovery(
         level_set = select_level_set_partition(
             scaffold, config.level_set, config.dm_cluster,
         )
+        grown_result, scaffold, level_set, grown_budget = (
+            _grow_underresolved_level_set(
+                data_arr, dim, config, scale_search_config, scaffold, level_set,
+            )
+        )
+        if grown_result is not None:
+            result = grown_result
+            if grown_budget is not None:
+                scale_search_config = replace(
+                    scale_search_config, max_nodes=int(grown_budget),
+                )
+                config = replace(config, scale_search=scale_search_config)
         if level_set.accepted:
             cluster_result = level_set.cluster_result
             assert cluster_result is not None
             node.n_clusters = cluster_result.n_clusters
         else:
+            # Always allow a finer-tau probe: a resolved null at coarse L=1
+            # can still be a composite feature (SI S2.6.2).
             need_finer = True
 
     # #44 hollow-edge at the region's own tau*: support disconnection is

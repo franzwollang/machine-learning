@@ -1,28 +1,28 @@
 {
-  "updated_at": "2026-08-13T20:18:00-05:00",
-  "turn": 72,
+  "updated_at": "2026-08-16T23:38:00-05:00",
+  "turn": 73,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "canonical tori repaired; 25/25 fitted multi-seed sweep green"
+    "goal": "trichotomy + cap-growth landed; still default-off"
   },
   "recent": [
-    "Repaired make_linked_tori: minor=0.25, continuous area-uniform faded component, overlap validation, gap/resolvability metadata",
-    "Canonical repaired tori fitted seeds 0-4: K=2, ARI 0.981-0.998, coverage 0.991-0.999",
-    "Full fitted sweep 25/25: circle/swiss reject 10/10; hierarchy/tori/nested recover 15/15",
-    "Nested max_nodes=1024 recovers 2/5; 1536 settles at 1238-1392 nodes and recovers 5/5",
-    "38 focused tests pass + 2 expected awaiting xfails; flag remains False"
+    "SI S2.6.2: Hartigan children on connected supports; level-set replaces AP/Q proposal; trichotomy governs N growth not finer-tau",
+    "ValleyVerdict on LevelSetSelection: resolved_split / resolved_null / under_resolved",
+    "Under-resolved capped scaffolds raise max_nodes at current tau; resolved_null (arcs at cap) does not grow",
+    "Opened #47 for evidence-gated insertion so max_nodes becomes a safety assert",
+    "23 level-set unit tests green; use_level_set_clustering remains False"
   ],
   "discoveries": [
-    "Canonical tori k8 resolvability: n=1000 r_k~0.224 > lambda-half gap~0.187; n=4000 r_k~0.112 resolves",
-    "Nested recovery failure was cap truncation, not seed instability: max_nodes=1536 gives 5/5",
-    "Direct fitted validation is green, but normal scale search does not yet enforce the measured budget/resolvability condition"
+    "Nested 1024 vs 1536 was cap truncation: at-cap + no balanced cut = under_resolved",
+    "Circle arcs at cap are resolved_null (bottleneck), so trichotomy must not grow them",
+    "Do not use resolved_null at coarse L=1 to skip finer tau: composites need descent"
   ],
   "open_threads": [
-    "Wire budget/resolvability into normal Stage-1 scale selection before flag promotion (#44)",
-    "Define benchmark-wide fade-halo/background semantics; rebaseline awaiting #41/#26 (#45)",
-    "Awaiting-flip review after normal-path integration"
+    "Run level-set + finer + growth through normal scale search on five-seed suite",
+    "Awaiting-flip review only after that diagnostic (#44)",
+    "Fade-halo semantics still #45; evidence-gated insertion is #47"
   ],
-  "next_step": "wire fitted resolvability/budget condition into normal scale-search path; then awaiting-flip review",
+  "next_step": "diagnostic: level-set + allow_finer_research + growth on normal scale-search five-seed suite",
   "blockers": []
 }

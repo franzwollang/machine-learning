@@ -1619,6 +1619,16 @@ cleanup aligned with eventual \#27 stand-in deletion). Framing the $\tau$ sweep
 as cluster-tree estimation turns disconnected supports into ordinary high-level
 tree splits and supplies known consistency results.
 
+The split criterion is a \emph{density valley}, not support connectivity. A
+geometrically connected --- even smooth --- manifold is split into child
+regions when some superlevel set $\{p\ge\lambda\}$ disconnects into
+evidence-bearing modes: a bimodal density along a single curve, nested
+shells, overlapping blobs, linked tori. Recursion is over those Hartigan
+children. A uniform-density connected manifold (circle, swiss roll, disk,
+monotone gradient) is a single Hartigan cluster; sampling-gap arcs of a
+finite sample are not modes. $L{=}1$ (S2.5.1) is the resolution scale of an
+\emph{already-accepted} child. It does not decide whether children exist.
+
 \paragraph{Node-spacing level-set layer (implemented proposal path;
 default off).}
 \label{sec:si-level-set}
@@ -1757,17 +1767,55 @@ radius $0.224$ exceeds the $\lambda{=}0.5$ gap $0.187$
 4000 it is $0.112$ (resolved). The fitted five-seed tori results above
 use only this canonical generator.
 
+\paragraph{Replacement of the AP/Q proposal.}
+The node-spacing level-set layer is the intended Stage-1 \emph{partition
+proposal}, replacing AP fragments, the S2.6.1 Q-cleanup stand-ins, and the
+geometry / hollow prepass zoo as the structural split. Background-aware DM
+remains the sibling evidence test \emph{inside} extraction (already composed).
+$L{=}1$ remains child resolution after a split is accepted. Cross-scale
+persistence of \emph{level-set} partitions is a later composition and must
+not be mixed with Q/AP persistence snapshots: the reference implementation
+rejects combining \texttt{use\_level\_set\_clustering} with
+\texttt{require\_persistent\_split} or with the no-background
+\texttt{require\_dm\_split}. That exclusion is an outcome-space constraint,
+not a claim that persistence is conceptually obsolete.
+
+\paragraph{Valley-resolvability trichotomy (proposal-path).}
+At a fitted scaffold $(\tau,N)$ the density tree is classified as one of
+three verdicts (SI S14.3 operational defaults).
+\begin{itemize}[leftmargin=1.5em]
+  \item \emph{Resolved split:} a mass-filtered $K\ge 2$ cut clears the
+    bottleneck guard and DM. Recurse on those Hartigan children.
+  \item \emph{Resolved null:} a balanced cut existed and failed the
+    bottleneck or DM (sampling-gap arcs of a uniform manifold), or growth
+    stopped below the node cap with no such cut. Do \emph{not} grow $N$:
+    the mesh already resolved the object as one feature or as a
+    flow-connected manifold.
+  \item \emph{Under-resolved:} the scaffold sits at \texttt{max\_nodes}
+    and no evidence-bearing cut formed. The cap may have truncated a
+    valley (nested shells: 2/5 seeds at 1024 nodes, 5/5 at 1536). Raise
+    the cap and retry at the same $\tau$ before stepping finer.
+\end{itemize}
+A resolved null at coarse $L{=}1$ does \emph{not} by itself forbid a finer
+$\tau$ probe: a composite feature is unimodal after coarse smoothing and
+only separates below $\tau_{\mathrm{sep}}$ (S2.8). Finer-$\tau$ descent
+remains the composite-feature walk; the trichotomy governs \emph{node
+growth}, not whether to consider a smaller $\tau$. This is an operational
+stand-in for evidence-gated insertion (OPEN\_ISSUES \#47); it does not yet
+make equilibrium $N$ equal the minimum mesh that resolves a valley.
+
 Validation status: the DAG, rank/mass screens, mass-filtered coarse
-anchor, flow-bottleneck guard, and background-aware DM collapse are
-implemented and unit-locked (including a paired arc-cut/weak-bridge
-guard fixture). Automatic extraction on fitted scaffolds now covers the
-full basic suite: connected-manifold rejects, hierarchy, sheets, tori,
-and nested shells at adequate budgets. Thus the implementation is a
-reproducible proposal path, \emph{not} yet a default. Generator repair
-and multi-seed fitted validation are complete. Promotion now requires
-wiring the measured node-budget/resolvability condition into normal
-Stage-1 scale selection and an awaiting-flip review; direct fine-$\tau$
-diagnostics alone must not silently change default behavior.
+anchor, flow-bottleneck guard, background-aware DM collapse, and the
+valley-resolvability trichotomy are implemented and unit-locked
+(including a paired arc-cut/weak-bridge guard fixture). Automatic
+extraction on fitted scaffolds covers the full basic suite:
+uniform-manifold rejects, hierarchy, sheets, tori, and nested shells at
+adequate budgets. The path remains default-off. Generator repair and
+multi-seed fitted validation are complete. Promotion still requires the
+trichotomy to drive normal scale-search budgets, an awaiting-flip review,
+and evidence-gated insertion (\#47) so \texttt{max\_nodes} can become a
+safety assert. Direct fine-$\tau$ diagnostics alone must not silently
+change default behavior.
 
 \paragraph{Landed proposal-path wiring and protocol.}
 Module \texttt{proteus.stage1.edge\_evidence} exposes
@@ -5164,6 +5212,9 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{LevelSetConfig.min\_excess\_mass} & 0.02\ (\text{normalized mass$\times$rank integral; runt screen}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_cluster\_frac} & 0.15\ (\text{fraction of region node budget; coarse satellite / partial-activation floor}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.max\_bottleneck\_ratio} & 0.25\ (\text{cross-cut max-flow over internal bisection flow; arc-vs-valley guard; fitted gap } 0.07\text{--}0.60) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{LevelSetConfig.grow\_nodes\_when\_underresolved} & \text{true}\ (\text{only consulted when }\texttt{use\_level\_set\_clustering}\text{; raise }\texttt{max\_nodes}\text{ on under-resolved capped scaffolds}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{LevelSetConfig.node\_growth\_factor} & 2.0\ (\text{multiplicative cap raise per under-resolved retry}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{LevelSetConfig.max\_node\_growth\_steps} & 5\ (\text{at most five cap doublings per }\tau\text{; ceiling }n/2) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{prefer\_disconnected\_prepass} & \text{false} & \text{S2.6.2} & \text{operational (proposal-path)}\\
