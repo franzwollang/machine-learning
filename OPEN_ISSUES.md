@@ -309,14 +309,28 @@ Remaining work:
   2, at most 5 steps, ceiling `n/2`); a bottleneck-rejected arc cut at the
   cap is `resolved_null` and does not grow. Trichotomy does not skip
   finer-`tau` (composites at coarse `L=1`). Operational stand-in for #47.
-- **ACCEPTANCE BLOCKER:** run level-set + finer-research + cap-growth
-  through the *normal* scale-search path on the five-seed suite, then the
-  awaiting-flip review. Direct fine-tau fitted diagnostics plus operational
-  cap-doubling do not justify `use_level_set_clustering=False` → True. Do
-  not delete S2.6.1 stand-ins in the same change. Sample-level
-  background-aware ARI is the recovery metric. Existing Q/AP
-  `PersistenceConfig` snapshots a different partition family and is not
-  reused.
+- **Measured (2026-09-07, normal path, seed 0 unless noted):**
+  `level_set_normal_path_sweep.py` — `load_crossover` +
+  `use_level_set_clustering` + `allow_finer_research` + cap-growth
+  (lean `max_epochs=12`, 8-point grid, `max_finer_scale_steps=16` to span
+  the measured ~80× `tau_sep` gap; production default is 8 steps / 16×).
+  Root recovery: hierarchy 5/5 seeds `K=3` ARI 0.568–0.582; linked tori
+  s0 `K=2` ARI 1.000 cover 1.000; nested s0 `K=2` ARI 0.728 cover 0.666
+  (meets fitted-sweep thresholds). Uniform nulls fail at 16 finer steps
+  (circle s0 `rootK=2` / 9 signal leaves; swiss s0 `rootK=2` / 14 leaves)
+  because LC on the wide `[1e-5,10]` grid lands circle/swiss at
+  `tau*=0.027` and the long finer walk overshoots into sampling-gap arcs.
+  Ablation: circle stays 1 leaf with growth-only or `max_finer_scale_steps<=4`.
+  Child recursion over-fragments even when the root split is correct
+  (tori 21 signal leaves; hierarchy 6). Nested/tori multi-seed not rerun
+  (25–30 min/seed).
+- **ACCEPTANCE BLOCKER:** awaiting-flip is still blocked. The finer-step
+  budget that recovers nested/tori shatters uniforms; the budget that
+  preserves uniforms (`<=4`) is the pairing already known not to reach
+  `tau_sep`. Child descent needs a stop that is not “always finer-tau on
+  a resolved null.” Do not flip `use_level_set_clustering`. Do not delete
+  S2.6.1 stand-ins. Sample-level background-aware ARI remains the recovery
+  metric.
 - Evidence-gated insertion so `max_nodes` becomes a safety assert is #47
   (M4 / `reference/open_loop_growth_and_node_cap.md`).
 - After the layer validates on repaired benchmarks (#45): deprecate the prepass-flag zoo

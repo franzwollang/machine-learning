@@ -1,28 +1,27 @@
 {
-  "updated_at": "2026-08-16T23:38:00-05:00",
-  "turn": 73,
+  "updated_at": "2026-09-07T13:40:00-05:00",
+  "turn": 74,
   "focus": {
     "milestone": "M1",
     "issue": 44,
-    "goal": "trichotomy + cap-growth landed; still default-off"
+    "goal": "normal-path diagnostic done; flag stays off"
   },
   "recent": [
-    "SI S2.6.2: Hartigan children on connected supports; level-set replaces AP/Q proposal; trichotomy governs N growth not finer-tau",
-    "ValleyVerdict on LevelSetSelection: resolved_split / resolved_null / under_resolved",
-    "Under-resolved capped scaffolds raise max_nodes at current tau; resolved_null (arcs at cap) does not grow",
-    "Opened #47 for evidence-gated insertion so max_nodes becomes a safety assert",
-    "23 level-set unit tests green; use_level_set_clustering remains False"
+    "Normal-path sweep: load_crossover + level-set + finer + growth",
+    "Hierarchy 5/5 root K=3 ARI 0.57; tori s0 K=2 ARI 1.0; nested s0 K=2 ARI 0.73",
+    "Circle/swiss s0 shatter at 16 finer steps; circle stays 1 leaf at <=4 steps or growth-only",
+    "Child recursion over-fragments (tori 21 signal leaves) even when root split is correct"
   ],
   "discoveries": [
-    "Nested 1024 vs 1536 was cap truncation: at-cap + no balanced cut = under_resolved",
-    "Circle arcs at cap are resolved_null (bottleneck), so trichotomy must not grow them",
-    "Do not use resolved_null at coarse L=1 to skip finer tau: composites need descent"
+    "Finer budget that reaches nested tau_sep (~80x, 16 steps) overshoots uniform LC tau* into arcs",
+    "Circle LC on wide [1e-5,10] 8-pt grid lands tau*=0.027; nested/tori land 1.389",
+    "Growth-only at tau* does not shatter the circle; the finer walk does"
   ],
   "open_threads": [
-    "Run level-set + finer + growth through normal scale search on five-seed suite",
-    "Awaiting-flip review only after that diagnostic (#44)",
-    "Fade-halo semantics still #45; evidence-gated insertion is #47"
+    "Need a finer-walk stop that keeps uniforms without blocking composite descent",
+    "Child-level over-split after an accepted root split",
+    "Awaiting-flip still blocked; #45 halo; #47 insertion"
   ],
-  "next_step": "diagnostic: level-set + allow_finer_research + growth on normal scale-search five-seed suite",
+  "next_step": "design a finer-walk stop so resolved_null uniforms do not keep descending into arc-split taus",
   "blockers": []
 }
