@@ -2,10 +2,10 @@
 
 Does **not** recurse into children.  Replays the *cold* shatter path
 (fresh ``run_scale_search`` per step) so ``tau*`` can jump non-monotone.
-Production level-set finer walk now warm-continues
-(``advance_scaffold_to_tau``); this probe documents why that change
-exists.  Prints per step: LC ``tau*``, ``tau_cap``, node budget, hits,
-``r_k``, trichotomy, bottleneck ratio, and DM log-BF.
+Production level-set finer walk now re-seeds at each finer ``τ``
+(``fit_scaffold_at_tau``, ``track_tau``); this probe still documents
+the cold shatter path.  Prints per step: LC ``tau*``, ``tau_cap``,
+node budget, hits, ``r_k``, trichotomy, bottleneck ratio, and DM log-BF.
 
 Usage::
 
@@ -24,7 +24,7 @@ from scipy.spatial import cKDTree
 
 from proteus.stage1.controller import ScaleSearchConfig, run_scale_search
 from proteus.stage1.level_set import LevelSetConfig, select_level_set_partition
-from proteus.stage1.recursion import RecursionConfig, _grow_underresolved_level_set
+from proteus.stage1.recursion import RecursionConfig
 from proteus.stage1.stabilization import StabilizationConfig
 from tests.datasets.synthetic.circles import make_circle
 
@@ -140,11 +140,6 @@ def main() -> int:
     selection = select_level_set_partition(
         scaffold, config.level_set, config.dm_cluster,
     )
-    grown, scaffold, selection, budget = _grow_underresolved_level_set(
-        data.points, dim, config, scale, scaffold, selection,
-    )
-    if grown is not None:
-        result = grown
     print(
         _line("tau*", float(result.tau_star), scaffold, selection, time.time() - t0),
         flush=True,
@@ -157,7 +152,7 @@ def main() -> int:
     ratio = float(config.finer_tau_cap_ratio)
     tau_min = float(scale.tau_min)
     tau_cap = parent_tau * ratio
-    working_max_nodes = budget
+    working_max_nodes = getattr(scaffold, "max_nodes", None)
     max_steps = int(args.max_finer_steps)
 
     for step in range(max_steps):
@@ -177,13 +172,8 @@ def main() -> int:
             tau_cap *= ratio
             continue
         sel = select_level_set_partition(sc, config.level_set, config.dm_cluster)
-        grown, sc, sel, budget = _grow_underresolved_level_set(
-            data.points, dim, config, step_cfg, sc, sel,
-        )
-        if grown is not None:
-            step_result = grown
-        if budget is not None:
-            working_max_nodes = budget
+        if getattr(sc, "max_nodes", None) is not None:
+            working_max_nodes = int(sc.max_nodes)
         print(
             _line(
                 f"f{step+1}",

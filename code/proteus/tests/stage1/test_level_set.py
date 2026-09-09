@@ -33,9 +33,6 @@ from proteus.stage1.level_set import (
     at_shot_noise_scale,
     build_level_set_dag,
     build_level_set_tree,
-    finer_walk_needs_node_budget,
-    mesh_is_scale_matched,
-    next_node_budget,
     null_bottleneck_ratio,
     select_level_set_partition,
     shot_noise_node_cap,
@@ -46,7 +43,6 @@ from proteus.stage1.recursion import (
     RecursionNode,
     RecursionTree,
     _descend_into_clusters,
-    _grow_underresolved_level_set,
     _level_set_finer_walk_exhausted,
     _level_set_should_finer_walk,
     _research_finer_split,
@@ -158,10 +154,7 @@ def test_level_set_defaults_are_validated_reader() -> None:
     assert config.min_excess_mass == 0.02
     assert config.min_cluster_frac == 0.15
     assert config.max_bottleneck_ratio == 0.25
-    assert config.grow_nodes_when_underresolved is True
-    assert config.node_growth_factor == 2.0
-    assert config.max_node_growth_steps == 5
-    assert config.mesh_scale_match_ratio == 2.0
+    assert config.growth_policy == "track_tau"
 
 
 def test_inactive_and_runt_nodes_are_distinct() -> None:
@@ -502,7 +495,7 @@ def test_two_blob_split_is_resolved_split() -> None:
 
 
 def test_arc_cut_at_node_cap_is_resolved_null() -> None:
-    """Bottleneck-rejected arcs must not trigger cap growth, even at max_nodes."""
+    """Bottleneck-rejected arcs are a resolved null, even at max_nodes."""
 
     scaffold = _two_arcs(gap_flow=6.0)
     n = len(scaffold.nodes)
@@ -520,18 +513,6 @@ def test_arc_cut_at_node_cap_is_resolved_null() -> None:
     assert selection.bottleneck_ratio is not None
     assert selection.bottleneck_ratio > LevelSetConfig().max_bottleneck_ratio
     assert selection.candidate_level is not None
-
-    grown_result, _, grown_sel, _ = _grow_underresolved_level_set(
-        np.zeros((n, 2)),
-        dim=2,
-        config=RecursionConfig(use_level_set_clustering=True),
-        scale_search_config=RecursionConfig().scale_search,
-        scaffold=scaffold,
-        selection=selection,
-    )
-    assert grown_result is None
-    assert grown_sel.resolvability is not None
-    assert grown_sel.resolvability.verdict == ValleyVerdict.RESOLVED_NULL
 
 
 def test_weak_bridge_is_resolved_split() -> None:
@@ -563,13 +544,6 @@ def test_capped_scaffold_without_balanced_cut_is_under_resolved() -> None:
     assert selection.resolvability.verdict == ValleyVerdict.UNDER_RESOLVED
     assert selection.resolvability.at_node_cap
     assert not selection.resolvability.saw_balanced_cut
-
-
-def test_next_node_budget_respects_ceiling() -> None:
-    assert next_node_budget(1024, 2.0, 10_000) == 2048
-    assert next_node_budget(1024, 2.0, 1536) == 1536
-    assert next_node_budget(5, 2.0, 100) == 10
-    assert next_node_budget(1, 2.0, 1) == 1
 
 
 def test_finer_walk_licensed_at_every_level_when_not_accepted() -> None:
@@ -625,8 +599,8 @@ def test_finer_walk_licensed_at_every_level_when_not_accepted() -> None:
 def test_finer_walk_does_not_stop_on_bottleneck() -> None:
     """Composites show bottleneck-rejected arcs before tau_sep (#48).
 
-    Exhaustion is only ``one_feature_null``. The shot-noise bound caps
-    growth, it does not end ``τ`` descent at fixed ``N``.
+    Exhaustion is only ``one_feature_null``. The ``n/k`` bound ends the
+    ``track_tau`` walk when it binds; this helper does not.
     """
 
     from types import SimpleNamespace
@@ -789,101 +763,6 @@ def test_no_cut_at_cap_is_resolved_null_at_shot_floor() -> None:
     )
     assert resolvability.verdict == ValleyVerdict.RESOLVED_NULL
     assert resolvability.at_node_cap
-
-
-def test_mesh_scale_match_is_rk_versus_residual() -> None:
-    """Thin uniforms have r_k >> sqrt(tau*); coarse composites do not (#48)."""
-
-    theta = np.linspace(0.0, 2.0 * np.pi, 16, endpoint=False)
-    ring = np.stack([np.cos(theta), np.sin(theta)], axis=1)
-    scaffold = _Scaffold(ring, _knn_edges(ring, k=4), max_nodes=16)
-    scaffold.tau = 1e-3
-    assert not mesh_is_scale_matched(
-        scaffold, scaffold.tau, k=4, ratio=LevelSetConfig().mesh_scale_match_ratio,
-    )
-    scaffold.tau = 4.0
-    assert mesh_is_scale_matched(
-        scaffold, scaffold.tau, k=4, ratio=LevelSetConfig().mesh_scale_match_ratio,
-    )
-
-
-def test_finer_walk_needs_budget_only_when_parent_scale_matched() -> None:
-    """Circle flickers bottleneck→no_cut; only scale-matched parents grow."""
-
-    no_cut = LevelSetSelection(
-        tree=LevelSetTree(core_radii=np.empty(0), levels=()),
-        cluster_result=None,
-        selected_level=None,
-        log_bf=float("-inf"),
-        resolvability=ValleyResolvability(
-            verdict=ValleyVerdict.UNDER_RESOLVED,
-            saw_balanced_cut=False,
-            at_node_cap=True,
-            n_nodes=64,
-            max_nodes=64,
-            reject_reason="no_cut",
-        ),
-    )
-    bottleneck = LevelSetSelection(
-        tree=no_cut.tree,
-        cluster_result=None,
-        selected_level=None,
-        log_bf=float("-inf"),
-        resolvability=ValleyResolvability(
-            verdict=ValleyVerdict.RESOLVED_NULL,
-            saw_balanced_cut=True,
-            at_node_cap=True,
-            n_nodes=64,
-            max_nodes=64,
-            reject_reason="bottleneck",
-        ),
-    )
-    assert finer_walk_needs_node_budget(
-        no_cut, parent_scale_matched=True, at_shot_floor=False,
-    )
-    assert not finer_walk_needs_node_budget(
-        no_cut, parent_scale_matched=False, at_shot_floor=False,
-    )
-    assert not finer_walk_needs_node_budget(
-        no_cut, parent_scale_matched=True, at_shot_floor=True,
-    )
-    assert not finer_walk_needs_node_budget(
-        bottleneck, parent_scale_matched=True, at_shot_floor=False,
-    )
-
-
-def test_grow_skips_thin_uniform_no_cut() -> None:
-    """L=1 circle/swiss no_cut must not raise N (rk >> sqrt(tau*))."""
-
-    theta = np.linspace(0.0, 2.0 * np.pi, 16, endpoint=False)
-    ring = np.stack([np.cos(theta), np.sin(theta)], axis=1)
-    scaffold = _Scaffold(ring, _knn_edges(ring, k=4), max_nodes=16)
-    scaffold.tau = 1e-3
-    selection = LevelSetSelection(
-        tree=LevelSetTree(core_radii=np.empty(0), levels=()),
-        cluster_result=None,
-        selected_level=None,
-        log_bf=float("-inf"),
-        resolvability=ValleyResolvability(
-            verdict=ValleyVerdict.UNDER_RESOLVED,
-            saw_balanced_cut=False,
-            at_node_cap=True,
-            n_nodes=16,
-            max_nodes=16,
-            reject_reason="no_cut",
-        ),
-    )
-    grown_result, grown_sc, _, budget = _grow_underresolved_level_set(
-        ring,
-        dim=2,
-        config=RecursionConfig(use_level_set_clustering=True),
-        scale_search_config=RecursionConfig().scale_search,
-        scaffold=scaffold,
-        selection=selection,
-    )
-    assert grown_result is None
-    assert grown_sc is scaffold
-    assert budget == 16
 
 
 def test_equal_weak_diameters_are_one_feature_null() -> None:
@@ -1112,7 +991,7 @@ def test_level_set_mode_never_falls_back_to_legacy_clusterer(monkeypatch) -> Non
     assert tree.nodes[0].is_leaf
 
 
-def test_children_inherit_allow_finer_research_but_not_growth(monkeypatch) -> None:
+def test_children_inherit_allow_finer_research(monkeypatch) -> None:
     data = np.array([[-2.0, 0.0], [-1.9, 0.0], [2.0, 0.0], [1.9, 0.0]])
     captured: list[RecursionConfig] = []
 
@@ -1180,7 +1059,6 @@ def test_children_inherit_allow_finer_research_but_not_growth(monkeypatch) -> No
     assert captured
     child = captured[0]
     assert child.allow_finer_research is True
-    assert child.level_set.grow_nodes_when_underresolved is False
     assert child.scale_search.max_nodes is None
 
 
@@ -1207,8 +1085,10 @@ def _rejected_level_set(reason: str) -> LevelSetSelection:
 
 
 def test_growth_policy_validation() -> None:
-    assert LevelSetConfig().growth_policy == "no_cut_gated"
+    assert LevelSetConfig().growth_policy == "track_tau"
     assert LevelSetConfig(growth_policy="track_tau").growth_policy == "track_tau"
+    with pytest.raises(ValueError):
+        LevelSetConfig(growth_policy="no_cut_gated")
     with pytest.raises(ValueError):
         LevelSetConfig(growth_policy="bogus")
 
@@ -1317,57 +1197,3 @@ def test_track_tau_walk_descends_when_below_bound_and_accepts(monkeypatch) -> No
     assert len(calls) == 2
     assert calls[0][0] == pytest.approx(1.0 * ratio)
     assert calls[1][0] == pytest.approx(1.0 * ratio * ratio)
-
-
-def test_no_cut_gated_path_unchanged_by_flag_default(monkeypatch) -> None:
-    grew: list[bool] = []
-    original_grow = _grow_underresolved_level_set
-
-    def _record_grow(*args, **kwargs):
-        grew.append(True)
-        return original_grow(*args, **kwargs)
-
-    def _forbid_fit(*_args, **_kwargs):
-        raise AssertionError(
-            "default no_cut_gated path must not call fit_scaffold_at_tau "
-            "on a lone Gaussian (growth licensed unexpectedly)"
-        )
-
-    monkeypatch.setattr(
-        "proteus.stage1.recursion._grow_underresolved_level_set",
-        _record_grow,
-    )
-    monkeypatch.setattr(
-        "proteus.stage1.recursion.fit_scaffold_at_tau",
-        _forbid_fit,
-    )
-    rng = np.random.default_rng(0)
-    points = rng.normal(size=(300, 2))
-    tree = run_recursive_discovery(
-        points,
-        dim=2,
-        config=RecursionConfig(
-            scale_search=ScaleSearchConfig(
-                selector="load_crossover",
-                tau_min=1e-3,
-                tau_max=10,
-                max_grid_points=5,
-                k=8,
-                min_nodes=4,
-                n_seeds=4,
-                max_nodes=None,
-                stabilization=StabilizationConfig(
-                    min_equilibrium_epochs=2,
-                    max_epochs=6,
-                ),
-            ),
-            min_samples=100,
-            max_depth=3,
-            use_level_set_clustering=True,
-            allow_finer_research=True,
-            level_set=LevelSetConfig(),
-            seed=0,
-        ),
-    )
-    assert grew
-    assert len(tree.nodes) >= 1

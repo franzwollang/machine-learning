@@ -17,9 +17,10 @@ still split when a superlevel set disconnects into evidence-bearing
 modes.  Uniform-density manifolds (circle, swiss roll, disk) remain one
 feature because they have no valley; sampling-gap arcs are rejected by
 the flow-bottleneck guard.  A valley-resolvability trichotomy (resolved
-split / resolved null / under-resolved) governs node-cap growth on this
-path, not whether a finer ``tau`` may still be probed.  This path is not
-a default.  Nodes inactive or runt-sized at the chosen density level
+split / resolved null / under-resolved) classifies the current read;
+finer descent re-seeds the mesh at each finer ``tau`` with ``N`` free
+up to ``n/k`` (SI S2.6.2 / #48).  This path is not a default.  Nodes
+inactive or runt-sized at the chosen density level
 retain label ``-1`` as an explicit background tier rather than being
 forcibly absorbed into a signal cluster.
 """
@@ -28,7 +29,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
-from math import ceil, sqrt
+from math import ceil
 from typing import Any
 
 import numpy as np
@@ -56,13 +57,9 @@ __all__ = [
     "ValleyVerdict",
     "ValleyResolvability",
     "assess_valley_resolvability",
-    "next_node_budget",
     "mean_neighbor_radius",
     "shot_noise_node_cap",
     "at_shot_noise_scale",
-    "mesh_is_scale_matched",
-    "cap_is_binding",
-    "finer_walk_needs_node_budget",
     "null_bottleneck_ratio",
     "studentized_bottleneck",
     "build_level_set_tree",
@@ -107,17 +104,12 @@ class LevelSetConfig:
     fitted hierarchy / tori / nested shells).  All of these are operational
     proposal-path defaults, not promoted acceptance constants.
 
-    ``grow_nodes_when_underresolved`` raises ``max_nodes`` when a scaffold
-    sits at the cap with no evidence-bearing cut (nested-shell truncation
-    at 1024 vs recovery at 1536).  It is consulted only while
-    ``use_level_set_clustering`` is on.  A resolved null — including a
-    bottleneck-rejected arc cut at the cap — does not grow.  Growth is
-    also refused when the mesh is *not* scale-matched
-    (``r_k > mesh_scale_match_ratio * sqrt(tau)``): that is a thin
-    uniform whose load-crossover ``tau*`` is the thickness, and raising
-    ``N`` densifies sampling holes (circle / swiss).  This is an
-    operational stand-in for evidence-gated insertion (#47), not
-    equilibrium ``N*``.
+    ``growth_policy="track_tau"`` is the landed finer-walk policy
+    (SI S2.6.2 / OPEN_ISSUES #48): each finer ``τ`` re-seeds the mesh
+    (``fit_scaffold_at_tau``) with ``N`` free up to the derived bound
+    ``n/k``.  There is no node-budget gate, no ``no_cut`` trigger, and
+    no scale-match ratio.  Descent ends when the bound binds or on
+    ``one_feature_null``.
 
     Raw ``φ`` is not an acceptance-path floor: the circle finer-walk
     probe (2026-09-09) accepted a shot-noise cut at ``φ=0.052``, inside
@@ -125,12 +117,6 @@ class LevelSetConfig:
     ``φ / φ_0`` compares the candidate to typical *disagreeing*
     intrinsic connected cuts of the same flow graph (SI S2.6.2).  The
     same ``max_bottleneck_ratio`` ceiling is applied to that ratio.
-
-    ``growth_policy`` selects how the finer walk grows the node budget.
-    ``"no_cut_gated"`` (default) is the current behaviour: grow only on
-    ``no_cut`` at a binding, scale-matched cap.  ``"track_tau"`` refits
-    fresh at each finer ``τ`` with ``N`` free up to the ``n/k`` bound
-    (SI S2.6.2 / OPEN_ISSUES #48).
     """
 
     k_neighbors: int = 8
@@ -141,16 +127,12 @@ class LevelSetConfig:
     min_excess_mass: float = 0.02
     min_cluster_frac: float = 0.15
     max_bottleneck_ratio: float = 0.25
-    grow_nodes_when_underresolved: bool = True
-    node_growth_factor: float = 2.0
-    max_node_growth_steps: int = 5
-    mesh_scale_match_ratio: float = 2.0
-    growth_policy: str = "no_cut_gated"
+    growth_policy: str = "track_tau"
 
     def __post_init__(self) -> None:
-        if self.growth_policy not in {"no_cut_gated", "track_tau"}:
+        if self.growth_policy not in {"track_tau"}:
             raise ValueError(
-                "growth_policy must be 'no_cut_gated' or 'track_tau', "
+                "growth_policy must be 'track_tau', "
                 f"got {self.growth_policy!r}"
             )
 
@@ -298,15 +280,6 @@ def assess_valley_resolvability(
         max_nodes=max_nodes,
         reject_reason=reject_reason,
     )
-
-
-def next_node_budget(current: int, factor: float, ceiling: int) -> int:
-    """Next ``max_nodes`` after an under-resolved retry (SI S14.3)."""
-
-    current = max(int(current), 1)
-    ceiling = max(int(ceiling), 1)
-    grown = max(current + 1, int(ceil(float(current) * float(factor))))
-    return min(grown, ceiling)
 
 
 def _validate_positions(positions: np.ndarray) -> np.ndarray:
@@ -1028,74 +1001,6 @@ def at_shot_noise_scale(
     return n_nodes >= shot_noise_node_cap(
         int(np.asarray(data).shape[0]), k, 1,
     )
-
-
-def mesh_is_scale_matched(
-    scaffold: Any,
-    tau: float,
-    k: int,
-    ratio: float,
-) -> bool:
-    """True when mean node ``r_k`` is at most ``ratio * sqrt(tau)``.
-
-    Load-crossover ``tau*`` is a variance.  ``sqrt(tau*)`` is the residual
-    length.  On a uniform manifold that residual is the thickness / noise
-    and a capped mesh has ``r_k >> sqrt(tau*)``.  On a coarse composite
-    that LC still sees as one feature, ``tau*`` is the blob scale and
-    ``r_k ~ sqrt(tau*)``.  Growing ``N`` is licensed only in the latter
-    case (SI S2.6.2 / #48).
-    """
-
-    positions = np.asarray(
-        [node.position for node in getattr(scaffold, "nodes", ())],
-        dtype=float,
-    )
-    if positions.shape[0] < 2:
-        return False
-    tau = float(tau)
-    if not np.isfinite(tau) or tau <= 0.0:
-        return False
-    return mean_neighbor_radius(positions, k) <= float(ratio) * sqrt(tau)
-
-
-def cap_is_binding(scaffold: Any) -> bool:
-    """True when the mesh filled the cap or saturated one slot short.
-
-    Cold / warm growth often lands at ``N = max_nodes - 1`` (127/128).
-    Treating that as resolved-null would stop a truncated composite after
-    one doubling.  Off-by-one slack only; the trichotomy still uses
-    ``n >= max_nodes`` (SI S2.6.2).
-    """
-
-    n_nodes = len(getattr(scaffold, "nodes", ()))
-    raw_cap = getattr(scaffold, "max_nodes", None)
-    if raw_cap is None:
-        return False
-    cap = int(raw_cap)
-    return n_nodes >= max(1, cap - 1)
-
-
-def finer_walk_needs_node_budget(
-    selection: LevelSetSelection,
-    *,
-    parent_scale_matched: bool,
-    at_shot_floor: bool,
-) -> bool:
-    """Raise ``N`` on finer-walk ``no_cut`` only for scale-matched parents.
-
-    A thin uniform (circle, swiss) has ``r_k >> sqrt(tau*)`` at ``L=1``
-    and must not grow during descent — even though it flickers
-    bottleneck → ``no_cut``.  A coarse composite (tori, nested) is
-    scale-matched at ``L=1``; ``no_cut`` later means the valley fell
-    below node spacing (SI S2.6.2 / #48).
-    """
-
-    if selection.accepted or at_shot_floor or not parent_scale_matched:
-        return False
-    resolvability = selection.resolvability
-    if resolvability is None or resolvability.reject_reason != "no_cut":
-        return False
-    return True
 
 
 def _two_set_agreement(labels_a: np.ndarray, labels_b: np.ndarray) -> float:

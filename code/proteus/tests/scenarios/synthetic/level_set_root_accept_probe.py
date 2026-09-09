@@ -226,8 +226,8 @@ def main() -> int:
     parser.add_argument("--max-finer-steps", type=int, default=16)
     parser.add_argument(
         "--growth-policy",
-        choices=("no_cut_gated", "track_tau"),
-        default="no_cut_gated",
+        choices=("track_tau",),
+        default="track_tau",
     )
     args = parser.parse_args()
     known = [s.name for s in _scenes()]

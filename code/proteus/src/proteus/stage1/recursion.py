@@ -16,7 +16,6 @@ from proteus.stage1.clustering import (
 )
 from proteus.stage1.controller import (
     ScaleSearchConfig,
-    advance_scaffold_to_tau,
     fit_scaffold_at_tau,
     run_scale_search,
 )
@@ -33,13 +32,7 @@ from proteus.stage1.edge_evidence import (
 from proteus.stage1.level_set import (
     LevelSetConfig,
     LevelSetSelection,
-    ValleyVerdict,
-    at_shot_noise_scale,
-    cap_is_binding,
     shot_noise_node_cap,
-    finer_walk_needs_node_budget,
-    mesh_is_scale_matched,
-    next_node_budget,
     select_level_set_partition,
 )
 from proteus.stage1.pruning import demote_lifted_by_cluster
@@ -91,15 +84,14 @@ class RecursionConfig:
     low-density nodes remain an explicit background leaf (label ``-1``);
     no expected cluster count enters extraction. ``dm_cluster`` is the
     single source for its Bayes-factor margin. When paired with
-    ``allow_finer_research``, the same reader is retried by warm-continuing
-    the parent scaffold (``advance_scaffold_to_tau``) rather than launching
-    a fresh load-crossover search. An under-resolved capped scaffold may
-    raise ``max_nodes`` at the current ``tau`` before that finer walk
-    (``LevelSetConfig.grow_nodes_when_underresolved``) only when the
-    mesh is scale-matched (``r_k <= mesh_scale_match_ratio * sqrt(tau)``).
-    A resolved null does not grow. The #48 studentized floor and the
-    scale-matched node budget are wired; do not promote this flag until
-    normal-path composites recover without densifying uniforms.
+    ``allow_finer_research``, the finer walk re-seeds the mesh at each
+    finer ``τ`` (``fit_scaffold_at_tau``) with ``N`` free up to the
+    derived bound ``n/k``. Descent ends when the bound binds or on
+    ``one_feature_null``. The #48 studentized floor is wired; do not
+    promote this flag until an awaiting-flip review and evidence-gated
+    insertion (#47). The non-level-set finer walk keeps its fresh
+    ``run_scale_search`` per finer step; ``advance_scaffold_to_tau`` is
+    no longer on either path.
 
     ``allow_finer_research`` (OPEN_ISSUES #44, **proposed / operational,
     default off**) enables a single finer-than-``tau*`` re-search when the
@@ -1546,10 +1538,9 @@ def _level_set_should_finer_walk(
     The finer walk is licensed at every level: a child can itself be a
     coarse composite (the Hartigan tree is recursive). The earlier child
     over-split was the legacy Q-score/AP fallthrough (Bug 1: level-set
-    mode must not call ``_cluster_scaffold``). Node-budget growth remains
-    disabled on children via ``grow_nodes_when_underresolved=False`` in
-    ``_descend_into_clusters`` (pending OPEN_ISSUES #48 gate work), so
-    the child walk cannot densify a uniform.
+    mode must not call ``_cluster_scaffold``). Descent re-seeds via
+    ``fit_scaffold_at_tau`` with ``N`` free up to ``n/k``; it stops
+    when the bound binds or on ``one_feature_null``.
     """
 
     del level  # walk is no longer root-only; signature kept for callers
@@ -1564,15 +1555,12 @@ def _level_set_finer_walk_exhausted(
 ) -> bool:
     """Stop finer descent on a resolved one-feature null (SI S2.6.2 / #48).
 
-    ``τ`` descent at fixed ``N`` re-arranges the mesh (linked tori seed 0
-    descended 7 steps at ``N=64`` and 6 more at ``N=256`` before growth
-    resolved anything). At the shot-noise bound, growth is refused by
-    ``finer_walk_needs_node_budget(at_shot_floor=...)`` and the ``n/k``
-    ceilings, but descent continues until ``max_finer_scale_steps`` /
-    ``tau_min``.
+    The ``n/k`` bound ends the ``track_tau`` walk when it binds
+    (``_track_tau_finer_step``). This helper only classifies the
+    one-feature null; ``bottleneck`` is not a stop.
     """
 
-    del scaffold, data, config  # bound caps growth, it does not end descent
+    del scaffold, data, config  # bound stop lives in _track_tau_finer_step
     reason = (
         selection.resolvability.reject_reason
         if selection.resolvability is not None
@@ -1583,130 +1571,6 @@ def _level_set_finer_walk_exhausted(
     # intermediate tau on the way down to tau_sep (linked tori seed 0:
     # phi=1.10 at tau*, 0.75 at the first finer step).
     return reason == "one_feature_null"
-
-
-def _grow_underresolved_level_set(
-    data: np.ndarray,
-    dim: int,
-    config: RecursionConfig,
-    scale_search_config: ScaleSearchConfig,
-    scaffold: Any,
-    selection: LevelSetSelection,
-) -> tuple[Any | None, Any, LevelSetSelection, int | None]:
-    """Raise ``max_nodes`` while the level-set read is under-resolved.
-
-    Returns ``(result, scaffold, selection, budget)``. ``result`` is
-    ``None`` when no growth search ran (caller keeps its existing scale
-    search). Growth requires a scale-matched mesh
-    (``r_k <= mesh_scale_match_ratio * sqrt(tau)``) and stops on a
-    resolved split, a non-truncated null, the step budget, or the
-    shot-noise ceiling ``N ≤ n/k``. The returned budget is carried into
-    a finer-``tau`` walk so nested recovery does not fall back to the
-    truncating cap. SI S2.6.2 / #48.
-    """
-
-    budget = getattr(scaffold, "max_nodes", None)
-    if budget is None:
-        budget = scale_search_config.max_nodes
-    if budget is not None:
-        budget = int(budget)
-
-    # track_tau: first finer step at tau* · ratio with N free replaces
-    # same-τ L=1 growth (SI S2.6.2 / #48).
-    if config.level_set.growth_policy == "track_tau":
-        return None, scaffold, selection, budget
-
-    tau = float(getattr(scaffold, "tau", 0.0) or 0.0)
-    ls_cfg = config.level_set
-    if (
-        selection.accepted
-        or not ls_cfg.grow_nodes_when_underresolved
-        or selection.resolvability is None
-        or at_shot_noise_scale(scaffold, data, ls_cfg.k_neighbors)
-        or not mesh_is_scale_matched(
-            scaffold, tau, ls_cfg.k_neighbors, ls_cfg.mesh_scale_match_ratio,
-        )
-        or not _level_set_cap_growth_open(selection, scaffold)
-    ):
-        return None, scaffold, selection, budget
-
-    ceiling = shot_noise_node_cap(data.shape[0], ls_cfg.k_neighbors, 1)
-    current = int(budget if budget is not None else len(scaffold.nodes))
-    last_result = None
-    last_scaffold = scaffold
-    last_selection = selection
-    for _ in range(int(ls_cfg.max_node_growth_steps)):
-        if current >= ceiling:
-            break
-        current = next_node_budget(
-            current, ls_cfg.node_growth_factor, ceiling,
-        )
-        grown_cfg = replace(scale_search_config, max_nodes=current)
-        result = run_scale_search(data, dim, grown_cfg)
-        sc = result.scaffold_at_star
-        if sc is None or len(sc.nodes) < 2:
-            break
-        last_result = result
-        last_scaffold = sc
-        last_selection = select_level_set_partition(
-            sc, ls_cfg, config.dm_cluster, data=data,
-        )
-        if last_selection.accepted:
-            return last_result, last_scaffold, last_selection, current
-        grown_tau = float(getattr(sc, "tau", tau) or tau)
-        if (
-            at_shot_noise_scale(sc, data, ls_cfg.k_neighbors)
-            or not mesh_is_scale_matched(
-                sc, grown_tau, ls_cfg.k_neighbors, ls_cfg.mesh_scale_match_ratio,
-            )
-            or not _level_set_cap_growth_open(last_selection, sc)
-        ):
-            return last_result, last_scaffold, last_selection, current
-    return last_result, last_scaffold, last_selection, current
-
-
-def _level_set_cap_growth_open(
-    selection: LevelSetSelection,
-    scaffold: Any,
-) -> bool:
-    """Continue same-τ growth while the cap still hides a possible cut."""
-
-    resolvability = selection.resolvability
-    if resolvability is None:
-        return False
-    if resolvability.verdict == ValleyVerdict.UNDER_RESOLVED:
-        return True
-    return resolvability.reject_reason == "no_cut" and cap_is_binding(scaffold)
-
-
-def _refit_raised_cap(
-    scaffold: Any,
-    data: np.ndarray,
-    dim: int,
-    config: RecursionConfig,
-    current: int,
-) -> tuple[Any, int]:
-    """Re-seed at the current ``tau`` with a raised ``max_nodes``.
-
-    Variance-splitting the inherited coarse mesh does not recover
-    linked-tori valleys (SI S2.6.2 / #48).
-    """
-
-    ceiling = shot_noise_node_cap(
-        np.asarray(data).shape[0], config.level_set.k_neighbors, 1,
-    )
-    nxt = next_node_budget(
-        current, config.level_set.node_growth_factor, ceiling,
-    )
-    if nxt <= current:
-        return scaffold, current
-    tau = float(getattr(scaffold, "tau", 0.0) or 0.0)
-    if tau <= 0.0:
-        return scaffold, current
-    fitted = fit_scaffold_at_tau(
-        data, dim, tau, config.scale_search, nxt,
-    )
-    return fitted, nxt
 
 
 _TRACK_TAU_CONTINUE = object()
@@ -1819,10 +1683,7 @@ def _research_finer_split(
     lifted / kNN graph is tried.
     """
 
-    if (
-        config.use_level_set_clustering
-        and config.level_set.growth_policy == "track_tau"
-    ):
+    if config.use_level_set_clustering:
         return _research_finer_split_track_tau(data, dim, config, parent_tau)
 
     ratio = float(config.finer_tau_cap_ratio)
@@ -1836,17 +1697,6 @@ def _research_finer_split(
         raw_cap = getattr(parent_scaffold, "max_nodes", None)
         if raw_cap is not None:
             working_max_nodes = int(raw_cap)
-    working_scaffold = parent_scaffold
-    parent_scale_matched = (
-        parent_scaffold is not None
-        and mesh_is_scale_matched(
-            parent_scaffold,
-            float(parent_tau),
-            config.level_set.k_neighbors,
-            config.level_set.mesh_scale_match_ratio,
-        )
-    )
-    growth_used = 0
 
     for _step in range(max_steps):
         if not (tau_min < tau_cap < float(parent_tau)):
@@ -1867,91 +1717,20 @@ def _research_finer_split(
                 record_partitions=True,
             )
 
-        if (
-            config.use_level_set_clustering
-            and working_scaffold is not None
-            and len(working_scaffold.nodes) >= 2
-        ):
-            advance_scaffold_to_tau(
-                working_scaffold,
-                data,
-                tau_cap,
-                config.scale_search.stabilization,
-            )
-            scaffold = working_scaffold
-            result = None
-        else:
-            result = run_scale_search(data, dim, scale_search_config)
-            scaffold = result.scaffold_at_star
-            if scaffold is None or len(scaffold.nodes) < 2:
-                tau_cap *= ratio
-                continue
+        result = run_scale_search(data, dim, scale_search_config)
+        scaffold = result.scaffold_at_star
+        if scaffold is None or len(scaffold.nodes) < 2:
+            tau_cap *= ratio
+            continue
 
         if config.require_persistent_split:
-            if result is None or result.persistence_result is None:
+            if result.persistence_result is None:
                 tau_cap *= ratio
                 continue
             persistence = result.persistence_result
             if persistence.tau_star_index is None:
                 tau_cap *= ratio
                 continue
-
-        # #44 canonical proposal: node-spacing density tree + background-aware
-        # DM extraction. When selected, do not fall through to the retired
-        # geometry-specific prepass family at this scale. Under-resolved
-        # capped scaffolds raise max_nodes at this tau before stepping finer.
-        # A parent scaffold is continued in place (monotonic tau drop) so
-        # load-crossover cannot jump back to a coarser tau on a fresh grid.
-        if config.use_level_set_clustering:
-            level_set = select_level_set_partition(
-                scaffold, config.level_set, config.dm_cluster, data=data,
-            )
-            # Same-τ growth is licensed only when L=1 was scale-matched
-            # (coarse composite). Unconditional finer-walk growth densifies
-            # a thin uniform into a uniquely deep hole (circle 256→750,
-            # ρ=0.058). SI S2.6.2 / #48.
-            working_scaffold = scaffold
-            if level_set.accepted:
-                assert level_set.cluster_result is not None
-                return result, scaffold, level_set.cluster_result
-            if _level_set_finer_walk_exhausted(level_set, scaffold, data, config):
-                return None
-            while (
-                config.level_set.grow_nodes_when_underresolved
-                and growth_used < int(config.level_set.max_node_growth_steps)
-                and finer_walk_needs_node_budget(
-                    level_set,
-                    parent_scale_matched=parent_scale_matched,
-                    at_shot_floor=at_shot_noise_scale(
-                        scaffold, data, config.level_set.k_neighbors,
-                    ),
-                )
-            ):
-                current = int(
-                    working_max_nodes
-                    if working_max_nodes is not None
-                    else getattr(scaffold, "max_nodes", len(scaffold.nodes))
-                )
-                scaffold, raised = _refit_raised_cap(
-                    scaffold, data, dim, config, current,
-                )
-                if raised <= current:
-                    break
-                working_max_nodes = raised
-                working_scaffold = scaffold
-                growth_used += 1
-                level_set = select_level_set_partition(
-                    scaffold, config.level_set, config.dm_cluster, data=data,
-                )
-                if level_set.accepted:
-                    assert level_set.cluster_result is not None
-                    return result, scaffold, level_set.cluster_result
-                if _level_set_finer_walk_exhausted(
-                    level_set, scaffold, data, config,
-                ):
-                    return None
-            tau_cap *= ratio
-            continue
 
         # #44c: cheap disconnected-lifted prepass before general clustering.
         if config.prefer_disconnected_prepass:
@@ -2180,9 +1959,6 @@ def _descend_into_clusters(
             explained_energy=config.explained_energy,
         )
 
-        child_level_set = replace(
-            config.level_set, grow_nodes_when_underresolved=False,
-        )
         child_config = RecursionConfig(
             scale_search=replace(config.scale_search, max_nodes=None),
             min_samples=config.min_samples,
@@ -2193,7 +1969,7 @@ def _descend_into_clusters(
             require_dm_split=config.require_dm_split,
             dm_cluster=config.dm_cluster,
             use_level_set_clustering=config.use_level_set_clustering,
-            level_set=child_level_set,
+            level_set=config.level_set,
             allow_finer_research=config.allow_finer_research,
             finer_tau_cap_ratio=config.finer_tau_cap_ratio,
             max_finer_scale_steps=config.max_finer_scale_steps,
@@ -2379,18 +2155,6 @@ def run_recursive_discovery(
         level_set = select_level_set_partition(
             scaffold, config.level_set, config.dm_cluster, data=data_arr,
         )
-        grown_result, scaffold, level_set, grown_budget = (
-            _grow_underresolved_level_set(
-                data_arr, dim, config, scale_search_config, scaffold, level_set,
-            )
-        )
-        if grown_result is not None:
-            result = grown_result
-            if grown_budget is not None:
-                scale_search_config = replace(
-                    scale_search_config, max_nodes=int(grown_budget),
-                )
-                config = replace(config, scale_search=scale_search_config)
         if level_set.accepted:
             cluster_result = level_set.cluster_result
             assert cluster_result is not None

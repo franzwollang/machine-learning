@@ -1,29 +1,28 @@
 {
-  "updated_at": "2026-09-09T11:50:00-05:00",
-  "turn": 86,
+  "updated_at": "2026-09-09T16:50:00-05:00",
+  "turn": 89,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "promote track_tau to default once swiss passes; retire gamma/no_cut_gated; SI S2.6.2"
+    "goal": "confirm promoted track_tau default with full seeds 0-4 sweep; then rho ceiling calibration"
   },
   "recent": [
-    "track_tau seeds 0-4: 49/55 vs 43/55 baseline; nulls 25/25; tori 5/5 ARI>=0.999; nested root 5/5 (was 2/5)",
-    "Nested s0/s2 8-leaf residue = outer shell 57% to background at first-accept tau, fragment 60% tissue shatters (#45)",
-    "Faded scenes are ~47% tissue by construction; tissue_fraction only pads the box (#45)"
+    "Promotion subagent timed out mid broad-pytest but left complete edits: track_tau default, gamma/no_cut_gated removed, scale_match_probe deleted, SI S2.6.2/S14.3 rewritten",
+    "Focused stage1 subset 60 passed; fixed a false SI/docstring claim that advance_scaffold_to_tau still serves the legacy path (it is on no path now)",
+    "Full 12-scene seeds 0-4 sweep running (/tmp/sweep_default_s0-4.txt); nulls passing so far"
   ],
   "discoveries": [
-    "Warm split-in-place nodes sit on the saddle between composites; fresh fit_scaffold_at_tau at fine tau finds the valley",
-    "FadedMixture density = sum w[lam f + (1-lam) u]: signal mass ~ tissue mass, so ~50% tissue regardless of tissue_fraction",
-    "First-accept tau is coarsest resolving; lower-density component barely above u there -> crude background partition",
-    "Only swiss roll still used an anchor lattice (7-20 sigma comb); circle/tori/shell are continuous components",
-    "32 finer steps did not rescue tori s1 under no_cut_gated: step budget was never the limit"
+    "Warm split-in-place nodes sit on the saddle between composites; fresh fit at fine tau finds the valley",
+    "FadedMixture: signal mass ~ tissue mass, ~50% tissue regardless of tissue_fraction (box padding only)",
+    "First-accept tau is coarsest resolving; lower-density component barely above u there -> crude bg partition",
+    "Hyperplane null cuts have disconnected sides on curled manifolds -> phi0 inflated; intrinsic connected cuts fix it but make rho ceiling stricter"
   ],
   "open_threads": [
-    "Running: swiss-roll continuous component subagent (c8660705)",
-    "Bimodal circle 3/5, weak two-Gaussians 2/5 unchanged: connected-support valleys, separate difficulty",
-    "Hierarchy 5 vs 6 signal leaves on seeds 0,2 under track_tau (one fine pair merged): check",
-    "#45 decisions pending user: descent semantics A/B/C; tissue mass fraction in sampler; refine bg partition below first-accept tau"
+    "Running: full default sweep; then broad `pytest tests/stage1` (orphaned run lost its output; rerun after sweep)",
+    "Acceptance-path: calibrate rho ceiling on null ensemble (borrowed 0.25; hierarchy fine pair rejected at 0.28)",
+    "A6-T101 swiss densify-doubles assertion dropped by subagent: flagged to user",
+    "#45 decisions pending user: descent semantics; tissue mass fraction; refine bg partition below first-accept tau"
   ],
-  "next_step": "on swiss result: dispatch Grok to make track_tau default, delete gamma/no_cut_gated paths + tests, update SI S2.6.2; rerun stage1 subset",
+  "next_step": "read sweep; record in #48/PLANNING; checkpoint; rerun broad tests/stage1; then rho-ceiling calibration protocol",
   "blockers": []
 }

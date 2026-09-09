@@ -1,10 +1,10 @@
-"""Normal-path diagnostic: level-set + finer-research + cap-growth.
+"""Normal-path diagnostic: level-set + finer-research + track_tau.
 
 Unlike ``level_set_fitted_sweep.py`` this does **not** fit a hand-picked
 fine ``tau``.  It runs ``run_recursive_discovery`` with the default
 ``load_crossover`` selector, ``use_level_set_clustering=True``,
-``allow_finer_research=True``, and the #44 under-resolved cap-growth
-knobs.  ``use_level_set_clustering`` stays default-off in production;
+``allow_finer_research=True``, and the landed ``track_tau`` finer walk
+(default).  ``use_level_set_clustering`` stays default-off in production;
 this script only opts in locally.
 
 The measured nested/tori valleys sit ~80× below coarse ``L=1`` ``tau*``.
@@ -13,12 +13,21 @@ so this diagnostic uses 16 steps unless overridden.  ``tau_min`` stays
 the ScaleSearch default ``1e-5`` so the walk can reach ``tau_sep``;
 GT ``tau_grid_hint`` lower bounds are too coarse (~``expected_tau/8``).
 
-Seed-0 (2026-09-09, #48, with the ``N <= n/k`` bound): all six nulls
-(circle, swiss, lone torus, lone inner shell, lone 2-d/4-d Gaussian)
-one leaf; hierarchy root ``K=3`` / 6 fine leaves (GT 3×2); tori root
-``K=2`` / 2 leaves; clear two-Gaussians ``K=2`` / 2; nested ``K=2`` /
-5 and bimodal ``K=2`` / 4 (tissue-heavy children, #45). Valley-scene
-ARI bars are not frozen. Not a default-flag flip.
+Status (``track_tau`` default + connected-cuts null): nulls hold —
+circle and swiss roll (continuous area-uniform sheet; the former 48×8
+kernel-anchor lattice was a comb of ridges 7–20σ apart and was
+correctly split once resolvable) seeds 0–7, lone torus / inner shell /
+2-D / 4-D Gaussians seeds 0–4. Linked tori root ``K=2`` on seeds 0–4
+(ARI ≥ 0.999, ~2 min/seed vs 14–48 min warm). Nested shells root
+``K=2`` on seeds 0–4; nested seeds 0 and 2 then over-split the outer
+shell because at the first-accept τ 57% of the outer shell's nodes
+fall below the C-D level into background and the tissue-dominated
+fragment shatters (#45 tissue semantics, not the growth policy).
+Hierarchy root ``K=3`` on every seed with 4–6 of 6 fine leaves under
+the now-stricter borrowed ρ ceiling. Bimodal circle 3/5 and weak
+two-Gaussians 2/5 unchanged (connected-support valleys, separate
+difficulty); clear two-Gaussians 5/5. Valley-scene ARI bars are not
+frozen. Not a default-flag flip.
 
 Not a pytest test.  Nested/tori at the fitted-sweep ``n`` take minutes
 to tens of minutes per seed.
@@ -397,9 +406,9 @@ def main() -> int:
     )
     parser.add_argument(
         "--growth-policy",
-        choices=("no_cut_gated", "track_tau"),
-        default="no_cut_gated",
-        help="Level-set finer-walk growth policy (default: no_cut_gated).",
+        choices=("track_tau",),
+        default="track_tau",
+        help="Level-set finer-walk growth policy (default: track_tau).",
     )
     args = parser.parse_args()
 

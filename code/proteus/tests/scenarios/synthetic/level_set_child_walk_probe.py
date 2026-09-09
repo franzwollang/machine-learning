@@ -151,7 +151,6 @@ def _child_config(config: RecursionConfig, node: RecursionNode) -> RecursionConf
     return replace(
         config,
         scale_search=replace(config.scale_search, max_nodes=None),
-        level_set=replace(config.level_set, grow_nodes_when_underresolved=False),
         allow_finer_research=config.allow_finer_research,
         seed=int(config.seed) + int(node.region_id),
     )

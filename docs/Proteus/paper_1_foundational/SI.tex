@@ -1787,29 +1787,21 @@ three verdicts (SI S14.3 operational defaults).
   \item \emph{Resolved split:} a mass-filtered $K\ge 2$ cut clears the
     bottleneck guard and DM. Recurse on those Hartigan children.
   \item \emph{Resolved null:} a balanced cut existed and failed the
-    bottleneck or DM (sampling-gap arcs of a uniform manifold), or growth
-    stopped below the node cap with no such cut. Do \emph{not} grow $N$:
-    the mesh already resolved the object as one feature or as a
-    flow-connected manifold.
+    bottleneck or DM (sampling-gap arcs of a uniform manifold), or the
+    resolution bound $N\le n/k$ with no such cut. The mesh already
+    resolved the object as one feature or as a flow-connected manifold.
   \item \emph{Under-resolved:} the scaffold sits at \texttt{max\_nodes}
     and no evidence-bearing cut formed. The cap may have truncated a
-    valley (nested shells: 2/5 seeds at 1024 nodes, 5/5 at 1536). Raise
-    the cap and retry at the same $\tau$ before stepping finer.
+    valley (nested shells: 2/5 seeds at 1024 nodes, 5/5 at 1536). Finer
+    descent re-seeds at a smaller $\tau$ with $N$ free up to $n/k$
+    rather than raising a same-$\tau$ cap.
 \end{itemize}
 A resolved null at coarse $L{=}1$ does \emph{not} by itself forbid a finer
-$\tau$ probe \emph{at the root}: a composite feature is unimodal after
+$\tau$ probe: a composite feature is unimodal after
 coarse smoothing and only separates below $\tau_{\mathrm{sep}}$ (S2.8).
-\emph{Temporary divergence (OPEN\_ISSUES \#48):} the implementation
-currently runs the composite finer walk at the root only. A density
-child inherits a fresh node cap, does not grow $N$, and splits only if
-its own $\tau^\star$ read accepts. This stops the observed child
-shatter (linked-tori seed~0: 17 then 26 signal leaves) but is not the
-specified behavior: the Hartigan tree is recursive and a child may
-itself be a composite. The shatter is believed to be the
-scale-match gate firing on a uniform 2-D child; the walk is to be
-restored on children once that gate is dimension-aware.
-Finer-$\tau$ descent remains the composite-feature walk at the root;
-the trichotomy governs \emph{node growth}. This is an operational
+The finer walk is licensed at every level (a density child may itself
+be a composite). Descent ends when the $n/k$ bound binds or on
+\texttt{one\_feature\_null}. This is an operational
 stand-in for evidence-gated insertion (OPEN\_ISSUES \#47); it does not yet
 make equilibrium $N$ equal the minimum mesh that resolves a valley.
 
@@ -1825,14 +1817,23 @@ Raw rank persistence and excess mass remain inseparable (measured
 
 Studentize the flow bottleneck, not a new ceiling on raw $\phi$.
 Let $\phi_{\mathrm{CD}}$ be the candidate's bottleneck. The one-feature
-null scale $\phi_0$ is the median $\phi$ of balanced hyperplane
-bisections of the same signal nodes that \emph{disagree} with the
-candidate (label-flip agreement $<1/2$). Cuts that recreate the
-candidate (label-flip agreement $>1/2$) are dropped so a linearly
-separable true valley does not contaminate the null. The
-orthogonal-to-centroid-separation cut is always kept: opposite
-sampling-gap arcs are linearly separable and would otherwise
-fail-open to raw $\phi$ (warm-walk circle seed~0, 2026-09-09). The studentized ratio is
+null scale $\phi_0$ is the median $\phi$ over \emph{intrinsic connected}
+cuts of the same signal flow graph --- median splits of the first
+non-trivial normalized-Laplacian eigenvectors and hop-geodesic median
+splits from random seed nodes --- with any cut having a disconnected
+side discarded. Cuts that recreate the candidate (label-flip agreement
+$>1/2$) are dropped so a linearly separable true valley does not
+contaminate the null. When the remaining pool is empty, $\phi_0$ is
+\texttt{None} (fail-open to raw $\phi$). The internal-bisection
+denominator of $\phi$ itself is likewise an intrinsic connected
+bisection (Fiedler median, hop-geodesic fallback, largest component
+per half). Hyperplane bisections of a curled manifold have
+flow-graph-disconnected sides, their internal flow is $\approx 0$,
+$\phi_0$ inflated to $\approx 22$ on the continuous swiss-roll sheet
+(seed~1, $N{=}213$) and accepted an inner-turns/outer-turns arc cut at
+$\phi{=}0.245$, $\rho{=}0.011$; with connected cuts the same candidate
+reads $\phi{=}2.87$ and is rejected by the raw guard.
+The studentized ratio is
 \[
   \rho=\phi_{\mathrm{CD}}/\phi_0.
 \]
@@ -1841,6 +1842,12 @@ $\phi_{\mathrm{CD}}\approx\phi_0$ and $\rho\sim 1$. Under $H_1$ the
 C--D cut is deeper than typical disagreeing cuts and $\rho\ll 1$.
 The same operational ceiling
 \texttt{max\_bottleneck\_ratio}${}=0.25$ is applied to $\rho$.
+That $0.25$ ceiling is borrowed and uncalibrated. With connected cuts
+$\phi_0$ is systematically smaller than before, so the borrowed
+ceiling is now stricter (hierarchy seed~0: a fine pair at
+$\phi{=}0.18$, $\rho{=}0.28$ is rejected as \texttt{one\_feature\_null};
+4 of 6 fine leaves). Calibrating the $\rho$ ceiling on the null
+ensemble is the remaining acceptance-path item.
 The circle probe's first accept ($\phi_{\mathrm{CD}}=0.052$) is
 inside the fitted true-split band; it fails once studentized
 ($\rho\sim 1$). A tighter raw ceiling would also kill nested/tori
@@ -1852,72 +1859,39 @@ density scale everywhere else in the reader, so $n/N\ge k$, i.e.
 $N\le n/k$ (derived; $k$ is the reader's own neighbour count, no
 calibrated constant). Below that bound the mesh is reading Poisson
 holes of the sample. In level-set mode the bound caps the scale search
-and every node-growth ceiling. (An earlier statement of this floor as
+and the finer-walk node budget. (An earlier statement of this floor as
 ``mean node $r_k$ meets the sample $k$NN radius'' was a derivation
 error: that is equality of \emph{spacings}, reached only at $N\approx
 n$, and it never fired before \texttt{max\_nodes} did --- circle warm
 walk $N{=}750$ of $n{=}1500$, a 194-sample fragment read at $N{=}59$
 with $\rho{=}0.003$; seed-0 composites accept at $15.6$ and $11.8$
 samples per node.) The bound clamps the scale-search budget
-(\texttt{min} of the controller default and $n/k$) and refuses node
-growth; it does not end $\tau$ descent, which re-arranges the mesh at
-fixed $N$ (linked tori seed~0 descended seven steps at $N{=}64$ and six
-at $N{=}256$ before growth resolved anything). Finer descent
-stops on \texttt{one\_feature\_null} only, not on \texttt{bottleneck}: a bottleneck-rejected cut is manifold traffic at
+(\texttt{min} of the controller default and $n/k$). Finer descent
+stops when the bound binds or on \texttt{one\_feature\_null}, not on
+\texttt{bottleneck}: a bottleneck-rejected cut is manifold traffic at
 the current $\tau$, and composites show those arcs on the way down to
 $\tau_{\mathrm{sep}}$ (linked tori seed~0: $\phi{=}1.10$ at $\tau^\star$,
-$\phi{=}0.75$ at the first finer step). Cap growth is a same-$\tau$
-truncation retry, licensed only when the mesh is \emph{scale-matched}:
-$r_k\le\gamma\sqrt{\tau}$ with operational
-\texttt{mesh\_scale\_match\_ratio} $\gamma{=}2$ (SI S14.3).
-Load-crossover $\tau^\star$ is a variance; $\sqrt{\tau^\star}$ is the
-residual length. On a uniform manifold that residual is the thickness
-and a capped mesh has $r_k\gg\sqrt{\tau^\star}$ (circle seed~0:
-$r_k/\sqrt{\tau^\star}{=}2.95$; swiss $2.41$). On a coarse composite
-that LC still sees as one feature, $\tau^\star$ is the blob scale and
-$r_k\sim\sqrt{\tau^\star}$ (nested $0.96$; linked tori $1.28$;
-hierarchy accepted at $1.03$). This separation does \emph{not} extend
-to lone uniforms: a lone torus ($1.85$; $0.70$ with tissue), a lone
-inner shell ($1.52$) and lone 2-D/4-D Gaussians ($0.46$--$1.22$) all
-read scale-matched at seed~0, while the outer shell reads $3.16$.
-$\tau^\star$ lands on the 8-point log grid, whose step moves
-$\sqrt{\tau^\star}$ by $2.7\times$ --- more than the threshold --- so
-the ratio is grid-quantized and extent-driven. $\gamma$ is therefore an
-acceptance-relevant stand-in for evidence-gated insertion (\#47), not a
-uniform-vs-composite test (\#48).
-Growing $N$ on the thin-uniform side
-densifies sampling holes that can pass $\rho$ (circle warm walk:
-$256\to750$, then $\phi{=}0.082$, $\rho{=}0.058$; $N{=}750$ of
-$n{=}1500$ is two samples per node, now excluded by the $N\le n/k$
-bound).
-Walk-history (bottleneck then \texttt{no\_cut}) does not distinguish
-them: the circle flickers that pattern at $N{=}64$ (f1 bottleneck,
-f2 \texttt{no\_cut}) without a hidden valley.
-Finer-walk growth is therefore a same-$\tau$ \emph{re-seed}
-(\texttt{fit\_scaffold\_at\_tau}) gated on the parent $L{=}1$
-scale-match: a matched parent (tori, nested) may raise $N$ when a
-later step is \texttt{no\_cut}-at-cap and rebuild the mesh at the
-current $\tau$. Inherited coarse nodes plus variance splits do not
-rearrange into the hidden valley (linked-tori seed~0: warm
-$64\to1024$ stayed $\rho\sim 2$). An unmatched parent (circle, swiss)
-never grows during descent.
-A mesh that filled all but one cap slot ($127/128$) is treated as
-cap-binding so a truncated composite is not stopped after one
-doubling; the trichotomy itself still uses $n\ge\texttt{max\_nodes}$.
-Cap growth on \texttt{no\_cut} is also suppressed at
-$\tau_{\mathrm{shot}}$.
+$\phi{=}0.75$ at the first finer step).
+Finer descent in level-set mode re-seeds the mesh at every finer
+$\tau$ (\texttt{fit\_scaffold\_at\_tau}) with $N$ free up to the
+resolution bound $N\le n/k$. There is no node-budget gate, no
+\texttt{no\_cut} trigger, and no step-budget dependence.
+The previous warm continuation failed because inherited coarse nodes
+split in place and never rearranged into the hidden valley (linked
+tori seed~1: \texttt{no\_cut} at $\tau{=}0.98$ raised the budget
+$128\to 1000$ without adding a node, then the warm mesh reached
+$N{=}1000$ with every read \texttt{bottleneck}, $\rho$ $1.2$--$4.8$;
+32 finer steps did not change it), whereas a fresh fit at the same
+$\tau$ finds it ($\rho{=}0.018$ at $N{=}512$).
 The studentized accept guard remains the floor that stops a shatter
-if growth is ever mis-fired.
+if a fine mesh is ever over-resolved.
 Do not promote \texttt{use\_level\_set\_clustering} until \#48
 recovers composites without densifying uniforms.
 Do not replace the floor by another step-count budget.
-
-The finer walk itself is a \emph{warm continuation} of the parent
-scaffold (\texttt{advance\_scaffold\_to\_tau}): each step lowers
-$\tau$ monotonically and re-equilibrates in place. Fresh
-\texttt{run\_scale\_search} calls on a truncated grid let
-load-crossover jump to a \emph{coarser} $\tau$ than the previous step
-(circle probe: $0.006\to0.013$), which is not a descent.
+The non-level-set path (\texttt{use\_level\_set\_clustering=False})
+keeps its fresh \texttt{run\_scale\_search} per finer step; the warm
+in-place continuation \texttt{advance\_scaffold\_to\_tau} is no longer
+on either path (retained, unit-locked, for diagnostics).
 
 \paragraph{Quarantine of the geometry / hollow prepass zoo.}
 The 2026-08 swarm falsified radial / PCA / tube / spectral / hollow-edge
@@ -1929,8 +1903,8 @@ Level-set replaces them.
 
 Validation status: the DAG, rank/mass screens, mass-filtered coarse
 anchor, flow-bottleneck guard, background-aware DM collapse, the
-valley-resolvability trichotomy, and warm finer-walk continuation are
-implemented and unit-locked (including a paired arc-cut/weak-bridge
+valley-resolvability trichotomy, and the \texttt{track\_tau} finer walk
+are implemented and unit-locked (including a paired arc-cut/weak-bridge
 guard fixture). Automatic extraction on fitted scaffolds covers the
 full basic suite: uniform-manifold rejects, hierarchy, sheets, tori,
 and nested shells at adequate budgets. Connected-support valley scenes
@@ -1938,25 +1912,21 @@ and nested shells at adequate budgets. Connected-support valley scenes
 coverage live in \texttt{tests/datasets/synthetic/density\_valleys.py}
 and \texttt{tests/scenarios/synthetic/level\_set\_suite.py}; do not
 retune those numbers to make a path pass. The path remains default-off.
-A normal-path diagnostic with the \#48 floor, the $N\le n/k$ bound and
-the scale-matched node budget keeps every null (circle, swiss roll,
-lone torus, lone inner shell, lone 2-D and 4-D Gaussian) as one leaf on
-seeds 0--4 (24/24) and recovers hierarchy ($K{=}3$, six fine leaves)
-on every seed. Composite recovery does \emph{not} generalise: linked
-tori accept at the root on seed~0 only ($K{=}2$, ARI $1.000$, at finer
-step 15 of 16 after seven \texttt{bottleneck} steps at $N{=}64$ and six
-at $N{=}256$) and read $K{=}1$ on seeds 1--4; nested shells accept on
-seeds 0 and 2 (ARI $0.731$, $0.925$) and not on 1 and 3. Because growth
-fires only on \texttt{no\_cut}-at-cap, the outcome depends on the order
-of verdicts and on the step budget. Unconditional finer-walk
-growth densifies the circle to $N{=}n/2$ and accepts a uniquely deep
-hole ($\phi{=}0.082$, $\rho{=}0.058$); the $N\le n/k$ bound now
-excludes that regime. Density children inherit a fresh cap, do not
-grow, and walk finer under the same floor. The growth policy is
-under redesign (\#48): let $N$ track $\tau$ during descent with the cap
-never binding below the $n/k$ bound, and stop when the bound binds or
-on \texttt{one\_feature\_null}, removing $\gamma$, the \texttt{no\_cut}
-trigger and the step budget together.
+Under \texttt{track\_tau} plus the connected-cuts null, nulls hold ---
+circle and swiss roll (continuous area-uniform sheet; the former
+$48\times 8$ kernel-anchor lattice was a comb of ridges $7$--$20\sigma$
+apart and was correctly split once resolvable) seeds 0--7, lone torus /
+inner shell / 2-D / 4-D Gaussians seeds 0--4 --- linked tori root
+$K{=}2$ on seeds 0--4 (ARI $\ge 0.999$, $\sim 2$~min/seed vs $14$--$48$
+min warm), nested shells root $K{=}2$ on seeds 0--4; nested seeds 0 and
+2 then over-split the outer shell because at the first-accept $\tau$
+$57\%$ of the outer shell's nodes fall below the C--D level into
+background and the tissue-dominated fragment shatters (this is \#45
+tissue semantics, not the growth policy); hierarchy root $K{=}3$ on
+every seed with $4$--$6$ of $6$ fine leaves under the now-stricter
+borrowed $\rho$ ceiling; bimodal circle $3/5$ and weak two-Gaussians
+$2/5$ unchanged (connected-support valleys, separate difficulty);
+clear two-Gaussians $5/5$.
 Promotion still
 requires an awaiting-flip review and evidence-gated insertion (\#47).
 Direct fine-$\tau$ diagnostics
@@ -5357,13 +5327,9 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{LevelSetConfig.min\_excess\_mass} & 0.02\ (\text{normalized mass$\times$rank integral; runt screen}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_cluster\_frac} & 0.15\ (\text{fraction of region node budget; coarse satellite / partial-activation floor}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.max\_bottleneck\_ratio} & 0.25\ (\text{cross-cut max-flow over internal bisection flow; arc-vs-valley guard; fitted gap } 0.07\text{--}0.60) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{LevelSetConfig.grow\_nodes\_when\_underresolved} & \text{true}\ (\text{only consulted when }\texttt{use\_level\_set\_clustering}\text{; raise }\texttt{max\_nodes}\text{ on under-resolved capped scaffolds}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{LevelSetConfig.node\_growth\_factor} & 2.0\ (\text{multiplicative cap raise per under-resolved retry}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{LevelSetConfig.max\_node\_growth\_steps} & 5\ (\text{at most five cap doublings per }\tau\text{; ceiling }n/2) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{LevelSetConfig.mesh\_scale\_match\_ratio} & 2.0\ (\text{$r_k\le\gamma\sqrt{\tau}$ licenses $N$ growth; circle/swiss $2.41$--$2.95$ vs tori/nested $0.96$--$1.28$ at $L{=}1$ seed~0, but lone torus $1.85$, inner shell $1.52$, lone Gaussians $0.46$--$1.22$ also pass}) & \text{S2.6.2} & \text{operational stand-in, acceptance-relevant (does not separate lone uniforms; grid-quantized $\tau^\star$; to be replaced by evidence-gated insertion, \#47/\#48)}\\
-\texttt{advance\_scaffold\_to\_tau} & \text{warm finer walk on the level-set path; no fresh LC grid} & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{fit\_scaffold\_at\_tau} & \text{same-$\tau$ re-seed for scale-matched $N$ growth; not LC} & \text{S2.6.2} & \text{operational (proposal-path; \#48)}\\
-\text{finer-walk evidence floor }(\rho=\phi_{\mathrm{CD}}/\phi_0) & \text{same ceiling }0.25\text{ on }\rho\text{; }\phi_0=\mathrm{median}\,\phi\text{ of disagreeing hyperplanes; shot-noise bound }N\le n/k\text{ (caps scale search and growth)} & \text{S2.6.2} & \text{form derived; the }0.25\text{ ceiling on }\rho\text{ is borrowed, uncalibrated (acceptance-path; \#48; flag off)}\\
+\texttt{advance\_scaffold\_to\_tau} & \text{warm in-place $\tau$ continuation; no longer on any path (diagnostic helper, unit-locked)} & \text{S2.6.2} & \text{operational (proposal-path; retired from the finer walk, \#48)}\\
+\texttt{fit\_scaffold\_at\_tau} & \text{fresh fit at each finer $\tau$, $N\le n/k$ (track\_tau finer walk); derived bound, no free constant} & \text{S2.6.2} & \text{derived (\#48)}\\
+\text{finer-walk evidence floor }(\rho=\phi_{\mathrm{CD}}/\phi_0) & \text{$\phi_0=\mathrm{median}\,\phi$ of intrinsic connected cuts (Laplacian-eigenvector and hop-geodesic median splits, disconnected sides discarded); $0.25$ ceiling on $\rho$ still borrowed, uncalibrated, now stricter --- acceptance-path calibration pending (\#48)} & \text{S2.6.2} & \text{form derived; the $0.25$ ceiling on $\rho$ is borrowed, uncalibrated (acceptance-path; \#48; flag off)}\\
 \text{geometry/hollow prepass zoo} & \text{all default false; quarantined (falsified 2026-08; \#44)} & \text{S2.6.2} & \text{quarantined}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\

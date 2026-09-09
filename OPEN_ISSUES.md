@@ -803,9 +803,33 @@ Remaining (2026-09-09; ordered by severity):
   baseline (connected-support valleys; separate difficulty, passes have
   bg recall 1.0 and ARI 0.16–0.24); clear two-Gaussians 5/5. Child
   refits under `track_tau` are not the cause of the nested residue (the
-  child splits are at ρ 0.018 and φ = 0). Remaining: swiss roll on the
-  repaired generator; promote `track_tau` to default and retire
-  `no_cut_gated` + γ + `mesh_scale_match_ratio`; SI S2.6.2 text.
+  child splits are at ρ 0.018 and φ = 0).
+  Swiss roll repaired as a continuous area-uniform sheet
+  (`SwissRollSurfaceFadedComponent`; A6-T101 pins re-baselined, the
+  swiss half of its densify-doubles-peak assertion dropped because the
+  coarse grid no longer brackets the sheet's φ peak — review). Under
+  `track_tau` it holds on seeds 0, 2 but seed 1 still splits at N=213:
+  inner turns vs outer turns of the 1.5-turn spiral, φ=0.245, ρ=0.011,
+  i.e. **φ₀≈22 on a uniform sheet**. Acceptance-path defect in the
+  one-feature null: null cuts are hyperplane median-bisections, and on a
+  curled manifold those have sides that are disconnected in the flow
+  graph, so their internal-bisection flow ≈ 0 and their φ blows up,
+  inflating the median φ₀; the candidate's short connected arcs do not
+  suffer this, so curled uniforms are systematically favoured for
+  acceptance. Latent while N never grew; exposed by `track_tau`. Fixed
+  (commit e3699f5): null cuts and the internal-bisection denominator
+  are intrinsic connected cuts (normalized-Laplacian eigenvector and
+  hop-geodesic median splits; disconnected sides discarded). Swiss and
+  circle hold seeds 0–7; tori/nested split seeds 0–1; same swiss
+  candidate now reads φ=2.87 (raw reject), φ₀ pool empty. Side effect:
+  φ₀ is systematically smaller than under hyperplanes, so the borrowed
+  0.25 ceiling on ρ is stricter — hierarchy seed 0 fine pair at φ=0.18,
+  ρ=0.28 rejected (`one_feature_null`; 4 of 6 fine leaves). **Remaining
+  acceptance-path item: calibrate the ρ ceiling on the null ensemble
+  (declared protocol, S14.3) instead of borrowing φ's 0.25.**
+  In flight: promote `track_tau` to default, delete `no_cut_gated` + γ
+  + `mesh_scale_match_ratio` + same-τ growth, SI S2.6.2 / S14.3 text,
+  full seeds 0–4 acceptance sweep.
 - **Tissue-heavy children re-partition (→ #45).** Root splits leak
   tissue into signal children (nested child 3: 51% tissue, bg recall
   0.51; bimodal child 3: 37%). The reader then marks most of the child
