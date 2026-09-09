@@ -354,10 +354,28 @@ Level-set consequence (2026-09-09, from #48): the root split assigns about
 half the tissue to signal children (nested seed-0 bg recall 0.51; nested
 child 3 is 51% tissue, bimodal-circle child 3 is 37%). The child reader
 then declares most of the region background and accepts small
-shell+tissue chunks (nested: 6 signal leaves; bimodal: 5). Root halo
-assignment must strip tissue before descent, or children must be read
-signal-only; this is the remaining child over-split once the legacy
-fallthrough and `τ_shot` are fixed.
+shell+tissue chunks (nested: 5 signal leaves; bimodal: 4 with the `N≤n/k`
+bound). This is the remaining child over-split once the legacy fallthrough
+and `τ_shot` are fixed.
+
+Mechanism (`level_set_root_tissue_probe.py`, seed 0): node label `-1` is
+exactly C–D inactivity (`core_radius > r`) at the selected level; runt and
+relative-mass filters add nothing and DM only accepts/rejects. At the
+selected radius (bimodal r=0.63, nested r=0.69) the low-density halo nodes
+are active and connected to the shell components — 13/55 and 102/307
+signal-labelled nodes have ≥50% tissue catchments, at ~0.64× the hit count
+of ≥90%-signal nodes (2528 vs 3959; 619 vs 972). Samples follow BMU Voronoi
+(`assign_samples_to_clusters`), so 0% of leaked tissue is nearer a
+background node. The reader is Hartigan-faithful: halo belongs to the
+coarse cluster. The generator's λ=0.5 fade defines it as background. The
+open decision is descent semantics: (A) descend on the branch *core* only
+(nodes below a half-max density relative to the branch peak → halo, the
+same λ=0.5 tier as the GT); (B) keep Hartigan assignment and terminate a
+child whose own read sends most of its samples to background; (C) keep as
+is and score signal-only. Nested also loses 755 outer-shell points to the
+root background child at the selected level (coverage 0.76): the outer
+shell is only fully connected at radii where it also connects to the inner
+shell through tissue.
 
 ## 46. Pytest runtime hygiene: simulations are misclassified as tests
 
