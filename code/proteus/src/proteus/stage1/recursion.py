@@ -1542,16 +1542,17 @@ def _level_set_should_finer_walk(
 ) -> bool:
     """Whether to probe below this region's ``tau*`` (SI S2.6.2 / #48).
 
-    At the root a resolved null can still be a coarse composite (linked
-    tori, nested shells).     After an accepted density split the child is already a Hartigan
-    piece. The composite finer walk stays at the root; a child splits
-    only if its own ``tau*`` read accepts. Walking or growing on the
-    child re-densifies a uniform (tori seed-0: 17 then 26 leaves).
+    The finer walk is licensed at every level: a child can itself be a
+    coarse composite (the Hartigan tree is recursive). The earlier child
+    over-split was the legacy Q-score/AP fallthrough (Bug 1: level-set
+    mode must not call ``_cluster_scaffold``). Node-budget growth remains
+    disabled on children via ``grow_nodes_when_underresolved=False`` in
+    ``_descend_into_clusters`` (pending OPEN_ISSUES #48 gate work), so
+    the child walk cannot densify a uniform.
     """
 
-    if selection.accepted:
-        return False
-    return int(level) <= 0
+    del level  # walk is no longer root-only; signature kept for callers
+    return not selection.accepted
 
 
 def _level_set_finer_walk_exhausted(
@@ -2098,7 +2099,7 @@ def _descend_into_clusters(
             dm_cluster=config.dm_cluster,
             use_level_set_clustering=config.use_level_set_clustering,
             level_set=child_level_set,
-            allow_finer_research=False,
+            allow_finer_research=config.allow_finer_research,
             finer_tau_cap_ratio=config.finer_tau_cap_ratio,
             max_finer_scale_steps=config.max_finer_scale_steps,
             prefer_disconnected_prepass=config.prefer_disconnected_prepass,
@@ -2283,6 +2284,9 @@ def run_recursive_discovery(
             node.n_clusters = cluster_result.n_clusters
         elif _level_set_should_finer_walk(_level, level_set):
             need_finer = True
+        # SI S2.6.2 / OPEN_ISSUES #48: level-set mode has no legacy fallback.
+        if cluster_result is None and not need_finer:
+            return tree
 
     # #44 hollow-edge at the region's own tau*: support disconnection is
     # scale-free, so try before persistence / AP and before finer descent.
@@ -2323,7 +2327,11 @@ def run_recursive_discovery(
                 or cluster_result.partition_q_score <= 0.0
             ):
                 need_finer = True
-    elif cluster_result is None and not need_finer:
+    elif (
+        cluster_result is None
+        and not need_finer
+        and not config.use_level_set_clustering
+    ):
         cluster_result = _cluster_scaffold(scaffold, config)
         node.n_clusters = cluster_result.n_clusters
         if (

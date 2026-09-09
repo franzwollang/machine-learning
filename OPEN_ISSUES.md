@@ -701,10 +701,36 @@ only when the parent mesh is scale-matched (`r_k ≤ γ √τ*`, γ=2),
 re-seeding at the current τ. Density children do not inherit the
 raised cap, do not grow, and do not finer-walk. SI S2.6.2 / S14.3.
 
-Remaining:
-- Unimodal blob children can still accept at their own `tau*`
-  (clear two-Gaussians: root K=2 but 8 signal leaves).
-- Weak two-Gaussians is K=2 with poor ARI (diagnostic only; no
-  frozen bar).
+Remaining (reflection 2026-09-09; ordered by severity):
+- **L=1 reader false-positive on a lone Gaussian.** Clear two-Gaussians:
+  root K=2 then 8 leaves at n≈400/child. Hierarchy's clean 3×2 is a
+  `min_samples=100` artifact (fine leaves 48–94 samples never reach the
+  reader). Freeze a lone-Gaussian null scene; dissect which stage
+  (C–D cut / mass filter / φ / ρ / DM) passes. Acceptance-path.
+- **Root-only finer walk is a temporary divergence.** Children no
+  longer run the composite walk, so composites can only be found at
+  the root; the spec tree is recursive. Restore once the gate below
+  is fixed. Child shatter was never diagnosed — likely the γ gate
+  firing on a uniform 2-D torus child, then re-seed densification.
+- **γ=2 does not discriminate uniforms (measured 2026-09-09,
+  `level_set_scale_match_probe.py`).** Lone uniforms read
+  scale-matched: lone torus 1.85 (0.70 with tissue), inner shell 1.52,
+  2-D Gaussians 0.46–0.70, 4-D Gaussians 1.10–1.22; only circle 2.95,
+  swiss 2.41, outer shell 3.16 stay above 2. Degree `d_final` tracks
+  ambient dim, so a per-d tiling constant is not available from it.
+  `τ*` lands on three grid values (0.0268 / 0.193 / 1.389); one grid
+  step moves `√τ*` by 2.7×, more than the whole threshold — the ratio
+  is grid-quantized and extent-driven. Decisive test: lone torus /
+  inner shell / 2-D and 4-D Gaussian as root null scenes on the normal
+  path must stay one leaf. Replace γ by evidence-gated insertion (#47).
+- **Nested outer-shell child accepts K=2 at its own L=1** (ρ=0.008,
+  log-BF 3979; standalone outer shell without tissue is `no_cut`).
+  Identify the two pieces (shell vs tissue / inner leakage); likely
+  #45 halo semantics, not the reader.
+- γ and the reused 0.25 ρ ceiling are acceptance-relevant stand-ins,
+  not proposal-path; relabel in S14.3.
+- `_level_set_cap_growth_open` admits `resolved_null/no_cut` at
+  cap-binding; with a misclassified uniform this grows to n/2.
+- All results are seed 0. Multi-seed before any claim.
 - Do not flip `use_level_set_clustering`. Do not delete S2.6.1
   stand-ins. Do not retune frozen suite numbers.

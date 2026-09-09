@@ -1,24 +1,26 @@
 {
-  "updated_at": "2026-09-09T02:32:00-05:00",
-  "turn": 79,
+  "updated_at": "2026-09-09T03:06:00-05:00",
+  "turn": 81,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "blob-child L=1 accept on unimodal Gaussians"
+    "goal": "lone-uniform root nulls must stay 1 leaf; dissect child-walk over-split"
   },
   "recent": [
-    "Child finer-walk/growth off: tori 2 leaves, nested 2 leaves",
-    "Hierarchy 6 leaves is GT 3x2 fine pairs, not over-split",
-    "Bimodal-circle seed-0 root K=2 ARI 0.842"
+    "Reader is clean on lone Gaussian; 8 leaves were legacy _cluster_scaffold fallthrough on children",
+    "Fix in flight: level-set mode has no legacy fallback; child walk restored (no growth, fresh cap)",
+    "Fast sweep post-fix: two_gaussians_clear 2 leaves; bimodal 5 leaves; weak 3 leaves"
   ],
   "discoveries": [
-    "Children inherited parent N=1024 and re-ran the composite walk",
-    "Hierarchy 6 leaves matches children_per_coarse=2"
+    "gamma gate passes lone torus 1.85 / inner shell 1.52 / Gaussians 0.46-1.22; grid-quantized tau*",
+    "Nested outer-shell child accepts K=2 at L=1 (rho 0.008); standalone shell w/o tissue is no_cut",
+    "Hierarchy 3x2 fine pairs are real level-set accepts (survive fallthrough fix)"
   ],
   "open_threads": [
-    "Clear two-Gaussians: root K=2 but 8 leaves (L=1 accept on a blob)",
-    "#45 halo; weak two-Gaussians ARI 0.13"
+    "Bimodal/weak child over-split via child finer walk without growth",
+    "Slow sweep tori/nested post-fix pending (/tmp/sweep_slow_seed0.txt)",
+    "Replace gamma with evidence-gated insertion (#47)"
   ],
-  "next_step": "stop L=1 accept on a unimodal blob child without blocking hierarchy fine pairs",
+  "next_step": "read lone-null sweep + child-walk probe; decide gate/floor change; then tests, SI, checkpoint",
   "blockers": []
 }

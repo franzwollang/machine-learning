@@ -1799,12 +1799,15 @@ three verdicts (SI S14.3 operational defaults).
 A resolved null at coarse $L{=}1$ does \emph{not} by itself forbid a finer
 $\tau$ probe \emph{at the root}: a composite feature is unimodal after
 coarse smoothing and only separates below $\tau_{\mathrm{sep}}$ (S2.8).
-After an accepted density split the child is already a Hartigan piece.
-It inherits a fresh node cap, does not grow $N$, and does not run the
-composite finer walk: it splits only if its own $\tau^\star$ read
-accepts (hierarchy's $3\times2$ fine pairs). Otherwise the child
-re-runs the composite walk on a densified uniform and shatters
-(linked-tori seed~0: 17 then 26 signal leaves).
+\emph{Temporary divergence (OPEN\_ISSUES \#48):} the implementation
+currently runs the composite finer walk at the root only. A density
+child inherits a fresh node cap, does not grow $N$, and splits only if
+its own $\tau^\star$ read accepts. This stops the observed child
+shatter (linked-tori seed~0: 17 then 26 signal leaves) but is not the
+specified behavior: the Hartigan tree is recursive and a child may
+itself be a composite. The shatter is believed to be the
+scale-match gate firing on a uniform 2-D child; the walk is to be
+restored on children once that gate is dimension-aware.
 Finer-$\tau$ descent remains the composite-feature walk at the root;
 the trichotomy governs \emph{node growth}. This is an operational
 stand-in for evidence-gated insertion (OPEN\_ISSUES \#47); it does not yet
@@ -1860,7 +1863,16 @@ and a capped mesh has $r_k\gg\sqrt{\tau^\star}$ (circle seed~0:
 $r_k/\sqrt{\tau^\star}{=}2.95$; swiss $2.41$). On a coarse composite
 that LC still sees as one feature, $\tau^\star$ is the blob scale and
 $r_k\sim\sqrt{\tau^\star}$ (nested $0.96$; linked tori $1.28$;
-hierarchy accepted at $1.03$). Growing $N$ on the thin-uniform side
+hierarchy accepted at $1.03$). This separation does \emph{not} extend
+to lone uniforms: a lone torus ($1.85$; $0.70$ with tissue), a lone
+inner shell ($1.52$) and lone 2-D/4-D Gaussians ($0.46$--$1.22$) all
+read scale-matched at seed~0, while the outer shell reads $3.16$.
+$\tau^\star$ lands on the 8-point log grid, whose step moves
+$\sqrt{\tau^\star}$ by $2.7\times$ --- more than the threshold --- so
+the ratio is grid-quantized and extent-driven. $\gamma$ is therefore an
+acceptance-relevant stand-in for evidence-gated insertion (\#47), not a
+uniform-vs-composite test (\#48).
+Growing $N$ on the thin-uniform side
 densifies sampling holes that can pass $\rho$ (circle warm walk:
 $256\to750$, then $\phi{=}0.082$, $\rho{=}0.058$).
 Walk-history (bottleneck then \texttt{no\_cut}) does not distinguish
@@ -5323,10 +5335,10 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{LevelSetConfig.grow\_nodes\_when\_underresolved} & \text{true}\ (\text{only consulted when }\texttt{use\_level\_set\_clustering}\text{; raise }\texttt{max\_nodes}\text{ on under-resolved capped scaffolds}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.node\_growth\_factor} & 2.0\ (\text{multiplicative cap raise per under-resolved retry}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.max\_node\_growth\_steps} & 5\ (\text{at most five cap doublings per }\tau\text{; ceiling }n/2) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{LevelSetConfig.mesh\_scale\_match\_ratio} & 2.0\ (\text{$r_k\le\gamma\sqrt{\tau}$ licenses $N$ growth; uniforms $2.41$--$2.95$, composites $0.96$--$1.28$ at $L{=}1$ seed~0}) & \text{S2.6.2} & \text{operational (proposal-path; \#48)}\\
+\texttt{LevelSetConfig.mesh\_scale\_match\_ratio} & 2.0\ (\text{$r_k\le\gamma\sqrt{\tau}$ licenses $N$ growth; circle/swiss $2.41$--$2.95$ vs tori/nested $0.96$--$1.28$ at $L{=}1$ seed~0, but lone torus $1.85$, inner shell $1.52$, lone Gaussians $0.46$--$1.22$ also pass}) & \text{S2.6.2} & \text{operational stand-in, acceptance-relevant (does not separate lone uniforms; grid-quantized $\tau^\star$; to be replaced by evidence-gated insertion, \#47/\#48)}\\
 \texttt{advance\_scaffold\_to\_tau} & \text{warm finer walk on the level-set path; no fresh LC grid} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{fit\_scaffold\_at\_tau} & \text{same-$\tau$ re-seed for scale-matched $N$ growth; not LC} & \text{S2.6.2} & \text{operational (proposal-path; \#48)}\\
-\text{finer-walk evidence floor }(\rho=\phi_{\mathrm{CD}}/\phi_0) & \text{same ceiling }0.25\text{ on }\rho\text{; }\phi_0=\mathrm{median}\,\phi\text{ of disagreeing hyperplanes; }\tau_{\mathrm{shot}}{:}\,r_k^{\mathrm{node}}\le r_k^{\mathrm{sample}} & \text{S2.6.2} & \text{derived (\#48; proposal-path wired, flag off)}\\
+\text{finer-walk evidence floor }(\rho=\phi_{\mathrm{CD}}/\phi_0) & \text{same ceiling }0.25\text{ on }\rho\text{; }\phi_0=\mathrm{median}\,\phi\text{ of disagreeing hyperplanes; }\tau_{\mathrm{shot}}{:}\,r_k^{\mathrm{node}}\le r_k^{\mathrm{sample}} & \text{S2.6.2} & \text{form derived; the }0.25\text{ ceiling on }\rho\text{ is borrowed, uncalibrated (acceptance-path; \#48; flag off)}\\
 \text{geometry/hollow prepass zoo} & \text{all default false; quarantined (falsified 2026-08; \#44)} & \text{S2.6.2} & \text{quarantined}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\

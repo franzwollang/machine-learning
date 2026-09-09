@@ -6,6 +6,8 @@ import numpy as np
 import pytest
 
 from proteus.links import LinkCounters
+from proteus.stage1.clustering import ClusterResult
+from proteus.stage1.controller import ScaleSearchConfig
 from proteus.stage1.dm_cluster import DMClusterConfig
 from proteus.stage1.level_set import (
     LevelSetBranch,
@@ -29,11 +31,15 @@ from proteus.stage1.level_set import (
 )
 from proteus.stage1.recursion import (
     RecursionConfig,
+    RecursionNode,
+    RecursionTree,
+    _descend_into_clusters,
     _grow_underresolved_level_set,
     _level_set_finer_walk_exhausted,
     _level_set_should_finer_walk,
     run_recursive_discovery,
 )
+from proteus.stage1.stabilization import StabilizationConfig
 from tests.datasets.synthetic.circles import make_circle
 from tests.datasets.synthetic.hierarchical_gaussian import (
     make_hierarchical_gaussian,
@@ -553,8 +559,8 @@ def test_next_node_budget_respects_ceiling() -> None:
     assert next_node_budget(1, 2.0, 1) == 1
 
 
-def test_child_finer_walk_only_when_under_resolved() -> None:
-    """Density children split only at their own tau*; the finer walk is root-only."""
+def test_finer_walk_licensed_at_every_level_when_not_accepted() -> None:
+    """Expectation update: finer walk is licensed at every level, not root-only."""
 
     no_cut = LevelSetSelection(
         tree=LevelSetTree(core_radii=np.empty(0), levels=()),
@@ -584,10 +590,23 @@ def test_child_finer_walk_only_when_under_resolved() -> None:
             reject_reason="bottleneck",
         ),
     )
+    accepted = LevelSetSelection(
+        tree=no_cut.tree,
+        cluster_result=ClusterResult(
+            labels=np.array([0, 1]),
+            exemplar_indices=np.array([0, 1]),
+            n_clusters=2,
+            partition_q_score=1.0,
+        ),
+        selected_level=0,
+        log_bf=1.0,
+    )
     assert _level_set_should_finer_walk(0, no_cut) is True
+    assert _level_set_should_finer_walk(1, no_cut) is True
     assert _level_set_should_finer_walk(0, bottleneck) is True
-    assert _level_set_should_finer_walk(1, no_cut) is False
-    assert _level_set_should_finer_walk(1, bottleneck) is False
+    assert _level_set_should_finer_walk(1, bottleneck) is True
+    assert _level_set_should_finer_walk(0, accepted) is False
+    assert _level_set_should_finer_walk(1, accepted) is False
 
 
 def test_finer_walk_does_not_stop_on_bottleneck() -> None:
@@ -772,3 +791,115 @@ def test_true_valley_has_studentized_ratio_below_ceiling() -> None:
     phi0 = null_bottleneck_ratio(scaffold, positions, labels)
     assert phi0 is not None
     assert phi0 > selection.bottleneck_ratio
+
+
+def test_level_set_mode_never_falls_back_to_legacy_clusterer(monkeypatch) -> None:
+    def _forbid_legacy(*_args, **_kwargs):
+        raise AssertionError("legacy clusterer must not run in level-set mode")
+
+    monkeypatch.setattr(
+        "proteus.stage1.recursion._cluster_scaffold",
+        _forbid_legacy,
+    )
+    rng = np.random.default_rng(0)
+    points = rng.normal(size=(300, 2))
+    tree = run_recursive_discovery(
+        points,
+        dim=2,
+        config=RecursionConfig(
+            scale_search=ScaleSearchConfig(
+                selector="load_crossover",
+                tau_min=1e-3,
+                tau_max=10,
+                max_grid_points=5,
+                k=8,
+                min_nodes=4,
+                n_seeds=4,
+                max_nodes=None,
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2,
+                    max_epochs=6,
+                ),
+            ),
+            min_samples=100,
+            max_depth=3,
+            use_level_set_clustering=True,
+            allow_finer_research=False,
+            level_set=LevelSetConfig(),
+            seed=0,
+        ),
+    )
+    assert len(tree.nodes) == 1
+    assert tree.nodes[0].is_leaf
+
+
+def test_children_inherit_allow_finer_research_but_not_growth(monkeypatch) -> None:
+    data = np.array([[-2.0, 0.0], [-1.9, 0.0], [2.0, 0.0], [1.9, 0.0]])
+    captured: list[RecursionConfig] = []
+
+    def _capture_child(_data, _dim, config, **kwargs):
+        captured.append(config)
+        return kwargs["_tree"]
+
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.run_recursive_discovery",
+        _capture_child,
+    )
+
+    class _Node:
+        def __init__(self, position):
+            self.position = np.asarray(position, dtype=float)
+            self.d_final = 2
+
+    class _ANN:
+        def query_knn(self, point, k=1):
+            dists = np.linalg.norm(data - np.asarray(point), axis=1)
+            idx = int(np.argmin(dists))
+            return np.array([idx]), np.array([dists[idx]])
+
+    class _Links:
+        @staticmethod
+        def lifted_links():
+            return []
+
+    class _Scaffold:
+        nodes = [_Node(p) for p in data]
+        ann = _ANN()
+        links = _Links()
+        prune_beta = 0.5
+
+    result = ClusterResult(
+        labels=np.array([0, 0, 1, 1], dtype=int),
+        exemplar_indices=np.array([0, 2]),
+        n_clusters=2,
+        partition_q_score=1.0,
+    )
+    root = RecursionNode(
+        region_id=0, level=0, parent_id=None, tau_star=1.0,
+        n_samples=len(data), dim=2, n_clusters=2,
+        sample_indices=np.arange(len(data)),
+    )
+    tree = RecursionTree(nodes=[root])
+    _descend_into_clusters(
+        data_arr=data,
+        dim=2,
+        config=RecursionConfig(
+            scale_search=ScaleSearchConfig(max_nodes=64),
+            min_samples=2,
+            max_depth=2,
+            use_level_set_clustering=True,
+            allow_finer_research=True,
+        ),
+        tree=tree,
+        node=root,
+        region_id=0,
+        _level=0,
+        orig_rows=np.arange(len(data)),
+        scaffold=_Scaffold(),
+        cluster_result=result,
+    )
+    assert captured
+    child = captured[0]
+    assert child.allow_finer_research is True
+    assert child.level_set.grow_nodes_when_underresolved is False
+    assert child.scale_search.max_nodes is None
