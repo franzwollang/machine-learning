@@ -1536,6 +1536,24 @@ def _radial_band_gap_partition(
     )
 
 
+def _level_set_should_finer_walk(
+    level: int,
+    selection: LevelSetSelection,
+) -> bool:
+    """Whether to probe below this region's ``tau*`` (SI S2.6.2 / #48).
+
+    At the root a resolved null can still be a coarse composite (linked
+    tori, nested shells).     After an accepted density split the child is already a Hartigan
+    piece. The composite finer walk stays at the root; a child splits
+    only if its own ``tau*`` read accepts. Walking or growing on the
+    child re-densifies a uniform (tori seed-0: 17 then 26 leaves).
+    """
+
+    if selection.accepted:
+        return False
+    return int(level) <= 0
+
+
 def _level_set_finer_walk_exhausted(
     selection: LevelSetSelection,
     scaffold: Any,
@@ -2066,8 +2084,11 @@ def _descend_into_clusters(
             explained_energy=config.explained_energy,
         )
 
+        child_level_set = replace(
+            config.level_set, grow_nodes_when_underresolved=False,
+        )
         child_config = RecursionConfig(
-            scale_search=config.scale_search,
+            scale_search=replace(config.scale_search, max_nodes=None),
             min_samples=config.min_samples,
             max_depth=config.max_depth,
             r_min=config.r_min,
@@ -2076,8 +2097,8 @@ def _descend_into_clusters(
             require_dm_split=config.require_dm_split,
             dm_cluster=config.dm_cluster,
             use_level_set_clustering=config.use_level_set_clustering,
-            level_set=config.level_set,
-            allow_finer_research=config.allow_finer_research,
+            level_set=child_level_set,
+            allow_finer_research=False,
             finer_tau_cap_ratio=config.finer_tau_cap_ratio,
             max_finer_scale_steps=config.max_finer_scale_steps,
             prefer_disconnected_prepass=config.prefer_disconnected_prepass,
@@ -2260,9 +2281,7 @@ def run_recursive_discovery(
             cluster_result = level_set.cluster_result
             assert cluster_result is not None
             node.n_clusters = cluster_result.n_clusters
-        else:
-            # Always allow a finer-tau probe: a resolved null at coarse L=1
-            # can still be a composite feature (SI S2.6.2).
+        elif _level_set_should_finer_walk(_level, level_set):
             need_finer = True
 
     # #44 hollow-edge at the region's own tau*: support disconnection is

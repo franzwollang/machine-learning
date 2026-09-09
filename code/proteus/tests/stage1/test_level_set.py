@@ -31,6 +31,7 @@ from proteus.stage1.recursion import (
     RecursionConfig,
     _grow_underresolved_level_set,
     _level_set_finer_walk_exhausted,
+    _level_set_should_finer_walk,
     run_recursive_discovery,
 )
 from tests.datasets.synthetic.circles import make_circle
@@ -550,6 +551,43 @@ def test_next_node_budget_respects_ceiling() -> None:
     assert next_node_budget(1024, 2.0, 1536) == 1536
     assert next_node_budget(5, 2.0, 100) == 10
     assert next_node_budget(1, 2.0, 1) == 1
+
+
+def test_child_finer_walk_only_when_under_resolved() -> None:
+    """Density children split only at their own tau*; the finer walk is root-only."""
+
+    no_cut = LevelSetSelection(
+        tree=LevelSetTree(core_radii=np.empty(0), levels=()),
+        cluster_result=None,
+        selected_level=None,
+        log_bf=float("-inf"),
+        resolvability=ValleyResolvability(
+            verdict=ValleyVerdict.UNDER_RESOLVED,
+            saw_balanced_cut=False,
+            at_node_cap=True,
+            n_nodes=64,
+            max_nodes=64,
+            reject_reason="no_cut",
+        ),
+    )
+    bottleneck = LevelSetSelection(
+        tree=no_cut.tree,
+        cluster_result=None,
+        selected_level=None,
+        log_bf=float("-inf"),
+        resolvability=ValleyResolvability(
+            verdict=ValleyVerdict.RESOLVED_NULL,
+            saw_balanced_cut=True,
+            at_node_cap=True,
+            n_nodes=64,
+            max_nodes=64,
+            reject_reason="bottleneck",
+        ),
+    )
+    assert _level_set_should_finer_walk(0, no_cut) is True
+    assert _level_set_should_finer_walk(0, bottleneck) is True
+    assert _level_set_should_finer_walk(1, no_cut) is False
+    assert _level_set_should_finer_walk(1, bottleneck) is False
 
 
 def test_finer_walk_does_not_stop_on_bottleneck() -> None:

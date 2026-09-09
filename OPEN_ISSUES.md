@@ -325,12 +325,11 @@ Remaining work:
   (tori 21 signal leaves; hierarchy 6). Nested/tori multi-seed not rerun
   (25–30 min/seed).
 - **ACCEPTANCE BLOCKER:** awaiting-flip is still blocked. Seed-0
-  normal-path with #48 scale-matched N (2026-09-09): circle/swiss 1
-  leaf; hierarchy root K=3 ARI 0.582; linked tori root K=2 ARI 1.000
-  cover 1.000; nested root K=2 ARI 0.731 cover 0.764. Child over-split
-  after a correct root remains (tori 17 signal leaves; nested 10;
-  hierarchy 6). Do not flip `use_level_set_clustering`. Do not delete
-  S2.6.1 stand-ins.
+  normal-path with #48 (2026-09-09): circle/swiss 1 leaf; hierarchy
+  root K=3 ARI 0.582 and 6 signal leaves (the generator's 3×2 fine
+  pairs); linked tori / nested root K=2 with 2 signal leaves.
+  Bimodal-circle root K=2 ARI 0.842. Do not flip
+  `use_level_set_clustering`. Do not delete S2.6.1 stand-ins.
 - Evidence-gated insertion so `max_nodes` becomes a safety assert is #47
   (M4 / `reference/open_loop_growth_and_node_cap.md`).
 - Geometry / hollow prepass zoo is **quarantined**
@@ -699,10 +698,13 @@ mass are already measured inseparable.
 **LANDED (still default off):** studentized `ρ = φ_CD / φ_0`; finer
 walk stops on `one_feature_null` / `τ_shot` only; same-τ `N` growth
 only when the parent mesh is scale-matched (`r_k ≤ γ √τ*`, γ=2),
-re-seeding at the current τ. SI S2.6.2 / S14.3.
+re-seeding at the current τ. Density children do not inherit the
+raised cap, do not grow, and do not finer-walk. SI S2.6.2 / S14.3.
 
 Remaining:
-- Child over-split after a correct root.
-- Add bimodal-circle / two-Gaussians to diagnostics.
+- Unimodal blob children can still accept at their own `tau*`
+  (clear two-Gaussians: root K=2 but 8 signal leaves).
+- Weak two-Gaussians is K=2 with poor ARI (diagnostic only; no
+  frozen bar).
 - Do not flip `use_level_set_clustering`. Do not delete S2.6.1
   stand-ins. Do not retune frozen suite numbers.

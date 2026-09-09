@@ -1,25 +1,24 @@
 {
-  "updated_at": "2026-09-09T01:50:00-05:00",
-  "turn": 78,
+  "updated_at": "2026-09-09T02:32:00-05:00",
+  "turn": 79,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "child over-split after correct root"
+    "goal": "blob-child L=1 accept on unimodal Gaussians"
   },
   "recent": [
-    "Scale-match γ=2: uniforms rk/√τ* 2.41–2.95, composites 0.96–1.28",
-    "Walk-history bottleneck→no_cut also fires on circle f1→f2",
-    "Warm inherited splits: tori 64→1024 stayed ρ~2",
-    "Re-seed at current τ recovers tori K=2 ARI 1.0; circle stays 1 leaf"
+    "Child finer-walk/growth off: tori 2 leaves, nested 2 leaves",
+    "Hierarchy 6 leaves is GT 3x2 fine pairs, not over-split",
+    "Bimodal-circle seed-0 root K=2 ARI 0.842"
   ],
   "discoveries": [
-    "N growth licensed iff parent r_k ≤ γ √τ* (thin uniform vs coarse blob)",
-    "fit_scaffold_at_tau required; variance-split of coarse mesh is not enough"
+    "Children inherited parent N=1024 and re-ran the composite walk",
+    "Hierarchy 6 leaves matches children_per_coarse=2"
   ],
   "open_threads": [
-    "Child over-split: tori 17 / nested 10 / hierarchy 6 signal leaves",
-    "#45 halo; add bimodal-circle / two-Gaussians to diagnostics"
+    "Clear two-Gaussians: root K=2 but 8 leaves (L=1 accept on a blob)",
+    "#45 halo; weak two-Gaussians ARI 0.13"
   ],
-  "next_step": "stop child recursion from shattering accepted density children",
+  "next_step": "stop L=1 accept on a unimodal blob child without blocking hierarchy fine pairs",
   "blockers": []
 }

@@ -1797,10 +1797,16 @@ three verdicts (SI S14.3 operational defaults).
     the cap and retry at the same $\tau$ before stepping finer.
 \end{itemize}
 A resolved null at coarse $L{=}1$ does \emph{not} by itself forbid a finer
-$\tau$ probe: a composite feature is unimodal after coarse smoothing and
-only separates below $\tau_{\mathrm{sep}}$ (S2.8). Finer-$\tau$ descent
-remains the composite-feature walk; the trichotomy governs \emph{node
-growth}, not whether to consider a smaller $\tau$. This is an operational
+$\tau$ probe \emph{at the root}: a composite feature is unimodal after
+coarse smoothing and only separates below $\tau_{\mathrm{sep}}$ (S2.8).
+After an accepted density split the child is already a Hartigan piece.
+It inherits a fresh node cap, does not grow $N$, and does not run the
+composite finer walk: it splits only if its own $\tau^\star$ read
+accepts (hierarchy's $3\times2$ fine pairs). Otherwise the child
+re-runs the composite walk on a densified uniform and shatters
+(linked-tori seed~0: 17 then 26 signal leaves).
+Finer-$\tau$ descent remains the composite-feature walk at the root;
+the trichotomy governs \emph{node growth}. This is an operational
 stand-in for evidence-gated insertion (OPEN\_ISSUES \#47); it does not yet
 make equilibrium $N$ equal the minimum mesh that resolves a valley.
 
@@ -1912,10 +1918,11 @@ ARI $1.000$, coverage $1.000$), and nested shells ($K{=}2$,
 ARI $0.731$, coverage $0.764$) at the root. Unconditional finer-walk
 growth densifies the circle to $N{=}n/2$ and accepts a uniquely deep
 hole ($\phi{=}0.082$, $\rho{=}0.058$); the $\gamma{=}2$ gate prevents
-that. Child recursion still over-fragments accepted children (tori
-17 signal leaves; nested 10; hierarchy 6). Promotion still requires
-an awaiting-flip review, a child-over-split fix, and evidence-gated
-insertion (\#47). Direct fine-$\tau$ diagnostics
+that. Density children do not inherit the parent's raised $N$, do not
+grow, and do not finer-walk; they split only at their own $\tau^\star$.
+Promotion still
+requires an awaiting-flip review and evidence-gated insertion (\#47).
+Direct fine-$\tau$ diagnostics
 alone must not silently change default behavior.
 
 \paragraph{Landed proposal-path wiring and protocol.}

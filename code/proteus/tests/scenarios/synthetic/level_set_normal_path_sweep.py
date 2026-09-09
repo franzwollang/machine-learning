@@ -13,10 +13,10 @@ so this diagnostic uses 16 steps unless overridden.  ``tau_min`` stays
 the ScaleSearch default ``1e-5`` so the walk can reach ``tau_sep``;
 GT ``tau_grid_hint`` lower bounds are too coarse (~``expected_tau/8``).
 
-Seed-0 (2026-09-09, #48 floor + scale-matched N): circle/swiss one
-leaf; hierarchy root ``K=3`` ARI 0.582; linked tori root ``K=2``
-ARI 1.000; nested root ``K=2`` ARI 0.731. Child over-split remains.
-Not a default-flag flip.
+Seed-0 (2026-09-09, #48): circle/swiss one leaf; hierarchy root
+``K=3`` / 6 fine leaves (GT 3×2); tori and nested root ``K=2`` /
+2 leaves. Bimodal-circle root ``K=2`` ARI 0.842. Valley-scene ARI
+bars are not frozen. Not a default-flag flip.
 
 Not a pytest test.  Nested/tori at the fitted-sweep ``n`` take minutes
 to tens of minutes per seed.
@@ -48,6 +48,10 @@ from tests.datasets.synthetic.circles import make_circle
 from tests.datasets.synthetic.hierarchical_gaussian import (
     make_hierarchical_gaussian,
 )
+from tests.datasets.synthetic.density_valleys import (
+    make_bimodal_circle,
+    make_two_gaussians,
+)
 from tests.datasets.synthetic.linked_tori import make_linked_tori
 from tests.datasets.synthetic.nested_spheres import make_nested_spheres
 from tests.datasets.synthetic.swiss_roll import make_swiss_roll
@@ -67,6 +71,13 @@ from tests.scenarios.synthetic.level_set_suite import (
     TORI_MIN_ARI,
     TORI_MIN_COVERAGE,
     TORI_N_PER,
+    BIMODAL_CIRCLE_N,
+    BIMODAL_CIRCLE_KAPPA,
+    BIMODAL_CIRCLE_K,
+    TWO_GAUSSIANS_N,
+    TWO_GAUSSIANS_SIGMA,
+    TWO_GAUSSIANS_WEAK_SEP,
+    TWO_GAUSSIANS_CLEAR_SEP,
 )
 
 
@@ -127,6 +138,33 @@ def _scenes() -> tuple[Scene, ...]:
             NESTED_K,
             min_ari=NESTED_MIN_ARI,
             min_coverage=NESTED_MIN_COVERAGE,
+        ),
+        Scene(
+            "bimodal_circle",
+            lambda seed: make_bimodal_circle(
+                n_samples=BIMODAL_CIRCLE_N, kappa=BIMODAL_CIRCLE_KAPPA, seed=seed,
+            ),
+            BIMODAL_CIRCLE_K,
+        ),
+        Scene(
+            "two_gaussians_weak",
+            lambda seed: make_two_gaussians(
+                n_samples=TWO_GAUSSIANS_N,
+                sigma=TWO_GAUSSIANS_SIGMA,
+                separation=TWO_GAUSSIANS_WEAK_SEP,
+                seed=seed,
+            ),
+            2,
+        ),
+        Scene(
+            "two_gaussians_clear",
+            lambda seed: make_two_gaussians(
+                n_samples=TWO_GAUSSIANS_N,
+                sigma=TWO_GAUSSIANS_SIGMA,
+                separation=TWO_GAUSSIANS_CLEAR_SEP,
+                seed=seed,
+            ),
+            2,
         ),
     )
 
