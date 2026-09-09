@@ -1,27 +1,27 @@
 {
-  "updated_at": "2026-09-09T00:50:00-05:00",
-  "turn": 75,
+  "updated_at": "2026-09-09T01:05:00-05:00",
+  "turn": 76,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "derive studentized one-feature floor; do not flip flag"
+    "goal": "normal-path re-check of studentized floor; do not flip flag"
   },
   "recent": [
-    "Circle probe first accept f7: tau=5e-4 K=2 phi=0.052 logBF=1.6e4",
-    "Opened #48; SI S2.6.2 evidence floor specified, not wired",
-    "Warm finer walk: advance_scaffold_to_tau; prepass zoo quarantined",
-    "Frozen suite n/ARI + bimodal-circle / two-Gaussians scenes"
+    "Wired #48: rho=phi_CD/phi_0 on disagreeing hyperplanes; tau_shot c=1",
+    "Finer walk stops on bottleneck / one_feature_null / tau_shot",
+    "Two-blob false reject: unique spatial split fail-opens to raw phi",
+    "27 level-set tests green; flag stays off"
   ],
   "discoveries": [
-    "Circle f7 accept: phi=0.052 in true-split band; bottleneck fails at shot-noise",
-    "Fresh LC on a truncated grid can raise tau (0.006 then 0.013)",
-    "Finer budget that reaches nested tau_sep shatters uniforms"
+    "Circle f7 phi=0.052 is H0; studentize vs disagreeing cuts, not a tighter raw ceiling",
+    "Linearly separable valleys contaminate phi_0 unless agreeing hyperplanes are dropped",
+    "tau_shot does not reclassify coarse L=1 no_cut (circle rk still >> sample knn)"
   ],
   "open_threads": [
-    "Derive tau_shot(N) and studentized phi/logBF vs local one-feature null",
-    "Well-tiled no_cut vs composite at-cap no_cut",
-    "Child over-split after accepted root; #45 halo"
+    "Normal-path sweep with the floor: uniforms vs nested/tori/hierarchy",
+    "Well-tiled L=1 no_cut vs composite at-cap no_cut residual",
+    "Child over-split; #45 halo"
   ],
-  "next_step": "derive #48 studentized floor; do not change growth/acceptance until wired",
+  "next_step": "re-run level_set_normal_path_sweep with #48 floor; do not flip flag",
   "blockers": []
 }

@@ -33,6 +33,7 @@ from proteus.stage1.level_set import (
     LevelSetConfig,
     LevelSetSelection,
     ValleyVerdict,
+    at_shot_noise_scale,
     next_node_budget,
     select_level_set_partition,
 )
@@ -1529,6 +1530,24 @@ def _radial_band_gap_partition(
     )
 
 
+def _level_set_finer_walk_exhausted(
+    selection: LevelSetSelection,
+    scaffold: Any,
+    data: np.ndarray,
+    config: RecursionConfig,
+) -> bool:
+    """Stop finer descent on a resolved one-feature null (SI S2.6.2 / #48)."""
+
+    reason = (
+        selection.resolvability.reject_reason
+        if selection.resolvability is not None
+        else None
+    )
+    if reason in {"bottleneck", "one_feature_null"}:
+        return True
+    return at_shot_noise_scale(scaffold, data, config.level_set.k_neighbors)
+
+
 def _grow_underresolved_level_set(
     data: np.ndarray,
     dim: int,
@@ -1558,6 +1577,7 @@ def _grow_underresolved_level_set(
         or not config.level_set.grow_nodes_when_underresolved
         or selection.resolvability is None
         or selection.resolvability.verdict != ValleyVerdict.UNDER_RESOLVED
+        or at_shot_noise_scale(scaffold, data, config.level_set.k_neighbors)
     ):
         return None, scaffold, selection, budget
 
@@ -1580,7 +1600,7 @@ def _grow_underresolved_level_set(
         last_result = result
         last_scaffold = sc
         last_selection = select_level_set_partition(
-            sc, config.level_set, config.dm_cluster,
+            sc, config.level_set, config.dm_cluster, data=data,
         )
         if last_selection.accepted:
             return last_result, last_scaffold, last_selection, current
@@ -1693,7 +1713,7 @@ def _research_finer_split(
         # load-crossover cannot jump back to a coarser tau on a fresh grid.
         if config.use_level_set_clustering:
             level_set = select_level_set_partition(
-                scaffold, config.level_set, config.dm_cluster,
+                scaffold, config.level_set, config.dm_cluster, data=data,
             )
             grown_result, scaffold, level_set, budget = (
                 _grow_underresolved_level_set(
@@ -1712,6 +1732,8 @@ def _research_finer_split(
             if level_set.accepted:
                 assert level_set.cluster_result is not None
                 return result, scaffold, level_set.cluster_result
+            if _level_set_finer_walk_exhausted(level_set, scaffold, data, config):
+                return None
             tau_cap *= ratio
             continue
 
@@ -2118,7 +2140,7 @@ def run_recursive_discovery(
 
     if config.use_level_set_clustering:
         level_set = select_level_set_partition(
-            scaffold, config.level_set, config.dm_cluster,
+            scaffold, config.level_set, config.dm_cluster, data=data_arr,
         )
         grown_result, scaffold, level_set, grown_budget = (
             _grow_underresolved_level_set(

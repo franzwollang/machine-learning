@@ -324,17 +324,11 @@ Remaining work:
   Child recursion over-fragments even when the root split is correct
   (tori 21 signal leaves; hierarchy 6). Nested/tori multi-seed not rerun
   (25–30 min/seed).
-- **ACCEPTANCE BLOCKER:** awaiting-flip is still blocked. The remaining
-  stop is **#48** (studentized local one-feature floor), not another
-  step-count. Circle finer-walk probe (2026-09-09, n=1500 seed 0):
-  repeated `no_cut` at the cap is classified `under_resolved` and grows
-  N (128→750=n/2); cold LC τ is non-monotone (0.006→0.013). First
-  accept at finer step 7: τ=4.97e-4, K=2, φ=0.052, logBF≈1.56e4 —
-  the bottleneck guard itself fails at shot-noise scale. Warm
-  continuation (`advance_scaffold_to_tau`) is now the level-set
-  finer-walk mechanic; the floor itself is not wired.
-  Child descent still over-fragments after an accepted root split.
-  Do not flip `use_level_set_clustering`. Do not delete S2.6.1
+- **ACCEPTANCE BLOCKER:** awaiting-flip is still blocked. The #48
+  studentized floor (`ρ = φ_CD / φ_0`) and `τ_shot` stop are wired on
+  the default-off path; they have not been re-run on the normal-path
+  sweep. Child descent still over-fragments after an accepted root
+  split. Do not flip `use_level_set_clustering`. Do not delete S2.6.1
   stand-ins. Sample-level background-aware ARI remains the recovery
   metric.
 - Evidence-gated insertion so `max_nodes` becomes a safety assert is #47
@@ -702,23 +696,21 @@ expected at the current `(n, τ, k, N, geometry)`. Fade/tissue
 background is a separate floor (DM + #45). Raw persistence / excess
 mass are already measured inseparable.
 
-Measured (circle probe, n=1500 seed 0, cold walk): first accept at
-finer step 7, τ=4.97e-4, φ=0.052, logBF≈1.56e4. Raw φ is in the
-fitted true-split band; studentization is required, not a tighter
-`max_bottleneck_ratio`.
+**LANDED (2026-09-09; still default off):** studentized bottleneck
+`ρ = φ_CD / φ_0` with `φ_0` = median φ of hyperplane cuts that
+disagree with the candidate; same `max_bottleneck_ratio=0.25` ceiling
+on `ρ`. `τ_shot` is the derived meeting of mean node `r_k` and sample
+`k`NN (`c=1`). Finer walk stops on `bottleneck`, `one_feature_null`,
+or `τ_shot`. Cap growth is suppressed at `τ_shot`. SI S2.6.2 / S14.3.
 
 Remaining:
-- Derive `τ_shot(N)` (mean node `r_k` vs sample `k`NN) and the
-  studentized contrast; wire the stop. Bottleneck-rejected cuts must
-  halt finer descent. Growth on `no_cut` only when the mesh is not yet
-  well-tiled — well-tiled `L=1` + `no_cut` is a resolved null, not
-  `under_resolved`.
-- Do not change growth / finer acceptance until that derivation is
-  written into the stop. Warm continuation (`advance_scaffold_to_tau`)
-  is the walk mechanic and is already landed.
-- Connected-support valley scenes (bimodal circle; two-Gaussians
-  weak/clear) and frozen suite `n`/ARI/coverage exist
-  (`density_valleys.py`, `level_set_suite.py`). Add them to diagnostics
-  after the floor; do not retune frozen numbers to make a path pass.
+- Re-run the normal-path diagnostic with the floor on (uniforms must
+  stay one feature; nested/tori/hierarchy must still recover at the
+  root). Do not retune frozen suite numbers.
+- Residual: well-tiled `L=1` `no_cut` vs composite at-cap `no_cut`
+  is not fully reclassified by `τ_shot` (coarse circle still has
+  `r_k >> r_k^{sample}`). The accept guard is the shatter stop.
+- Add bimodal-circle / two-Gaussians scenes to diagnostics after that
+  re-check.
 - Do not flip `use_level_set_clustering`. Do not delete S2.6.1
   stand-ins.

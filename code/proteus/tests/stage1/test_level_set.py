@@ -12,10 +12,15 @@ from proteus.stage1.level_set import (
     LevelSetConfig,
     ValleyVerdict,
     apply_geometric_screens,
+    assess_valley_resolvability,
+    at_shot_noise_scale,
     build_level_set_dag,
     build_level_set_tree,
+    mean_neighbor_radius,
     next_node_budget,
+    null_bottleneck_ratio,
     select_level_set_partition,
+    studentized_bottleneck,
 )
 from proteus.stage1.recursion import (
     RecursionConfig,
@@ -465,6 +470,8 @@ def test_two_blob_split_is_resolved_split() -> None:
     assert selection.bottleneck_ratio is not None
     assert selection.bottleneck_ratio <= LevelSetConfig().max_bottleneck_ratio
     assert selection.candidate_level is not None
+    assert selection.studentized_ratio is not None
+    assert selection.studentized_ratio <= LevelSetConfig().max_bottleneck_ratio
 
 
 def test_arc_cut_at_node_cap_is_resolved_null() -> None:
@@ -536,3 +543,54 @@ def test_next_node_budget_respects_ceiling() -> None:
     assert next_node_budget(1024, 2.0, 1536) == 1536
     assert next_node_budget(5, 2.0, 100) == 10
     assert next_node_budget(1, 2.0, 1) == 1
+
+
+def test_studentized_bottleneck_rejects_circle_probe_first_accept() -> None:
+    """Circle f7: raw φ sits in the true-split band; φ/φ_0 does not (#48)."""
+
+    ceiling = LevelSetConfig().max_bottleneck_ratio
+    assert studentized_bottleneck(0.052, 0.05) > ceiling
+    assert studentized_bottleneck(0.05, 0.80) <= ceiling
+    assert studentized_bottleneck(0.05, None) is None
+    assert studentized_bottleneck(0.05, 0.0) is None
+
+
+def test_shot_noise_floor_is_node_rk_versus_sample_knn() -> None:
+    rng = np.random.default_rng(0)
+    sample = rng.normal(size=(40, 2))
+    assert at_shot_noise_scale(_Scaffold(sample, _knn_edges(sample)), sample, k=4)
+    coarse = sample[::5]
+    assert mean_neighbor_radius(coarse, 4) > mean_neighbor_radius(sample, 4)
+    assert not at_shot_noise_scale(_Scaffold(coarse, _knn_edges(coarse)), sample, k=4)
+
+
+def test_no_cut_at_cap_is_resolved_null_at_shot_floor() -> None:
+    rng = np.random.default_rng(0)
+    blob = rng.normal((0.0, 0.0), 0.02, size=(16, 2))
+    scaffold = _Scaffold(blob, _knn_edges(blob), max_nodes=16)
+    resolvability = assess_valley_resolvability(
+        scaffold,
+        accepted=False,
+        saw_balanced_cut=False,
+        reject_reason="no_cut",
+        at_shot_floor=True,
+    )
+    assert resolvability.verdict == ValleyVerdict.RESOLVED_NULL
+    assert resolvability.at_node_cap
+
+
+def test_true_valley_has_studentized_ratio_below_ceiling() -> None:
+    scaffold = _two_arcs(gap_flow=0.05)
+    selection = select_level_set_partition(
+        scaffold,
+        LevelSetConfig(k_neighbors=4, min_cluster_size=4, n_levels=60),
+    )
+    assert selection.accepted
+    assert selection.null_bottleneck_ratio is not None
+    assert selection.studentized_ratio is not None
+    assert selection.studentized_ratio <= LevelSetConfig().max_bottleneck_ratio
+    positions = np.asarray([node.position for node in scaffold.nodes])
+    labels = selection.cluster_result.labels
+    phi0 = null_bottleneck_ratio(scaffold, positions, labels)
+    assert phi0 is not None
+    assert phi0 > selection.bottleneck_ratio

@@ -1804,36 +1804,48 @@ growth}, not whether to consider a smaller $\tau$. This is an operational
 stand-in for evidence-gated insertion (OPEN\_ISSUES \#47); it does not yet
 make equilibrium $N$ equal the minimum mesh that resolves a valley.
 
-\paragraph{Finer-walk evidence floor (OPEN\_ISSUES \#48; specified, not wired).}
+\paragraph{Finer-walk evidence floor (OPEN\_ISSUES \#48).}
 Any finite sample of a uniform manifold is multimodal at a fine enough
 bandwidth: Poisson holes become $r_k$ valleys once the node mesh
 approaches the sample $k$NN scale. Accepting ``a valley exists''
 therefore shatters circle and swiss-roll nulls. The correct null is the
 \emph{local one-feature null} --- this region as one Hartigan cluster
 --- distinct from the fade/tissue floor (background-aware DM; \#45).
-A split is accepted only when the discriminating statistic (flow
-bottleneck $\phi$, or the background-aware $\log\mathrm{BF}$) exceeds
-the deepest shot-noise valley expected at the current
-$(n,\tau,k,N,\text{geometry})$. Raw rank persistence and excess mass
-remain inseparable (measured 2026-08-13) and are not this floor.
-``Perfectly estimable'' means estimable under that declared null
-(geometry, $\gamma<1$, Hebbian flows $\neq$ Poisson holes).
+Raw rank persistence and excess mass remain inseparable (measured
+2026-08-13) and are not this floor.
 
-Two operational consequences, still unimplemented:
-\begin{itemize}[leftmargin=1.5em]
-  \item Do not drop $\tau$ below $\tau_{\mathrm{shot}}(N)$, the scale
-    at which mean node $r_k$ meets the sample $k$NN radius. Below that
-    floor the mesh is reading shot noise of the sample, not a Hartigan
-    valley of $p$.
-  \item A bottleneck-rejected balanced cut
-    (\texttt{reject\_reason=bottleneck}) is already a resolved
-    one-feature null; finer descent must stop. Growth on
-    \texttt{no\_cut} at the node cap is reserved for a mesh that is
-    \emph{not} yet well-tiled (a composite valley may still be hidden).
-    A well-tiled $L{=}1$ scaffold with no cut is a resolved null, not
-    \texttt{under\_resolved}. Distinguishing those two \texttt{no\_cut}
-    cases is the remaining derivation.
-\end{itemize}
+Studentize the flow bottleneck, not a new ceiling on raw $\phi$.
+Let $\phi_{\mathrm{CD}}$ be the candidate's bottleneck. The one-feature
+null scale $\phi_0$ is the median $\phi$ of balanced hyperplane
+bisections of the same signal nodes that \emph{disagree} with the
+candidate (label-flip agreement $<1/2$). Cuts that recreate the
+candidate (label-flip agreement $>1/2$) are dropped so a linearly
+separable true valley does not contaminate the null. If no disagreeing
+balanced hyperplane exists, $\phi_0$ is unidentifiable and raw $\phi$
+decides. The studentized ratio is
+\[
+  \rho=\phi_{\mathrm{CD}}/\phi_0.
+\]
+Under $H_0$ every balanced cut is a shot-noise valley, so
+$\phi_{\mathrm{CD}}\approx\phi_0$ and $\rho\sim 1$. Under $H_1$ the
+C--D cut is deeper than typical disagreeing cuts and $\rho\ll 1$.
+The same operational ceiling
+\texttt{max\_bottleneck\_ratio}${}=0.25$ is applied to $\rho$.
+The circle probe's first accept ($\phi_{\mathrm{CD}}=0.052$) is
+inside the fitted true-split band; it fails once studentized
+($\rho\sim 1$). A tighter raw ceiling would also kill nested/tori
+splits in that band and is forbidden.
+
+The shot-noise scale $\tau_{\mathrm{shot}}(N)$ is the meeting of mean
+node $r_k$ and the sample $k$NN radius ($c{=}1$, derived). Below that
+floor the mesh is reading Poisson holes of the sample. Finer descent
+stops on \texttt{bottleneck}, \texttt{one\_feature\_null}, or
+$\tau_{\mathrm{shot}}$. Cap growth on \texttt{no\_cut} is suppressed
+at $\tau_{\mathrm{shot}}$ (further $N$ only resolves sample atoms).
+Well-tiled $L{=}1$ \texttt{no\_cut} versus a composite still hidden
+by a coarse $r_k$ remains a residual of the trichotomy: shot-floor
+does not reclassify a coarse circle ($r_k\gg r_k^{\mathrm{sample}}$).
+The studentized accept guard is the floor that stops the shatter.
 The present trichotomy classifies every at-cap \texttt{no\_cut} as
 \texttt{under\_resolved} and doubles $N$. The circle finer-walk probe
 (2026-09-09, $n{=}1500$, seed~0) grew $128\to750{=}n/2$ on repeated
@@ -1878,10 +1890,12 @@ recovers hierarchy / linked tori / nested shells at the \emph{root}
 split, but a finer-step budget long enough to reach $\tau_{\mathrm{sep}}$
 shatters uniform circle and swiss-roll manifolds (sampling-gap arcs
 accepted after $\gtrsim 5$ finer steps). Child recursion also
-over-fragments accepted children. Promotion still requires the \#48
-evidence floor, an awaiting-flip review, and evidence-gated insertion
-(\#47) so \texttt{max\_nodes} can become a safety assert. Direct
-fine-$\tau$ diagnostics alone must not silently change default behavior.
+over-fragments accepted children. The \#48 studentized floor and $\tau_{\mathrm{shot}}$ stop are
+wired on the default-off path. Promotion still requires an
+awaiting-flip review (uniforms vs composites on the normal path),
+and evidence-gated insertion (\#47) so \texttt{max\_nodes} can
+become a safety assert. Direct fine-$\tau$ diagnostics alone must
+not silently change default behavior.
 
 \paragraph{Landed proposal-path wiring and protocol.}
 Module \texttt{proteus.stage1.edge\_evidence} exposes
@@ -5282,7 +5296,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{LevelSetConfig.node\_growth\_factor} & 2.0\ (\text{multiplicative cap raise per under-resolved retry}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.max\_node\_growth\_steps} & 5\ (\text{at most five cap doublings per }\tau\text{; ceiling }n/2) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{advance\_scaffold\_to\_tau} & \text{warm finer walk on the level-set path; no fresh LC grid} & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\text{finer-walk evidence floor} & \text{unspecified pending \#48; studentized }\phi/\log\mathrm{BF}\text{ vs local one-feature null; }\tau\not<\tau_{\mathrm{shot}}(N) & \text{S2.6.2} & \text{acceptance-path (open)}\\
+\text{finer-walk evidence floor }(\rho=\phi_{\mathrm{CD}}/\phi_0) & \text{same ceiling }0.25\text{ on }\rho\text{; }\phi_0=\mathrm{median}\,\phi\text{ of disagreeing hyperplanes; }\tau_{\mathrm{shot}}{:}\,r_k^{\mathrm{node}}\le r_k^{\mathrm{sample}} & \text{S2.6.2} & \text{derived (\#48; proposal-path wired, flag off)}\\
 \text{geometry/hollow prepass zoo} & \text{all default false; quarantined (falsified 2026-08; \#44)} & \text{S2.6.2} & \text{quarantined}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\

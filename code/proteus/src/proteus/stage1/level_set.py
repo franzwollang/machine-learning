@@ -57,6 +57,10 @@ __all__ = [
     "ValleyResolvability",
     "assess_valley_resolvability",
     "next_node_budget",
+    "mean_neighbor_radius",
+    "at_shot_noise_scale",
+    "null_bottleneck_ratio",
+    "studentized_bottleneck",
     "build_level_set_tree",
     "build_level_set_dag",
     "apply_geometric_screens",
@@ -106,6 +110,13 @@ class LevelSetConfig:
     bottleneck-rejected arc cut at the cap — does not grow.  This is an
     operational stand-in for evidence-gated insertion (#47), not
     equilibrium ``N*``.
+
+    Raw ``φ`` is not an acceptance-path floor: the circle finer-walk
+    probe (2026-09-09) accepted a shot-noise cut at ``φ=0.052``, inside
+    the fitted true-split band.  The #48 studentized ratio
+    ``φ / φ_0`` compares the candidate to typical *disagreeing*
+    hyperplane cuts of the same flow graph (SI S2.6.2).  The same
+    ``max_bottleneck_ratio`` ceiling is applied to that ratio.
     """
 
     k_neighbors: int = 8
@@ -194,7 +205,7 @@ class ValleyResolvability:
     """Node-growth classification for one level-set extraction.
 
     ``reject_reason`` is ``None`` on an accepted split, otherwise one of
-    ``"bottleneck"``, ``"dm"``, or ``"no_cut"``.
+    ``"bottleneck"``, ``"one_feature_null"``, ``"dm"``, or ``"no_cut"``.
     """
 
     verdict: ValleyVerdict
@@ -218,6 +229,8 @@ class LevelSetSelection:
     resolvability: ValleyResolvability | None = None
     candidate_level: int | None = None
     bottleneck_ratio: float | None = None
+    null_bottleneck_ratio: float | None = None
+    studentized_ratio: float | None = None
 
     @property
     def accepted(self) -> bool:
@@ -230,12 +243,16 @@ def assess_valley_resolvability(
     accepted: bool,
     saw_balanced_cut: bool,
     reject_reason: str | None = None,
+    at_shot_floor: bool = False,
 ) -> ValleyResolvability:
     """Classify a fitted scaffold as split / null / under-resolved (SI S2.6.2).
 
     The trichotomy governs node-cap growth, not whether a finer ``tau`` may
     still be probed.  A resolved null at coarse ``L=1`` can still be a
-    composite feature that separates only below ``tau_sep``.
+    composite feature that separates only below ``tau_sep``.  ``no_cut``
+    at the cap is ``under_resolved`` only when the mesh is still coarser
+    than the sample ``k``NN (a hidden valley remains possible).  At the
+    shot-noise floor further ``N`` growth only resolves sample atoms.
     """
 
     n_nodes = len(getattr(scaffold, "nodes", ()))
@@ -246,7 +263,7 @@ def assess_valley_resolvability(
         verdict = ValleyVerdict.RESOLVED_SPLIT
     elif saw_balanced_cut:
         verdict = ValleyVerdict.RESOLVED_NULL
-    elif at_cap:
+    elif at_cap and not at_shot_floor:
         verdict = ValleyVerdict.UNDER_RESOLVED
     else:
         verdict = ValleyVerdict.RESOLVED_NULL
@@ -733,6 +750,173 @@ def _flow_bottleneck_ratio(
     return worst
 
 
+_NULL_CUT_RANDOM = 16
+"""Random hyperplane directions for the one-feature null φ_0 estimator."""
+
+
+def mean_neighbor_radius(points: np.ndarray, k: int) -> float:
+    """Mean ``k``-neighbour radius of a point set (SI S2.6.2 ``τ_shot``)."""
+
+    arr = np.asarray(points, dtype=float)
+    n = int(arr.shape[0])
+    if n < 2:
+        return float("inf")
+    k_use = max(1, min(int(k), n - 1))
+    dists, _ = cKDTree(arr).query(arr, k=k_use + 1)
+    return float(np.asarray(dists[:, -1], dtype=float).mean())
+
+
+def at_shot_noise_scale(
+    scaffold: Any,
+    data: np.ndarray,
+    k: int,
+) -> bool:
+    """True when mean node ``r_k`` has met the sample ``k``NN radius.
+
+    Below this floor the mesh is reading Poisson holes of the sample, not
+    a Hartigan valley of ``p`` (SI S2.6.2 / OPEN_ISSUES #48).  The
+    comparison uses ``c = 1``: the derived meeting point of the two
+    radii, not a calibrated slack.
+    """
+
+    positions = np.asarray(
+        [node.position for node in getattr(scaffold, "nodes", ())],
+        dtype=float,
+    )
+    if positions.shape[0] < 2:
+        return False
+    return mean_neighbor_radius(positions, k) <= mean_neighbor_radius(
+        np.asarray(data, dtype=float), k,
+    )
+
+
+def _two_set_agreement(labels_a: np.ndarray, labels_b: np.ndarray) -> float:
+    """Max label-flip accuracy on indices that are signal in both cuts."""
+
+    a = np.asarray(labels_a)
+    b = np.asarray(labels_b)
+    mask = (a >= 0) & (b >= 0)
+    if int(np.sum(mask)) < 2:
+        return 1.0
+    a_s = a[mask]
+    b_s = b[mask]
+    ua = sorted(set(int(v) for v in a_s))
+    ub = sorted(set(int(v) for v in b_s))
+    if len(ua) < 2 or len(ub) < 2:
+        return 1.0
+    a2 = (a_s == ua[0]).astype(int)
+    b2 = (b_s == ub[0]).astype(int)
+    same = float(np.mean(a2 == b2))
+    return max(same, 1.0 - same)
+
+
+def _hyperplane_cut_labels(
+    positions: np.ndarray,
+    signal: np.ndarray,
+    direction: np.ndarray,
+) -> np.ndarray:
+    labels = np.full(int(positions.shape[0]), -1, dtype=int)
+    pts = positions[signal]
+    if pts.shape[0] < 2:
+        return labels
+    axis = np.asarray(direction, dtype=float)
+    norm = float(np.linalg.norm(axis))
+    if norm <= 0.0:
+        return labels
+    proj = pts @ (axis / norm)
+    median = float(np.median(proj))
+    side = (proj > median).astype(int)
+    if int(side.min()) == int(side.max()):
+        order = np.argsort(proj)
+        side = np.zeros(pts.shape[0], dtype=int)
+        side[order[pts.shape[0] // 2:]] = 1
+    labels[signal] = side
+    return labels
+
+
+def _null_cut_directions(
+    dim: int,
+    rng: np.random.Generator,
+    n_random: int = _NULL_CUT_RANDOM,
+) -> list[np.ndarray]:
+    directions: list[np.ndarray] = []
+    for i in range(max(int(dim), 1)):
+        axis = np.zeros(dim, dtype=float)
+        axis[i] = 1.0
+        directions.append(axis)
+    for _ in range(max(int(n_random), 0)):
+        vec = rng.normal(size=dim)
+        norm = float(np.linalg.norm(vec))
+        if norm > 0.0:
+            directions.append(vec / norm)
+    return directions
+
+
+def null_bottleneck_ratio(
+    scaffold: Any,
+    positions: np.ndarray,
+    candidate_labels: np.ndarray,
+    rng: np.random.Generator | None = None,
+) -> float | None:
+    """Typical one-feature ``φ``: median bottleneck of disagreeing cuts.
+
+    Hyperplane bisections that recreate the candidate (agreement
+    ``≥ 0.5`` after a label flip) are dropped so a linearly separable
+    true valley does not contaminate the null.  SI S2.6.2 / #48.
+    """
+
+    rng = rng if rng is not None else np.random.default_rng(0)
+    labels = np.asarray(candidate_labels)
+    signal = labels >= 0
+    if int(np.sum(signal)) < 4:
+        return None
+    dim = int(positions.shape[1])
+    directions = _null_cut_directions(dim, rng)
+    keys = sorted(set(int(v) for v in labels if v >= 0))
+    if len(keys) >= 2:
+        centroid_a = positions[labels == keys[0]].mean(axis=0)
+        centroid_b = positions[labels == keys[1]].mean(axis=0)
+        sep = centroid_a - centroid_b
+        if float(np.linalg.norm(sep)) > 0.0 and dim >= 2:
+            ortho = np.zeros(dim, dtype=float)
+            ortho[0] = -float(sep[1])
+            ortho[1] = float(sep[0])
+            if dim > 2:
+                ortho[2:] = 0.0
+            if float(np.linalg.norm(ortho)) > 0.0:
+                directions.append(ortho / np.linalg.norm(ortho))
+    disagree_phi: list[float] = []
+    for direction in directions:
+        cut = _hyperplane_cut_labels(positions, signal, direction)
+        if len(set(int(v) for v in cut[signal])) < 2:
+            continue
+        phi = _flow_bottleneck_ratio(scaffold, cut, positions)
+        if not np.isfinite(phi) or phi < 0.0:
+            continue
+        # 0.5 is an orthogonal (unrelated) partition; only drop
+        # cuts that recreate the candidate.
+        if _two_set_agreement(labels, cut) <= 0.5:
+            disagree_phi.append(float(phi))
+    if not disagree_phi:
+        # Unique spatial split: the one-feature null is unidentifiable
+        # as a different partition. Raw φ decides (fail-open).
+        return None
+    return float(np.median(np.asarray(disagree_phi, dtype=float)))
+
+
+def studentized_bottleneck(
+    phi_candidate: float,
+    phi_null: float | None,
+) -> float | None:
+    """``φ / φ_0``; ``None`` when the null scale is unusable."""
+
+    if phi_null is None or (not np.isfinite(phi_null)) or float(phi_null) <= 0.0:
+        return None
+    if not np.isfinite(phi_candidate):
+        return float("inf")
+    return float(phi_candidate) / float(phi_null)
+
+
 def _label_sets(labels: np.ndarray) -> tuple[list[set[int]], set[int]]:
     clusters = [
         set(np.where(labels == label)[0].tolist())
@@ -870,12 +1054,14 @@ def select_level_set_partition(
     scaffold: Any,
     config: LevelSetConfig | None = None,
     dm_config: DMClusterConfig | None = None,
+    data: np.ndarray | None = None,
 ) -> LevelSetSelection:
     """Select the coarsest evidence-bearing split (SI S2.6.2).
 
     Pipeline: C-D tree → merge DAG (diagnostics + sibling collapse) →
     coarsest *mass-filtered* ``K >= 2`` cut → flow-bottleneck guard →
-    background-aware DM.  Levels whose cut collapses below ``K = 2`` after
+    studentized one-feature floor → background-aware DM.  Levels whose
+    cut collapses below ``K = 2`` after
     the relative-mass floor (satellite-only structure) are skipped, so a
     balanced mid-tree cut — nested shells or linked tori whose valley is
     tissue-bridged before the coarse tail — is reachable.  The single
@@ -892,6 +1078,9 @@ def select_level_set_partition(
         [node.position for node in scaffold.nodes],
         dtype=float,
     )
+    at_shot = False
+    if data is not None:
+        at_shot = at_shot_noise_scale(scaffold, data, config.k_neighbors)
     tree = build_level_set_tree(positions, config)
     if not tree.levels:
         return LevelSetSelection(
@@ -904,6 +1093,7 @@ def select_level_set_partition(
                 accepted=False,
                 saw_balanced_cut=False,
                 reject_reason="no_cut",
+                at_shot_floor=at_shot,
             ),
         )
 
@@ -918,6 +1108,8 @@ def select_level_set_partition(
     reject_reason: str | None = "no_cut"
     candidate_level: int | None = None
     bottleneck_ratio: float | None = None
+    phi_null: float | None = None
+    phi_rel: float | None = None
     for level_index in range(len(tree.levels) - 1, -1, -1):
         if tree.levels[level_index].n_clusters < 2:
             continue
@@ -934,12 +1126,17 @@ def select_level_set_partition(
         saw_balanced_cut = True
         candidate_level = level_index
         # Coarse-anchor: this is the coarsest mass-filtered K>=2 cut and
-        # the only candidate.  Guard against sampling-gap arcs (which
-        # carry manifold flow across the cut), then confirm with DM.
+        # the only candidate.  Guard against sampling-gap arcs, studentize
+        # against the local one-feature null, then confirm with DM.
         ratio = _flow_bottleneck_ratio(scaffold, labels, positions)
         bottleneck_ratio = float(ratio)
+        phi_null = null_bottleneck_ratio(scaffold, positions, labels)
+        phi_rel = studentized_bottleneck(float(ratio), phi_null)
         if ratio > config.max_bottleneck_ratio:
             reject_reason = "bottleneck"
+            break
+        if phi_rel is not None and phi_rel > config.max_bottleneck_ratio:
+            reject_reason = "one_feature_null"
             break
         log_bf, accepted = dm_partition_background_verdict(
             scaffold, clusters, background, dm_config,
@@ -958,9 +1155,12 @@ def select_level_set_partition(
                     scaffold,
                     accepted=True,
                     saw_balanced_cut=True,
+                    at_shot_floor=at_shot,
                 ),
                 candidate_level=level_index,
                 bottleneck_ratio=float(ratio),
+                null_bottleneck_ratio=phi_null,
+                studentized_ratio=phi_rel,
             )
         reject_reason = "dm"
         break
@@ -977,7 +1177,10 @@ def select_level_set_partition(
             accepted=False,
             saw_balanced_cut=saw_balanced_cut,
             reject_reason=reject_reason,
+            at_shot_floor=at_shot,
         ),
         candidate_level=candidate_level,
         bottleneck_ratio=bottleneck_ratio,
+        null_bottleneck_ratio=phi_null,
+        studentized_ratio=phi_rel,
     )
