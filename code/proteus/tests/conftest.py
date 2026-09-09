@@ -37,6 +37,34 @@ _TARGET_MARKERS = {
     "diagnostics.": "diagnostics",
 }
 
+# OPEN_ISSUES #46: seed sweeps / hollow-prepass calibration in
+# test_recursion.py are simulations, not routine unit tests.
+_SLOW_NAME_PARTS = (
+    "harness",
+    "ari",
+    "denser",
+    "youden",
+    "multiseed",
+    "a4_primary",
+    "soft_capacity",
+    "soft_x",
+    "soft_frac",
+    "soft_keep",
+    "proposed_h0",
+    "bridge_mass",
+    "finer_research_circle",
+    "finer_research_swiss",
+    "finer_research_nested",
+    "finer_research_persist",
+    "hierarchical_gaussian_recursion",
+    "persistence_gate_circle",
+    "persistence_gate_hierarchy",
+    "hollow_persist",
+    "hollow_gabriel",
+    "hollow_recovery",
+    "multi_tau_hollow",
+)
+
 
 def pytest_collection_modifyitems(config, items):
     """Attach stable semantic markers to every collected test.
@@ -55,6 +83,10 @@ def pytest_collection_modifyitems(config, items):
             markers.update(_DIR_MARKERS.get(top, ()))
             if top == "scenarios" and len(rel_parts) > 1:
                 markers.update(_SCENARIO_MARKERS.get(rel_parts[1], ("scenario",)))
+            if top == "stage1" and rel_parts[-1] == "test_recursion.py":
+                name = item.name.lower()
+                if any(part in name for part in _SLOW_NAME_PARTS):
+                    markers.add("slow")
 
         for existing in item.iter_markers():
             if existing.name == "xfail" and existing.kwargs.get("reason"):
@@ -89,6 +121,7 @@ _SUMMARY_MARKERS = [
     "real_data",
     "benchmark",
     "awaiting",
+    "slow",
 ]
 
 # Stash marker names on each TestReport so the terminal summary can read them

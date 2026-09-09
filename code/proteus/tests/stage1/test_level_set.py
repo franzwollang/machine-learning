@@ -462,6 +462,9 @@ def test_two_blob_split_is_resolved_split() -> None:
     assert selection.resolvability is not None
     assert selection.resolvability.verdict == ValleyVerdict.RESOLVED_SPLIT
     assert selection.resolvability.saw_balanced_cut
+    assert selection.bottleneck_ratio is not None
+    assert selection.bottleneck_ratio <= LevelSetConfig().max_bottleneck_ratio
+    assert selection.candidate_level is not None
 
 
 def test_arc_cut_at_node_cap_is_resolved_null() -> None:
@@ -480,6 +483,9 @@ def test_arc_cut_at_node_cap_is_resolved_null() -> None:
     assert selection.resolvability.at_node_cap
     assert selection.resolvability.saw_balanced_cut
     assert selection.resolvability.reject_reason == "bottleneck"
+    assert selection.bottleneck_ratio is not None
+    assert selection.bottleneck_ratio > LevelSetConfig().max_bottleneck_ratio
+    assert selection.candidate_level is not None
 
     grown_result, _, grown_sel, _ = _grow_underresolved_level_set(
         np.zeros((n, 2)),

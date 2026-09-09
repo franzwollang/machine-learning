@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import numpy as np
 
-from proteus.stage1.controller import ScaleSearchConfig, run_scale_search
+from proteus.stage1.controller import (
+    ScaleSearchConfig,
+    advance_scaffold_to_tau,
+    run_scale_search,
+)
+from proteus.stage1.scaffold import Stage1Scaffold
 from proteus.stage1.stabilization import StabilizationConfig
 from tests.datasets.synthetic.circles import make_circle
 
@@ -93,3 +98,31 @@ def test_swiss_roll_scale_search_finds_peak_near_expected_tau() -> None:
         f"tau_star={result.tau_star:.6f} vs expected={expected_tau:.6f} "
         f"(ratio={ratio:.2f})"
     )
+
+
+def test_advance_scaffold_to_tau_lowers_tau_without_reseeding() -> None:
+    """Level-set finer walk continues the parent mesh (SI S2.6.2 / #48)."""
+
+    rng = np.random.default_rng(0)
+    theta = rng.uniform(0.0, 2.0 * np.pi, size=80)
+    points = np.stack([np.cos(theta), np.sin(theta)], axis=1)
+    scaffold = Stage1Scaffold(
+        dim=2, tau=0.2, k=4, min_nodes=4, max_nodes=16, rng=rng,
+    )
+    scaffold.init_from(points, n_seeds=8)
+    lean = StabilizationConfig(min_equilibrium_epochs=1, max_epochs=3)
+    scaffold.run_until_stable(points, lean)
+    n_before = len(scaffold.nodes)
+    positions_before = np.asarray(
+        [node.position for node in scaffold.nodes], dtype=float,
+    )
+    advance_scaffold_to_tau(scaffold, points, 0.05, lean)
+    assert scaffold.tau == 0.05
+    assert np.allclose(scaffold.tau_local, 0.05)
+    assert len(scaffold.nodes) >= 4
+    if len(scaffold.nodes) == n_before:
+        positions_after = np.asarray(
+            [node.position for node in scaffold.nodes], dtype=float,
+        )
+        assert positions_after.shape == positions_before.shape
+

@@ -318,6 +318,110 @@ class CircleFadedComponent:
 
 
 @dataclass(frozen=True)
+class BimodalCircleFadedComponent:
+    """Circle with a von Mises angular density (two modes, connected support).
+
+    The support is a single circle.  Angular density is an equal mixture of
+    von Mises concentrations at ``mode_angles``.  This is the Hartigan-valley
+    scene the uniform circle is not: connected, but ``{p >= lambda}``
+    disconnects into two arcs.
+    """
+
+    radius: float
+    sigma: float
+    transition_radius: float
+    center: np.ndarray
+    kappa: float = 3.0
+    mode_angles: tuple[float, float] = (0.0, float(np.pi))
+    weight: float = 1.0
+
+    def __post_init__(self) -> None:
+        center = np.asarray(self.center, dtype=float)
+        if center.ndim != 1 or center.shape[0] < 2:
+            raise ValueError("center must be a 1D vector with ambient dim >= 2")
+        if self.kappa <= 0.0:
+            raise ValueError("kappa must be positive")
+        object.__setattr__(self, "center", center)
+
+    @property
+    def dim(self) -> int:
+        return int(self.center.shape[0])
+
+    def _theta(self, x: np.ndarray) -> np.ndarray:
+        rel = np.asarray(x, dtype=float) - self.center[None, :]
+        return np.arctan2(rel[:, 1], rel[:, 0])
+
+    def _angular_pdf(self, theta: np.ndarray) -> np.ndarray:
+        from scipy.special import i0
+
+        z = 2.0 * np.pi * float(i0(self.kappa))
+        pdf = np.zeros(theta.shape[0], dtype=float)
+        for mu in self.mode_angles:
+            pdf += np.exp(self.kappa * np.cos(theta - mu)) / z
+        return pdf / float(len(self.mode_angles))
+
+    def density(self, x: np.ndarray) -> np.ndarray:
+        arr = np.asarray(x, dtype=float)
+        rel = arr - self.center[None, :]
+        rho = np.linalg.norm(rel[:, :2], axis=1)
+        radial_residual = rho - self.radius
+        radial_pdf = np.exp(-0.5 * np.square(radial_residual / max(self.sigma, _EPS)))
+        radial_pdf /= np.sqrt(2.0 * np.pi) * max(self.sigma, _EPS)
+        planar = radial_pdf / np.maximum(rho, _EPS) * self._angular_pdf(self._theta(arr))
+        if self.dim <= 2:
+            return planar
+        extras = rel[:, 2:]
+        extra_norm_sq = np.sum(extras * extras, axis=1)
+        log_norm = (
+            -0.5 * extras.shape[1] * np.log(2.0 * np.pi)
+            - extras.shape[1] * np.log(max(self.sigma, _EPS))
+        )
+        extra_pdf = np.exp(
+            log_norm - 0.5 * extra_norm_sq / max(self.sigma * self.sigma, _EPS)
+        )
+        return planar * extra_pdf
+
+    def sample(self, n: int, rng: np.random.Generator) -> np.ndarray:
+        which = rng.integers(0, len(self.mode_angles), size=n)
+        theta = np.empty(n, dtype=float)
+        for i, mu in enumerate(self.mode_angles):
+            mask = which == i
+            if mask.any():
+                theta[mask] = rng.vonmises(mu, self.kappa, size=int(mask.sum()))
+        radial = self.radius + rng.normal(scale=self.sigma, size=n)
+        out = np.zeros((n, self.dim), dtype=float)
+        out[:, 0] = radial * np.cos(theta)
+        out[:, 1] = radial * np.sin(theta)
+        if self.dim > 2:
+            out[:, 2:] = rng.normal(scale=self.sigma, size=(n, self.dim - 2))
+        return out + self.center[None, :]
+
+    def distance(self, x: np.ndarray) -> np.ndarray:
+        arr = np.asarray(x, dtype=float)
+        rel = arr - self.center[None, :]
+        rho = np.linalg.norm(rel[:, :2], axis=1)
+        radial_residual = rho - self.radius
+        if self.dim <= 2:
+            return np.abs(radial_residual)
+        return np.sqrt(
+            np.square(radial_residual) + np.sum(rel[:, 2:] * rel[:, 2:], axis=1)
+        )
+
+    def fade_weight(self, x: np.ndarray) -> np.ndarray:
+        return lambda_from_distance(self.distance(x), self.sigma, self.transition_radius)
+
+    def mode_labels(self, x: np.ndarray) -> np.ndarray:
+        """Nearest von Mises mode in angle; does not apply the fade threshold."""
+
+        theta = self._theta(x)
+        deltas = [
+            np.abs(np.arctan2(np.sin(theta - mu), np.cos(theta - mu)))
+            for mu in self.mode_angles
+        ]
+        return np.argmin(np.stack(deltas, axis=0), axis=0).astype(int)
+
+
+@dataclass(frozen=True)
 class TorusSurfaceFadedComponent:
     """Area-uniform torus surface with Gaussian fade in normal directions.
 

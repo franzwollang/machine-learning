@@ -132,6 +132,33 @@ def _build_tau_grid(config: ScaleSearchConfig) -> np.ndarray:
     return np.exp(np.linspace(log_max, log_min, n_points))
 
 
+def advance_scaffold_to_tau(
+    scaffold: Stage1Scaffold,
+    data: np.ndarray,
+    tau: float,
+    stabilization: StabilizationConfig | None = None,
+) -> Stage1Scaffold:
+    """Continue an existing sweep by lowering ``tau`` and re-equilibrating.
+
+    Used by the level-set finer walk (SI S2.6.2) so each step is a warm
+    continuation rather than a fresh ``run_scale_search``.  Does not
+    re-seed nodes.
+    """
+
+    data_arr = np.asarray(data, dtype=float)
+    tau = float(tau)
+    scaffold.tau = tau
+    scaffold.tau_local = np.full(len(scaffold.nodes), tau, dtype=float)
+    scaffold.delta_min_value = (
+        scaffold.kappa * (1.0 - scaffold.grid_ratio) * np.sqrt(tau)
+    )
+    scaffold.run_until_stable(
+        data_arr,
+        stabilization if stabilization is not None else StabilizationConfig(),
+    )
+    return scaffold
+
+
 def run_scale_search(
     data: np.ndarray,
     dim: int,

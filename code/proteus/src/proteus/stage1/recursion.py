@@ -14,7 +14,11 @@ from proteus.stage1.clustering import (
     partition_q_score,
     run_clustering,
 )
-from proteus.stage1.controller import ScaleSearchConfig, run_scale_search
+from proteus.stage1.controller import (
+    ScaleSearchConfig,
+    advance_scaffold_to_tau,
+    run_scale_search,
+)
 from proteus.stage1.dm_cluster import (
     DMClusterConfig,
     dm_partition_verdict,
@@ -81,12 +85,13 @@ class RecursionConfig:
     low-density nodes remain an explicit background leaf (label ``-1``);
     no expected cluster count enters extraction. ``dm_cluster`` is the
     single source for its Bayes-factor margin. When paired with
-    ``allow_finer_research``, the same reader is retried on progressively
-    finer equilibrated scaffolds if the characteristic-scale scaffold has no
-    evidence-bearing split. An under-resolved capped scaffold may raise
-    ``max_nodes`` at the current ``tau`` before that finer walk
+    ``allow_finer_research``, the same reader is retried by warm-continuing
+    the parent scaffold (``advance_scaffold_to_tau``) rather than launching
+    a fresh load-crossover search. An under-resolved capped scaffold may
+    raise ``max_nodes`` at the current ``tau`` before that finer walk
     (``LevelSetConfig.grow_nodes_when_underresolved``); a resolved null
-    does not grow.
+    does not grow. The walk still lacks the #48 evidence floor (SI S2.6.2);
+    do not promote this flag until that floor is wired.
 
     ``allow_finer_research`` (OPEN_ISSUES #44, **proposed / operational,
     default off**) enables a single finer-than-``tau*`` re-search when the
@@ -408,6 +413,22 @@ class RecursionConfig:
     hollow_soft_capacity_frac: float = 0.25
     hollow_soft_capacity_method: str = "betweenness"
     seed: int = 42
+
+
+# Falsified 2026-08 swarm (OPEN_ISSUES #44). Kept default-off for ROC /
+# adversarial-null calibration. Do not enable on the acceptance path;
+# level-set replaces this zoo as the Stage-1 structural proposal (SI S2.6.2).
+FALSIFIED_PREPASS_FLAGS: tuple[str, ...] = (
+    "prefer_disconnected_prepass",
+    "prefer_radial_gap_prepass",
+    "prefer_radial_band_prepass",
+    "prefer_noncentroid_radial_band_prepass",
+    "prefer_signal_density_band_prepass",
+    "prefer_pca_axis_gap_prepass",
+    "prefer_tube_major_radius_prepass",
+    "prefer_spectral_gap_prepass",
+    "prefer_hollow_edge_prepass",
+)
 
 
 @dataclass
@@ -1577,6 +1598,7 @@ def _research_finer_split(
     dim: int,
     config: RecursionConfig,
     parent_tau: float,
+    parent_scaffold: Any | None = None,
 ):
     """Capped multi-step scale re-search strictly finer than ``parent_tau`` (#44).
 
@@ -1613,6 +1635,7 @@ def _research_finer_split(
     tau_cap = float(parent_tau) * ratio
     max_steps = max(1, int(config.max_finer_scale_steps))
     working_max_nodes = config.scale_search.max_nodes
+    working_scaffold = parent_scaffold
 
     for _step in range(max_steps):
         if not (tau_min < tau_cap < float(parent_tau)):
@@ -1633,15 +1656,32 @@ def _research_finer_split(
                 record_partitions=True,
             )
 
-        result = run_scale_search(data, dim, scale_search_config)
-        scaffold = result.scaffold_at_star
-        if scaffold is None or len(scaffold.nodes) < 2:
-            tau_cap *= ratio
-            continue
+        if (
+            config.use_level_set_clustering
+            and working_scaffold is not None
+            and len(working_scaffold.nodes) >= 2
+        ):
+            advance_scaffold_to_tau(
+                working_scaffold,
+                data,
+                tau_cap,
+                config.scale_search.stabilization,
+            )
+            scaffold = working_scaffold
+            result = None
+        else:
+            result = run_scale_search(data, dim, scale_search_config)
+            scaffold = result.scaffold_at_star
+            if scaffold is None or len(scaffold.nodes) < 2:
+                tau_cap *= ratio
+                continue
 
         if config.require_persistent_split:
+            if result is None or result.persistence_result is None:
+                tau_cap *= ratio
+                continue
             persistence = result.persistence_result
-            if persistence is None or persistence.tau_star_index is None:
+            if persistence.tau_star_index is None:
                 tau_cap *= ratio
                 continue
 
@@ -1649,6 +1689,8 @@ def _research_finer_split(
         # DM extraction. When selected, do not fall through to the retired
         # geometry-specific prepass family at this scale. Under-resolved
         # capped scaffolds raise max_nodes at this tau before stepping finer.
+        # A parent scaffold is continued in place (monotonic tau drop) so
+        # load-crossover cannot jump back to a coarser tau on a fresh grid.
         if config.use_level_set_clustering:
             level_set = select_level_set_partition(
                 scaffold, config.level_set, config.dm_cluster,
@@ -1660,10 +1702,13 @@ def _research_finer_split(
             )
             if grown_result is not None:
                 result = grown_result
+                working_scaffold = scaffold
                 if budget is not None:
                     working_max_nodes = budget
             elif budget is not None and working_max_nodes is None:
                 working_max_nodes = budget
+            else:
+                working_scaffold = scaffold
             if level_set.accepted:
                 assert level_set.cluster_result is not None
                 return result, scaffold, level_set.cluster_result
@@ -2151,6 +2196,7 @@ def run_recursive_discovery(
             return tree
         researched = _research_finer_split(
             data_arr, dim, config, float(node.tau_star),
+            parent_scaffold=scaffold,
         )
         if researched is None:
             return tree

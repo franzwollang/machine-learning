@@ -5,7 +5,7 @@ here. Numbering is historical and stable: resolved issues are deleted rather tha
 renumbered, so gaps in the sequence are expected. Each entry lists only the work that
 actually remains. See `PLANNING.md` for the suggested order of attack.
 
-Next issue number: 48
+Next issue number: 49
 
 ## 16. Fuzzy title decision
 
@@ -324,18 +324,25 @@ Remaining work:
   Child recursion over-fragments even when the root split is correct
   (tori 21 signal leaves; hierarchy 6). Nested/tori multi-seed not rerun
   (25–30 min/seed).
-- **ACCEPTANCE BLOCKER:** awaiting-flip is still blocked. The finer-step
-  budget that recovers nested/tori shatters uniforms; the budget that
-  preserves uniforms (`<=4`) is the pairing already known not to reach
-  `tau_sep`. Child descent needs a stop that is not “always finer-tau on
-  a resolved null.” Do not flip `use_level_set_clustering`. Do not delete
-  S2.6.1 stand-ins. Sample-level background-aware ARI remains the recovery
+- **ACCEPTANCE BLOCKER:** awaiting-flip is still blocked. The remaining
+  stop is **#48** (studentized local one-feature floor), not another
+  step-count. Circle finer-walk probe (2026-09-09, n=1500 seed 0):
+  repeated `no_cut` at the cap is classified `under_resolved` and grows
+  N (128→750=n/2); cold LC τ is non-monotone (0.006→0.013). First
+  accept at finer step 7: τ=4.97e-4, K=2, φ=0.052, logBF≈1.56e4 —
+  the bottleneck guard itself fails at shot-noise scale. Warm
+  continuation (`advance_scaffold_to_tau`) is now the level-set
+  finer-walk mechanic; the floor itself is not wired.
+  Child descent still over-fragments after an accepted root split.
+  Do not flip `use_level_set_clustering`. Do not delete S2.6.1
+  stand-ins. Sample-level background-aware ARI remains the recovery
   metric.
 - Evidence-gated insertion so `max_nodes` becomes a safety assert is #47
   (M4 / `reference/open_loop_growth_and_node_cap.md`).
-- After the layer validates on repaired benchmarks (#45): deprecate the prepass-flag zoo
-  in `recursion.py` / `edge_evidence.py` (all proposal-path, default off; keep the
-  ROC/adversarial-null calibration infrastructure) and run the awaiting-flip review.
+- Geometry / hollow prepass zoo is **quarantined**
+  (`FALSIFIED_PREPASS_FLAGS` in `recursion.py`; SI S2.6.2). Flags stay
+  default-off for ROC / adversarial-null calibration. Do not enable them
+  on the acceptance path. Awaiting-flip review remains after #48 + #45.
 
 ## 45. Synthetic fade-halo labels need benchmark-wide semantics
 
@@ -352,21 +359,13 @@ topology criteria.
 
 ## 46. Pytest runtime hygiene: simulations are misclassified as tests
 
-The Stage-1 test layout mixes fast correctness checks with full stochastic experiments:
-`tests/stage1/test_recursion.py` currently takes ~55 minutes (69 tests), and a combined
-AP/scale-search/persistence subset was still running after ~54 minutes. This defeats the
-feedback role of pytest and makes routine regression validation impractical.
-
-Work:
-- Profile individual cases with bounded per-test timing; identify any accidental
-  performance regressions separately from intentionally large simulations.
-- Keep deterministic unit/integration tests within a few seconds and the routine Stage-1
-  regression target within roughly two minutes.
-- Move long seed sweeps, calibration studies, and large synthetic reconstructions to
-  explicit diagnostic/benchmark scripts (or a separately selected `slow` suite that is
-  never part of routine pytest).
-- Add a runtime guard in the routine test command so newly misclassified simulations fail
-  visibly instead of silently expanding suite time.
+Default `pytest` now skips `slow` and `real_data` (`pytest.ini` addopts;
+`test_recursion.py` name-parts auto-marked `slow` in `conftest.py`).
+Remaining:
+- Runtime guard so a newly misclassified multi-minute simulation fails
+  the default suite instead of silently expanding it.
+- Keep the unmarked Stage-1 unit/integration slice within roughly two
+  minutes; profile any leftover accidental regressions.
 
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
@@ -687,3 +686,39 @@ runtime loop so the mesh grows only while a valley remains unresolved,
 and `max_nodes` becomes a safety ceiling rather than the resolution
 control. Scheduled with M4 evidence-gate wiring. Do not treat
 cap-doubling as the final `N*` story.
+
+## 48. Finer-walk evidence floor vs the local one-feature null
+
+The #44 finer walk that reaches composite `tau_sep` (~80× below coarse
+`L=1`) shatters uniform manifolds, because any finite sample is
+multimodal at a fine enough bandwidth. The stop must be an
+**acceptance-path evidence floor**, not another `max_finer_scale_steps`
+budget (SI S2.6.2).
+
+Null: this region is one Hartigan cluster. Accept only when the
+studentized discriminating statistic (flow bottleneck `φ`, or
+background-aware `log BF`) exceeds the deepest shot-noise valley
+expected at the current `(n, τ, k, N, geometry)`. Fade/tissue
+background is a separate floor (DM + #45). Raw persistence / excess
+mass are already measured inseparable.
+
+Measured (circle probe, n=1500 seed 0, cold walk): first accept at
+finer step 7, τ=4.97e-4, φ=0.052, logBF≈1.56e4. Raw φ is in the
+fitted true-split band; studentization is required, not a tighter
+`max_bottleneck_ratio`.
+
+Remaining:
+- Derive `τ_shot(N)` (mean node `r_k` vs sample `k`NN) and the
+  studentized contrast; wire the stop. Bottleneck-rejected cuts must
+  halt finer descent. Growth on `no_cut` only when the mesh is not yet
+  well-tiled — well-tiled `L=1` + `no_cut` is a resolved null, not
+  `under_resolved`.
+- Do not change growth / finer acceptance until that derivation is
+  written into the stop. Warm continuation (`advance_scaffold_to_tau`)
+  is the walk mechanic and is already landed.
+- Connected-support valley scenes (bimodal circle; two-Gaussians
+  weak/clear) and frozen suite `n`/ARI/coverage exist
+  (`density_valleys.py`, `level_set_suite.py`). Add them to diagnostics
+  after the floor; do not retune frozen numbers to make a path pass.
+- Do not flip `use_level_set_clustering`. Do not delete S2.6.1
+  stand-ins.

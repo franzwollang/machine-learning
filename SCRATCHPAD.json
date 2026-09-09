@@ -1,27 +1,27 @@
 {
-  "updated_at": "2026-09-07T13:40:00-05:00",
-  "turn": 74,
+  "updated_at": "2026-09-09T00:50:00-05:00",
+  "turn": 75,
   "focus": {
     "milestone": "M1",
-    "issue": 44,
-    "goal": "normal-path diagnostic done; flag stays off"
+    "issue": 48,
+    "goal": "derive studentized one-feature floor; do not flip flag"
   },
   "recent": [
-    "Normal-path sweep: load_crossover + level-set + finer + growth",
-    "Hierarchy 5/5 root K=3 ARI 0.57; tori s0 K=2 ARI 1.0; nested s0 K=2 ARI 0.73",
-    "Circle/swiss s0 shatter at 16 finer steps; circle stays 1 leaf at <=4 steps or growth-only",
-    "Child recursion over-fragments (tori 21 signal leaves) even when root split is correct"
+    "Circle probe first accept f7: tau=5e-4 K=2 phi=0.052 logBF=1.6e4",
+    "Opened #48; SI S2.6.2 evidence floor specified, not wired",
+    "Warm finer walk: advance_scaffold_to_tau; prepass zoo quarantined",
+    "Frozen suite n/ARI + bimodal-circle / two-Gaussians scenes"
   ],
   "discoveries": [
-    "Finer budget that reaches nested tau_sep (~80x, 16 steps) overshoots uniform LC tau* into arcs",
-    "Circle LC on wide [1e-5,10] 8-pt grid lands tau*=0.027; nested/tori land 1.389",
-    "Growth-only at tau* does not shatter the circle; the finer walk does"
+    "Circle f7 accept: phi=0.052 in true-split band; bottleneck fails at shot-noise",
+    "Fresh LC on a truncated grid can raise tau (0.006 then 0.013)",
+    "Finer budget that reaches nested tau_sep shatters uniforms"
   ],
   "open_threads": [
-    "Need a finer-walk stop that keeps uniforms without blocking composite descent",
-    "Child-level over-split after an accepted root split",
-    "Awaiting-flip still blocked; #45 halo; #47 insertion"
+    "Derive tau_shot(N) and studentized phi/logBF vs local one-feature null",
+    "Well-tiled no_cut vs composite at-cap no_cut",
+    "Child over-split after accepted root; #45 halo"
   ],
-  "next_step": "design a finer-walk stop so resolved_null uniforms do not keep descending into arc-split taus",
+  "next_step": "derive #48 studentized floor; do not change growth/acceptance until wired",
   "blockers": []
 }

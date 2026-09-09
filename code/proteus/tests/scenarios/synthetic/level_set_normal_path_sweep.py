@@ -52,6 +52,22 @@ from tests.datasets.synthetic.linked_tori import make_linked_tori
 from tests.datasets.synthetic.nested_spheres import make_nested_spheres
 from tests.datasets.synthetic.swiss_roll import make_swiss_roll
 from tests.scenarios.synthetic.cd_level_set_probe import score
+from tests.scenarios.synthetic.level_set_suite import (
+    CIRCLE_N,
+    HIERARCHY_K,
+    HIERARCHY_MIN_ARI,
+    HIERARCHY_MIN_COVERAGE,
+    HIERARCHY_N,
+    NESTED_K,
+    NESTED_MIN_ARI,
+    NESTED_MIN_COVERAGE,
+    NESTED_N_PER,
+    SWISS_N,
+    TORI_K,
+    TORI_MIN_ARI,
+    TORI_MIN_COVERAGE,
+    TORI_N_PER,
+)
 
 
 @dataclass(frozen=True)
@@ -83,34 +99,34 @@ def _scenes() -> tuple[Scene, ...]:
     return (
         Scene(
             "circle_null",
-            lambda seed: make_circle(n_samples=1_500, seed=seed),
+            lambda seed: make_circle(n_samples=CIRCLE_N, seed=seed),
             None,
         ),
         Scene(
             "swiss_roll_null",
-            lambda seed: make_swiss_roll(n_samples=2_000, seed=seed),
+            lambda seed: make_swiss_roll(n_samples=SWISS_N, seed=seed),
             None,
         ),
         Scene(
             "hierarchy",
-            lambda seed: make_hierarchical_gaussian(n_samples=600, seed=seed),
-            3,
-            min_ari=0.50,
-            min_coverage=0.95,
+            lambda seed: make_hierarchical_gaussian(n_samples=HIERARCHY_N, seed=seed),
+            HIERARCHY_K,
+            min_ari=HIERARCHY_MIN_ARI,
+            min_coverage=HIERARCHY_MIN_COVERAGE,
         ),
         Scene(
             "linked_tori",
-            lambda seed: make_linked_tori(n_per_torus=4_000, seed=seed),
-            2,
-            min_ari=0.95,
-            min_coverage=0.95,
+            lambda seed: make_linked_tori(n_per_torus=TORI_N_PER, seed=seed),
+            TORI_K,
+            min_ari=TORI_MIN_ARI,
+            min_coverage=TORI_MIN_COVERAGE,
         ),
         Scene(
             "nested_spheres",
-            lambda seed: make_nested_spheres(n_per_sphere=3_000, seed=seed),
-            2,
-            min_ari=0.70,
-            min_coverage=0.60,
+            lambda seed: make_nested_spheres(n_per_sphere=NESTED_N_PER, seed=seed),
+            NESTED_K,
+            min_ari=NESTED_MIN_ARI,
+            min_coverage=NESTED_MIN_COVERAGE,
         ),
     )
 

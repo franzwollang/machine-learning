@@ -29,17 +29,17 @@ pip install -e ".[test]"
 ## Running Tests
 
 ```bash
-# Default: runs all tests except real-data benchmarks
+# Default: skips slow simulations and real-data benchmarks (OPEN_ISSUES #46)
 pytest
+
+# Include the slow Stage-1 simulation suite (test_recursion harnesses):
+pytest -m slow
 
 # Include real-data benchmarks (requires cached datasets):
 pytest -m real_data
 
-# All tests including real data:
-pytest --real-data-cache=/path/to/cache
-
-# Skip slow tests:
-pytest -m "not slow"
+# Everything:
+pytest -m ""
 ```
 
 **Stage 1 vs Stage 2 reconstruction:** scenario tests measure Stage 1 quality as mean / max min-distance from data to learned prototype positions (`tests/metrics/reconstruction.py`), normalized per dataset in `tests/harness/stage1_scenario_metrics.py`. Stage 2 will add density-based reconstruction for comparison on the same fixtures.

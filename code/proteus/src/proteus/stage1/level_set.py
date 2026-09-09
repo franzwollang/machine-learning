@@ -216,6 +216,8 @@ class LevelSetSelection:
     dag: LevelSetDAG | None = None
     branches: tuple[LevelSetBranch, ...] = ()
     resolvability: ValleyResolvability | None = None
+    candidate_level: int | None = None
+    bottleneck_ratio: float | None = None
 
     @property
     def accepted(self) -> bool:
@@ -914,6 +916,8 @@ def select_level_set_partition(
     best_rejected_bf = float("-inf")
     saw_balanced_cut = False
     reject_reason: str | None = "no_cut"
+    candidate_level: int | None = None
+    bottleneck_ratio: float | None = None
     for level_index in range(len(tree.levels) - 1, -1, -1):
         if tree.levels[level_index].n_clusters < 2:
             continue
@@ -928,10 +932,12 @@ def select_level_set_partition(
             # cut may still exist finer (tissue-bridged nested features).
             continue
         saw_balanced_cut = True
+        candidate_level = level_index
         # Coarse-anchor: this is the coarsest mass-filtered K>=2 cut and
         # the only candidate.  Guard against sampling-gap arcs (which
         # carry manifold flow across the cut), then confirm with DM.
         ratio = _flow_bottleneck_ratio(scaffold, labels, positions)
+        bottleneck_ratio = float(ratio)
         if ratio > config.max_bottleneck_ratio:
             reject_reason = "bottleneck"
             break
@@ -953,6 +959,8 @@ def select_level_set_partition(
                     accepted=True,
                     saw_balanced_cut=True,
                 ),
+                candidate_level=level_index,
+                bottleneck_ratio=float(ratio),
             )
         reject_reason = "dm"
         break
@@ -970,4 +978,6 @@ def select_level_set_partition(
             saw_balanced_cut=saw_balanced_cut,
             reject_reason=reject_reason,
         ),
+        candidate_level=candidate_level,
+        bottleneck_ratio=bottleneck_ratio,
     )

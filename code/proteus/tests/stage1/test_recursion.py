@@ -1203,6 +1203,17 @@ def test_spectral_gap_bipartitions_offset_rings() -> None:
     assert int(pre.labels[0]) != int(pre.labels[n_ring])
 
 
+def test_falsified_prepass_flags_stay_off() -> None:
+    """#44 quarantine: geometry/hollow prepass zoo remains default-off."""
+
+    from proteus.stage1.recursion import FALSIFIED_PREPASS_FLAGS
+
+    cfg = RecursionConfig()
+    assert FALSIFIED_PREPASS_FLAGS
+    for name in FALSIFIED_PREPASS_FLAGS:
+        assert getattr(cfg, name) is False
+
+
 def test_research_finer_split_rejects_invalid_cap() -> None:
     """#44: finer re-search is a no-op when the cap is not strictly inside (tau_min, tau*)."""
 

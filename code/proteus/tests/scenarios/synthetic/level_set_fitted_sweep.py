@@ -32,6 +32,24 @@ from tests.datasets.synthetic.linked_tori import make_linked_tori
 from tests.datasets.synthetic.nested_spheres import make_nested_spheres
 from tests.datasets.synthetic.swiss_roll import make_swiss_roll
 from tests.scenarios.synthetic.cd_level_set_probe import fit_scaffold, score
+from tests.scenarios.synthetic.level_set_suite import (
+    CIRCLE_N,
+    HIERARCHY_K,
+    HIERARCHY_MIN_ARI,
+    HIERARCHY_MIN_COVERAGE,
+    HIERARCHY_N,
+    NESTED_K,
+    NESTED_MAX_NODES_FITTED,
+    NESTED_MIN_ARI,
+    NESTED_MIN_COVERAGE,
+    NESTED_N_PER,
+    SWISS_N,
+    TORI_K,
+    TORI_MAX_NODES_FITTED,
+    TORI_MIN_ARI,
+    TORI_MIN_COVERAGE,
+    TORI_N_PER,
+)
 
 
 @dataclass(frozen=True)
@@ -64,51 +82,51 @@ def _scenes() -> tuple[Scene, ...]:
     return (
         Scene(
             "circle_null",
-            lambda seed: make_circle(n_samples=1_500, seed=seed),
+            lambda seed: make_circle(n_samples=CIRCLE_N, seed=seed),
             lambda data: float(data.ground_truth.expected_tau) / 8.0,
             256,
             None,
         ),
         Scene(
             "swiss_roll_null",
-            lambda seed: make_swiss_roll(n_samples=2_000, seed=seed),
+            lambda seed: make_swiss_roll(n_samples=SWISS_N, seed=seed),
             lambda data: float(data.ground_truth.expected_tau) / 8.0,
             256,
             None,
         ),
         Scene(
             "hierarchy",
-            lambda seed: make_hierarchical_gaussian(n_samples=600, seed=seed),
+            lambda seed: make_hierarchical_gaussian(n_samples=HIERARCHY_N, seed=seed),
             lambda data: float(data.ground_truth.expected_tau) / 3.0,
             256,
-            3,
-            min_ari=0.50,
-            min_coverage=0.95,
+            HIERARCHY_K,
+            min_ari=HIERARCHY_MIN_ARI,
+            min_coverage=HIERARCHY_MIN_COVERAGE,
         ),
         Scene(
             "linked_tori",
-            lambda seed: make_linked_tori(n_per_torus=4_000, seed=seed),
+            lambda seed: make_linked_tori(n_per_torus=TORI_N_PER, seed=seed),
             # Fine signal read. The global expected tau is tissue-dominated.
             lambda data: max(
                 0.02, float(data.metadata["signal_expected_tau"]),
             ),
-            768,
-            2,
-            min_ari=0.95,
-            min_coverage=0.95,
+            TORI_MAX_NODES_FITTED,
+            TORI_K,
+            min_ari=TORI_MIN_ARI,
+            min_coverage=TORI_MIN_COVERAGE,
         ),
         Scene(
             "nested_spheres",
             lambda seed: make_nested_spheres(
-                n_per_sphere=3_000, seed=seed,
+                n_per_sphere=NESTED_N_PER, seed=seed,
             ),
             lambda data: float(data.ground_truth.expected_tau) / 20.0,
             # 1024 truncates the fit and rejected 3/5 seeds; 1536 lets
             # stabilization settle at 1238--1392 nodes and recovered 5/5.
-            1_536,
-            2,
-            min_ari=0.70,
-            min_coverage=0.60,
+            NESTED_MAX_NODES_FITTED,
+            NESTED_K,
+            min_ari=NESTED_MIN_ARI,
+            min_coverage=NESTED_MIN_COVERAGE,
         ),
     )
 
