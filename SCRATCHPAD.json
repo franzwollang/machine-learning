@@ -1,28 +1,29 @@
 {
-  "updated_at": "2026-09-09T16:50:00-05:00",
-  "turn": 89,
+  "updated_at": "2026-09-09T19:10:00-05:00",
+  "turn": 91,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "confirm promoted track_tau default with full seeds 0-4 sweep; then rho ceiling calibration"
+    "goal": "restore a populated one-feature null (pool empty on ~all reads) or adopt min-cut phi formally; then calibrate ceiling"
   },
   "recent": [
-    "Promotion subagent timed out mid broad-pytest but left complete edits: track_tau default, gamma/no_cut_gated removed, scale_match_probe deleted, SI S2.6.2/S14.3 rewritten",
-    "Focused stage1 subset 60 passed; fixed a false SI/docstring claim that advance_scaffold_to_tau still serves the legacy path (it is on no path now)",
-    "Full 12-scene seeds 0-4 sweep running (/tmp/sweep_default_s0-4.txt); nulls passing so far"
+    "Broad tests/stage1: 199 passed (51 min)",
+    "rho envelope: phi0=None on 91/91 null root reads and all composite accepts; nulls held by raw min-cut phi >= 0.35 vs composite accepts <= 0.244",
+    "Dispatched Grok diagnosis of the empty null pool (3079b79a)"
   ],
   "discoveries": [
     "Warm split-in-place nodes sit on the saddle between composites; fresh fit at fine tau finds the valley",
-    "FadedMixture: signal mass ~ tissue mass, ~50% tissue regardless of tissue_fraction (box padding only)",
+    "FadedMixture: ~50% tissue regardless of tissue_fraction (box padding only)",
     "First-accept tau is coarsest resolving; lower-density component barely above u there -> crude bg partition",
-    "Hyperplane null cuts have disconnected sides on curled manifolds -> phi0 inflated; intrinsic connected cuts fix it but make rho ceiling stricter"
+    "Connected-cuts change made raw phi self-normalizing (min-cut denominator) and emptied the phi0 pool: studentization inert",
+    "Null-vs-composite margin on raw phi: swiss 0.353 vs bimodal accept 0.244"
   ],
   "open_threads": [
-    "Running: full default sweep; then broad `pytest tests/stage1` (orphaned run lost its output; rerun after sweep)",
-    "Acceptance-path: calibrate rho ceiling on null ensemble (borrowed 0.25; hierarchy fine pair rejected at 0.28)",
+    "Running: empty-pool diagnosis subagent",
+    "Decision after diagnosis: populated rho vs formal min-cut phi statistic; SI S2.6.2 must match",
     "A6-T101 swiss densify-doubles assertion dropped by subagent: flagged to user",
     "#45 decisions pending user: descent semantics; tissue mass fraction; refine bg partition below first-accept tau"
   ],
-  "next_step": "read sweep; record in #48/PLANNING; checkpoint; rerun broad tests/stage1; then rho-ceiling calibration protocol",
+  "next_step": "read diagnosis; decide statistic; run rho/phi envelope again; calibrate ceiling; SI",
   "blockers": []
 }

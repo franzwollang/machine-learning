@@ -82,3 +82,5 @@
 {"ts":"2026-09-09T11:50-05:00","summary":"#48: track_tau multi-seed results; #45: structural ~50% tissue mechanism and nested first-accept background partition finding, new decision items","added":[],"edited":[45,48],"resolved":[]}
 {"ts":"2026-09-09T15:15-05:00","summary":"#48: swiss repaired; phi0 curled-manifold null defect recorded; default flip on hold","added":[],"edited":[48],"resolved":[]}
 {"ts":"2026-09-09T15:45-05:00","summary":"#48: connected-cuts null fix recorded as landed; rho-ceiling calibration named as remaining acceptance-path item","added":[],"edited":[48],"resolved":[]}
+{"ts":"2026-09-09T17:40-05:00","summary":"#48: landed summary rewritten (track_tau + connected null, sweep 54/60); resolved sub-items removed (composite seed-luck, gamma stand-in, cap-growth-open, seed-0-only); new items: rho ceiling calibration, empty-pool fail-open, advance_scaffold_to_tau orphan","added":[],"edited":[48],"resolved":[]}
+{"ts":"2026-09-09T19:10-05:00","summary":"#48: inert studentized floor (empty connected null pool) recorded as top remaining item; calibration item reworded","added":[],"edited":[48],"resolved":[]}

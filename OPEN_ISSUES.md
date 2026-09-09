@@ -748,115 +748,72 @@ expected at the current `(n, τ, k, N, geometry)`. Fade/tissue
 background is a separate floor (DM + #45). Raw persistence / excess
 mass are already measured inseparable.
 
-**LANDED (still default off):** studentized `ρ = φ_CD / φ_0`; finer
-walk stops on `one_feature_null` / `τ_shot` only; same-τ `N` growth
-only when the parent mesh is scale-matched (`r_k ≤ γ √τ*`, γ=2),
-re-seeding at the current τ. Density children do not inherit the
-raised cap, do not grow, and do not finer-walk. SI S2.6.2 / S14.3.
+**LANDED (level-set mode; `use_level_set_clustering` still default
+off):** studentized `ρ = φ_CD / φ_0` with `φ_0` the median `φ` of
+intrinsic *connected* cuts of the signal flow graph (normalized-Laplacian
+eigenvector and hop-geodesic median splits; disconnected sides
+discarded; internal-bisection denominator likewise); resolution bound
+`N ≤ n/k` (clamps scale search and the walk); `track_tau` finer walk —
+fresh `fit_scaffold_at_tau` at every finer τ with N free up to `n/k`,
+stop when the bound binds or on `one_feature_null`; no γ, no `no_cut`
+trigger, no step-budget dependence. Full normal-path sweep, seeds 0–4
+(commit 4389a76, 35 min): 54/60 — every null 30/30 (circle, swiss,
+lone torus / inner shell / 2-D / 4-D Gaussian), hierarchy root K=3
+5/5, linked tori root K=2 5/5 (ARI ≥ 0.999), nested shells root K=2
+5/5 with exactly 2 signal leaves; bimodal circle 2/5 and weak
+two-Gaussians 2/5 are the only failures. SI S2.6.2 / S14.3 updated.
 
 Remaining (2026-09-09; ordered by severity):
-- **Composite root recovery is seed-0 luck (multi-seed 2026-09-09).**
-  Seeds 1–4 (full sweep 36/48, 6.2 h): linked tori root K=1 on all
-  four; nested K=1 on seeds 1, 3, 4, K=2 (ARI 0.925) on seed 2;
-  bimodal circle K=2 only on seeds 3–4; two-Gaussians weak K=2 only on
-  seed 1; two-Gaussians clear 4/4. Nulls hold 24/24 (circle, swiss,
-  lone torus, lone inner shell, lone 2-D/4-D Gaussian); hierarchy K=3
-  / 6 on all seeds. Seed-0 tori accepted at finer step 15 of 16 after
-  7 `bottleneck` steps at N=64 (no growth licensed) and 6 at N=256;
-  growth fires only on `no_cut`-at-cap, so the walk's outcome depends
-  on the order of verdicts and on the step budget the SI forbids as a
-  floor. Runtime: tori 14–48 min/seed, nested up to 1.9 h.
-  Diagnosed (tori seed 1, `level_set_root_accept_probe.py`): `no_cut`
-  fired at τ=0.98 where a fresh fit needs 43 nodes; `_refit_raised_cap`
-  raised the *budget* 128→1000 in four steps without adding a node
-  (it compares budgets, not node counts), after which the cap never
-  bound again, no re-seed happened, and the mesh grew warm by
-  split-in-place to N=1000 — reads at N=530–1000, τ≤0.087 were all
-  `bottleneck` with ρ=1.2–4.8. Seed 0's `no_cut` fell at τ=0.03, so
-  its re-seed was a fresh 512-node fit (ρ=0.018). Warm split-in-place
-  nodes stay on the saddle between the tori; fresh data seeds do not
-  (tori seed 1 with 32 finer steps: still K=1, 992 s — step budget is
-  not the limit). The `n/k` bound held at N=1000 (no false accept at 8
-  samples/node).
-  Redesign landed flag-gated (`LevelSetConfig.growth_policy=
-  "track_tau"`, default still `no_cut_gated`): a fresh
-  `fit_scaffold_at_tau` at every finer τ with N free up to `n/k`; stop
-  when the bound binds or on `one_feature_null`; removes γ, the
-  `no_cut` trigger and the step-budget dependence. First results: tori
-  seed 1 root K=2 ARI 1.0 in 127 s (was K=1 in 2881 s); circle, lone
-  torus/shell/2-D/4-D Gaussian nulls hold at seed 0; nested seed 0
-  K=2 but 8 signal leaves (was 5), hierarchy 5 (was 6) — `track_tau`
-  also refits on children (it ignores
-  `grow_nodes_when_underresolved=False`), so child N now grows to
-  `n/k`; dissect before deciding whether that is the spec'd recursion
-  or re-densification. Swiss-roll "null" split (K=2, N=250=n/k, ρ
-  0.0085, logBF 9240): benchmark defect, not reader — generator is a
-  48×8 kernel-anchor comb with 7–20σ gaps along t (inter-ridge density
-  0.5%–1e-22 of peak); continuous-surface rewrite in flight. Full
-  `track_tau` sweep seeds 0–4 (swiss excluded): 49/55 vs 43/55 for
-  `no_cut_gated` on the same scene-seeds. Nulls 25/25; hierarchy root
-  K=3 5/5 (signal leaves 5 on seeds 0, 2 — one fine pair merged — 6
-  elsewhere); linked tori root K=2 5/5, ARI ≥ 0.999, 125–148 s/seed;
-  nested root K=2 5/5 (was 2/5), seeds 0 and 2 then over-split the
-  tissue-dominated outer-shell fragment (8 signal leaves; mechanism in
-  #45); bimodal circle 3/5 and weak two-Gaussians 2/5, unchanged from
-  baseline (connected-support valleys; separate difficulty, passes have
-  bg recall 1.0 and ARI 0.16–0.24); clear two-Gaussians 5/5. Child
-  refits under `track_tau` are not the cause of the nested residue (the
-  child splits are at ρ 0.018 and φ = 0).
-  Swiss roll repaired as a continuous area-uniform sheet
-  (`SwissRollSurfaceFadedComponent`; A6-T101 pins re-baselined, the
-  swiss half of its densify-doubles-peak assertion dropped because the
-  coarse grid no longer brackets the sheet's φ peak — review). Under
-  `track_tau` it holds on seeds 0, 2 but seed 1 still splits at N=213:
-  inner turns vs outer turns of the 1.5-turn spiral, φ=0.245, ρ=0.011,
-  i.e. **φ₀≈22 on a uniform sheet**. Acceptance-path defect in the
-  one-feature null: null cuts are hyperplane median-bisections, and on a
-  curled manifold those have sides that are disconnected in the flow
-  graph, so their internal-bisection flow ≈ 0 and their φ blows up,
-  inflating the median φ₀; the candidate's short connected arcs do not
-  suffer this, so curled uniforms are systematically favoured for
-  acceptance. Latent while N never grew; exposed by `track_tau`. Fixed
-  (commit e3699f5): null cuts and the internal-bisection denominator
-  are intrinsic connected cuts (normalized-Laplacian eigenvector and
-  hop-geodesic median splits; disconnected sides discarded). Swiss and
-  circle hold seeds 0–7; tori/nested split seeds 0–1; same swiss
-  candidate now reads φ=2.87 (raw reject), φ₀ pool empty. Side effect:
-  φ₀ is systematically smaller than under hyperplanes, so the borrowed
-  0.25 ceiling on ρ is stricter — hierarchy seed 0 fine pair at φ=0.18,
-  ρ=0.28 rejected (`one_feature_null`; 4 of 6 fine leaves). **Remaining
-  acceptance-path item: calibrate the ρ ceiling on the null ensemble
-  (declared protocol, S14.3) instead of borrowing φ's 0.25.**
-  In flight: promote `track_tau` to default, delete `no_cut_gated` + γ
-  + `mesh_scale_match_ratio` + same-τ growth, SI S2.6.2 / S14.3 text,
-  full seeds 0–4 acceptance sweep.
-- **Tissue-heavy children re-partition (→ #45).** Root splits leak
-  tissue into signal children (nested child 3: 51% tissue, bg recall
-  0.51; bimodal child 3: 37%). The reader then marks most of the child
-  background and accepts small shell+tissue chunks (nested: 1294 of
-  1874 samples → background, two ~50/50 chunks, ρ=0.008). Not a walk
-  or gate defect. Fix belongs at root halo assignment (#45). With the
-  `N ≤ n/k` bound: nested 5 signal leaves, bimodal 4 (seed 0).
-- Weak two-Gaussians (sep 2.5σ) child of 194 samples (178 + a 16-point
-  sliver of the other Gaussian) still splits at the bound (N ≤ 24).
-  Diagnostic scene, no frozen bar; revisit after #45.
+- **The studentized floor is inert: the connected null pool is empty
+  on almost every read.** Per-step ρ across 12 scenes × seeds 0–4
+  (`/tmp/rho_envelope`, `level_set_root_accept_probe.py`): φ₀ is
+  `None` on 91/91 null root reads with a candidate (circle 21, swiss
+  32, lone torus 24, inner shell 14) and on every tori / nested /
+  two-Gaussians-clear / hierarchy-root accept; ρ is finite only on
+  small blob regions (hierarchy children N≈20–25, lone 4-D Gaussian).
+  The nulls hold because the raw φ — whose denominator is now the
+  intrinsic *min* cut of each side — is ≥ 0.35 on every null read
+  (swiss min 0.353, circle 0.70, torus 0.80, shell 0.71) while
+  composite accepts read 0.006–0.24 (bimodal seed 4 accepted at
+  0.244). So the operative discriminator is min-cut-normalized raw φ
+  against the borrowed 0.25 ceiling, with a thin null margin; the SI's
+  studentized floor is not what is deciding. Diagnosis in flight: why
+  every eigenvector / hop-geodesic cut is discarded (disconnected side,
+  agreement filter, isolated signal-labelled tissue nodes). Then either
+  restore a populated null and calibrate ρ's ceiling, or formally adopt
+  min-cut-normalized φ as the statistic with its own null-envelope
+  calibration (S14.3 protocol) and rewrite S2.6.2 accordingly.
+- **Calibrate whichever ceiling survives (acceptance path).** The 0.25
+  is borrowed and uncalibrated. Where ρ *is* available (small blobs) the
+  connected null makes it stricter: hierarchy fine pairs rejected at ρ
+  0.28 on seeds 0 and 2 (4–5 of 6 fine leaves; root K=3 unaffected).
+  Protocol: ρ (or φ) distribution of the coarsest C-D cut on the null
+  ensemble × seeds × N up to `n/k`; set the ceiling below the envelope;
+  report hierarchy fine-pair recovery.
+- **Connected-support valleys (bimodal circle 2/5, weak two-Gaussians
+  2/5).** Root K=1 on the failing seeds; passes on weak have bg recall
+  1.0 and ARI 0.16–0.24. Diagnostic scenes without frozen bars; dissect
+  the root read (φ, ρ, DM) on a failing seed before touching anything;
+  likely bound up with the ρ ceiling and #45.
+- **Tissue-heavy children (→ #45).** Root splits leak tissue into
+  signal children (bimodal child 37% tissue); the reader then marks
+  most of the child background and accepts shell+tissue chunks. Nested
+  no longer over-splits under the connected null (2 leaves on all
+  seeds). Fix belongs at root halo assignment (#45).
+- Weak two-Gaussians (sep 2.5σ) child of 194 samples still splits at
+  the bound (N ≤ 24) on the seeds where the root splits. Revisit after
+  #45.
 - Scale search could take the `n/k` bound natively instead of the
   level-set-mode clamp in `run_recursive_discovery`; default-path
   change, needs its own review.
 - **DM log-BF is overconfident** (thousands on 200–500-sample regions
   at 3–8 hits/node). Not acting as an evidence floor; calibrate or
   derive its per-node likelihood in the shot-noise regime.
-- **γ=2 does not discriminate uniforms** (`level_set_scale_match_probe.py`):
-  lone torus 1.85 (0.70 with tissue), inner shell 1.52, 2-D Gaussians
-  0.46–0.70, 4-D 1.10–1.22 all read matched; circle 2.95, swiss 2.41,
-  outer shell 3.16 do not. `τ*` sits on three grid values (0.0268 /
-  0.193 / 1.389); one grid step moves `√τ*` by 2.7×, so the ratio is
-  grid-quantized and extent-driven. Lone-uniform root nulls (torus,
-  inner shell, 2-D/4-D Gaussian; now in the sweep) nonetheless stay
-  one leaf at seed 0. Keep as labeled stand-in; replace by
-  evidence-gated insertion (#47).
-- `_level_set_cap_growth_open` admits `resolved_null/no_cut` at
-  cap-binding; with a misclassified uniform this grows to n/2.
-- All results are seed 0. Multi-seed before any claim.
+- Studentization fails open (`ρ = None`) when the connected
+  disagreeing pool is empty (swiss seed 1: Fiedler cut *is* the
+  candidate, geodesic far sides disconnected); the raw φ guard carried
+  that case. Decide whether an empty pool should reject.
+- `advance_scaffold_to_tau` is now on no path (unit-locked helper);
+  delete or keep for diagnostics.
 - Do not flip `use_level_set_clustering`. Do not delete S2.6.1
   stand-ins. Do not retune frozen suite numbers.
