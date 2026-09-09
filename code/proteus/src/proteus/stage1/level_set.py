@@ -872,20 +872,21 @@ def null_bottleneck_ratio(
         return None
     dim = int(positions.shape[1])
     directions = _null_cut_directions(dim, rng)
+    forced_ortho: np.ndarray | None = None
     keys = sorted(set(int(v) for v in labels if v >= 0))
-    if len(keys) >= 2:
+    if len(keys) >= 2 and dim >= 2:
         centroid_a = positions[labels == keys[0]].mean(axis=0)
         centroid_b = positions[labels == keys[1]].mean(axis=0)
         sep = centroid_a - centroid_b
-        if float(np.linalg.norm(sep)) > 0.0 and dim >= 2:
+        if float(np.linalg.norm(sep)) > 0.0:
             ortho = np.zeros(dim, dtype=float)
             ortho[0] = -float(sep[1])
             ortho[1] = float(sep[0])
-            if dim > 2:
-                ortho[2:] = 0.0
             if float(np.linalg.norm(ortho)) > 0.0:
-                directions.append(ortho / np.linalg.norm(ortho))
-    disagree_phi: list[float] = []
+                forced_ortho = ortho / np.linalg.norm(ortho)
+                directions.append(forced_ortho)
+    pool: list[float] = []
+    agreeing: list[tuple[float, float]] = []
     for direction in directions:
         cut = _hyperplane_cut_labels(positions, signal, direction)
         if len(set(int(v) for v in cut[signal])) < 2:
@@ -893,15 +894,25 @@ def null_bottleneck_ratio(
         phi = _flow_bottleneck_ratio(scaffold, cut, positions)
         if not np.isfinite(phi) or phi < 0.0:
             continue
-        # 0.5 is an orthogonal (unrelated) partition; only drop
-        # cuts that recreate the candidate.
-        if _two_set_agreement(labels, cut) <= 0.5:
-            disagree_phi.append(float(phi))
-    if not disagree_phi:
-        # Unique spatial split: the one-feature null is unidentifiable
-        # as a different partition. Raw φ decides (fail-open).
+        agree = _two_set_agreement(labels, cut)
+        is_forced = (
+            forced_ortho is not None
+            and np.allclose(direction / np.linalg.norm(direction), forced_ortho)
+        )
+        # Always keep the orthogonal-to-separation cut. Linearly
+        # separable circle arcs otherwise fail-open to raw φ (the
+        # unique-spatial-split hole that shattered the warm walk).
+        if is_forced or agree <= 0.5:
+            pool.append(float(phi))
+        else:
+            agreeing.append((agree, float(phi)))
+    if not pool and agreeing:
+        agreeing.sort(reverse=True)
+        leftover = [phi for _, phi in agreeing[1:]]
+        pool = leftover
+    if not pool:
         return None
-    return float(np.median(np.asarray(disagree_phi, dtype=float)))
+    return float(np.median(np.asarray(pool, dtype=float)))
 
 
 def studentized_bottleneck(

@@ -324,13 +324,13 @@ Remaining work:
   Child recursion over-fragments even when the root split is correct
   (tori 21 signal leaves; hierarchy 6). Nested/tori multi-seed not rerun
   (25–30 min/seed).
-- **ACCEPTANCE BLOCKER:** awaiting-flip is still blocked. The #48
-  studentized floor (`ρ = φ_CD / φ_0`) and `τ_shot` stop are wired on
-  the default-off path; they have not been re-run on the normal-path
-  sweep. Child descent still over-fragments after an accepted root
-  split. Do not flip `use_level_set_clustering`. Do not delete S2.6.1
-  stand-ins. Sample-level background-aware ARI remains the recovery
-  metric.
+- **ACCEPTANCE BLOCKER:** awaiting-flip is still blocked. Seed-0
+  normal-path with #48 (2026-09-09): circle/swiss stay 1 leaf;
+  hierarchy root K=3 ARI 0.582. Linked tori / nested stay root K=1
+  once finer-walk cap-growth is off (N=64 cannot resolve the valley;
+  growing during descent densifies the circle to N=750 and accepts
+  ρ=0.058). Child over-split after a correct root remains. Do not
+  flip `use_level_set_clustering`. Do not delete S2.6.1 stand-ins.
 - Evidence-gated insertion so `max_nodes` becomes a safety assert is #47
   (M4 / `reference/open_loop_growth_and_node_cap.md`).
 - Geometry / hollow prepass zoo is **quarantined**
@@ -697,20 +697,22 @@ background is a separate floor (DM + #45). Raw persistence / excess
 mass are already measured inseparable.
 
 **LANDED (2026-09-09; still default off):** studentized bottleneck
-`ρ = φ_CD / φ_0` with `φ_0` = median φ of hyperplane cuts that
-disagree with the candidate; same `max_bottleneck_ratio=0.25` ceiling
-on `ρ`. `τ_shot` is the derived meeting of mean node `r_k` and sample
-`k`NN (`c=1`). Finer walk stops on `bottleneck`, `one_feature_null`,
-or `τ_shot`. Cap growth is suppressed at `τ_shot`. SI S2.6.2 / S14.3.
+`ρ = φ_CD / φ_0` (disagreeing hyperplanes + forced orthogonal-to-
+separation; no unique-split fail-open). Finer walk stops on
+`one_feature_null` or `τ_shot`, not on `bottleneck` (composites show
+arc bottlenecks on the way to `tau_sep`). Cap-growth is same-τ only
+— not during the finer walk. SI S2.6.2 / S14.3.
+
+**Measured (seed 0, 16 finer steps, lean epochs/grid):**
+circle/swiss 1 leaf; hierarchy K=3 ARI 0.582. Tori/nested root K=1
+at N=64 (under_resolved `no_cut` from f6–f16). Restoring finer-walk
+growth recovers those valleys but shatters the circle at N=750
+(φ=0.082, ρ=0.058 — a uniquely deep hole vs other hyperplanes).
 
 Remaining:
-- Re-run the normal-path diagnostic with the floor on (uniforms must
-  stay one feature; nested/tori/hierarchy must still recover at the
-  root). Do not retune frozen suite numbers.
-- Residual: well-tiled `L=1` `no_cut` vs composite at-cap `no_cut`
-  is not fully reclassified by `τ_shot` (coarse circle still has
-  `r_k >> r_k^{sample}`). The accept guard is the shatter stop.
-- Add bimodal-circle / two-Gaussians scenes to diagnostics after that
-  re-check.
+- A node budget for finer-walk `no_cut`-at-cap that raises N on
+  truncated composites without densifying a well-tiled uniform.
+  Do not retune frozen suite numbers.
+- Add bimodal-circle / two-Gaussians to diagnostics after that.
 - Do not flip `use_level_set_clustering`. Do not delete S2.6.1
   stand-ins.

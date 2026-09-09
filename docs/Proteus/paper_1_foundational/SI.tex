@@ -1820,9 +1820,10 @@ null scale $\phi_0$ is the median $\phi$ of balanced hyperplane
 bisections of the same signal nodes that \emph{disagree} with the
 candidate (label-flip agreement $<1/2$). Cuts that recreate the
 candidate (label-flip agreement $>1/2$) are dropped so a linearly
-separable true valley does not contaminate the null. If no disagreeing
-balanced hyperplane exists, $\phi_0$ is unidentifiable and raw $\phi$
-decides. The studentized ratio is
+separable true valley does not contaminate the null. The
+orthogonal-to-centroid-separation cut is always kept: opposite
+sampling-gap arcs are linearly separable and would otherwise
+fail-open to raw $\phi$ (warm-walk circle seed~0, 2026-09-09). The studentized ratio is
 \[
   \rho=\phi_{\mathrm{CD}}/\phi_0.
 \]
@@ -1839,9 +1840,16 @@ splits in that band and is forbidden.
 The shot-noise scale $\tau_{\mathrm{shot}}(N)$ is the meeting of mean
 node $r_k$ and the sample $k$NN radius ($c{=}1$, derived). Below that
 floor the mesh is reading Poisson holes of the sample. Finer descent
-stops on \texttt{bottleneck}, \texttt{one\_feature\_null}, or
-$\tau_{\mathrm{shot}}$. Cap growth on \texttt{no\_cut} is suppressed
-at $\tau_{\mathrm{shot}}$ (further $N$ only resolves sample atoms).
+stops on \texttt{one\_feature\_null} or $\tau_{\mathrm{shot}}$, not on
+\texttt{bottleneck}: a bottleneck-rejected cut is manifold traffic at
+the current $\tau$, and composites show those arcs on the way down to
+$\tau_{\mathrm{sep}}$ (linked tori seed~0: $\phi{=}1.10$ at $\tau^\star$,
+$\phi{=}0.75$ at the first finer step). Cap growth is a same-$\tau$
+truncation retry only, not a finer-walk operation: growing $N$ while
+dropping $\tau$ densifies a uniform manifold into a uniquely deep
+shot-noise hole that can pass $\rho$ (circle warm walk: $256\to750$,
+then $\phi{=}0.082$, $\rho{=}0.058$). Cap growth on \texttt{no\_cut}
+is also suppressed at $\tau_{\mathrm{shot}}$.
 Well-tiled $L{=}1$ \texttt{no\_cut} versus a composite still hidden
 by a coarse $r_k$ remains a residual of the trichotomy: shot-floor
 does not reclassify a coarse circle ($r_k\gg r_k^{\mathrm{sample}}$).
@@ -1884,18 +1892,18 @@ and nested shells at adequate budgets. Connected-support valley scenes
 coverage live in \texttt{tests/datasets/synthetic/density\_valleys.py}
 and \texttt{tests/scenarios/synthetic/level\_set\_suite.py}; do not
 retune those numbers to make a path pass. The path remains default-off.
-A normal-path diagnostic
-(\texttt{load\_crossover} $+$ finer-research $+$ cap-growth, seed~0)
-recovers hierarchy / linked tori / nested shells at the \emph{root}
-split, but a finer-step budget long enough to reach $\tau_{\mathrm{sep}}$
-shatters uniform circle and swiss-roll manifolds (sampling-gap arcs
-accepted after $\gtrsim 5$ finer steps). Child recursion also
-over-fragments accepted children. The \#48 studentized floor and $\tau_{\mathrm{shot}}$ stop are
-wired on the default-off path. Promotion still requires an
-awaiting-flip review (uniforms vs composites on the normal path),
-and evidence-gated insertion (\#47) so \texttt{max\_nodes} can
-become a safety assert. Direct fine-$\tau$ diagnostics alone must
-not silently change default behavior.
+A normal-path diagnostic with the \#48 floor (seed~0; no finer-walk
+cap-growth) keeps circle and swiss-roll as one leaf and recovers
+hierarchy at the root ($K{=}3$, ARI $0.582$). Linked tori and nested
+shells stay $K{=}1$ at $N{=}64$ (under-resolved \texttt{no\_cut} for
+the rest of the walk). Restoring finer-walk growth recovers those
+valleys but densifies the circle to $N{=}n/2$ and accepts a uniquely
+deep hole ($\phi{=}0.082$, $\rho{=}0.058$). Child recursion also
+over-fragments accepted children. Promotion still requires a
+finer-walk node budget that raises $N$ on truncated composites
+without that densification, an awaiting-flip review, and
+evidence-gated insertion (\#47). Direct fine-$\tau$ diagnostics
+alone must not silently change default behavior.
 
 \paragraph{Landed proposal-path wiring and protocol.}
 Module \texttt{proteus.stage1.edge\_evidence} exposes

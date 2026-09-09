@@ -1543,7 +1543,12 @@ def _level_set_finer_walk_exhausted(
         if selection.resolvability is not None
         else None
     )
-    if reason in {"bottleneck", "one_feature_null"}:
+    # Bottleneck is "this cut is manifold traffic", not "the region is
+    # one feature forever". Composites show bottleneck-rejected arcs at
+    # intermediate tau on the way down to tau_sep (linked tori seed 0:
+    # phi=1.10 at tau*, 0.75 at the first finer step). Stop only on a
+    # studentized one-feature reject or the shot-noise floor (SI S2.6.2).
+    if reason == "one_feature_null":
         return True
     return at_shot_noise_scale(scaffold, data, config.level_set.k_neighbors)
 
@@ -1715,20 +1720,11 @@ def _research_finer_split(
             level_set = select_level_set_partition(
                 scaffold, config.level_set, config.dm_cluster, data=data,
             )
-            grown_result, scaffold, level_set, budget = (
-                _grow_underresolved_level_set(
-                    data, dim, config, scale_search_config, scaffold, level_set,
-                )
-            )
-            if grown_result is not None:
-                result = grown_result
-                working_scaffold = scaffold
-                if budget is not None:
-                    working_max_nodes = budget
-            elif budget is not None and working_max_nodes is None:
-                working_max_nodes = budget
-            else:
-                working_scaffold = scaffold
+            # Cap-growth is a same-τ truncation retry (nested 1024→1536
+            # at L=1). Doing it on the finer walk densifies a uniform
+            # manifold into shot-noise holes that pass studentized φ
+            # (circle warm walk: 256→750, then ρ=0.058 accept).
+            working_scaffold = scaffold
             if level_set.accepted:
                 assert level_set.cluster_result is not None
                 return result, scaffold, level_set.cluster_result

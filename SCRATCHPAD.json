@@ -1,27 +1,26 @@
 {
-  "updated_at": "2026-09-09T01:05:00-05:00",
-  "turn": 76,
+  "updated_at": "2026-09-09T01:15:00-05:00",
+  "turn": 77,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "normal-path re-check of studentized floor; do not flip flag"
+    "goal": "finer-walk N for composites without densifying uniforms"
   },
   "recent": [
-    "Wired #48: rho=phi_CD/phi_0 on disagreeing hyperplanes; tau_shot c=1",
-    "Finer walk stops on bottleneck / one_feature_null / tau_shot",
-    "Two-blob false reject: unique spatial split fail-opens to raw phi",
-    "27 level-set tests green; flag stays off"
+    "Seed-0: circle/swiss 1 leaf; hierarchy K=3 ARI 0.582",
+    "Tori/nested K=1 at N=64 if finer walk cannot grow",
+    "Finer-walk growth: circle N=750 accept rho=0.058; bottleneck-stop kills tori",
+    "Forced-ortho phi_0; no fail-open; no bottleneck-stop"
   ],
   "discoveries": [
-    "Circle f7 phi=0.052 is H0; studentize vs disagreeing cuts, not a tighter raw ceiling",
-    "Linearly separable valleys contaminate phi_0 unless agreeing hyperplanes are dropped",
-    "tau_shot does not reclassify coarse L=1 no_cut (circle rk still >> sample knn)"
+    "Circle f16 accept is a uniquely deep hole (phi=0.08, phi0=1.41) after N=256 to 750",
+    "Tori at 64: bottleneck f1-f5 then no_cut under_resolved f6-f16; needs more nodes",
+    "Stop-on-bottleneck saves uniforms and blocks composites"
   ],
   "open_threads": [
-    "Normal-path sweep with the floor: uniforms vs nested/tori/hierarchy",
-    "Well-tiled L=1 no_cut vs composite at-cap no_cut residual",
+    "Finer-walk no_cut-at-cap node budget: composites vs well-tiled uniforms",
     "Child over-split; #45 halo"
   ],
-  "next_step": "re-run level_set_normal_path_sweep with #48 floor; do not flip flag",
+  "next_step": "derive a finer-walk N rule that grows tori/nested no_cut without circle 256 to 750",
   "blockers": []
 }

@@ -25,6 +25,7 @@ from proteus.stage1.level_set import (
 from proteus.stage1.recursion import (
     RecursionConfig,
     _grow_underresolved_level_set,
+    _level_set_finer_walk_exhausted,
     run_recursive_discovery,
 )
 from tests.datasets.synthetic.circles import make_circle
@@ -545,6 +546,25 @@ def test_next_node_budget_respects_ceiling() -> None:
     assert next_node_budget(1, 2.0, 1) == 1
 
 
+def test_finer_walk_does_not_stop_on_bottleneck() -> None:
+    """Composites show bottleneck-rejected arcs before tau_sep (#48)."""
+
+    from types import SimpleNamespace
+
+    scaffold = _two_arcs(gap_flow=6.0)
+    rng = np.random.default_rng(0)
+    data = rng.normal(size=(400, 2))
+    cfg = RecursionConfig(use_level_set_clustering=True)
+    bottleneck = SimpleNamespace(
+        resolvability=SimpleNamespace(reject_reason="bottleneck"),
+    )
+    shot = SimpleNamespace(
+        resolvability=SimpleNamespace(reject_reason="one_feature_null"),
+    )
+    assert _level_set_finer_walk_exhausted(bottleneck, scaffold, data, cfg) is False
+    assert _level_set_finer_walk_exhausted(shot, scaffold, data, cfg) is True
+
+
 def test_studentized_bottleneck_rejects_circle_probe_first_accept() -> None:
     """Circle f7: raw φ sits in the true-split band; φ/φ_0 does not (#48)."""
 
@@ -577,6 +597,25 @@ def test_no_cut_at_cap_is_resolved_null_at_shot_floor() -> None:
     )
     assert resolvability.verdict == ValleyVerdict.RESOLVED_NULL
     assert resolvability.at_node_cap
+
+
+def test_equal_weak_diameters_are_one_feature_null() -> None:
+    """Linearly separable arcs with a matching orthogonal hole must not fail-open."""
+
+    base = _two_arcs(gap_flow=0.05)
+    positions = np.asarray([node.position for node in base.nodes])
+    edges = [(i, i + 1, 6.0) for i in range(11) if (i, i + 1) != (5, 6)]
+    edges += [(i, i + 1, 6.0) for i in range(12, 23) if (i, i + 1) != (17, 18)]
+    edges += [(11, 12, 0.05), (23, 0, 0.05), (5, 6, 0.05), (17, 18, 0.05)]
+    selection = select_level_set_partition(
+        _Scaffold(positions, edges),
+        LevelSetConfig(k_neighbors=4, min_cluster_size=4, n_levels=60),
+    )
+    assert not selection.accepted
+    assert selection.resolvability is not None
+    assert selection.resolvability.reject_reason in {
+        "one_feature_null", "bottleneck",
+    }
 
 
 def test_true_valley_has_studentized_ratio_below_ceiling() -> None:
