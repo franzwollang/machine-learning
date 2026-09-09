@@ -13,11 +13,10 @@ so this diagnostic uses 16 steps unless overridden.  ``tau_min`` stays
 the ScaleSearch default ``1e-5`` so the walk can reach ``tau_sep``;
 GT ``tau_grid_hint`` lower bounds are too coarse (~``expected_tau/8``).
 
-Seed-0 (2026-09-09, #48 floor, no finer-walk cap-growth): circle/swiss
-stay one leaf; hierarchy recovers root ``K=3``. Linked tori / nested
-stay ``K=1`` at ``N=64`` (valley below node spacing). Finer-walk
-growth restores those splits but densifies the circle to ``N=750``
-and accepts a uniquely deep hole. Not a default-flag flip.
+Seed-0 (2026-09-09, #48 floor + scale-matched N): circle/swiss one
+leaf; hierarchy root ``K=3`` ARI 0.582; linked tori root ``K=2``
+ARI 1.000; nested root ``K=2`` ARI 0.731. Child over-split remains.
+Not a default-flag flip.
 
 Not a pytest test.  Nested/tori at the fitted-sweep ``n`` take minutes
 to tens of minutes per seed.

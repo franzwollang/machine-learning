@@ -1,26 +1,25 @@
 {
-  "updated_at": "2026-09-09T01:15:00-05:00",
-  "turn": 77,
+  "updated_at": "2026-09-09T01:50:00-05:00",
+  "turn": 78,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "finer-walk N for composites without densifying uniforms"
+    "goal": "child over-split after correct root"
   },
   "recent": [
-    "Seed-0: circle/swiss 1 leaf; hierarchy K=3 ARI 0.582",
-    "Tori/nested K=1 at N=64 if finer walk cannot grow",
-    "Finer-walk growth: circle N=750 accept rho=0.058; bottleneck-stop kills tori",
-    "Forced-ortho phi_0; no fail-open; no bottleneck-stop"
+    "Scale-match γ=2: uniforms rk/√τ* 2.41–2.95, composites 0.96–1.28",
+    "Walk-history bottleneck→no_cut also fires on circle f1→f2",
+    "Warm inherited splits: tori 64→1024 stayed ρ~2",
+    "Re-seed at current τ recovers tori K=2 ARI 1.0; circle stays 1 leaf"
   ],
   "discoveries": [
-    "Circle f16 accept is a uniquely deep hole (phi=0.08, phi0=1.41) after N=256 to 750",
-    "Tori at 64: bottleneck f1-f5 then no_cut under_resolved f6-f16; needs more nodes",
-    "Stop-on-bottleneck saves uniforms and blocks composites"
+    "N growth licensed iff parent r_k ≤ γ √τ* (thin uniform vs coarse blob)",
+    "fit_scaffold_at_tau required; variance-split of coarse mesh is not enough"
   ],
   "open_threads": [
-    "Finer-walk no_cut-at-cap node budget: composites vs well-tiled uniforms",
-    "Child over-split; #45 halo"
+    "Child over-split: tori 17 / nested 10 / hierarchy 6 signal leaves",
+    "#45 halo; add bimodal-circle / two-Gaussians to diagnostics"
   ],
-  "next_step": "derive a finer-walk N rule that grows tori/nested no_cut without circle 256 to 750",
+  "next_step": "stop child recursion from shattering accepted density children",
   "blockers": []
 }

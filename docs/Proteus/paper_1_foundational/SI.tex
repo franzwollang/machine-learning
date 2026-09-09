@@ -1845,25 +1845,38 @@ stops on \texttt{one\_feature\_null} or $\tau_{\mathrm{shot}}$, not on
 the current $\tau$, and composites show those arcs on the way down to
 $\tau_{\mathrm{sep}}$ (linked tori seed~0: $\phi{=}1.10$ at $\tau^\star$,
 $\phi{=}0.75$ at the first finer step). Cap growth is a same-$\tau$
-truncation retry only, not a finer-walk operation: growing $N$ while
-dropping $\tau$ densifies a uniform manifold into a uniquely deep
-shot-noise hole that can pass $\rho$ (circle warm walk: $256\to750$,
-then $\phi{=}0.082$, $\rho{=}0.058$). Cap growth on \texttt{no\_cut}
-is also suppressed at $\tau_{\mathrm{shot}}$.
-Well-tiled $L{=}1$ \texttt{no\_cut} versus a composite still hidden
-by a coarse $r_k$ remains a residual of the trichotomy: shot-floor
-does not reclassify a coarse circle ($r_k\gg r_k^{\mathrm{sample}}$).
-The studentized accept guard is the floor that stops the shatter.
-The present trichotomy classifies every at-cap \texttt{no\_cut} as
-\texttt{under\_resolved} and doubles $N$. The circle finer-walk probe
-(2026-09-09, $n{=}1500$, seed~0) grew $128\to750{=}n/2$ on repeated
-\texttt{no\_cut} (steps f1--f6; $\phi$ undefined). First accept at
-finer step~7: $\tau{=}4.97\times10^{-4}$ ($\tau/\tau^\star{=}0.019$),
-$K{=}2$, $\phi{=}0.052$, $\log\mathrm{BF}\approx1.56\times10^{4}$.
-That $\phi$ sits in the fitted true-split band ($0.000$--$0.070$);
-the bottleneck guard itself fails once $N{=}n/2$ and $\tau$ is at
-shot-noise scale (hit min $\approx5$). That is the shatter mechanism.
-Do not promote \texttt{use\_level\_set\_clustering} until \#48 lands.
+truncation retry, licensed only when the mesh is \emph{scale-matched}:
+$r_k\le\gamma\sqrt{\tau}$ with operational
+\texttt{mesh\_scale\_match\_ratio} $\gamma{=}2$ (SI S14.3).
+Load-crossover $\tau^\star$ is a variance; $\sqrt{\tau^\star}$ is the
+residual length. On a uniform manifold that residual is the thickness
+and a capped mesh has $r_k\gg\sqrt{\tau^\star}$ (circle seed~0:
+$r_k/\sqrt{\tau^\star}{=}2.95$; swiss $2.41$). On a coarse composite
+that LC still sees as one feature, $\tau^\star$ is the blob scale and
+$r_k\sim\sqrt{\tau^\star}$ (nested $0.96$; linked tori $1.28$;
+hierarchy accepted at $1.03$). Growing $N$ on the thin-uniform side
+densifies sampling holes that can pass $\rho$ (circle warm walk:
+$256\to750$, then $\phi{=}0.082$, $\rho{=}0.058$).
+Walk-history (bottleneck then \texttt{no\_cut}) does not distinguish
+them: the circle flickers that pattern at $N{=}64$ (f1 bottleneck,
+f2 \texttt{no\_cut}) without a hidden valley.
+Finer-walk growth is therefore a same-$\tau$ \emph{re-seed}
+(\texttt{fit\_scaffold\_at\_tau}) gated on the parent $L{=}1$
+scale-match: a matched parent (tori, nested) may raise $N$ when a
+later step is \texttt{no\_cut}-at-cap and rebuild the mesh at the
+current $\tau$. Inherited coarse nodes plus variance splits do not
+rearrange into the hidden valley (linked-tori seed~0: warm
+$64\to1024$ stayed $\rho\sim 2$). An unmatched parent (circle, swiss)
+never grows during descent.
+A mesh that filled all but one cap slot ($127/128$) is treated as
+cap-binding so a truncated composite is not stopped after one
+doubling; the trichotomy itself still uses $n\ge\texttt{max\_nodes}$.
+Cap growth on \texttt{no\_cut} is also suppressed at
+$\tau_{\mathrm{shot}}$.
+The studentized accept guard remains the floor that stops a shatter
+if growth is ever mis-fired.
+Do not promote \texttt{use\_level\_set\_clustering} until \#48
+recovers composites without densifying uniforms.
 Do not replace the floor by another step-count budget.
 
 The finer walk itself is a \emph{warm continuation} of the parent
@@ -1892,17 +1905,17 @@ and nested shells at adequate budgets. Connected-support valley scenes
 coverage live in \texttt{tests/datasets/synthetic/density\_valleys.py}
 and \texttt{tests/scenarios/synthetic/level\_set\_suite.py}; do not
 retune those numbers to make a path pass. The path remains default-off.
-A normal-path diagnostic with the \#48 floor (seed~0; no finer-walk
-cap-growth) keeps circle and swiss-roll as one leaf and recovers
-hierarchy at the root ($K{=}3$, ARI $0.582$). Linked tori and nested
-shells stay $K{=}1$ at $N{=}64$ (under-resolved \texttt{no\_cut} for
-the rest of the walk). Restoring finer-walk growth recovers those
-valleys but densifies the circle to $N{=}n/2$ and accepts a uniquely
-deep hole ($\phi{=}0.082$, $\rho{=}0.058$). Child recursion also
-over-fragments accepted children. Promotion still requires a
-finer-walk node budget that raises $N$ on truncated composites
-without that densification, an awaiting-flip review, and
-evidence-gated insertion (\#47). Direct fine-$\tau$ diagnostics
+A normal-path diagnostic with the \#48 floor and scale-matched
+node budget (seed~0) keeps circle and swiss-roll as one leaf and
+recovers hierarchy ($K{=}3$, ARI $0.582$), linked tori ($K{=}2$,
+ARI $1.000$, coverage $1.000$), and nested shells ($K{=}2$,
+ARI $0.731$, coverage $0.764$) at the root. Unconditional finer-walk
+growth densifies the circle to $N{=}n/2$ and accepts a uniquely deep
+hole ($\phi{=}0.082$, $\rho{=}0.058$); the $\gamma{=}2$ gate prevents
+that. Child recursion still over-fragments accepted children (tori
+17 signal leaves; nested 10; hierarchy 6). Promotion still requires
+an awaiting-flip review, a child-over-split fix, and evidence-gated
+insertion (\#47). Direct fine-$\tau$ diagnostics
 alone must not silently change default behavior.
 
 \paragraph{Landed proposal-path wiring and protocol.}
@@ -5303,7 +5316,9 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{LevelSetConfig.grow\_nodes\_when\_underresolved} & \text{true}\ (\text{only consulted when }\texttt{use\_level\_set\_clustering}\text{; raise }\texttt{max\_nodes}\text{ on under-resolved capped scaffolds}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.node\_growth\_factor} & 2.0\ (\text{multiplicative cap raise per under-resolved retry}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.max\_node\_growth\_steps} & 5\ (\text{at most five cap doublings per }\tau\text{; ceiling }n/2) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{LevelSetConfig.mesh\_scale\_match\_ratio} & 2.0\ (\text{$r_k\le\gamma\sqrt{\tau}$ licenses $N$ growth; uniforms $2.41$--$2.95$, composites $0.96$--$1.28$ at $L{=}1$ seed~0}) & \text{S2.6.2} & \text{operational (proposal-path; \#48)}\\
 \texttt{advance\_scaffold\_to\_tau} & \text{warm finer walk on the level-set path; no fresh LC grid} & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{fit\_scaffold\_at\_tau} & \text{same-$\tau$ re-seed for scale-matched $N$ growth; not LC} & \text{S2.6.2} & \text{operational (proposal-path; \#48)}\\
 \text{finer-walk evidence floor }(\rho=\phi_{\mathrm{CD}}/\phi_0) & \text{same ceiling }0.25\text{ on }\rho\text{; }\phi_0=\mathrm{median}\,\phi\text{ of disagreeing hyperplanes; }\tau_{\mathrm{shot}}{:}\,r_k^{\mathrm{node}}\le r_k^{\mathrm{sample}} & \text{S2.6.2} & \text{derived (\#48; proposal-path wired, flag off)}\\
 \text{geometry/hollow prepass zoo} & \text{all default false; quarantined (falsified 2026-08; \#44)} & \text{S2.6.2} & \text{quarantined}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\

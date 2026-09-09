@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
-from math import ceil
+from math import ceil, sqrt
 from typing import Any
 
 import numpy as np
@@ -59,6 +59,9 @@ __all__ = [
     "next_node_budget",
     "mean_neighbor_radius",
     "at_shot_noise_scale",
+    "mesh_is_scale_matched",
+    "cap_is_binding",
+    "finer_walk_needs_node_budget",
     "null_bottleneck_ratio",
     "studentized_bottleneck",
     "build_level_set_tree",
@@ -107,7 +110,11 @@ class LevelSetConfig:
     sits at the cap with no evidence-bearing cut (nested-shell truncation
     at 1024 vs recovery at 1536).  It is consulted only while
     ``use_level_set_clustering`` is on.  A resolved null — including a
-    bottleneck-rejected arc cut at the cap — does not grow.  This is an
+    bottleneck-rejected arc cut at the cap — does not grow.  Growth is
+    also refused when the mesh is *not* scale-matched
+    (``r_k > mesh_scale_match_ratio * sqrt(tau)``): that is a thin
+    uniform whose load-crossover ``tau*`` is the thickness, and raising
+    ``N`` densifies sampling holes (circle / swiss).  This is an
     operational stand-in for evidence-gated insertion (#47), not
     equilibrium ``N*``.
 
@@ -130,6 +137,7 @@ class LevelSetConfig:
     grow_nodes_when_underresolved: bool = True
     node_growth_factor: float = 2.0
     max_node_growth_steps: int = 5
+    mesh_scale_match_ratio: float = 2.0
 
 
 @dataclass(frozen=True)
@@ -788,6 +796,74 @@ def at_shot_noise_scale(
     return mean_neighbor_radius(positions, k) <= mean_neighbor_radius(
         np.asarray(data, dtype=float), k,
     )
+
+
+def mesh_is_scale_matched(
+    scaffold: Any,
+    tau: float,
+    k: int,
+    ratio: float,
+) -> bool:
+    """True when mean node ``r_k`` is at most ``ratio * sqrt(tau)``.
+
+    Load-crossover ``tau*`` is a variance.  ``sqrt(tau*)`` is the residual
+    length.  On a uniform manifold that residual is the thickness / noise
+    and a capped mesh has ``r_k >> sqrt(tau*)``.  On a coarse composite
+    that LC still sees as one feature, ``tau*`` is the blob scale and
+    ``r_k ~ sqrt(tau*)``.  Growing ``N`` is licensed only in the latter
+    case (SI S2.6.2 / #48).
+    """
+
+    positions = np.asarray(
+        [node.position for node in getattr(scaffold, "nodes", ())],
+        dtype=float,
+    )
+    if positions.shape[0] < 2:
+        return False
+    tau = float(tau)
+    if not np.isfinite(tau) or tau <= 0.0:
+        return False
+    return mean_neighbor_radius(positions, k) <= float(ratio) * sqrt(tau)
+
+
+def cap_is_binding(scaffold: Any) -> bool:
+    """True when the mesh filled the cap or saturated one slot short.
+
+    Cold / warm growth often lands at ``N = max_nodes - 1`` (127/128).
+    Treating that as resolved-null would stop a truncated composite after
+    one doubling.  Off-by-one slack only; the trichotomy still uses
+    ``n >= max_nodes`` (SI S2.6.2).
+    """
+
+    n_nodes = len(getattr(scaffold, "nodes", ()))
+    raw_cap = getattr(scaffold, "max_nodes", None)
+    if raw_cap is None:
+        return False
+    cap = int(raw_cap)
+    return n_nodes >= max(1, cap - 1)
+
+
+def finer_walk_needs_node_budget(
+    selection: LevelSetSelection,
+    *,
+    parent_scale_matched: bool,
+    at_shot_floor: bool,
+) -> bool:
+    """Raise ``N`` on finer-walk ``no_cut`` only for scale-matched parents.
+
+    A thin uniform (circle, swiss) has ``r_k >> sqrt(tau*)`` at ``L=1``
+    and must not grow during descent — even though it flickers
+    bottleneck → ``no_cut``.  A coarse composite (tori, nested) is
+    scale-matched at ``L=1``; ``no_cut`` later means the valley fell
+    below node spacing (SI S2.6.2 / #48).
+    """
+
+    if selection.accepted or at_shot_floor or not parent_scale_matched:
+        return False
+    resolvability = selection.resolvability
+    if resolvability is None or resolvability.reject_reason != "no_cut":
+        return False
+    return True
 
 
 def _two_set_agreement(labels_a: np.ndarray, labels_b: np.ndarray) -> float:

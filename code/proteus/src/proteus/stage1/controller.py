@@ -159,6 +159,42 @@ def advance_scaffold_to_tau(
     return scaffold
 
 
+def fit_scaffold_at_tau(
+    data: np.ndarray,
+    dim: int,
+    tau: float,
+    config: ScaleSearchConfig,
+    max_nodes: int,
+    seed: int | None = None,
+) -> Stage1Scaffold:
+    """Seed a fresh scaffold at ``tau`` and equilibrate (SI S2.6.2 / #48).
+
+    Used by the scale-matched finer-walk node budget so a truncated
+    composite is re-meshed at the current scale.  Inherited coarse nodes
+    plus variance splits do not rearrange into the hidden valley
+    (linked-tori seed~0: warm 64→1024 stayed ρ∼2).  Not a load-crossover
+    search and not a τ descent.
+    """
+
+    data_arr = np.asarray(data, dtype=float)
+    tau = float(tau)
+    ceiling = min(int(max_nodes), max(1, int(data_arr.shape[0] // 2)))
+    rng = np.random.default_rng(config.seed if seed is None else int(seed))
+    scaffold = Stage1Scaffold(
+        dim=dim,
+        tau=tau,
+        k=config.k,
+        min_nodes=config.min_nodes,
+        max_nodes=ceiling,
+        ann_backend=config.ann_backend,
+        rng=rng,
+    )
+    n_seeds = min(config.n_seeds, data_arr.shape[0])
+    scaffold.init_from(data_arr, n_seeds=n_seeds)
+    scaffold.run_until_stable(data_arr, config.stabilization)
+    return scaffold
+
+
 def run_scale_search(
     data: np.ndarray,
     dim: int,

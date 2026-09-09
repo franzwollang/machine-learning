@@ -10,13 +10,18 @@ from proteus.stage1.dm_cluster import DMClusterConfig
 from proteus.stage1.level_set import (
     LevelSetBranch,
     LevelSetConfig,
+    LevelSetSelection,
+    LevelSetTree,
+    ValleyResolvability,
     ValleyVerdict,
     apply_geometric_screens,
     assess_valley_resolvability,
     at_shot_noise_scale,
     build_level_set_dag,
     build_level_set_tree,
+    finer_walk_needs_node_budget,
     mean_neighbor_radius,
+    mesh_is_scale_matched,
     next_node_budget,
     null_bottleneck_ratio,
     select_level_set_partition,
@@ -136,6 +141,7 @@ def test_level_set_defaults_are_validated_reader() -> None:
     assert config.grow_nodes_when_underresolved is True
     assert config.node_growth_factor == 2.0
     assert config.max_node_growth_steps == 5
+    assert config.mesh_scale_match_ratio == 2.0
 
 
 def test_inactive_and_runt_nodes_are_distinct() -> None:
@@ -597,6 +603,101 @@ def test_no_cut_at_cap_is_resolved_null_at_shot_floor() -> None:
     )
     assert resolvability.verdict == ValleyVerdict.RESOLVED_NULL
     assert resolvability.at_node_cap
+
+
+def test_mesh_scale_match_is_rk_versus_residual() -> None:
+    """Thin uniforms have r_k >> sqrt(tau*); coarse composites do not (#48)."""
+
+    theta = np.linspace(0.0, 2.0 * np.pi, 16, endpoint=False)
+    ring = np.stack([np.cos(theta), np.sin(theta)], axis=1)
+    scaffold = _Scaffold(ring, _knn_edges(ring, k=4), max_nodes=16)
+    scaffold.tau = 1e-3
+    assert not mesh_is_scale_matched(
+        scaffold, scaffold.tau, k=4, ratio=LevelSetConfig().mesh_scale_match_ratio,
+    )
+    scaffold.tau = 4.0
+    assert mesh_is_scale_matched(
+        scaffold, scaffold.tau, k=4, ratio=LevelSetConfig().mesh_scale_match_ratio,
+    )
+
+
+def test_finer_walk_needs_budget_only_when_parent_scale_matched() -> None:
+    """Circle flickers bottleneck→no_cut; only scale-matched parents grow."""
+
+    no_cut = LevelSetSelection(
+        tree=LevelSetTree(core_radii=np.empty(0), levels=()),
+        cluster_result=None,
+        selected_level=None,
+        log_bf=float("-inf"),
+        resolvability=ValleyResolvability(
+            verdict=ValleyVerdict.UNDER_RESOLVED,
+            saw_balanced_cut=False,
+            at_node_cap=True,
+            n_nodes=64,
+            max_nodes=64,
+            reject_reason="no_cut",
+        ),
+    )
+    bottleneck = LevelSetSelection(
+        tree=no_cut.tree,
+        cluster_result=None,
+        selected_level=None,
+        log_bf=float("-inf"),
+        resolvability=ValleyResolvability(
+            verdict=ValleyVerdict.RESOLVED_NULL,
+            saw_balanced_cut=True,
+            at_node_cap=True,
+            n_nodes=64,
+            max_nodes=64,
+            reject_reason="bottleneck",
+        ),
+    )
+    assert finer_walk_needs_node_budget(
+        no_cut, parent_scale_matched=True, at_shot_floor=False,
+    )
+    assert not finer_walk_needs_node_budget(
+        no_cut, parent_scale_matched=False, at_shot_floor=False,
+    )
+    assert not finer_walk_needs_node_budget(
+        no_cut, parent_scale_matched=True, at_shot_floor=True,
+    )
+    assert not finer_walk_needs_node_budget(
+        bottleneck, parent_scale_matched=True, at_shot_floor=False,
+    )
+
+
+def test_grow_skips_thin_uniform_no_cut() -> None:
+    """L=1 circle/swiss no_cut must not raise N (rk >> sqrt(tau*))."""
+
+    theta = np.linspace(0.0, 2.0 * np.pi, 16, endpoint=False)
+    ring = np.stack([np.cos(theta), np.sin(theta)], axis=1)
+    scaffold = _Scaffold(ring, _knn_edges(ring, k=4), max_nodes=16)
+    scaffold.tau = 1e-3
+    selection = LevelSetSelection(
+        tree=LevelSetTree(core_radii=np.empty(0), levels=()),
+        cluster_result=None,
+        selected_level=None,
+        log_bf=float("-inf"),
+        resolvability=ValleyResolvability(
+            verdict=ValleyVerdict.UNDER_RESOLVED,
+            saw_balanced_cut=False,
+            at_node_cap=True,
+            n_nodes=16,
+            max_nodes=16,
+            reject_reason="no_cut",
+        ),
+    )
+    grown_result, grown_sc, _, budget = _grow_underresolved_level_set(
+        ring,
+        dim=2,
+        config=RecursionConfig(use_level_set_clustering=True),
+        scale_search_config=RecursionConfig().scale_search,
+        scaffold=scaffold,
+        selection=selection,
+    )
+    assert grown_result is None
+    assert grown_sc is scaffold
+    assert budget == 16
 
 
 def test_equal_weak_diameters_are_one_feature_null() -> None:

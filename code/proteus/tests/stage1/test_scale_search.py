@@ -7,6 +7,7 @@ import numpy as np
 from proteus.stage1.controller import (
     ScaleSearchConfig,
     advance_scaffold_to_tau,
+    fit_scaffold_at_tau,
     run_scale_search,
 )
 from proteus.stage1.scaffold import Stage1Scaffold
@@ -125,4 +126,21 @@ def test_advance_scaffold_to_tau_lowers_tau_without_reseeding() -> None:
             [node.position for node in scaffold.nodes], dtype=float,
         )
         assert positions_after.shape == positions_before.shape
+
+
+def test_fit_scaffold_at_tau_reseeds_at_target() -> None:
+    """Scale-matched N growth rebuilds the mesh at the current tau (#48)."""
+
+    rng = np.random.default_rng(0)
+    theta = rng.uniform(0.0, 2.0 * np.pi, size=80)
+    points = np.stack([np.cos(theta), np.sin(theta)], axis=1)
+    lean = StabilizationConfig(min_equilibrium_epochs=1, max_epochs=3)
+    config = ScaleSearchConfig(
+        k=4, min_nodes=4, n_seeds=8, max_nodes=32,
+        stabilization=lean, seed=0,
+    )
+    fitted = fit_scaffold_at_tau(points, dim=2, tau=0.05, config=config, max_nodes=32)
+    assert fitted.tau == 0.05
+    assert len(fitted.nodes) >= 4
+    assert fitted.max_nodes == 32
 
