@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-09-09T03:06:00-05:00",
-  "turn": 81,
+  "updated_at": "2026-09-09T04:08:00-05:00",
+  "turn": 82,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "lone-uniform root nulls must stay 1 leaf; dissect child-walk over-split"
+    "goal": "checkpoint n/k bound; next: #45 root halo assignment, multi-seed"
   },
   "recent": [
-    "Reader is clean on lone Gaussian; 8 leaves were legacy _cluster_scaffold fallthrough on children",
-    "Fix in flight: level-set mode has no legacy fallback; child walk restored (no growth, fresh cap)",
-    "Fast sweep post-fix: two_gaussians_clear 2 leaves; bimodal 5 leaves; weak 3 leaves"
+    "Legacy _cluster_scaffold fallthrough closed in level-set mode; child walk restored",
+    "tau_shot rederived as N<=n/k: clamps default budget + growth ceilings; descent stops only on one_feature_null",
+    "Seed-0 sweep 12/12: nulls 1 leaf, tori 2, hierarchy 6, clear 2, nested 5, bimodal 4"
   ],
   "discoveries": [
-    "gamma gate passes lone torus 1.85 / inner shell 1.52 / Gaussians 0.46-1.22; grid-quantized tau*",
-    "Nested outer-shell child accepts K=2 at L=1 (rho 0.008); standalone shell w/o tissue is no_cut",
-    "Hierarchy 3x2 fine pairs are real level-set accepts (survive fallthrough fix)"
+    "Composites accept at 15.6 (tori N=512) and 11.8 (nested N=507) samples/node; false accepts at 2-7.5",
+    "Replacing max_nodes=None by n/k (not clamping the 64 default) collapsed tori/bimodal roots",
+    "Child over-split residue = tissue-heavy children (#45), not walk/gate"
   ],
   "open_threads": [
-    "Bimodal/weak child over-split via child finer walk without growth",
-    "Slow sweep tori/nested post-fix pending (/tmp/sweep_slow_seed0.txt)",
-    "Replace gamma with evidence-gated insertion (#47)"
+    "#45: root split leaks ~half the tissue into signal children",
+    "gamma stand-in -> evidence-gated insertion (#47); DM log-BF overconfident",
+    "Multi-seed (1-4) before any claim"
   ],
-  "next_step": "read lone-null sweep + child-walk probe; decide gate/floor change; then tests, SI, checkpoint",
+  "next_step": "checkpoint; then dispatch #45 root halo assignment analysis (why bg recall 0.51) and a multi-seed sweep",
   "blockers": []
 }

@@ -22,11 +22,11 @@ from proteus.stage1.level_set import (
     build_level_set_dag,
     build_level_set_tree,
     finer_walk_needs_node_budget,
-    mean_neighbor_radius,
     mesh_is_scale_matched,
     next_node_budget,
     null_bottleneck_ratio,
     select_level_set_partition,
+    shot_noise_node_cap,
     studentized_bottleneck,
 )
 from proteus.stage1.recursion import (
@@ -610,7 +610,11 @@ def test_finer_walk_licensed_at_every_level_when_not_accepted() -> None:
 
 
 def test_finer_walk_does_not_stop_on_bottleneck() -> None:
-    """Composites show bottleneck-rejected arcs before tau_sep (#48)."""
+    """Composites show bottleneck-rejected arcs before tau_sep (#48).
+
+    Exhaustion is only ``one_feature_null``. The shot-noise bound caps
+    growth, it does not end ``τ`` descent at fixed ``N``.
+    """
 
     from types import SimpleNamespace
 
@@ -627,6 +631,25 @@ def test_finer_walk_does_not_stop_on_bottleneck() -> None:
     assert _level_set_finer_walk_exhausted(bottleneck, scaffold, data, cfg) is False
     assert _level_set_finer_walk_exhausted(shot, scaffold, data, cfg) is True
 
+    # Bound constructions still exercise at_shot_noise_scale (12 nodes vs
+    # 40 points, k=4 → cap 10 → at bound; 8 nodes → below). Descent is
+    # not exhausted at the bound: no_cut / bottleneck keep walking.
+    sample = rng.normal(size=(40, 2))
+    cfg_k4 = RecursionConfig(
+        use_level_set_clustering=True,
+        level_set=LevelSetConfig(k_neighbors=4),
+    )
+    at_bound = _Scaffold(sample[:12], _knn_edges(sample[:12]))
+    below = _Scaffold(sample[:8], _knn_edges(sample[:8]))
+    no_cut = SimpleNamespace(
+        resolvability=SimpleNamespace(reject_reason="no_cut"),
+    )
+    assert at_shot_noise_scale(at_bound, sample, 4) is True
+    assert at_shot_noise_scale(below, sample, 4) is False
+    assert _level_set_finer_walk_exhausted(no_cut, at_bound, sample, cfg_k4) is False
+    assert _level_set_finer_walk_exhausted(bottleneck, at_bound, sample, cfg_k4) is False
+    assert _level_set_finer_walk_exhausted(no_cut, below, sample, cfg_k4) is False
+
 
 def test_studentized_bottleneck_rejects_circle_probe_first_accept() -> None:
     """Circle f7: raw φ sits in the true-split band; φ/φ_0 does not (#48)."""
@@ -638,13 +661,106 @@ def test_studentized_bottleneck_rejects_circle_probe_first_accept() -> None:
     assert studentized_bottleneck(0.05, 0.0) is None
 
 
-def test_shot_noise_floor_is_node_rk_versus_sample_knn() -> None:
+def test_shot_noise_floor_is_samples_per_node_at_least_k() -> None:
+    """Expectation/name update to the corrected ``N ≤ n/k`` derivation.
+
+    Not a weakening: the previous node-``r_k``-vs-sample-``r_k``
+    comparison was spacing equality at ``N ≈ n`` and never fired before
+    ``max_nodes``.  With 40 samples and ``k=4`` the bound is ``N ≥ 10``.
+    """
+
     rng = np.random.default_rng(0)
     sample = rng.normal(size=(40, 2))
-    assert at_shot_noise_scale(_Scaffold(sample, _knn_edges(sample)), sample, k=4)
-    coarse = sample[::5]
-    assert mean_neighbor_radius(coarse, 4) > mean_neighbor_radius(sample, 4)
-    assert not at_shot_noise_scale(_Scaffold(coarse, _knn_edges(coarse)), sample, k=4)
+    k = 4
+    assert at_shot_noise_scale(
+        _Scaffold(sample, _knn_edges(sample)), sample, k=k,
+    )  # 40 >= 10
+    coarse = sample[:8]
+    assert not at_shot_noise_scale(
+        _Scaffold(coarse, _knn_edges(coarse)), sample, k=k,
+    )  # 8 < 10
+    exact = sample[:10]
+    assert at_shot_noise_scale(
+        _Scaffold(exact, _knn_edges(exact)), sample, k=k,
+    )  # 10 >= 10
+
+
+def test_shot_noise_node_cap() -> None:
+    assert shot_noise_node_cap(8000, 8) == 1000
+    assert shot_noise_node_cap(6000, 8) == 750
+    assert shot_noise_node_cap(194, 8, min_nodes=4) == 24
+    assert shot_noise_node_cap(20, 8, min_nodes=4) == 4
+    assert shot_noise_node_cap(100, 0) == 100
+
+
+def test_level_set_mode_caps_scale_search_nodes_at_n_over_k(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    captured: list[ScaleSearchConfig] = []
+
+    def _capture_search(_data, _dim, config):
+        captured.append(config)
+        return SimpleNamespace(
+            tau_star=1.0, scaffold_at_star=None, persistence_result=None,
+        )
+
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.run_scale_search",
+        _capture_search,
+    )
+    rng = np.random.default_rng(0)
+    pts = rng.normal(size=(300, 2))
+    ls = LevelSetConfig()
+    run_recursive_discovery(
+        pts,
+        dim=2,
+        config=RecursionConfig(
+            scale_search=ScaleSearchConfig(max_nodes=None, min_nodes=4, k=8),
+            min_samples=100,
+            use_level_set_clustering=True,
+            level_set=ls,
+        ),
+    )
+    assert captured[-1].max_nodes == 37  # min(64, 300 // 8)
+
+    captured.clear()
+    large = rng.normal(size=(2000, 2))
+    run_recursive_discovery(
+        large,
+        dim=2,
+        config=RecursionConfig(
+            scale_search=ScaleSearchConfig(max_nodes=None, min_nodes=4, k=8),
+            min_samples=100,
+            use_level_set_clustering=True,
+            level_set=ls,
+        ),
+    )
+    assert captured[-1].max_nodes == 64  # default budget binds before 2000 // 8
+
+    captured.clear()
+    run_recursive_discovery(
+        pts,
+        dim=2,
+        config=RecursionConfig(
+            scale_search=ScaleSearchConfig(max_nodes=20, min_nodes=4, k=8),
+            min_samples=100,
+            use_level_set_clustering=True,
+            level_set=ls,
+        ),
+    )
+    assert captured[-1].max_nodes == 20
+
+    captured.clear()
+    run_recursive_discovery(
+        pts,
+        dim=2,
+        config=RecursionConfig(
+            scale_search=ScaleSearchConfig(max_nodes=None, min_nodes=4, k=8),
+            min_samples=100,
+            use_level_set_clustering=False,
+        ),
+    )
+    assert captured[-1].max_nodes is None
 
 
 def test_no_cut_at_cap_is_resolved_null_at_shot_floor() -> None:

@@ -58,6 +58,7 @@ __all__ = [
     "assess_valley_resolvability",
     "next_node_budget",
     "mean_neighbor_radius",
+    "shot_noise_node_cap",
     "at_shot_noise_scale",
     "mesh_is_scale_matched",
     "cap_is_binding",
@@ -774,27 +775,38 @@ def mean_neighbor_radius(points: np.ndarray, k: int) -> float:
     return float(np.asarray(dists[:, -1], dtype=float).mean())
 
 
+def shot_noise_node_cap(n_samples: int, k: int, min_nodes: int = 1) -> int:
+    """Mesh resolution bound ``N ≤ n/k`` (SI S2.6.2 / OPEN_ISSUES #48).
+
+    A node's catchment must hold at least the ``k`` samples that define
+    the local density scale everywhere else in the reader, i.e. mean
+    samples per node ``n/N ≥ k``, equivalently ``N ≤ n/k``.  Derived
+    from the reader's own neighbour count ``k``; no calibrated constant.
+    """
+
+    return max(int(min_nodes), int(n_samples) // max(int(k), 1))
+
+
 def at_shot_noise_scale(
     scaffold: Any,
     data: np.ndarray,
     k: int,
 ) -> bool:
-    """True when mean node ``r_k`` has met the sample ``k``NN radius.
+    """True when mesh resolution has reached the bound ``N ≥ n/k``.
 
-    Below this floor the mesh is reading Poisson holes of the sample, not
-    a Hartigan valley of ``p`` (SI S2.6.2 / OPEN_ISSUES #48).  The
-    comparison uses ``c = 1``: the derived meeting point of the two
-    radii, not a calibrated slack.
+    The meeting point is the catchment condition: each node must hold at
+    least the ``k`` samples that define the local density scale, i.e.
+    ``n/N ≥ k``, equivalently the resolution bound ``N ≤ n/k``.  The
+    previous node-``r_k``-vs-sample-``r_k`` comparison was spacing
+    equality at ``N ≈ n`` and never fired before ``max_nodes``
+    (SI S2.6.2 / OPEN_ISSUES #48).
     """
 
-    positions = np.asarray(
-        [node.position for node in getattr(scaffold, "nodes", ())],
-        dtype=float,
-    )
-    if positions.shape[0] < 2:
+    n_nodes = len(getattr(scaffold, "nodes", ()))
+    if n_nodes < 2:
         return False
-    return mean_neighbor_radius(positions, k) <= mean_neighbor_radius(
-        np.asarray(data, dtype=float), k,
+    return n_nodes >= shot_noise_node_cap(
+        int(np.asarray(data).shape[0]), k, 1,
     )
 
 

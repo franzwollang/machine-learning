@@ -36,6 +36,7 @@ from proteus.stage1.level_set import (
     ValleyVerdict,
     at_shot_noise_scale,
     cap_is_binding,
+    shot_noise_node_cap,
     finer_walk_needs_node_budget,
     mesh_is_scale_matched,
     next_node_budget,
@@ -1561,8 +1562,17 @@ def _level_set_finer_walk_exhausted(
     data: np.ndarray,
     config: RecursionConfig,
 ) -> bool:
-    """Stop finer descent on a resolved one-feature null (SI S2.6.2 / #48)."""
+    """Stop finer descent on a resolved one-feature null (SI S2.6.2 / #48).
 
+    ``τ`` descent at fixed ``N`` re-arranges the mesh (linked tori seed 0
+    descended 7 steps at ``N=64`` and 6 more at ``N=256`` before growth
+    resolved anything). At the shot-noise bound, growth is refused by
+    ``finer_walk_needs_node_budget(at_shot_floor=...)`` and the ``n/k``
+    ceilings, but descent continues until ``max_finer_scale_steps`` /
+    ``tau_min``.
+    """
+
+    del scaffold, data, config  # bound caps growth, it does not end descent
     reason = (
         selection.resolvability.reject_reason
         if selection.resolvability is not None
@@ -1571,11 +1581,8 @@ def _level_set_finer_walk_exhausted(
     # Bottleneck is "this cut is manifold traffic", not "the region is
     # one feature forever". Composites show bottleneck-rejected arcs at
     # intermediate tau on the way down to tau_sep (linked tori seed 0:
-    # phi=1.10 at tau*, 0.75 at the first finer step). Stop only on a
-    # studentized one-feature reject or the shot-noise floor (SI S2.6.2).
-    if reason == "one_feature_null":
-        return True
-    return at_shot_noise_scale(scaffold, data, config.level_set.k_neighbors)
+    # phi=1.10 at tau*, 0.75 at the first finer step).
+    return reason == "one_feature_null"
 
 
 def _grow_underresolved_level_set(
@@ -1593,9 +1600,9 @@ def _grow_underresolved_level_set(
     search). Growth requires a scale-matched mesh
     (``r_k <= mesh_scale_match_ratio * sqrt(tau)``) and stops on a
     resolved split, a non-truncated null, the step budget, or the
-    ``n/2`` ceiling. The returned budget is carried into a finer-``tau``
-    walk so nested recovery does not fall back to the truncating cap.
-    SI S2.6.2 / #48.
+    shot-noise ceiling ``N ≤ n/k``. The returned budget is carried into
+    a finer-``tau`` walk so nested recovery does not fall back to the
+    truncating cap. SI S2.6.2 / #48.
     """
 
     budget = getattr(scaffold, "max_nodes", None)
@@ -1618,7 +1625,7 @@ def _grow_underresolved_level_set(
     ):
         return None, scaffold, selection, budget
 
-    ceiling = max(1, int(data.shape[0] // 2))
+    ceiling = shot_noise_node_cap(data.shape[0], ls_cfg.k_neighbors, 1)
     current = int(budget if budget is not None else len(scaffold.nodes))
     last_result = None
     last_scaffold = scaffold
@@ -1680,7 +1687,9 @@ def _refit_raised_cap(
     linked-tori valleys (SI S2.6.2 / #48).
     """
 
-    ceiling = max(1, int(np.asarray(data).shape[0] // 2))
+    ceiling = shot_noise_node_cap(
+        np.asarray(data).shape[0], config.level_set.k_neighbors, 1,
+    )
     nxt = next_node_budget(
         current, config.level_set.node_growth_factor, ceiling,
     )
@@ -2250,6 +2259,24 @@ def run_recursive_discovery(
             scale_search_config,
             selector="persistence",
             record_partitions=True,
+        )
+
+    if config.use_level_set_clustering:
+        # SI S2.6.2 / #48: mesh resolution bound N ≤ n/k (shot-noise floor)
+        cap = shot_noise_node_cap(
+            n_samples,
+            config.level_set.k_neighbors,
+            scale_search_config.min_nodes,
+        )
+        # Mirrors run_scale_search: None resolves to max(min_nodes * 16, 64).
+        initial = (
+            scale_search_config.max_nodes
+            if scale_search_config.max_nodes is not None
+            else max(scale_search_config.min_nodes * 16, 64)
+        )
+        scale_search_config = replace(
+            scale_search_config,
+            max_nodes=min(int(initial), cap),
         )
 
     result = run_scale_search(data_arr, dim, scale_search_config)

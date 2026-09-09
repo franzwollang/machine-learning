@@ -1846,11 +1846,24 @@ inside the fitted true-split band; it fails once studentized
 ($\rho\sim 1$). A tighter raw ceiling would also kill nested/tori
 splits in that band and is forbidden.
 
-The shot-noise scale $\tau_{\mathrm{shot}}(N)$ is the meeting of mean
-node $r_k$ and the sample $k$NN radius ($c{=}1$, derived). Below that
-floor the mesh is reading Poisson holes of the sample. Finer descent
-stops on \texttt{one\_feature\_null} or $\tau_{\mathrm{shot}}$, not on
-\texttt{bottleneck}: a bottleneck-rejected cut is manifold traffic at
+The shot-noise floor is a \emph{resolution bound on the mesh}: a node's
+catchment must hold at least the $k$ samples that define the local
+density scale everywhere else in the reader, so $n/N\ge k$, i.e.
+$N\le n/k$ (derived; $k$ is the reader's own neighbour count, no
+calibrated constant). Below that bound the mesh is reading Poisson
+holes of the sample. In level-set mode the bound caps the scale search
+and every node-growth ceiling. (An earlier statement of this floor as
+``mean node $r_k$ meets the sample $k$NN radius'' was a derivation
+error: that is equality of \emph{spacings}, reached only at $N\approx
+n$, and it never fired before \texttt{max\_nodes} did --- circle warm
+walk $N{=}750$ of $n{=}1500$, a 194-sample fragment read at $N{=}59$
+with $\rho{=}0.003$; seed-0 composites accept at $15.6$ and $11.8$
+samples per node.) The bound clamps the scale-search budget
+(\texttt{min} of the controller default and $n/k$) and refuses node
+growth; it does not end $\tau$ descent, which re-arranges the mesh at
+fixed $N$ (linked tori seed~0 descended seven steps at $N{=}64$ and six
+at $N{=}256$ before growth resolved anything). Finer descent
+stops on \texttt{one\_feature\_null} only, not on \texttt{bottleneck}: a bottleneck-rejected cut is manifold traffic at
 the current $\tau$, and composites show those arcs on the way down to
 $\tau_{\mathrm{sep}}$ (linked tori seed~0: $\phi{=}1.10$ at $\tau^\star$,
 $\phi{=}0.75$ at the first finer step). Cap growth is a same-$\tau$
@@ -1874,7 +1887,9 @@ acceptance-relevant stand-in for evidence-gated insertion (\#47), not a
 uniform-vs-composite test (\#48).
 Growing $N$ on the thin-uniform side
 densifies sampling holes that can pass $\rho$ (circle warm walk:
-$256\to750$, then $\phi{=}0.082$, $\rho{=}0.058$).
+$256\to750$, then $\phi{=}0.082$, $\rho{=}0.058$; $N{=}750$ of
+$n{=}1500$ is two samples per node, now excluded by the $N\le n/k$
+bound).
 Walk-history (bottleneck then \texttt{no\_cut}) does not distinguish
 them: the circle flickers that pattern at $N{=}64$ (f1 bottleneck,
 f2 \texttt{no\_cut}) without a hidden valley.
@@ -5338,7 +5353,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{LevelSetConfig.mesh\_scale\_match\_ratio} & 2.0\ (\text{$r_k\le\gamma\sqrt{\tau}$ licenses $N$ growth; circle/swiss $2.41$--$2.95$ vs tori/nested $0.96$--$1.28$ at $L{=}1$ seed~0, but lone torus $1.85$, inner shell $1.52$, lone Gaussians $0.46$--$1.22$ also pass}) & \text{S2.6.2} & \text{operational stand-in, acceptance-relevant (does not separate lone uniforms; grid-quantized $\tau^\star$; to be replaced by evidence-gated insertion, \#47/\#48)}\\
 \texttt{advance\_scaffold\_to\_tau} & \text{warm finer walk on the level-set path; no fresh LC grid} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{fit\_scaffold\_at\_tau} & \text{same-$\tau$ re-seed for scale-matched $N$ growth; not LC} & \text{S2.6.2} & \text{operational (proposal-path; \#48)}\\
-\text{finer-walk evidence floor }(\rho=\phi_{\mathrm{CD}}/\phi_0) & \text{same ceiling }0.25\text{ on }\rho\text{; }\phi_0=\mathrm{median}\,\phi\text{ of disagreeing hyperplanes; }\tau_{\mathrm{shot}}{:}\,r_k^{\mathrm{node}}\le r_k^{\mathrm{sample}} & \text{S2.6.2} & \text{form derived; the }0.25\text{ ceiling on }\rho\text{ is borrowed, uncalibrated (acceptance-path; \#48; flag off)}\\
+\text{finer-walk evidence floor }(\rho=\phi_{\mathrm{CD}}/\phi_0) & \text{same ceiling }0.25\text{ on }\rho\text{; }\phi_0=\mathrm{median}\,\phi\text{ of disagreeing hyperplanes; shot-noise bound }N\le n/k\text{ (caps scale search and growth)} & \text{S2.6.2} & \text{form derived; the }0.25\text{ ceiling on }\rho\text{ is borrowed, uncalibrated (acceptance-path; \#48; flag off)}\\
 \text{geometry/hollow prepass zoo} & \text{all default false; quarantined (falsified 2026-08; \#44)} & \text{S2.6.2} & \text{quarantined}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\

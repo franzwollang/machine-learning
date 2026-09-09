@@ -13,10 +13,12 @@ so this diagnostic uses 16 steps unless overridden.  ``tau_min`` stays
 the ScaleSearch default ``1e-5`` so the walk can reach ``tau_sep``;
 GT ``tau_grid_hint`` lower bounds are too coarse (~``expected_tau/8``).
 
-Seed-0 (2026-09-09, #48): circle/swiss one leaf; hierarchy root
-``K=3`` / 6 fine leaves (GT 3×2); tori and nested root ``K=2`` /
-2 leaves. Bimodal-circle root ``K=2`` ARI 0.842. Valley-scene ARI
-bars are not frozen. Not a default-flag flip.
+Seed-0 (2026-09-09, #48, with the ``N <= n/k`` bound): all six nulls
+(circle, swiss, lone torus, lone inner shell, lone 2-d/4-d Gaussian)
+one leaf; hierarchy root ``K=3`` / 6 fine leaves (GT 3×2); tori root
+``K=2`` / 2 leaves; clear two-Gaussians ``K=2`` / 2; nested ``K=2`` /
+5 and bimodal ``K=2`` / 4 (tissue-heavy children, #45). Valley-scene
+ARI bars are not frozen. Not a default-flag flip.
 
 Not a pytest test.  Nested/tori at the fitted-sweep ``n`` take minutes
 to tens of minutes per seed.
@@ -38,12 +40,13 @@ import time
 from typing import Callable
 
 import numpy as np
+from scipy.spatial import cKDTree
 
 from proteus.stage1.controller import ScaleSearchConfig
 from proteus.stage1.level_set import LevelSetConfig
 from proteus.stage1.recursion import RecursionConfig, RecursionTree, run_recursive_discovery
 from proteus.stage1.stabilization import StabilizationConfig
-from tests.datasets.ground_truth import SyntheticDataset
+from tests.datasets.ground_truth import GroundTruthManifold, SyntheticDataset
 from tests.datasets.synthetic.circles import make_circle
 from tests.datasets.synthetic.hierarchical_gaussian import (
     make_hierarchical_gaussian,
@@ -78,6 +81,12 @@ from tests.scenarios.synthetic.level_set_suite import (
     TWO_GAUSSIANS_SIGMA,
     TWO_GAUSSIANS_WEAK_SEP,
     TWO_GAUSSIANS_CLEAR_SEP,
+    LONE_TORUS_N_PER,
+    LONE_SHELL_N_PER,
+    LONE_GAUSS2D_N,
+    LONE_GAUSS2D_SIGMA,
+    LONE_GAUSS4D_N,
+    LONE_TISSUE_RADIUS,
 )
 
 
@@ -106,6 +115,85 @@ class Result:
     note: str
 
 
+def _keep_signal_plus_nearby_tissue(
+    points: np.ndarray,
+    labels: np.ndarray,
+    target: int,
+    radius: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Keep ``labels == target`` plus tissue (``labels < 0``) within ``radius``."""
+
+    arr = np.asarray(points, dtype=float)
+    lab = np.asarray(labels, dtype=int)
+    signal_idx = np.flatnonzero(lab == int(target))
+    tissue_idx = np.flatnonzero(lab < 0)
+    if signal_idx.size == 0:
+        return arr[signal_idx], np.empty(0, dtype=int)
+    if tissue_idx.size == 0:
+        out_lab = np.zeros(signal_idx.size, dtype=int)
+        return arr[signal_idx], out_lab
+    dists, _ = cKDTree(arr[signal_idx]).query(arr[tissue_idx], k=1)
+    near_idx = tissue_idx[np.asarray(dists, dtype=float) < float(radius)]
+    keep = np.concatenate([signal_idx, near_idx])
+    out_lab = np.concatenate([
+        np.zeros(signal_idx.size, dtype=int),
+        np.full(near_idx.size, -1, dtype=int),
+    ])
+    return arr[keep], out_lab
+
+
+def _lone_torus_null(seed: int) -> SyntheticDataset:
+    data = make_linked_tori(n_per_torus=LONE_TORUS_N_PER, seed=seed)
+    points, labels = _keep_signal_plus_nearby_tissue(
+        data.points, data.labels, 0, LONE_TISSUE_RADIUS,
+    )
+    return SyntheticDataset(
+        points=points,
+        labels=labels,
+        ground_truth=data.ground_truth,
+        metadata=dict(data.metadata),
+    )
+
+
+def _lone_shell_inner_null(seed: int) -> SyntheticDataset:
+    data = make_nested_spheres(n_per_sphere=LONE_SHELL_N_PER, seed=seed)
+    points, labels = _keep_signal_plus_nearby_tissue(
+        data.points, data.labels, 1, LONE_TISSUE_RADIUS,
+    )
+    return SyntheticDataset(
+        points=points,
+        labels=labels,
+        ground_truth=data.ground_truth,
+        metadata=dict(data.metadata),
+    )
+
+
+def _lone_gauss2d_null(seed: int) -> SyntheticDataset:
+    rng = np.random.default_rng(int(seed))
+    points = rng.normal(size=(LONE_GAUSS2D_N, 2)) * LONE_GAUSS2D_SIGMA
+    labels = np.zeros(LONE_GAUSS2D_N, dtype=int)
+    return SyntheticDataset(
+        points=points,
+        labels=labels,
+        ground_truth=GroundTruthManifold(
+            name="lone_gauss2d", ambient_dim=2, intrinsic_dim=2,
+        ),
+    )
+
+
+def _lone_gauss4d_null(seed: int) -> SyntheticDataset:
+    rng = np.random.default_rng(int(seed))
+    points = rng.normal(size=(LONE_GAUSS4D_N, 4))
+    labels = np.zeros(LONE_GAUSS4D_N, dtype=int)
+    return SyntheticDataset(
+        points=points,
+        labels=labels,
+        ground_truth=GroundTruthManifold(
+            name="lone_gauss4d", ambient_dim=4, intrinsic_dim=4,
+        ),
+    )
+
+
 def _scenes() -> tuple[Scene, ...]:
     return (
         Scene(
@@ -118,6 +206,10 @@ def _scenes() -> tuple[Scene, ...]:
             lambda seed: make_swiss_roll(n_samples=SWISS_N, seed=seed),
             None,
         ),
+        Scene("lone_torus_null", _lone_torus_null, None),
+        Scene("lone_shell_inner_null", _lone_shell_inner_null, None),
+        Scene("lone_gauss2d_null", _lone_gauss2d_null, None),
+        Scene("lone_gauss4d_null", _lone_gauss4d_null, None),
         Scene(
             "hierarchy",
             lambda seed: make_hierarchical_gaussian(n_samples=HIERARCHY_N, seed=seed),
