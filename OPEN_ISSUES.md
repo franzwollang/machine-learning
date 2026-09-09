@@ -729,6 +729,20 @@ re-seeding at the current τ. Density children do not inherit the
 raised cap, do not grow, and do not finer-walk. SI S2.6.2 / S14.3.
 
 Remaining (2026-09-09; ordered by severity):
+- **Composite root recovery is seed-0 luck (multi-seed 2026-09-09).**
+  Seeds 1–4: linked tori root K=1 on all four; nested K=1 on seeds 1
+  and 3, K=2 (ARI 0.925) on seed 2. Nulls hold 24/24 (circle, swiss,
+  lone torus, lone inner shell, lone 2-D/4-D Gaussian); hierarchy K=3
+  / 6 on all seeds. Seed-0 tori accepted at finer step 15 of 16 after
+  7 `bottleneck` steps at N=64 (no growth licensed) and 6 at N=256;
+  growth fires only on `no_cut`-at-cap, so the walk's outcome depends
+  on the order of verdicts and on the step budget the SI forbids as a
+  floor. Runtime: tori 14–48 min/seed, nested up to 1.9 h. Under test:
+  (i) 32 steps on tori seed 1; (ii) per-step log on tori seed 1.
+  Candidate redesign: let N track τ during descent (cap never binding,
+  bounded by `n/k`), stop when the bound binds or `one_feature_null`;
+  this removes γ, the `no_cut` trigger and the step budget together.
+  Must re-verify nulls at `n/k` nodes on all seeds.
 - **Tissue-heavy children re-partition (→ #45).** Root splits leak
   tissue into signal children (nested child 3: 51% tissue, bg recall
   0.51; bimodal child 3: 37%). The reader then marks most of the child

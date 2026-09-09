@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-09-09T04:08:00-05:00",
-  "turn": 82,
+  "updated_at": "2026-09-09T10:15:00-05:00",
+  "turn": 83,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "checkpoint n/k bound; next: #45 root halo assignment, multi-seed"
+    "goal": "why tori/nested fail on seeds 1-4; growth-policy redesign (N tracks tau to n/k bound)"
   },
   "recent": [
-    "Legacy _cluster_scaffold fallthrough closed in level-set mode; child walk restored",
-    "tau_shot rederived as N<=n/k: clamps default budget + growth ceilings; descent stops only on one_feature_null",
-    "Seed-0 sweep 12/12: nulls 1 leaf, tori 2, hierarchy 6, clear 2, nested 5, bimodal 4"
+    "Multi-seed: nulls 24/24, hierarchy stable; tori K=1 seeds 1-4; nested K=1 s1,s3, K=2 s2",
+    "#45 mechanism: halo nodes active at selected level; Hartigan-faithful; user skipped semantics choice -> option C for now",
+    "Running: tori s1 per-step log; tori s1 with 32 finer steps"
   ],
   "discoveries": [
-    "Composites accept at 15.6 (tori N=512) and 11.8 (nested N=507) samples/node; false accepts at 2-7.5",
-    "Replacing max_nodes=None by n/k (not clamping the 64 default) collapsed tori/bimodal roots",
-    "Child over-split residue = tissue-heavy children (#45), not walk/gate"
+    "Seed-0 tori accept was at step 15/16; growth only on no_cut-at-cap makes outcome order/budget dependent",
+    "Runtime tori 14-48 min/seed, nested up to 1.9 h: iteration blocker",
+    "Warm cap-raise at fixed tau failed before (rho~2); re-seed worked; gradual tau-tracking untested"
   ],
   "open_threads": [
-    "#45: root split leaks ~half the tissue into signal children",
-    "gamma stand-in -> evidence-gated insertion (#47); DM log-BF overconfident",
-    "Multi-seed (1-4) before any claim"
+    "Growth policy 'track_tau': cap never binding, bounded n/k, stop when bound binds or one_feature_null",
+    "Nulls must be re-verified at n/k nodes under any new policy",
+    "#45 core-only descent (A) recommended, awaiting user"
   ],
-  "next_step": "checkpoint; then dispatch #45 root halo assignment analysis (why bg recall 0.51) and a multi-seed sweep",
+  "next_step": "read /tmp/root_accept_tori_s1.txt and /tmp/sweep_tori_s1_steps32.txt; then dispatch flag-gated track_tau policy",
   "blockers": []
 }

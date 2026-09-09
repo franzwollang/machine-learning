@@ -1938,15 +1938,25 @@ and nested shells at adequate budgets. Connected-support valley scenes
 coverage live in \texttt{tests/datasets/synthetic/density\_valleys.py}
 and \texttt{tests/scenarios/synthetic/level\_set\_suite.py}; do not
 retune those numbers to make a path pass. The path remains default-off.
-A normal-path diagnostic with the \#48 floor and scale-matched
-node budget (seed~0) keeps circle and swiss-roll as one leaf and
-recovers hierarchy ($K{=}3$, ARI $0.582$), linked tori ($K{=}2$,
-ARI $1.000$, coverage $1.000$), and nested shells ($K{=}2$,
-ARI $0.731$, coverage $0.764$) at the root. Unconditional finer-walk
+A normal-path diagnostic with the \#48 floor, the $N\le n/k$ bound and
+the scale-matched node budget keeps every null (circle, swiss roll,
+lone torus, lone inner shell, lone 2-D and 4-D Gaussian) as one leaf on
+seeds 0--4 (24/24) and recovers hierarchy ($K{=}3$, six fine leaves)
+on every seed. Composite recovery does \emph{not} generalise: linked
+tori accept at the root on seed~0 only ($K{=}2$, ARI $1.000$, at finer
+step 15 of 16 after seven \texttt{bottleneck} steps at $N{=}64$ and six
+at $N{=}256$) and read $K{=}1$ on seeds 1--4; nested shells accept on
+seeds 0 and 2 (ARI $0.731$, $0.925$) and not on 1 and 3. Because growth
+fires only on \texttt{no\_cut}-at-cap, the outcome depends on the order
+of verdicts and on the step budget. Unconditional finer-walk
 growth densifies the circle to $N{=}n/2$ and accepts a uniquely deep
-hole ($\phi{=}0.082$, $\rho{=}0.058$); the $\gamma{=}2$ gate prevents
-that. Density children do not inherit the parent's raised $N$, do not
-grow, and do not finer-walk; they split only at their own $\tau^\star$.
+hole ($\phi{=}0.082$, $\rho{=}0.058$); the $N\le n/k$ bound now
+excludes that regime. Density children inherit a fresh cap, do not
+grow, and walk finer under the same floor. The growth policy is
+under redesign (\#48): let $N$ track $\tau$ during descent with the cap
+never binding below the $n/k$ bound, and stop when the bound binds or
+on \texttt{one\_feature\_null}, removing $\gamma$, the \texttt{no\_cut}
+trigger and the step budget together.
 Promotion still
 requires an awaiting-flip review and evidence-gated insertion (\#47).
 Direct fine-$\tau$ diagnostics
