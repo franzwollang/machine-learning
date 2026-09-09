@@ -1,29 +1,29 @@
 {
-  "updated_at": "2026-09-09T10:40:00-05:00",
-  "turn": 85,
+  "updated_at": "2026-09-09T11:50:00-05:00",
+  "turn": 86,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "validate track_tau across seeds 0-4; fix swiss-roll comb generator; dissect child refits"
+    "goal": "promote track_tau to default once swiss passes; retire gamma/no_cut_gated; SI S2.6.2"
   },
   "recent": [
-    "Seeds 1-4 no_cut_gated sweep 36/48: nulls 24/24, hierarchy 4/4; tori 0/4, nested 1/4, bimodal 2/4, weak 1/4, clear 4/4",
-    "track_tau landed flag-gated: tori s1 K=2 ARI 1.0 in 127 s (23x faster); seed-0 nulls hold except swiss",
-    "Swiss 'null' is a 48x8 kernel-anchor comb (7-20 sigma gaps): reader split is correct; Grok rewriting generator as continuous surface"
+    "track_tau seeds 0-4: 49/55 vs 43/55 baseline; nulls 25/25; tori 5/5 ARI>=0.999; nested root 5/5 (was 2/5)",
+    "Nested s0/s2 8-leaf residue = outer shell 57% to background at first-accept tau, fragment 60% tissue shatters (#45)",
+    "Faded scenes are ~47% tissue by construction; tissue_fraction only pads the box (#45)"
   ],
   "discoveries": [
     "Warm split-in-place nodes sit on the saddle between composites; fresh fit_scaffold_at_tau at fine tau finds the valley",
-    "_refit_raised_cap compares budgets not node counts: growth steps burn without adding nodes at coarse tau",
-    "n/k bound held on tori at N=1000 (no false accept at 8 samples/node)",
-    "track_tau walk ignores grow_nodes_when_underresolved=False: children now refit to n/k (nested 8 leaves vs 5, hierarchy 5 vs 6)",
-    "Only swiss roll still used an anchor lattice; circle/tori/shell are continuous components"
+    "FadedMixture density = sum w[lam f + (1-lam) u]: signal mass ~ tissue mass, so ~50% tissue regardless of tissue_fraction",
+    "First-accept tau is coarsest resolving; lower-density component barely above u there -> crude background partition",
+    "Only swiss roll still used an anchor lattice (7-20 sigma comb); circle/tori/shell are continuous components",
+    "32 finer steps did not rescue tori s1 under no_cut_gated: step budget was never the limit"
   ],
   "open_threads": [
-    "Running: track_tau sweep seeds 0-4 all scenes minus swiss (/tmp/sweep_track_tau_s0-4.txt)",
-    "Running: swiss-roll continuous component subagent",
-    "Decide child refit semantics under track_tau; then promote track_tau to default, retire gamma/no_cut_gated; SI S2.6.2",
-    "#45 core-only descent (A) recommended, awaiting user; option C in effect"
+    "Running: swiss-roll continuous component subagent (c8660705)",
+    "Bimodal circle 3/5, weak two-Gaussians 2/5 unchanged: connected-support valleys, separate difficulty",
+    "Hierarchy 5 vs 6 signal leaves on seeds 0,2 under track_tau (one fine pair merged): check",
+    "#45 decisions pending user: descent semantics A/B/C; tissue mass fraction in sampler; refine bg partition below first-accept tau"
   ],
-  "next_step": "read /tmp/sweep_track_tau_s0-4.txt; compare to 36/48 baseline; then child-refit dissection on nested/hierarchy",
+  "next_step": "on swiss result: dispatch Grok to make track_tau default, delete gamma/no_cut_gated paths + tests, update SI S2.6.2; rerun stage1 subset",
   "blockers": []
 }

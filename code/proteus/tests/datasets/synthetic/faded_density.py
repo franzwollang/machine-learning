@@ -22,6 +22,12 @@ def _sphere_surface_area(dim: int, radius: np.ndarray) -> np.ndarray:
     return coeff * np.power(np.maximum(radius, _EPS), dim - 1)
 
 
+def arc_primitive(value: float | np.ndarray) -> np.ndarray:
+    """Antiderivative of ``sqrt(1 + t^2)`` (Swiss-roll arc-length element)."""
+    arr = np.asarray(value, dtype=float)
+    return 0.5 * (arr * np.sqrt(1.0 + arr * arr) + np.arcsinh(arr))
+
+
 def gaussian_pdf(x: np.ndarray, mean: np.ndarray, sigma: float) -> np.ndarray:
     """Isotropic Gaussian density at each row of ``x``."""
     dim = mean.shape[0]
@@ -533,6 +539,159 @@ class TorusSurfaceFadedComponent:
         if extras.shape[1]:
             residual_sq += np.sum(extras * extras, axis=1)
         return np.sqrt(residual_sq)
+
+    def fade_weight(self, x: np.ndarray) -> np.ndarray:
+        return lambda_from_distance(
+            self.distance(x), self.sigma, self.transition_radius,
+        )
+
+
+_SWISS_ROLL_GRID = 4096
+_SWISS_ROLL_NEWTON_STEPS = 2
+_SWISS_ROLL_NEWTON_STEP_CAP = 0.05
+
+
+@dataclass(frozen=True)
+class SwissRollSurfaceFadedComponent:
+    """Area-uniform Swiss-roll sheet with Gaussian fade in normal directions.
+
+    The spiral sheet is
+    ``(t cos t, h, t sin t) / scale`` for ``t in [t_min, t_max]`` and
+    ``h in [0, height]``, with ``scale = t_max`` by default.  Unlike a
+    kernel-anchor lattice, this component is continuous along both
+    parameters and therefore has no artificial ridge-line modes.
+    Remaining ambient coordinates (``ambient_dim > 3``) are independent
+    normal directions, matching ``TorusSurfaceFadedComponent``.
+    """
+
+    t_min: float
+    t_max: float
+    height: float
+    sigma: float
+    transition_radius: float
+    ambient_dim: int = 3
+    weight: float = 1.0
+    scale: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.t_max <= self.t_min:
+            raise ValueError("t_max must exceed t_min")
+        if self.height <= 0.0:
+            raise ValueError("height must be positive")
+        if self.sigma <= 0.0:
+            raise ValueError("sigma must be positive")
+        if self.ambient_dim < 3:
+            raise ValueError("ambient_dim must be at least 3")
+        scale = float(self.t_max if self.scale is None else self.scale)
+        if scale <= 0.0:
+            raise ValueError("scale must be positive")
+        object.__setattr__(self, "scale", scale)
+
+        t_grid = np.linspace(self.t_min, self.t_max, num=_SWISS_ROLL_GRID)
+        object.__setattr__(self, "_t_grid", t_grid)
+        object.__setattr__(self, "_spiral_grid", self._spiral_xz(t_grid))
+        prim = arc_primitive(t_grid)
+        cdf = (prim - prim[0]) / max(float(prim[-1] - prim[0]), _EPS)
+        object.__setattr__(self, "_cdf", cdf)
+        area = (
+            float(self.height)
+            / (scale * scale)
+            * float(arc_primitive(self.t_max) - arc_primitive(self.t_min))
+        )
+        object.__setattr__(self, "_surface_area", max(area, _EPS))
+
+    @property
+    def dim(self) -> int:
+        return int(self.ambient_dim)
+
+    @property
+    def surface_area(self) -> float:
+        return float(self._surface_area)
+
+    def _spiral_xz(self, t: np.ndarray) -> np.ndarray:
+        scale = float(self.scale)
+        return np.stack([t * np.cos(t), t * np.sin(t)], axis=-1) / scale
+
+    def _unit_normal_xz(self, t: np.ndarray) -> np.ndarray:
+        length = np.sqrt(1.0 + t * t)
+        return np.stack(
+            [-(np.sin(t) + t * np.cos(t)), np.cos(t) - t * np.sin(t)],
+            axis=-1,
+        ) / np.maximum(length, _EPS)[:, None]
+
+    def _project_t(self, q: np.ndarray) -> np.ndarray:
+        """Nearest parameter ``t`` of the xz spiral for each query ``q``."""
+        n = q.shape[0]
+        grid = self._spiral_grid
+        t_grid = self._t_grid
+        best_d2 = np.full(n, np.inf, dtype=float)
+        best_t = np.zeros(n, dtype=float)
+        chunk = 256
+        for start in range(0, t_grid.shape[0], chunk):
+            stop = min(start + chunk, t_grid.shape[0])
+            diff = q[:, None, :] - grid[None, start:stop, :]
+            dist_sq = np.sum(diff * diff, axis=2)
+            local_idx = dist_sq.argmin(axis=1)
+            local_d2 = dist_sq[np.arange(n), local_idx]
+            better = local_d2 < best_d2
+            best_d2[better] = local_d2[better]
+            best_t[better] = t_grid[start:stop][local_idx[better]]
+
+        t = best_t
+        scale = float(self.scale)
+        for _ in range(_SWISS_ROLL_NEWTON_STEPS):
+            ct = np.cos(t)
+            st = np.sin(t)
+            gamma = np.stack([t * ct, t * st], axis=1) / scale
+            g1 = np.stack([ct - t * st, st + t * ct], axis=1) / scale
+            g2 = np.stack([-2.0 * st - t * ct, 2.0 * ct - t * st], axis=1) / scale
+            resid = q - gamma
+            fp = -np.sum(resid * g1, axis=1)
+            fpp = np.sum(g1 * g1, axis=1) - np.sum(resid * g2, axis=1)
+            step = np.zeros_like(t)
+            good = fpp > _EPS
+            step[good] = fp[good] / fpp[good]
+            step = np.clip(step, -_SWISS_ROLL_NEWTON_STEP_CAP, _SWISS_ROLL_NEWTON_STEP_CAP)
+            t = np.clip(t - step, self.t_min, self.t_max)
+        return t
+
+    def density(self, x: np.ndarray) -> np.ndarray:
+        dist = self.distance(x)
+        sigma = max(self.sigma, _EPS)
+        codim = self.ambient_dim - 2
+        normalizer = self._surface_area * (2.0 * np.pi * sigma * sigma) ** (0.5 * codim)
+        return np.exp(-0.5 * np.square(dist / sigma)) / max(normalizer, _EPS)
+
+    def sample(self, n: int, rng: np.random.Generator) -> np.ndarray:
+        u = rng.random(n)
+        t = np.interp(u, self._cdf, self._t_grid)
+        h = rng.uniform(0.0, self.height, size=n)
+        scale = float(self.scale)
+        normal_xz = self._unit_normal_xz(t)
+        offset = rng.normal(scale=self.sigma, size=n)
+        out = np.zeros((n, self.ambient_dim), dtype=float)
+        out[:, 0] = t * np.cos(t) / scale + offset * normal_xz[:, 0]
+        out[:, 1] = h / scale
+        out[:, 2] = t * np.sin(t) / scale + offset * normal_xz[:, 1]
+        if self.ambient_dim > 3:
+            out[:, 3:] = rng.normal(
+                scale=self.sigma, size=(n, self.ambient_dim - 3),
+            )
+        return out
+
+    def distance(self, x: np.ndarray) -> np.ndarray:
+        arr = np.asarray(x, dtype=float)
+        q = arr[:, [0, 2]]
+        t = self._project_t(q)
+        gamma = self._spiral_xz(t)
+        xz_res_sq = np.sum((q - gamma) * (q - gamma), axis=1)
+        y_hi = self.height / float(self.scale)
+        y_clamped = np.clip(arr[:, 1], 0.0, y_hi)
+        d_sq = xz_res_sq + np.square(arr[:, 1] - y_clamped)
+        if self.ambient_dim > 3:
+            extras = arr[:, 3:]
+            d_sq = d_sq + np.sum(extras * extras, axis=1)
+        return np.sqrt(d_sq)
 
     def fade_weight(self, x: np.ndarray) -> np.ndarray:
         return lambda_from_distance(

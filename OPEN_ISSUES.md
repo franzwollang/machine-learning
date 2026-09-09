@@ -345,10 +345,36 @@ benchmark issue: faded-density generators label all samples below
 therefore dominated by halo labels even when signal topology/clustering is
 correct.
 
-Remaining work: define benchmark-wide halo/background semantics; retain
-signal-only ARI + background recall until then; re-baseline the `@awaiting`
-recovery expectations (#41, #26) on repaired scenes without weakening their
-topology criteria.
+Mechanism (2026-09-09): the half-cloud tissue is structural, not a knob.
+`FadedMixture.density = Σ w_c [λ_c f_c + (1-λ_c) u]` with `u` the uniform on
+the support box, so signal mass ≈ tissue mass ≈ 1 before normalisation
+and every faded scene samples 46–49% tissue (circle 0.48, swiss 0.46,
+tori 0.49, nested 0.47, bimodal 0.48). `tissue_fraction` only sets the
+box padding; metadata reports `requested=0.03, actual=0.46`. The SI
+S14 calibration text speaks of "tissue fractions 0/0.05" as if they were
+mass fractions — check what those runs actually contained.
+
+Consequence for the reader (nested seed 2 under `track_tau`, tree
+composition probe): the root accepts at the coarsest resolving τ
+(0.12, N=283); at that τ the outer shell (1722 pts, 4× the inner area)
+is only ~3× above `u` while the inner is ~11×, so 57% of the outer
+shell's nodes fall below the C-D level and go to background
+(cover 0.618). The surviving outer fragment is 60% tissue and then
+shatters Hartigan-faithfully (child splits at ρ 0.018, φ = 0) into the
+8 signal leaves seen on seeds 0 and 2. Seeds 1, 3, 4 keep the whole
+outer shell (cover ≥ 0.886) and give 2 leaves. Not a growth-policy
+defect: the accepted cut is right, its background partition of the
+lower-density component is crude at the first-accept scale.
+
+Remaining work: define benchmark-wide halo/background semantics
+(descent options recorded in `SCRATCHPAD_LOG`: A core-only descent, B
+interim guard, C as-is — C in effect); decide whether the sampler
+should honour a true tissue *mass* fraction and rename/fix
+`tissue_fraction`; decide whether the reader should refine the
+background partition below the first-accept τ before descending;
+retain signal-only ARI + background recall until then; re-baseline the
+`@awaiting` recovery expectations (#41, #26) on repaired scenes without
+weakening their topology criteria.
 
 Level-set consequence (2026-09-09, from #48): the root split assigns about
 half the tissue to signal children (nested seed-0 bg recall 0.51; nested
@@ -748,8 +774,10 @@ Remaining (2026-09-09; ordered by severity):
   split-in-place to N=1000 — reads at N=530–1000, τ≤0.087 were all
   `bottleneck` with ρ=1.2–4.8. Seed 0's `no_cut` fell at τ=0.03, so
   its re-seed was a fresh 512-node fit (ρ=0.018). Warm split-in-place
-  nodes stay on the saddle between the tori; fresh data seeds do not.
-  The `n/k` bound held at N=1000 (no false accept at 8 samples/node).
+  nodes stay on the saddle between the tori; fresh data seeds do not
+  (tori seed 1 with 32 finer steps: still K=1, 992 s — step budget is
+  not the limit). The `n/k` bound held at N=1000 (no false accept at 8
+  samples/node).
   Redesign landed flag-gated (`LevelSetConfig.growth_policy=
   "track_tau"`, default still `no_cut_gated`): a fresh
   `fit_scaffold_at_tau` at every finer τ with N free up to `n/k`; stop
@@ -765,9 +793,19 @@ Remaining (2026-09-09; ordered by severity):
   0.0085, logBF 9240): benchmark defect, not reader — generator is a
   48×8 kernel-anchor comb with 7–20σ gaps along t (inter-ridge density
   0.5%–1e-22 of peak); continuous-surface rewrite in flight. Full
-  `track_tau` sweep seeds 0–4 running. Remaining after that: promote
-  `track_tau` to default and retire `no_cut_gated` + γ, or record why
-  not; SI S2.6.2 text for the policy.
+  `track_tau` sweep seeds 0–4 (swiss excluded): 49/55 vs 43/55 for
+  `no_cut_gated` on the same scene-seeds. Nulls 25/25; hierarchy root
+  K=3 5/5 (signal leaves 5 on seeds 0, 2 — one fine pair merged — 6
+  elsewhere); linked tori root K=2 5/5, ARI ≥ 0.999, 125–148 s/seed;
+  nested root K=2 5/5 (was 2/5), seeds 0 and 2 then over-split the
+  tissue-dominated outer-shell fragment (8 signal leaves; mechanism in
+  #45); bimodal circle 3/5 and weak two-Gaussians 2/5, unchanged from
+  baseline (connected-support valleys; separate difficulty, passes have
+  bg recall 1.0 and ARI 0.16–0.24); clear two-Gaussians 5/5. Child
+  refits under `track_tau` are not the cause of the nested residue (the
+  child splits are at ρ 0.018 and φ = 0). Remaining: swiss roll on the
+  repaired generator; promote `track_tau` to default and retire
+  `no_cut_gated` + γ + `mesh_scale_match_ratio`; SI S2.6.2 text.
 - **Tissue-heavy children re-partition (→ #45).** Root splits leak
   tissue into signal children (nested child 3: 51% tissue, bg recall
   0.51; bimodal child 3: 37%). The reader then marks most of the child

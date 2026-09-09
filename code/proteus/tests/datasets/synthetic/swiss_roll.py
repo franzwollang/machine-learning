@@ -13,8 +13,9 @@ from ..ground_truth import (
 )
 from .faded_density import (
     FadedMixture,
-    KernelMixtureFadedComponent,
     SupportBox,
+    SwissRollSurfaceFadedComponent,
+    arc_primitive,
     assign_labels_by_lambda,
     sample_faded_mixture,
 )
@@ -36,7 +37,11 @@ def make_swiss_roll(
     seed: int = 0,
     transition_radius: float = 3.0,
 ) -> SyntheticDataset:
-    """Generate a Swiss roll as an exact faded density."""
+    """Generate a Swiss roll as an exact faded density.
+
+    Sampling is continuous and area-uniform on the spiral sheet rather
+    than drawn from a sparse kernel-anchor lattice.
+    """
     if extrusion_dim < 0:
         raise ValueError("extrusion_dim must be non-negative")
 
@@ -50,24 +55,27 @@ def make_swiss_roll(
         tube_sigma = float(extrusion_sigma)
     ambient_dim = 3 + max(extrusion_dim - 1, 0)
 
-    n_t = max(48, 4 * int(np.sqrt(target_n_nodes)))
-    n_h = max(8, int(np.ceil(max(256, 8 * target_n_nodes) / n_t)))
-    t_grid = np.linspace(t_min, t_max, num=n_t, endpoint=True)
-    h_grid = np.linspace(0.0, height, num=n_h, endpoint=True)
-    tt, hh = np.meshgrid(t_grid, h_grid, indexing="ij")
-    anchors = np.zeros((tt.size, ambient_dim), dtype=float)
-    anchors[:, 0] = (tt.ravel() * np.cos(tt.ravel())) / scale
-    anchors[:, 1] = hh.ravel() / scale
-    anchors[:, 2] = (tt.ravel() * np.sin(tt.ravel())) / scale
-
-    component = KernelMixtureFadedComponent(
-        anchors=anchors,
+    component = SwissRollSurfaceFadedComponent(
+        t_min=float(t_min),
+        t_max=float(t_max),
+        height=float(height),
         sigma=tube_sigma,
         transition_radius=transition_radius,
+        ambient_dim=ambient_dim,
         weight=1.0,
+        scale=float(scale),
     )
+    # Envelope of the sheet only — used for the tissue box, not as a
+    # density lattice.  Dense enough to capture the spiral extrema.
+    t_env = np.linspace(t_min, t_max, num=256)
+    h_env = np.linspace(0.0, height, num=8)
+    tt, hh = np.meshgrid(t_env, h_env, indexing="ij")
+    envelope = np.zeros((tt.size, ambient_dim), dtype=float)
+    envelope[:, 0] = (tt.ravel() * np.cos(tt.ravel())) / scale
+    envelope[:, 1] = hh.ravel() / scale
+    envelope[:, 2] = (tt.ravel() * np.sin(tt.ravel())) / scale
     support = SupportBox.from_points(
-        anchors,
+        envelope,
         padding_fraction=max(0.05, tissue_fraction),
         min_padding=0.05,
         extra_padding=3.0 * tube_sigma,
@@ -77,9 +85,6 @@ def make_swiss_roll(
     labels = assign_labels_by_lambda(points, [component], label_offsets=[0])
     signal_points = component.sample(n_samples, np.random.default_rng(seed + 17))
     effective_noise_variance = ambient_dim * tube_sigma**2
-
-    def arc_primitive(value: float) -> float:
-        return 0.5 * (value * np.sqrt(1.0 + value * value) + np.arcsinh(value))
 
     arc_length = float(arc_primitive(t_max) - arc_primitive(t_min)) / scale
     signal_tau = expected_tau_for_surface(
@@ -144,7 +149,8 @@ def make_swiss_roll(
             "tissue_fraction_requested": tissue_fraction,
             "support_bounds_lo": tissue_bounds[0].tolist(),
             "support_bounds_hi": tissue_bounds[1].tolist(),
-            "anchor_count": int(anchors.shape[0]),
+            "anchor_count": 0,
+            "sampling": "continuous_area_uniform",
             **sampler_meta,
         },
     )

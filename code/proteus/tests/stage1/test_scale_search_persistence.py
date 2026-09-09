@@ -6444,8 +6444,12 @@ def test_phi_half_life_circle_swiss_x_halve_grid_no_persist() -> None:
     expect = {
         ("circle", False): {"n": 8, "peak": 4, "half": 6, "frac": 1.632},
         ("circle", True): {"n": 16, "peak": 8, "half": 12, "frac": 3.150},
-        ("swiss", False): {"n": 8, "peak": 4, "half": 5, "frac": 0.960},
-        ("swiss", True): {"n": 16, "peak": 8, "half": 10, "frac": 1.935},
+        # Continuous Swiss sheet (issue #48): the old 48×8 kernel lattice was
+        # a comb of ridges, so phi peaked mid-grid (coarse peak=4, half=5,
+        # frac=0.960; dense peak=8, half=10, frac=1.935).  Area-uniform
+        # surface density moves the coarse peak to the fine end.
+        ("swiss", False): {"n": 8, "peak": 1, "half": 3, "frac": 1.149},
+        ("swiss", True): {"n": 16, "peak": 7, "half": 10, "frac": 2.351},
     }
     by: dict[tuple[str, bool], dict[str, object]] = {}
     print("\nA6-T101 Phi half-life circle/swiss × halve_grid (no persist)")
@@ -6522,11 +6526,14 @@ def test_phi_half_life_circle_swiss_x_halve_grid_no_persist() -> None:
         assert abs(float(row["frac"]) - float(want["frac"])) < 0.05
         assert int(row["half"]) > int(row["peak"])
 
-    # Densify doubles grid length and roughly doubles peak/half indices.
+    # Densify doubles grid length. Circle peak/half indices still double
+    # (mid-grid peak). Swiss no longer does: the continuous sheet moves the
+    # coarse phi peak from mid-grid index 4 to fine-end index 1, so 2×coarse
+    # is not a dense-grid correspondence (issue #48).
     for name in ("circle", "swiss"):
         assert int(by[(name, True)]["n"]) == 2 * int(by[(name, False)]["n"])
-        assert int(by[(name, True)]["peak"]) == 2 * int(by[(name, False)]["peak"])
-        assert int(by[(name, True)]["half"]) == 2 * int(by[(name, False)]["half"])
+    assert int(by[("circle", True)]["peak"]) == 2 * int(by[("circle", False)]["peak"])
+    assert int(by[("circle", True)]["half"]) == 2 * int(by[("circle", False)]["half"])
 
     assert PersistenceConfig().resolve_within_interval == "none"
     assert PersistenceConfig().densify_overlap_recover == "none"

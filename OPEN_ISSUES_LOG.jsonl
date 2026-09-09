@@ -79,3 +79,4 @@
 {"ts":"2026-09-09T10:20:00-05:00","summary":"#48: multi-seed result recorded — nulls 24/24, hierarchy stable, tori K=1 on seeds 1-4, nested K=1 on s1/s3; growth-policy redesign (track_tau) filed as top item.","added":[],"edited":[48],"resolved":[]}
 {"ts":"2026-09-09T10:20-05:00","summary":"#48: seeds 1-4 full results (bimodal/weak also seed-dependent) and tori seed-1 saddle diagnosis recorded","added":[],"edited":[48],"resolved":[]}
 {"ts":"2026-09-09T10:40-05:00","summary":"#48: track_tau results, child-refit caveat, swiss-roll comb benchmark defect recorded","added":[],"edited":[48],"resolved":[]}
+{"ts":"2026-09-09T11:50-05:00","summary":"#48: track_tau multi-seed results; #45: structural ~50% tissue mechanism and nested first-accept background partition finding, new decision items","added":[],"edited":[45,48],"resolved":[]}
