@@ -37,6 +37,7 @@ from proteus.stage1.recursion import (
     _grow_underresolved_level_set,
     _level_set_finer_walk_exhausted,
     _level_set_should_finer_walk,
+    _research_finer_split,
     run_recursive_discovery,
 )
 from proteus.stage1.stabilization import StabilizationConfig
@@ -1019,3 +1020,192 @@ def test_children_inherit_allow_finer_research_but_not_growth(monkeypatch) -> No
     assert child.allow_finer_research is True
     assert child.level_set.grow_nodes_when_underresolved is False
     assert child.scale_search.max_nodes is None
+
+
+def _rejected_level_set(reason: str) -> LevelSetSelection:
+    verdict = (
+        ValleyVerdict.UNDER_RESOLVED
+        if reason == "no_cut"
+        else ValleyVerdict.RESOLVED_NULL
+    )
+    return LevelSetSelection(
+        tree=LevelSetTree(core_radii=np.empty(0), levels=()),
+        cluster_result=None,
+        selected_level=None,
+        log_bf=float("-inf"),
+        resolvability=ValleyResolvability(
+            verdict=verdict,
+            saw_balanced_cut=reason == "bottleneck",
+            at_node_cap=True,
+            n_nodes=64,
+            max_nodes=64,
+            reject_reason=reason,
+        ),
+    )
+
+
+def test_growth_policy_validation() -> None:
+    assert LevelSetConfig().growth_policy == "no_cut_gated"
+    assert LevelSetConfig(growth_policy="track_tau").growth_policy == "track_tau"
+    with pytest.raises(ValueError):
+        LevelSetConfig(growth_policy="bogus")
+
+
+def test_track_tau_walk_refits_at_bound_and_stops(monkeypatch) -> None:
+    calls: list[tuple[float, int]] = []
+
+    def _fake_fit(_data, _dim, tau, _config, max_nodes, seed=None):
+        del seed
+        calls.append((float(tau), int(max_nodes)))
+        return type(
+            "_Fit",
+            (),
+            {"nodes": [object()] * int(max_nodes), "tau": float(tau)},
+        )()
+
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.fit_scaffold_at_tau",
+        _fake_fit,
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.select_level_set_partition",
+        lambda *_args, **_kwargs: _rejected_level_set("no_cut"),
+    )
+    rng = np.random.default_rng(0)
+    points = rng.normal(size=(400, 2))
+    ratio = float(RecursionConfig().finer_tau_cap_ratio)
+    out = _research_finer_split(
+        points,
+        dim=2,
+        config=RecursionConfig(
+            use_level_set_clustering=True,
+            allow_finer_research=True,
+            level_set=LevelSetConfig(growth_policy="track_tau"),
+            scale_search=ScaleSearchConfig(min_nodes=4, k=8, max_nodes=None),
+            max_finer_scale_steps=8,
+        ),
+        parent_tau=1.0,
+        parent_scaffold=None,
+    )
+    assert out is None
+    assert len(calls) == 1
+    tau, max_nodes = calls[0]
+    assert max_nodes == 400 // 8 == 50
+    assert tau == pytest.approx(1.0 * ratio)
+
+
+def test_track_tau_walk_descends_when_below_bound_and_accepts(monkeypatch) -> None:
+    calls: list[tuple[float, int]] = []
+    selects: list[int] = []
+
+    def _fake_fit(_data, _dim, tau, _config, max_nodes, seed=None):
+        del seed
+        calls.append((float(tau), int(max_nodes)))
+        return type(
+            "_Fit",
+            (),
+            {"nodes": [object()] * 10, "tau": float(tau)},
+        )()
+
+    accepted = LevelSetSelection(
+        tree=LevelSetTree(core_radii=np.empty(0), levels=()),
+        cluster_result=ClusterResult(
+            labels=np.array([0, 1]),
+            exemplar_indices=np.array([0, 1]),
+            n_clusters=2,
+            partition_q_score=1.0,
+        ),
+        selected_level=0,
+        log_bf=1.0,
+    )
+
+    def _fake_select(*_args, **_kwargs):
+        selects.append(len(selects))
+        if len(selects) == 1:
+            return _rejected_level_set("bottleneck")
+        return accepted
+
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.fit_scaffold_at_tau",
+        _fake_fit,
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.select_level_set_partition",
+        _fake_select,
+    )
+    rng = np.random.default_rng(0)
+    points = rng.normal(size=(400, 2))
+    ratio = float(RecursionConfig().finer_tau_cap_ratio)
+    out = _research_finer_split(
+        points,
+        dim=2,
+        config=RecursionConfig(
+            use_level_set_clustering=True,
+            allow_finer_research=True,
+            level_set=LevelSetConfig(growth_policy="track_tau"),
+            scale_search=ScaleSearchConfig(min_nodes=4, k=8, max_nodes=None),
+            max_finer_scale_steps=8,
+        ),
+        parent_tau=1.0,
+        parent_scaffold=None,
+    )
+    assert out is not None
+    _result, _scaffold, cluster_result = out
+    assert cluster_result.n_clusters == 2
+    assert len(calls) == 2
+    assert calls[0][0] == pytest.approx(1.0 * ratio)
+    assert calls[1][0] == pytest.approx(1.0 * ratio * ratio)
+
+
+def test_no_cut_gated_path_unchanged_by_flag_default(monkeypatch) -> None:
+    grew: list[bool] = []
+    original_grow = _grow_underresolved_level_set
+
+    def _record_grow(*args, **kwargs):
+        grew.append(True)
+        return original_grow(*args, **kwargs)
+
+    def _forbid_fit(*_args, **_kwargs):
+        raise AssertionError(
+            "default no_cut_gated path must not call fit_scaffold_at_tau "
+            "on a lone Gaussian (growth licensed unexpectedly)"
+        )
+
+    monkeypatch.setattr(
+        "proteus.stage1.recursion._grow_underresolved_level_set",
+        _record_grow,
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.fit_scaffold_at_tau",
+        _forbid_fit,
+    )
+    rng = np.random.default_rng(0)
+    points = rng.normal(size=(300, 2))
+    tree = run_recursive_discovery(
+        points,
+        dim=2,
+        config=RecursionConfig(
+            scale_search=ScaleSearchConfig(
+                selector="load_crossover",
+                tau_min=1e-3,
+                tau_max=10,
+                max_grid_points=5,
+                k=8,
+                min_nodes=4,
+                n_seeds=4,
+                max_nodes=None,
+                stabilization=StabilizationConfig(
+                    min_equilibrium_epochs=2,
+                    max_epochs=6,
+                ),
+            ),
+            min_samples=100,
+            max_depth=3,
+            use_level_set_clustering=True,
+            allow_finer_research=True,
+            level_set=LevelSetConfig(),
+            seed=0,
+        ),
+    )
+    assert grew
+    assert len(tree.nodes) >= 1

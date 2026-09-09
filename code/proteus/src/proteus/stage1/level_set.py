@@ -125,6 +125,12 @@ class LevelSetConfig:
     ``φ / φ_0`` compares the candidate to typical *disagreeing*
     hyperplane cuts of the same flow graph (SI S2.6.2).  The same
     ``max_bottleneck_ratio`` ceiling is applied to that ratio.
+
+    ``growth_policy`` selects how the finer walk grows the node budget.
+    ``"no_cut_gated"`` (default) is the current behaviour: grow only on
+    ``no_cut`` at a binding, scale-matched cap.  ``"track_tau"`` refits
+    fresh at each finer ``τ`` with ``N`` free up to the ``n/k`` bound
+    (SI S2.6.2 / OPEN_ISSUES #48).
     """
 
     k_neighbors: int = 8
@@ -139,6 +145,14 @@ class LevelSetConfig:
     node_growth_factor: float = 2.0
     max_node_growth_steps: int = 5
     mesh_scale_match_ratio: float = 2.0
+    growth_policy: str = "no_cut_gated"
+
+    def __post_init__(self) -> None:
+        if self.growth_policy not in {"no_cut_gated", "track_tau"}:
+            raise ValueError(
+                "growth_policy must be 'no_cut_gated' or 'track_tau', "
+                f"got {self.growth_policy!r}"
+            )
 
 
 @dataclass(frozen=True)

@@ -311,7 +311,7 @@ def _config(args: argparse.Namespace, seed: int) -> RecursionConfig:
         use_level_set_clustering=True,
         allow_finer_research=True,
         max_finer_scale_steps=int(args.max_finer_steps),
-        level_set=LevelSetConfig(),
+        level_set=LevelSetConfig(growth_policy=args.growth_policy),
         seed=int(seed),
     )
 
@@ -395,6 +395,12 @@ def main() -> int:
         default=16,
         help="Default 16 spans ~80x below tau*; production default is 8 (16x).",
     )
+    parser.add_argument(
+        "--growth-policy",
+        choices=("no_cut_gated", "track_tau"),
+        default="no_cut_gated",
+        help="Level-set finer-walk growth policy (default: no_cut_gated).",
+    )
     args = parser.parse_args()
 
     wanted = None if args.scenes is None else set(args.scenes)
@@ -402,7 +408,8 @@ def main() -> int:
     print(
         "normal-path level-set diagnostic "
         f"(load_crossover, finer_steps={args.max_finer_steps}, "
-        f"max_epochs={args.max_epochs}, grid={args.max_grid_points})",
+        f"max_epochs={args.max_epochs}, grid={args.max_grid_points}, "
+        f"growth_policy={args.growth_policy})",
         flush=True,
     )
     for scene in _scenes():

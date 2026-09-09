@@ -730,19 +730,44 @@ raised cap, do not grow, and do not finer-walk. SI S2.6.2 / S14.3.
 
 Remaining (2026-09-09; ordered by severity):
 - **Composite root recovery is seed-0 luck (multi-seed 2026-09-09).**
-  Seeds 1–4: linked tori root K=1 on all four; nested K=1 on seeds 1
-  and 3, K=2 (ARI 0.925) on seed 2. Nulls hold 24/24 (circle, swiss,
+  Seeds 1–4 (full sweep 36/48, 6.2 h): linked tori root K=1 on all
+  four; nested K=1 on seeds 1, 3, 4, K=2 (ARI 0.925) on seed 2;
+  bimodal circle K=2 only on seeds 3–4; two-Gaussians weak K=2 only on
+  seed 1; two-Gaussians clear 4/4. Nulls hold 24/24 (circle, swiss,
   lone torus, lone inner shell, lone 2-D/4-D Gaussian); hierarchy K=3
   / 6 on all seeds. Seed-0 tori accepted at finer step 15 of 16 after
   7 `bottleneck` steps at N=64 (no growth licensed) and 6 at N=256;
   growth fires only on `no_cut`-at-cap, so the walk's outcome depends
   on the order of verdicts and on the step budget the SI forbids as a
-  floor. Runtime: tori 14–48 min/seed, nested up to 1.9 h. Under test:
-  (i) 32 steps on tori seed 1; (ii) per-step log on tori seed 1.
-  Candidate redesign: let N track τ during descent (cap never binding,
-  bounded by `n/k`), stop when the bound binds or `one_feature_null`;
-  this removes γ, the `no_cut` trigger and the step budget together.
-  Must re-verify nulls at `n/k` nodes on all seeds.
+  floor. Runtime: tori 14–48 min/seed, nested up to 1.9 h.
+  Diagnosed (tori seed 1, `level_set_root_accept_probe.py`): `no_cut`
+  fired at τ=0.98 where a fresh fit needs 43 nodes; `_refit_raised_cap`
+  raised the *budget* 128→1000 in four steps without adding a node
+  (it compares budgets, not node counts), after which the cap never
+  bound again, no re-seed happened, and the mesh grew warm by
+  split-in-place to N=1000 — reads at N=530–1000, τ≤0.087 were all
+  `bottleneck` with ρ=1.2–4.8. Seed 0's `no_cut` fell at τ=0.03, so
+  its re-seed was a fresh 512-node fit (ρ=0.018). Warm split-in-place
+  nodes stay on the saddle between the tori; fresh data seeds do not.
+  The `n/k` bound held at N=1000 (no false accept at 8 samples/node).
+  Redesign landed flag-gated (`LevelSetConfig.growth_policy=
+  "track_tau"`, default still `no_cut_gated`): a fresh
+  `fit_scaffold_at_tau` at every finer τ with N free up to `n/k`; stop
+  when the bound binds or on `one_feature_null`; removes γ, the
+  `no_cut` trigger and the step-budget dependence. First results: tori
+  seed 1 root K=2 ARI 1.0 in 127 s (was K=1 in 2881 s); circle, lone
+  torus/shell/2-D/4-D Gaussian nulls hold at seed 0; nested seed 0
+  K=2 but 8 signal leaves (was 5), hierarchy 5 (was 6) — `track_tau`
+  also refits on children (it ignores
+  `grow_nodes_when_underresolved=False`), so child N now grows to
+  `n/k`; dissect before deciding whether that is the spec'd recursion
+  or re-densification. Swiss-roll "null" split (K=2, N=250=n/k, ρ
+  0.0085, logBF 9240): benchmark defect, not reader — generator is a
+  48×8 kernel-anchor comb with 7–20σ gaps along t (inter-ridge density
+  0.5%–1e-22 of peak); continuous-surface rewrite in flight. Full
+  `track_tau` sweep seeds 0–4 running. Remaining after that: promote
+  `track_tau` to default and retire `no_cut_gated` + γ, or record why
+  not; SI S2.6.2 text for the policy.
 - **Tissue-heavy children re-partition (→ #45).** Root splits leak
   tissue into signal children (nested child 3: 51% tissue, bg recall
   0.51; bimodal child 3: 37%). The reader then marks most of the child

@@ -1,26 +1,29 @@
 {
-  "updated_at": "2026-09-09T10:15:00-05:00",
-  "turn": 83,
+  "updated_at": "2026-09-09T10:40:00-05:00",
+  "turn": 85,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "why tori/nested fail on seeds 1-4; growth-policy redesign (N tracks tau to n/k bound)"
+    "goal": "validate track_tau across seeds 0-4; fix swiss-roll comb generator; dissect child refits"
   },
   "recent": [
-    "Multi-seed: nulls 24/24, hierarchy stable; tori K=1 seeds 1-4; nested K=1 s1,s3, K=2 s2",
-    "#45 mechanism: halo nodes active at selected level; Hartigan-faithful; user skipped semantics choice -> option C for now",
-    "Running: tori s1 per-step log; tori s1 with 32 finer steps"
+    "Seeds 1-4 no_cut_gated sweep 36/48: nulls 24/24, hierarchy 4/4; tori 0/4, nested 1/4, bimodal 2/4, weak 1/4, clear 4/4",
+    "track_tau landed flag-gated: tori s1 K=2 ARI 1.0 in 127 s (23x faster); seed-0 nulls hold except swiss",
+    "Swiss 'null' is a 48x8 kernel-anchor comb (7-20 sigma gaps): reader split is correct; Grok rewriting generator as continuous surface"
   ],
   "discoveries": [
-    "Seed-0 tori accept was at step 15/16; growth only on no_cut-at-cap makes outcome order/budget dependent",
-    "Runtime tori 14-48 min/seed, nested up to 1.9 h: iteration blocker",
-    "Warm cap-raise at fixed tau failed before (rho~2); re-seed worked; gradual tau-tracking untested"
+    "Warm split-in-place nodes sit on the saddle between composites; fresh fit_scaffold_at_tau at fine tau finds the valley",
+    "_refit_raised_cap compares budgets not node counts: growth steps burn without adding nodes at coarse tau",
+    "n/k bound held on tori at N=1000 (no false accept at 8 samples/node)",
+    "track_tau walk ignores grow_nodes_when_underresolved=False: children now refit to n/k (nested 8 leaves vs 5, hierarchy 5 vs 6)",
+    "Only swiss roll still used an anchor lattice; circle/tori/shell are continuous components"
   ],
   "open_threads": [
-    "Growth policy 'track_tau': cap never binding, bounded n/k, stop when bound binds or one_feature_null",
-    "Nulls must be re-verified at n/k nodes under any new policy",
-    "#45 core-only descent (A) recommended, awaiting user"
+    "Running: track_tau sweep seeds 0-4 all scenes minus swiss (/tmp/sweep_track_tau_s0-4.txt)",
+    "Running: swiss-roll continuous component subagent",
+    "Decide child refit semantics under track_tau; then promote track_tau to default, retire gamma/no_cut_gated; SI S2.6.2",
+    "#45 core-only descent (A) recommended, awaiting user; option C in effect"
   ],
-  "next_step": "read /tmp/root_accept_tori_s1.txt and /tmp/sweep_tori_s1_steps32.txt; then dispatch flag-gated track_tau policy",
+  "next_step": "read /tmp/sweep_track_tau_s0-4.txt; compare to 36/48 baseline; then child-refit dissection on nested/hierarchy",
   "blockers": []
 }

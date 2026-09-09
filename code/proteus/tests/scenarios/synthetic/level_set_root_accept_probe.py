@@ -224,6 +224,11 @@ def main() -> int:
     parser.add_argument("--max-epochs", type=int, default=12)
     parser.add_argument("--max-grid-points", type=int, default=8)
     parser.add_argument("--max-finer-steps", type=int, default=16)
+    parser.add_argument(
+        "--growth-policy",
+        choices=("no_cut_gated", "track_tau"),
+        default="no_cut_gated",
+    )
     args = parser.parse_args()
     known = [s.name for s in _scenes()]
     wanted = list(args.scenes)
@@ -235,7 +240,7 @@ def main() -> int:
         f"level_set_root_accept_probe seed={args.seed} "
         f"max_depth={args.max_depth} max_epochs={args.max_epochs} "
         f"grid={args.max_grid_points} finer_steps={args.max_finer_steps} "
-        f"scenes={wanted}",
+        f"growth_policy={args.growth_policy} scenes={wanted}",
         flush=True,
     )
     for name in wanted:

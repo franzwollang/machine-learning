@@ -1611,6 +1611,11 @@ def _grow_underresolved_level_set(
     if budget is not None:
         budget = int(budget)
 
+    # track_tau: first finer step at tau* · ratio with N free replaces
+    # same-τ L=1 growth (SI S2.6.2 / #48).
+    if config.level_set.growth_policy == "track_tau":
+        return None, scaffold, selection, budget
+
     tau = float(getattr(scaffold, "tau", 0.0) or 0.0)
     ls_cfg = config.level_set
     if (
@@ -1704,6 +1709,81 @@ def _refit_raised_cap(
     return fitted, nxt
 
 
+_TRACK_TAU_CONTINUE = object()
+
+
+def _track_tau_finer_step(
+    data: np.ndarray,
+    dim: int,
+    config: RecursionConfig,
+    tau_cap: float,
+    step: int,
+):
+    """One track_tau finer step: fresh fit at ``tau_cap``, N free to ``n/k``.
+
+    SI S2.6.2 / OPEN_ISSUES #48.  Returns ``(None, scaffold, cluster_result)``
+    on accept, ``None`` to stop the walk, or ``_TRACK_TAU_CONTINUE``.
+    """
+
+    bound = shot_noise_node_cap(
+        data.shape[0],
+        config.level_set.k_neighbors,
+        config.scale_search.min_nodes,
+    )
+    seed = (config.scale_search.seed or 0) + int(step)
+    scaffold = fit_scaffold_at_tau(
+        data,
+        dim,
+        tau_cap,
+        config.scale_search,
+        max_nodes=bound,
+        seed=seed,
+    )
+    if len(scaffold.nodes) < 2:
+        return _TRACK_TAU_CONTINUE
+    level_set = select_level_set_partition(
+        scaffold, config.level_set, config.dm_cluster, data=data,
+    )
+    if level_set.accepted:
+        assert level_set.cluster_result is not None
+        return None, scaffold, level_set.cluster_result
+    reason = (
+        level_set.resolvability.reject_reason
+        if level_set.resolvability is not None
+        else None
+    )
+    if reason == "one_feature_null":
+        return None
+    if len(scaffold.nodes) >= bound - 1:
+        return None
+    return _TRACK_TAU_CONTINUE
+
+
+def _research_finer_split_track_tau(
+    data: np.ndarray,
+    dim: int,
+    config: RecursionConfig,
+    parent_tau: float,
+):
+    """Finer walk that refits at each τ with N free up to ``n/k`` (#48)."""
+
+    ratio = float(config.finer_tau_cap_ratio)
+    if not (0.0 < ratio < 1.0):
+        ratio = float(config.scale_search.grid_ratio)
+    tau_min = float(config.scale_search.tau_min)
+    tau_cap = float(parent_tau) * ratio
+    max_steps = max(1, int(config.max_finer_scale_steps))
+    for step in range(max_steps):
+        if not (tau_min < tau_cap < float(parent_tau)):
+            return None
+        outcome = _track_tau_finer_step(data, dim, config, tau_cap, step)
+        if outcome is _TRACK_TAU_CONTINUE:
+            tau_cap *= ratio
+            continue
+        return outcome
+    return None
+
+
 def _research_finer_split(
     data: np.ndarray,
     dim: int,
@@ -1738,6 +1818,12 @@ def _research_finer_split(
     ``prefer_spectral_gap_prepass`` is on, a Fiedler bipartition of the
     lifted / kNN graph is tried.
     """
+
+    if (
+        config.use_level_set_clustering
+        and config.level_set.growth_policy == "track_tau"
+    ):
+        return _research_finer_split_track_tau(data, dim, config, parent_tau)
 
     ratio = float(config.finer_tau_cap_ratio)
     if not (0.0 < ratio < 1.0):
