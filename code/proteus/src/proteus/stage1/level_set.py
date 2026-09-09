@@ -33,7 +33,7 @@ from typing import Any
 
 import numpy as np
 from scipy.sparse import csr_matrix
-from scipy.sparse.csgraph import connected_components, maximum_flow
+from scipy.sparse.csgraph import connected_components, dijkstra, maximum_flow
 from scipy.spatial import cKDTree
 
 from proteus.stage1.clustering import (
@@ -123,8 +123,8 @@ class LevelSetConfig:
     probe (2026-09-09) accepted a shot-noise cut at ``φ=0.052``, inside
     the fitted true-split band.  The #48 studentized ratio
     ``φ / φ_0`` compares the candidate to typical *disagreeing*
-    hyperplane cuts of the same flow graph (SI S2.6.2).  The same
-    ``max_bottleneck_ratio`` ceiling is applied to that ratio.
+    intrinsic connected cuts of the same flow graph (SI S2.6.2).  The
+    same ``max_bottleneck_ratio`` ceiling is applied to that ratio.
 
     ``growth_policy`` selects how the finer walk grows the node budget.
     ``"no_cut_gated"`` (default) is the current behaviour: grow only on
@@ -718,13 +718,182 @@ def _set_maxflow(
     return float(maximum_flow(matrix, n, n + 1).flow_value) / _FLOW_SCALE
 
 
-def _bisection_flow(
+def _induced_adjacency(
+    graph: tuple[list[int], list[int], list[int]],
+    members: np.ndarray,
+) -> csr_matrix:
+    """Induced undirected weight matrix on ``members`` (local ``0..m-1``)."""
+
+    members = np.asarray(members, dtype=int)
+    index = {int(g): i for i, g in enumerate(members)}
+    m = int(members.shape[0])
+    rows, cols, caps = graph
+    loc_r: list[int] = []
+    loc_c: list[int] = []
+    weights: list[float] = []
+    for i, j, cap in zip(rows, cols, caps, strict=True):
+        if i in index and j in index and i != j:
+            loc_r.append(index[i])
+            loc_c.append(index[j])
+            weights.append(float(cap))
+    if not weights:
+        return csr_matrix((m, m), dtype=float)
+    return csr_matrix((weights, (loc_r, loc_c)), shape=(m, m), dtype=float)
+
+
+def _hop_adjacency(adj: csr_matrix) -> csr_matrix:
+    """Symmetrized unweighted copy: hop length 1 on every positive edge."""
+
+    if adj.nnz == 0:
+        return adj
+    binary = adj.maximum(adj.T).tocsr()
+    binary.data = np.ones(binary.data.shape[0], dtype=float)
+    return binary
+
+
+def _hop_distances(adj: csr_matrix, source: int) -> np.ndarray:
+    return dijkstra(
+        _hop_adjacency(adj),
+        directed=False,
+        indices=int(source),
+        unweighted=True,
+    )
+
+
+def _farthest_pair(adj: csr_matrix) -> tuple[int, int] | None:
+    """2-approximation to the hop-diameter endpoints."""
+
+    m = int(adj.shape[0])
+    if m < 2 or adj.nnz == 0:
+        return None
+    binary = _hop_adjacency(adj)
+    seed_dist = dijkstra(binary, directed=False, indices=0, unweighted=True)
+    finite = np.isfinite(seed_dist)
+    if not np.any(finite):
+        return None
+    start = int(np.argmax(np.where(finite, seed_dist, -1.0)))
+    far_dist = dijkstra(binary, directed=False, indices=start, unweighted=True)
+    finite_far = np.isfinite(far_dist)
+    if not np.any(finite_far):
+        return None
+    end = int(np.argmax(np.where(finite_far, far_dist, -1.0)))
+    if start == end:
+        return None
+    return start, end
+
+
+def _normalized_laplacian_vectors(
+    adj: csr_matrix,
+    n_eigs: int,
+) -> np.ndarray | None:
+    """First ``n_eigs`` non-trivial eigenvectors of the normalized Laplacian.
+
+    ``L = I - D^{-1/2} A D^{-1/2}`` on the symmetrized weights.  Column 0 of
+    ``eigh`` is the trivial (or first-component) mode and is skipped.
+    Returns shape ``(m, k)`` or ``None`` when the solve is undefined.
+    """
+
+    m = int(adj.shape[0])
+    k = min(int(n_eigs), m - 1)
+    if m < 2 or k < 1:
+        return None
+    dense = np.asarray((0.5 * (adj + adj.T)).toarray(), dtype=float)
+    deg = dense.sum(axis=1)
+    d_inv_sqrt = np.zeros(m, dtype=float)
+    positive = deg > 0.0
+    if not np.any(positive):
+        return None
+    d_inv_sqrt[positive] = 1.0 / np.sqrt(deg[positive])
+    scaled = dense * d_inv_sqrt[:, None] * d_inv_sqrt[None, :]
+    laplacian = np.eye(m) - scaled
+    try:
+        _vals, vecs = np.linalg.eigh(laplacian)
+    except np.linalg.LinAlgError:
+        return None
+    return vecs[:, 1 : 1 + k]
+
+
+def _median_split_mask(values: np.ndarray) -> np.ndarray | None:
+    """Boolean median split; ``None`` if both sides cannot be populated."""
+
+    vals = np.asarray(values, dtype=float)
+    finite = np.isfinite(vals)
+    if int(np.sum(finite)) < 2:
+        return None
+    filled = vals.copy()
+    fill = float(np.median(vals[finite]))
+    filled[~finite] = fill
+    side = filled > float(np.median(filled))
+    if int(side.sum()) == 0 or int((~side).sum()) == 0:
+        order = np.argsort(filled, kind="stable")
+        side = np.zeros(filled.shape[0], dtype=bool)
+        side[order[filled.shape[0] // 2 :]] = True
+    if int(side.sum()) == 0 or int((~side).sum()) == 0:
+        return None
+    return side
+
+
+def _component_count(adj: csr_matrix, local_ids: np.ndarray) -> int:
+    if local_ids.size == 0:
+        return 0
+    if local_ids.size == 1:
+        return 1
+    n_comp, _ = connected_components(
+        adj[local_ids][:, local_ids], directed=False,
+    )
+    return int(n_comp)
+
+
+def _both_sides_connected(adj: csr_matrix, mask: np.ndarray) -> bool:
+    return (
+        _component_count(adj, np.where(mask)[0]) == 1
+        and _component_count(adj, np.where(~mask)[0]) == 1
+    )
+
+
+def _largest_component(adj: csr_matrix, local_ids: np.ndarray) -> np.ndarray:
+    if local_ids.size <= 1:
+        return local_ids
+    n_comp, labels = connected_components(
+        adj[local_ids][:, local_ids], directed=False,
+    )
+    if n_comp <= 1:
+        return local_ids
+    keep = int(np.argmax(np.bincount(labels)))
+    return local_ids[labels == keep]
+
+
+def _intrinsic_split_mask(adj: csr_matrix) -> np.ndarray | None:
+    """Fiedler median split, else hop-geodesic median from the diameter."""
+
+    m = int(adj.shape[0])
+    if m < 2:
+        return None
+    mask = None
+    if m >= 4:
+        vecs = _normalized_laplacian_vectors(adj, 1)
+        if vecs is not None:
+            mask = _median_split_mask(vecs[:, 0])
+    if mask is None:
+        pair = _farthest_pair(adj)
+        if pair is None:
+            return None
+        mask = _median_split_mask(_hop_distances(adj, pair[0]))
+    return mask
+
+
+def _hyperplane_bisection_flow(
     graph: tuple[list[int], list[int], list[int]],
     n: int,
     members: np.ndarray,
     positions: np.ndarray,
 ) -> float:
-    """Internal throughput: max flow across a max-variance spatial bisection."""
+    """Legacy ambient-hyperplane internal throughput (#48 contrast).
+
+    Bisects ``members`` by the max-variance coordinate median.  Kept so
+    tests can show that a curled sheet inflates φ when a side is
+    disconnected in the flow graph.
+    """
 
     points = positions[members]
     axis = int(np.argmax(points.var(axis=0)))
@@ -737,6 +906,40 @@ def _bisection_flow(
         half_a = members[order[:mid]].tolist()
         half_b = members[order[mid:]].tolist()
     return _set_maxflow(graph, n, half_a, half_b)
+
+
+def _bisection_flow(
+    graph: tuple[list[int], list[int], list[int]],
+    n: int,
+    members: np.ndarray,
+    positions: np.ndarray,
+) -> float:
+    """Internal throughput: max flow across an intrinsic connected bisection.
+
+    Bisects the side by the Fiedler vector of the induced flow subgraph
+    (symmetrized weights, normalized Laplacian).  Falls back to a hop-count
+    graph-geodesic median split from the side's farthest-point pair when
+    the eigen-solve fails or the side has fewer than 4 nodes.  If a half
+    is disconnected, the largest component of that half is the source or
+    sink.  Returns 0 when the side has no measurable internal throughput.
+    ``positions`` is unused; kept so existing call sites stay valid.
+    """
+
+    del positions
+    members = np.asarray(members, dtype=int)
+    if members.size < 2:
+        return 0.0
+    adj = _induced_adjacency(graph, members)
+    mask = _intrinsic_split_mask(adj)
+    if mask is None:
+        return 0.0
+    local_a = _largest_component(adj, np.where(mask)[0])
+    local_b = _largest_component(adj, np.where(~mask)[0])
+    if local_a.size == 0 or local_b.size == 0:
+        return 0.0
+    return _set_maxflow(
+        graph, n, members[local_a].tolist(), members[local_b].tolist(),
+    )
 
 
 def _flow_bottleneck_ratio(
@@ -774,7 +977,10 @@ def _flow_bottleneck_ratio(
 
 
 _NULL_CUT_RANDOM = 16
-"""Random hyperplane directions for the one-feature null φ_0 estimator."""
+"""Random geodesic seed count for the one-feature null φ_0 estimator."""
+
+_NULL_CUT_EIGS = 3
+"""Non-trivial Laplacian modes used as intrinsic null bisections."""
 
 
 def mean_neighbor_radius(points: np.ndarray, k: int) -> float:
@@ -941,6 +1147,8 @@ def _null_cut_directions(
     rng: np.random.Generator,
     n_random: int = _NULL_CUT_RANDOM,
 ) -> list[np.ndarray]:
+    """Legacy ambient directions (#48 contrast / tests)."""
+
     directions: list[np.ndarray] = []
     for i in range(max(int(dim), 1)):
         axis = np.zeros(dim, dtype=float)
@@ -954,6 +1162,54 @@ def _null_cut_directions(
     return directions
 
 
+def _labels_from_local_mask(
+    n: int,
+    members: np.ndarray,
+    local_mask: np.ndarray,
+) -> np.ndarray:
+    labels = np.full(int(n), -1, dtype=int)
+    side = np.zeros(int(members.shape[0]), dtype=int)
+    side[local_mask] = 1
+    labels[members] = side
+    return labels
+
+
+def _iter_intrinsic_null_cuts(
+    adj: csr_matrix,
+    n: int,
+    members: np.ndarray,
+    rng: np.random.Generator,
+) -> list[np.ndarray]:
+    """Connected intrinsic bisections of the signal-induced flow graph.
+
+    (a) median splits of the first ``_NULL_CUT_EIGS`` non-trivial
+    normalized-Laplacian eigenvectors; (b) hop-count geodesic median
+    splits from ``_NULL_CUT_RANDOM`` random seeds.  A cut is kept only
+    when both sides are connected in the induced subgraph.
+    """
+
+    cuts: list[np.ndarray] = []
+    m = int(adj.shape[0])
+    if m < 2:
+        return cuts
+    vecs = _normalized_laplacian_vectors(adj, _NULL_CUT_EIGS)
+    if vecs is not None:
+        for k in range(int(vecs.shape[1])):
+            mask = _median_split_mask(vecs[:, k])
+            if mask is None or not _both_sides_connected(adj, mask):
+                continue
+            cuts.append(_labels_from_local_mask(n, members, mask))
+    n_seeds = min(int(_NULL_CUT_RANDOM), m)
+    if n_seeds > 0:
+        seeds = rng.choice(m, size=n_seeds, replace=False)
+        for seed in seeds:
+            mask = _median_split_mask(_hop_distances(adj, int(seed)))
+            if mask is None or not _both_sides_connected(adj, mask):
+                continue
+            cuts.append(_labels_from_local_mask(n, members, mask))
+    return cuts
+
+
 def null_bottleneck_ratio(
     scaffold: Any,
     positions: np.ndarray,
@@ -962,49 +1218,41 @@ def null_bottleneck_ratio(
 ) -> float | None:
     """Typical one-feature ``φ``: median bottleneck of disagreeing cuts.
 
-    Hyperplane bisections that recreate the candidate (agreement
-    ``≥ 0.5`` after a label flip) are dropped so a linearly separable
-    true valley does not contaminate the null.  SI S2.6.2 / #48.
+    Null cuts are intrinsic bisections of the signal-induced flow graph:
+    median splits of the first ``_NULL_CUT_EIGS`` non-trivial
+    normalized-Laplacian eigenvectors, plus hop-count graph-geodesic
+    median splits from ``_NULL_CUT_RANDOM`` random seed nodes.
+
+    Hop count (not ``1/weight``) is the geodesic length so that ``φ_0``
+    estimates the typical ``φ`` of a *geometric* connected cut.  Density-
+    weighted lengths would systematically recover a true valley — the
+    Fiedler cut of the weighted graph already does that, and the
+    agreement filter drops it.  Cuts whose sides are not each connected
+    in the induced subgraph are discarded.  Cuts that recreate the
+    candidate (agreement ``≥ 0.5`` after a label flip) are dropped so a
+    true valley that coincides with the Fiedler cut does not contaminate
+    the null.  Returns ``None`` when the pool is empty.  SI S2.6.2 / #48.
     """
 
     rng = rng if rng is not None else np.random.default_rng(0)
     labels = np.asarray(candidate_labels)
-    signal = labels >= 0
-    if int(np.sum(signal)) < 4:
+    members = np.where(labels >= 0)[0]
+    if members.size < 4:
         return None
-    dim = int(positions.shape[1])
-    directions = _null_cut_directions(dim, rng)
-    forced_ortho: np.ndarray | None = None
-    keys = sorted(set(int(v) for v in labels if v >= 0))
-    if len(keys) >= 2 and dim >= 2:
-        centroid_a = positions[labels == keys[0]].mean(axis=0)
-        centroid_b = positions[labels == keys[1]].mean(axis=0)
-        sep = centroid_a - centroid_b
-        if float(np.linalg.norm(sep)) > 0.0:
-            ortho = np.zeros(dim, dtype=float)
-            ortho[0] = -float(sep[1])
-            ortho[1] = float(sep[0])
-            if float(np.linalg.norm(ortho)) > 0.0:
-                forced_ortho = ortho / np.linalg.norm(ortho)
-                directions.append(forced_ortho)
+    n = int(labels.shape[0])
+    graph = _flow_graph(scaffold)
+    adj = _induced_adjacency(graph, members)
     pool: list[float] = []
     agreeing: list[tuple[float, float]] = []
-    for direction in directions:
-        cut = _hyperplane_cut_labels(positions, signal, direction)
-        if len(set(int(v) for v in cut[signal])) < 2:
+    for cut in _iter_intrinsic_null_cuts(adj, n, members, rng):
+        signal = cut[members]
+        if len(set(int(v) for v in signal)) < 2:
             continue
         phi = _flow_bottleneck_ratio(scaffold, cut, positions)
         if not np.isfinite(phi) or phi < 0.0:
             continue
         agree = _two_set_agreement(labels, cut)
-        is_forced = (
-            forced_ortho is not None
-            and np.allclose(direction / np.linalg.norm(direction), forced_ortho)
-        )
-        # Always keep the orthogonal-to-separation cut. Linearly
-        # separable circle arcs otherwise fail-open to raw φ (the
-        # unique-spatial-split hole that shattered the warm walk).
-        if is_forced or agree <= 0.5:
+        if agree <= 0.5:
             pool.append(float(phi))
         else:
             agreeing.append((agree, float(phi)))

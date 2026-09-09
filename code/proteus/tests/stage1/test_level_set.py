@@ -16,6 +16,18 @@ from proteus.stage1.level_set import (
     LevelSetTree,
     ValleyResolvability,
     ValleyVerdict,
+    _both_sides_connected,
+    _flow_graph,
+    _hyperplane_bisection_flow,
+    _hyperplane_cut_labels,
+    _induced_adjacency,
+    _iter_intrinsic_null_cuts,
+    _labels_from_local_mask,
+    _median_split_mask,
+    _normalized_laplacian_vectors,
+    _null_cut_directions,
+    _set_maxflow,
+    _two_set_agreement,
     apply_geometric_screens,
     assess_valley_resolvability,
     at_shot_noise_scale,
@@ -891,6 +903,156 @@ def test_equal_weak_diameters_are_one_feature_null() -> None:
     assert selection.resolvability.reject_reason in {
         "one_feature_null", "bottleneck",
     }
+
+
+def _spiral_positions(n: int = 96, turns: float = 1.5) -> np.ndarray:
+    """1.5-turn Archimedean spiral (curled uniform sheet, #48)."""
+
+    t = np.linspace(0.5 * np.pi, 0.5 * np.pi + turns * 2.0 * np.pi, n)
+    radius = 1.0 + t / (2.0 * np.pi)
+    return np.c_[radius * np.cos(t), radius * np.sin(t)]
+
+
+def _side_component_counts(scaffold: _Scaffold, labels: np.ndarray) -> list[int]:
+    from scipy.sparse.csgraph import connected_components
+
+    graph = _flow_graph(scaffold)
+    counts: list[int] = []
+    for key in sorted(set(int(v) for v in labels if v >= 0)):
+        members = np.where(labels == key)[0]
+        adj = _induced_adjacency(graph, members)
+        n_comp, _ = connected_components(adj, directed=False)
+        counts.append(int(n_comp))
+    return counts
+
+
+def _hyperplane_flow_bottleneck_ratio(
+    scaffold: _Scaffold,
+    labels: np.ndarray,
+    positions: np.ndarray,
+) -> float:
+    """Legacy φ: hyperplane internal bisection (#48 contrast)."""
+
+    n = int(labels.shape[0])
+    graph = _flow_graph(scaffold)
+    keys = sorted(set(int(v) for v in labels if v >= 0))
+    blocks = [np.where(labels == key)[0] for key in keys]
+    internal = [
+        _hyperplane_bisection_flow(graph, n, members, positions)
+        for members in blocks
+    ]
+    worst = 0.0
+    for a in range(len(blocks)):
+        for b in range(a + 1, len(blocks)):
+            cross = _set_maxflow(
+                graph, n, blocks[a].tolist(), blocks[b].tolist(),
+            )
+            denom = min(internal[a], internal[b])
+            if denom <= 0.0:
+                return float("inf")
+            worst = max(worst, cross / denom)
+    return worst
+
+
+def _hyperplane_null_bottleneck_ratio(
+    scaffold: _Scaffold,
+    positions: np.ndarray,
+    candidate_labels: np.ndarray,
+    rng: np.random.Generator,
+) -> float | None:
+    """Legacy ambient-hyperplane φ₀ (#48 contrast)."""
+
+    labels = np.asarray(candidate_labels)
+    signal = labels >= 0
+    if int(np.sum(signal)) < 4:
+        return None
+    pool: list[float] = []
+    for direction in _null_cut_directions(int(positions.shape[1]), rng):
+        cut = _hyperplane_cut_labels(positions, signal, direction)
+        if len(set(int(v) for v in cut[signal])) < 2:
+            continue
+        phi = _hyperplane_flow_bottleneck_ratio(scaffold, cut, positions)
+        if not np.isfinite(phi) or phi < 0.0:
+            continue
+        if _two_set_agreement(labels, cut) <= 0.5:
+            pool.append(float(phi))
+    if not pool:
+        return None
+    return float(np.median(np.asarray(pool, dtype=float)))
+
+
+def test_null_phi0_on_spiral_is_geometric_not_hyperplane_inflated() -> None:
+    """Curled-sheet hyperplanes disconnect sides; intrinsic φ₀ stays O(1)."""
+
+    positions = _spiral_positions()
+    edges = [(i, j, 8.0) for i, j, _ in _knn_edges(positions, k=6)]
+    scaffold = _Scaffold(positions, edges)
+    candidate = (np.arange(positions.shape[0]) >= positions.shape[0] // 2).astype(
+        int,
+    )
+
+    axis_cut = _hyperplane_cut_labels(
+        positions, candidate >= 0, np.array([1.0, 0.0]),
+    )
+    assert max(_side_component_counts(scaffold, axis_cut)) > 1
+
+    rng = np.random.default_rng(0)
+    graph = _flow_graph(scaffold)
+    members = np.where(candidate >= 0)[0]
+    adj = _induced_adjacency(graph, members)
+    cuts = _iter_intrinsic_null_cuts(adj, int(candidate.shape[0]), members, rng)
+    assert cuts
+    for cut in cuts:
+        local = cut[members]
+        mask = local == int(local[0])
+        assert _both_sides_connected(adj, mask)
+
+    phi0 = null_bottleneck_ratio(
+        scaffold, positions, candidate, np.random.default_rng(0),
+    )
+    # Exercise the legacy estimator so the contrast is computed, not imagined.
+    _hyperplane_null_bottleneck_ratio(
+        scaffold, positions, candidate, np.random.default_rng(0),
+    )
+    assert phi0 is not None
+    # Measured on this 96-node 1.5-turn kNN sheet: φ₀ = 2.0.  Bound is a
+    # factor 3 of a non-valley cut (docstring: φ ≈ 1).
+    assert 1.0 / 3.0 <= phi0 <= 3.0
+
+
+def test_null_phi0_on_two_blobs_from_disagreeing_cuts() -> None:
+    """A true valley still studentizes well below 1 after the #48 rewrite."""
+
+    positions, edges = _two_blobs_with_background()
+    scaffold = _Scaffold(positions, edges)
+    selection = select_level_set_partition(
+        scaffold,
+        LevelSetConfig(k_neighbors=4, min_cluster_size=4, n_levels=60),
+    )
+    assert selection.accepted
+    assert selection.cluster_result is not None
+    labels = selection.cluster_result.labels
+    phi = selection.bottleneck_ratio
+    phi0 = selection.null_bottleneck_ratio
+    rho = selection.studentized_ratio
+    assert phi is not None and phi0 is not None and rho is not None
+    assert rho < 1.0
+    assert rho <= LevelSetConfig().max_bottleneck_ratio
+
+    members = np.where(labels >= 0)[0]
+    adj = _induced_adjacency(_flow_graph(scaffold), members)
+    vecs = _normalized_laplacian_vectors(adj, 1)
+    assert vecs is not None
+    fiedler_mask = _median_split_mask(vecs[:, 0])
+    assert fiedler_mask is not None
+    fiedler_cut = _labels_from_local_mask(
+        int(labels.shape[0]), members, fiedler_mask,
+    )
+    # The density-weighted Fiedler *is* the valley; the agreement filter
+    # drops it.  φ₀ is then the typical geometric cut (here ≈ 1).
+    assert _two_set_agreement(labels, fiedler_cut) > 0.5
+    assert 1.0 / 3.0 <= phi0 <= 3.0
+    assert phi / phi0 < 1.0
 
 
 def test_true_valley_has_studentized_ratio_below_ceiling() -> None:
