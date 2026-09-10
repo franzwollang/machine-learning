@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 {"ts":"2026-09-10T01:31:01Z","from":"A2","type":"HELLO","note":"A2 online on coord/A2 tip=9dbe8a1; issue #48 phi/DM; integrating from 9dbe8a1"}
 {"ts":"2026-09-10T01:31:01Z","from":"A2","type":"CLAIM","issue":48,"task_id":"A2-T1","files":["code/proteus/tests/scenarios/synthetic/level_set_root_accept_probe.py","code/proteus/src/proteus/stage1/level_set.py","code/proteus/src/proteus/evidence/dm_score.py"],"note":"Reproduce lone_gauss2d_null s17 phi=0 false accept; dissect hit counts vs two_gaussians_clear s0-4"}
 {"ts":"2026-09-10T01:38:29Z","from":"A2","type":"DONE","issue":48,"task_id":"A2-T1","files":[],"note":"Reproduced lone_gauss2d s17 phi=0 false accept (N=50,tau=0.012,phi=0,logBF=2162,0 Hebbian cross; child n=72 shoulder). Contrast vs two_gaussians_clear s0-4: core_hits_min separates 3.05x (20 vs >=61); clump_hits_mean 2.82x (fails 3x on s0); nearest-saddle/Poisson hits WRONG direction (false nearest_min=483 > true s0/s4). Kill not fired. tip=838ab10 gate=57p evidence=240p"}
@@ -231,7 +230,6 @@
 {"ts": "2026-09-10T12:18:40Z", "from": "A2", "type": "NOTE", "note": "Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. No new #48 floor work this burn. Await director/A1 only."}
 {"ts": "2026-09-10T12:18:40Z", "from": "A2", "type": "NOTE", "note": "Authoritative tip after idle merge heartbeat: ad1009fcd4f1aee61761b62cdcc99a0c37e314b6. Queue empty; D7 suspended; await director/A1 only."}
 {"ts": "2026-09-10T12:18:40Z", "from": "A2", "type": "NOTE", "note": "Authoritative tip SHA correction: be606879415116741a0ed96c33a185e951e21dd0. Queue empty; D7 suspended; await director/A1 only."}
-=======
 {"ts":"2026-09-09T20:10:00-05:00","from":"A0","type":"NOTE","note":"Second burn seed (2026-09). coord/* re-based on main; 2026-08 history dropped. Tasks in SWARM_TASKS.json; rules in .cursor/rules/swarm-coordination.mdc (read the lessons section). Agents replace HELLO on their own branches."}
 {"ts":"2026-09-10T01:32:30Z","from":"A3","type":"HELLO","note":"A3 online on coord/A3 @ 9dbe8a1; merged integration contained; starting A3-T1 null envelope harness."}
 {"ts":"2026-09-10T01:32:31Z","from":"A3","type":"CLAIM","issue":48,"task_id":"A3-T1","files":["code/proteus/tests/scenarios/synthetic/level_set_null_envelope.py"],"note":"Build reproducible phi-ceiling null envelope harness (6 nulls x seeds 0-19)."}
@@ -506,4 +504,3 @@
 {"ts": "2026-09-10T12:12:24Z","from": "A3","type": "NOTE","note": "Idle exit: ready_count=0; D7 scientific suspension / no-refill. Queue 9 completed / 5 blocked / 0 ready. No CLAIM. Defaults unchanged."}
 {"ts": "2026-09-10T12:12:31Z","from": "A3","type": "NOTE","note": "Authoritative tip after idle merge: a892eb2a19ea0da12cd19149e67d7af793a95094. Queue empty; D7 suspended; await director/A1 only."}
 {"ts": "2026-09-10T12:12:31Z","from": "A3","type": "NOTE","note": "Authoritative tip SHA correction: 13c7c68b9ff009bed7014e652f919d2a2da1b43e. Queue empty; D7 suspended; await director/A1 only."}
->>>>>>> origin/coord/A3
