@@ -260,3 +260,6 @@
 {"ts":"2026-09-10T13:57:36Z","from":"A4","type":"HELLO","note":"A4 cron; tip=6d04e40; integration 3ff32bf already in tip; D8 idle A4=[]; ready_count=0"}
 {"ts":"2026-09-10T13:57:36Z","from":"A4","type":"NOTE","integrated_sha":"3ff32bf9d4de2238dd372e66e21786207edbaf84","note":"origin/coord/integration already ancestor. Saw A3-T16 BLOCKED (scan-length falsified); A2-T16 still CLAIM only. A4 queue empty; await A1 D9. No CLAIM."}
 {"ts":"2026-09-10T13:57:36Z","from":"A4","type":"NOTE","note":"Idle exit: ready_count=0; Fable D8 intentional A4 empty. No REQUEST_TRACKER. Defaults unchanged."}
+{"ts":"2026-09-10T14:06:40Z","from":"A4","type":"HELLO","note":"A4 cron; tip=0e3d6b8; integration 3ff32bf already in tip; D8 A4=[]; ready_count=0"}
+{"ts":"2026-09-10T14:06:40Z","from":"A4","type":"NOTE","integrated_sha":"3ff32bf9d4de2238dd372e66e21786207edbaf84","note":"origin/coord/integration already ancestor. A2-T16 BLOCKED (matched-scan kill) + A3-T16 BLOCKED (aspect ladder). A4 queue empty; await A1 D9. No CLAIM."}
+{"ts":"2026-09-10T14:06:40Z","from":"A4","type":"NOTE","note":"Idle exit: ready_count=0; Fable D8 intentional A4 empty. No REQUEST_TRACKER. Defaults unchanged."}
