@@ -1,28 +1,17 @@
 {
-  "updated_at": "2026-09-10T10:25:09Z",
-  "turn": 119,
+  "updated_at": "2026-09-10T10:46:27Z",
+  "turn": 120,
   "focus": {
     "milestone": "M1",
     "issue": 48,
     "goal": "maintain D7 suspension and integrate idle worker tips"
   },
   "recent": [
-    "Integrated fresh A2/A3 idle mailbox tips; four fast chunks green and D7 suspension unchanged",
-    "Integrated fresh A4-A6 idle mailbox tips; four fast chunks green and D7 suspension unchanged",
-    "Integrated fresh A2-A6 idle mailbox tips; four fast chunks green and D7 suspension unchanged",
-    "Integrated fresh A2/A3/A5/A6 idle mailbox tips; four fast chunks green and D7 suspension unchanged",
-    "Integrated fresh A3-A6 idle mailbox tips; four fast chunks green and D7 suspension unchanged"
+    "Integrated fresh A2/A3/A5/A6 idle mailbox tips; four fast chunks green"
   ],
-  "discoveries": [
-    "All A3-T11 cut covariates overlap composite accepts; no covariate floor exists in the tested family",
-    "Circle phi=0 child cases are graph disconnections, same class as lone-Gaussian seed17",
-    "Nested is clean on 5/5 current-tip seeds; bimodal s2 over-split returned and is tip-sensitive",
-    "Every tested #48 floor family this burn is killed; phi=0.25 remains provisional and default-off",
-    "Periodic full 5-seed sweep exceeds 2,400s: 44/60 rows passed through nested s3 before timeout"
-  ],
+  "discoveries": [],
   "open_threads": [
-    "#45 stays open for benchmark-semantics documentation; no descent-family work is authorized",
-    "#48 stays blocked until a future burn proposes a new statistic with a declared null envelope"
+    "#45/#48 remain open under D7 suspension; no further work is authorized this burn"
   ],
   "next_step": "exit until a new worker tip or authorized future-burn trigger appears",
   "blockers": []
