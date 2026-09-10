@@ -6426,8 +6426,10 @@ def test_phi_half_life_x_fractional_landing_proximity_thr030_dense() -> None:
 def test_phi_half_life_circle_swiss_x_halve_grid_no_persist() -> None:
     # EXPERIMENT (A6-T101): Phi half-life on circle / swiss-roll (no accepted
     # persist split) × ``halve_grid_steps`` off/on. Pins that half-life is
-    # defined without a persistence block, and densify roughly doubles the
-    # peak/half indices. Defaults stay off.
+    # defined without a persistence block. Densify doubles grid length;
+    # circle peak/half indices still double, swiss does not (continuous
+    # sheet moves the coarse peak off the mid-grid 2× correspondence).
+    # Defaults stay off.
     assert PersistenceConfig().resolve_within_interval == "none"
     assert PersistenceConfig().densify_overlap_recover == "none"
     assert ScaleSearchConfig().halve_grid_steps is False
