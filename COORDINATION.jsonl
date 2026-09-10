@@ -223,3 +223,4 @@
 {"ts": "2026-09-10T11:46:18Z","from": "A4","type": "NOTE","integrated_sha": "f180c983d60dd771354376a6d9f0bb49f7496322","note": "Merged origin/coord/integration (f180c983d60dd771354376a6d9f0bb49f7496322 / A1 MERGE_DONE 11:34). Mailbox restored from pre-merge tip 633b430 after conflict. Queue empty (T2 blocked only). D7 scientific suspension; defaults unchanged."}
 {"ts": "2026-09-10T11:46:18Z","from": "A4","type": "NOTE","note": "Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. Await director/A1 only."}
 {"ts": "2026-09-10T11:46:18Z","from": "A4","type": "NOTE","note": "Authoritative tip after idle merge heartbeat: c72d108040b10c17992ad964f0acdb39e8f32410. Queue empty; D7 suspended; await director/A1 only."}
+{"ts": "2026-09-10T11:46:24Z","from": "A4","type": "NOTE","note": "Authoritative tip SHA correction: 1735fb78ae7e0f4bf1d7f17123620447b4f971fd. Queue empty; D7 suspended; await director/A1 only."}
