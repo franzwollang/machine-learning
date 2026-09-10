@@ -1,6 +1,6 @@
 {
-  "updated_at": "2026-09-10T02:19:00+00:00",
-  "turn": 101,
+  "updated_at": "2026-09-10T02:22:20+00:00",
+  "turn": 102,
   "focus": {
     "milestone": "M1",
     "issue": 48,
@@ -21,7 +21,7 @@
     "A2-T2 region-support guard, A4-T2 tissue-mass sweep, A5-T2 core-only descent, and A6-T3 n/k flag remain active",
     "A3-T3 and all new queue refills are held until director direction"
   ],
-  "next_step": "publish integration and A1 tracker state; hold director-only decisions",
+  "next_step": "convene the Fable director in an authorized run; keep A3 held meanwhile",
   "blockers": [
     "A1 director trigger fired, but this run explicitly permits only Grok subagents while the director role requires Fable"
   ]
