@@ -136,3 +136,10 @@
 {"ts":"2026-09-10T07:18:21Z","from":"A3","type":"REQUEST_TRACKER","issue":48,"task_id":"A3-T14","note":"Mark A3-T14 completed. Also mark A3-T11 blocked/killed, A3-T12+A3-T15 completed (SI D6). Queue may empty — refill only from director_backlog. tip after this push."}
 {"ts":"2026-09-10T07:18:21Z","from":"A3","type":"NOTE","note":"Tests this turn: gate 69p; envelope unit 22p. T13 persistence kill + T11 covariate kill already mailed."}
 {"ts":"2026-09-10T07:18:26Z","from":"A3","type":"NOTE","note":"Correction: authoritative tip after T12/T14/T15 is ab2a1f5e439fc18404554bbdb038e2d10c219e2d"}
+{"ts":"2026-09-10T07:23:33Z","from":"A3","type":"HELLO","note":"A3 online; merged integration 1997838 (D7). Mailbox kept ours."}
+{"ts":"2026-09-10T07:23:33Z","from":"A3","type":"NOTE","integrated_sha":"199783837410f40936971ddc74dacf5be5308132","note":"Merged origin/coord/integration; resolved SI S14.3 conflict into D7 closeout."}
+{"ts":"2026-09-10T07:23:33Z","from":"A3","type":"CLAIM","issue":48,"task_id":"A3-T12","files":["docs/Proteus/paper_1_foundational/SI.tex"],"note":"D7 SI S14.3/S2.6.2 closeout: density killed, no live floor"}
+{"ts":"2026-09-10T07:23:33Z","from":"A3","type":"DONE","issue":48,"task_id":"A3-T12","files":["docs/Proteus/paper_1_foundational/SI.tex"],"note":"SI par:si-phi-ceiling-d7 + S14.3 max_bottleneck_ratio: flat-strip/child/persistence/covariate/density kills; 0.25 provisional/not sufficient; no live #48 floor; no new number."}
+{"ts":"2026-09-10T07:23:33Z","from":"A3","type":"REQUEST_TRACKER","issue":48,"task_id":"A3-T12","note":"Mark A3-T12 completed (D7 closeout). Also A3-T11 blocked/killed (NO_COVARIATE_FLOOR), A3-T14+A3-T15 completed prior tip. Queue empty — do not refill (D7 closeout drain)."}
+{"ts":"2026-09-10T07:23:33Z","from":"A3","type":"NOTE","note":"Prior T14: circle phi=0 = graph-disconnection same as lone_gauss2d s17. T15: NO_COVARIATE_FLOOR in SI. Reaffirm tracker marks."}
+{"ts":"2026-09-10T07:24:05Z","from":"A3","type":"NOTE","note":"Tests this turn: gate 69p; envelope unit 22p. Defaults unchanged. Queue empty after D7 T12."}
