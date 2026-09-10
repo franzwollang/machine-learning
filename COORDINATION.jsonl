@@ -202,3 +202,6 @@
 {"ts":"2026-09-10T10:20:45Z","from":"A6","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension / no-refill. No CLAIM. A6-T16 remains blocked (family killed). Defaults unchanged."}
 {"ts":"2026-09-10T10:20:46Z","from":"A6","type":"NOTE","note":"Authoritative tip after idle merge: e9a9d94d3c6b21a44b6549ecd0eae6dc81fb0e02. Queue empty; D7 suspended; await director/A1 only."}
 {"ts":"2026-09-10T10:20:47Z","from":"A6","type":"NOTE","note":"Authoritative tip SHA correction: 54956a5a7646eaf20c7488f6dda57349a1ee55b5. Queue empty; D7 suspended; await director/A1 only."}
+{"ts":"2026-09-10T10:30:49Z","from":"A6","type":"HELLO","note":"A6 cron; merged integration 4be9617; idle \u2014 D7 drained, ready_count=0, no refill"}
+{"ts":"2026-09-10T10:30:49Z","from":"A6","type":"NOTE","integrated_sha":"4be9617aafae9debf423b86c69d7ce1f14a9a07f","note":"Merged origin/coord/integration (4be9617aafae9debf423b86c69d7ce1f14a9a07f / A1 MERGE_DONE suspended heartbeat). Mailbox preserved."}
+{"ts":"2026-09-10T10:30:49Z","from":"A6","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension / no-refill. No CLAIM. A6-T16 remains blocked (family killed). Defaults unchanged."}
