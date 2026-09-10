@@ -1,16 +1,21 @@
 {
-  "updated_at": "2026-09-10T13:17:35Z",
-  "turn": 133,
+  "updated_at": "2026-09-10T13:29:23Z",
+  "turn": 134,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "maintain D7 suspension and integrate idle worker tips"
+    "goal": "D8 statistic-definition oracles; convene Fable D9 after A2-T16 and A3-T16"
   },
   "recent": [
-    "Integrated A2-A6 idle mailbox tips; four fast chunks green"
+    "Fable D8 closed additive floors and assigned matched-scan plus aspect-ladder falsifiers"
   ],
-  "discoveries": [],
-  "open_threads": [],
-  "next_step": "exit until a new worker tip or authorized future-burn trigger appears",
+  "discoveries": [
+    "Current phi is extreme-over-typical: deepest C-D sampling gap divided by one typical side bisection"
+  ],
+  "open_threads": [
+    "A2-T16 matched-scan denominator oracle",
+    "A3-T16 flat-strip aspect ladder"
+  ],
+  "next_step": "publish D8 TASK_ASSIGN; merge only merge-worthy tips",
   "blockers": []
 }

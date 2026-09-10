@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-10T13:25:00Z",
+  "updated_at": "2026-09-10T13:29:23Z",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -63,7 +63,7 @@
           "id": "A1-T4",
           "status": "ready",
           "standing": true,
-          "summary": "STANDING director gate. A session counts ONLY if model is claude-fable-5-thinking-high or claude-fable-5-1-thinking-high. D4-D7 were Grok and do not answer this task. Triggers: (a)-(d) plus (e) last director_session is not Fable, (f) orchestrator_directive/USER_DIRECTIVE, (g) all ready queues empty after a Grok-only 'do not refill'. THIS TURN: convene Fable as D8. Hand the D3-D7 dossier (corrected S-curve min 0.096; all #48 floor families killed by Grok). Apply Fable verbatim. Never mark blocked on a slug miss; never substitute Grok."
+          "summary": "STANDING director gate. A session counts ONLY if model is claude-fable-5-thinking-high or claude-fable-5-1-thinking-high. D8 is answered. Convene Fable D9 when both A2-T16 and A3-T16 have DONE or BLOCKED, immediately on any A2/A3 BLOCKED, or on any request to set a matched-ratio ceiling. Never mark blocked on a slug miss; never substitute Grok."
         }
       ]
     },
@@ -192,9 +192,40 @@
           "issue": 48,
           "summary": "Compact S2.6.2 killed-family inventory: fixed/relative/n-indexed ceiling, curvature, DM-as-floor, cross-flow, zero-cross-as-flip, persistence, and density. Record only; do not touch S14.3 or name a successor.",
           "kill": "n/a (documentation-only). Do not add a successor candidate."
+        },
+        {
+          "id": "A2-T16",
+          "status": "ready",
+          "priority": "next",
+          "issue": 48,
+          "summary": "Report-only /tmp matched-scan denominator oracle. At each accept read, run the identical C-D coarsest mass-filtered K>=2 selection inside each side and define phi_m=F_cross/min(F*_A,F*_B), with F*_S=+inf when no side cut exists. Table scene/seed/step/N/tau/phi/F_cross/F*_A/F*_B/phi_m/no-scan for corrected S-curve s1/16/17/18, flat strip s5/18/19, child-envelope 0.167, swiss s17, clear/tori/nested/hierarchy roots s0-4, hierarchy true children s0-4, and bimodal/weak PASS seeds. Root-only plus pending child cells is acceptable if hierarchy children exceed timeout 2400. No src edit or threshold.",
+          "kill": "If no matched scan on >=4 of 8 null-accept reads, or min phi_m over null accepts is <2x max phi_m over clear/tori/nested/hierarchy root+child true accepts, BLOCKED; do not tune or try alternative denominators."
+        },
+        {
+          "id": "A2-T17",
+          "status": "blocked",
+          "issue": 48,
+          "depends_on": [
+            "A2-T16"
+          ],
+          "summary": "Only if T16 survives: add LevelSetConfig.report_matched_scan=false shadow diagnostics in level_set.py, populating matched_scan_ratio and F*_A/F*_B without touching acceptance; default byte-identical. Unit-test default identity, populated fields, and a two-clump fixture. Correct the falsified H0 docstring sentence; cite #48/D8.",
+          "kill": "Any accept/reject change with the flag on or off in gate+evidence and A5-T17 sweep => BLOCKED."
+        },
+        {
+          "id": "A2-T18",
+          "status": "blocked",
+          "issue": 48,
+          "depends_on": [
+            "A2-T16"
+          ],
+          "summary": "SI S2.6.2 one paragraph recording the T16 outcome either way: extreme-vs-typical diagnosis, table numbers, and matched scan pending D9 protocol or killed. No ceiling number.",
+          "kill": "If the paragraph would set a ceiling or flip a default, stop."
         }
       ],
-      "tests_before_done": "gate + evidence chunks"
+      "tests_before_done": "gate + evidence chunks",
+      "read_only_allowances": [
+        "May import A3-owned level_set_root_accept_probe.py, level_set_null_envelope.py, variable_density.py, and level_set_suite.py from /tmp probes; no edits to those files."
+      ]
     },
     "A3": {
       "branch": "coord/A3",
@@ -313,6 +344,34 @@
           ],
           "summary": "After T11, add one SI S14.3 sentence recording the covariate result. If all overlap, record no covariate floor; if one separates across seeds, REQUEST_TRACKER and do not implement. Any gap remains record-only this burn.",
           "kill": "If apparent separation is confined to one seed, treat it as noise and stop."
+        },
+        {
+          "id": "A3-T16",
+          "status": "ready",
+          "priority": "next",
+          "issue": 48,
+          "summary": "Flat-strip aspect-ladder mechanism control. Add aspect_ratio to the R=inf flat strip in variable_density.py, default byte-identical at 3pi/2, keeping area 3pi*2 and n=800 fixed; expose metadata and unit-test area/aspect/injectivity. Run null-envelope root reads seeds 0-19 at aspects {1,2,4.71,9.42}; report reads, accepts, min/p1/p5/median phi and min-side fraction. Prediction: min phi non-increasing with aspect and square 0/20. No ceiling proposal.",
+          "kill": "If aspect 1 accepts >=2/20, boundary/pocket rather than scan length: NOTE and stop. If min phi is non-monotone across adjacent rungs by >0.03, scan-length is falsified: NOTE and stop. Add no geometries."
+        },
+        {
+          "id": "A3-T17",
+          "status": "blocked",
+          "issue": 48,
+          "depends_on": [
+            "A2-T17"
+          ],
+          "summary": "Add --mode shadow to level_set_null_envelope.py and tabulate phi and phi_m over six nulls, corrected S-curve, flat-strip ladder, and child envelope, seeds 0-19; report min/p1/p5 per family for the D9 null table.",
+          "kill": "If A2-T16 killed, do not start; propose no ceiling."
+        },
+        {
+          "id": "A3-T18",
+          "status": "blocked",
+          "issue": 48,
+          "depends_on": [
+            "A3-T16"
+          ],
+          "summary": "SI S14.3 one sentence recording whether the aspect-ladder mechanism is confirmed or killed.",
+          "kill": "If it needs a new run or a number as a threshold, stop."
         }
       ],
       "tests_before_done": "gate chunk + `pytest tests/scenarios/synthetic/level_set_null_envelope.py`-adjacent unit tests you add"
@@ -470,6 +529,16 @@
           "issue": 48,
           "summary": "S14 benchmark-card honesty pass: retain T14-T16 numbers, keep unswept T9 scenes pending, and do not list density or persistence as live.",
           "kill": "n/a (documentation-only). Do not invent values."
+        },
+        {
+          "id": "A4-T19",
+          "status": "blocked",
+          "issue": 48,
+          "depends_on": [
+            "A3-T16"
+          ],
+          "summary": "SI S14 benchmark-card row for the flat-strip aspect ladder using A3's DONE numbers; leave pending cells explicit. Run no scenes.",
+          "kill": "n/a (documentation-only)"
         }
       ],
       "tests_before_done": "gate + scenarios chunks + `pytest tests/foundation/test_linked_tori_generator.py tests/foundation/test_dataset_scales.py`"
@@ -605,6 +674,16 @@
           ],
           "summary": "Only if T16 finds nested over-split on at least one seed: context ablation (both/no-tissue versus one+tissue/no-sibling versus isolated). If T16 kills, add only the SI closeout sentence and stop.",
           "kill": "If neither ablation restores over-split, NOTE three-way interaction; no option D or A/B revival."
+        },
+        {
+          "id": "A5-T17",
+          "status": "blocked",
+          "issue": 48,
+          "depends_on": [
+            "A2-T17"
+          ],
+          "summary": "Add --report-matched-scan passthrough to the normal-path sweep and run all scenes seeds 0-4 with it on; table root and hierarchy-child accept phi versus phi_m for the D9 composite table.",
+          "kill": "Any deviation from OFF baseline in null pass, root K, leaves, ARI >0.01, or coverage => BLOCKED and hand to A2."
         }
       ],
       "tests_before_done": "gate + scenarios chunks"
@@ -786,39 +865,92 @@
           ],
           "summary": "Audit paper.tex and SI S2.5.1 for max_nodes=46, phi about 0.201, first accept presented as stable, or density presented as the remaining floor. Fix leftovers only in owned sections and stop.",
           "kill": "Correct leftovers without adding a new cap or floor narrative."
+        },
+        {
+          "id": "A6-T22",
+          "status": "blocked",
+          "issue": 48,
+          "depends_on": [
+            "A2-T16",
+            "A3-T16"
+          ],
+          "summary": "paper.tex one sentence recording the D8 extreme-vs-typical diagnosis and both oracle outcomes. No number or default implication.",
+          "kill": "If only one oracle has reported, do not start."
         }
       ],
       "tests_before_done": "gate + foundation chunks; persistence chunk only inside A6-T1 with --durations"
     }
   },
-  "notes": "ORCH 2026-09-10T13:25Z: A1 convenes Fable D8 this turn. Idle mailbox merge loop is a protocol violation. D7 Grok suspension does not bind Fable/user. Defaults still unchanged until Fable says otherwise.",
+  "notes": "D8 Fable: additive-floor families remain killed. Reopen only the phi statistic definition via two report-only oracles: matched-scan denominator (A2-T16) and flat-strip aspect ladder (A3-T16). A4/A5/A6 are intentionally idle until dependencies land. Defaults and 0.25 remain unchanged; D9 convenes when both oracles report or immediately on any A2/A3 BLOCKED.",
   "director_backlog": {
-    "note": "D7 was Grok (invalid as director). Closeout items remain historical. A1 must not refill from this list until Fable D8 restates or replaces it.",
+    "note": "D8 Fable-approved contingent work only. A1 may promote these tasks when dependencies land; no additive-floor, covariate, ceiling-form, or ceiling-number work.",
     "items": [
       {
+        "for": "A2",
+        "tasks": [
+          "A2-T17",
+          "A2-T18"
+        ],
+        "kill": "Contingent on A2-T16 surviving."
+      },
+      {
+        "for": "A3",
+        "tasks": [
+          "A3-T17",
+          "A3-T18"
+        ],
+        "kill": "Respect each task dependency and kill."
+      },
+      {
+        "for": "A5",
+        "tasks": [
+          "A5-T17"
+        ],
+        "kill": "Contingent on A2-T17."
+      },
+      {
+        "for": "A4",
+        "tasks": [
+          "A4-T19"
+        ],
+        "kill": "Documentation only after A3-T16."
+      },
+      {
+        "for": "A6",
+        "tasks": [
+          "A6-T22"
+        ],
+        "kill": "Documentation only after both oracles."
+      },
+      {
         "for": "any",
-        "summary": "Prepass-flag deletion remains forbidden this burn; revisit only after use_level_set_clustering flips.",
+        "summary": "Prepass-flag deletion remains forbidden this burn.",
         "kill": "n/a (prohibition)"
       },
       {
         "for": "any",
-        "summary": "After D7 closeout queues drain, do not refill. A new valley-existence statistic belongs to a future burn with a declared protocol and null envelope.",
-        "kill": "n/a (scientific suspension)"
+        "summary": "No additive floor, covariate, ceiling-form, or ceiling-number task may be created; killed families stay killed.",
+        "kill": "n/a (prohibition)"
+      },
+      {
+        "for": "A1",
+        "summary": "If both oracles kill, do not refill: convene Fable D9 to decide suspension versus #47. If A2-T16 separates, D9 alone sets a matched-ratio protocol and any proposed ceiling.",
+        "kill": "A1 never sets a ceiling or opens #47 itself."
       }
     ]
   },
   "director_session": {
-    "id": "D7",
-    "ts": "2026-09-10T07:17:17Z",
-    "model": "cursor-grok-4.6-high-fast",
-    "summary": "Density contrast is killed (A2-T10 overlap, gap 0.60), so every tested #48 floor family this burn has failed. Narrow to documentation and negative-result closeout, then suspend refill. A3-T11 may finish as the final record-only covariate check. No default, ceiling, cap, #47, or prepass work."
+    "id": "D8",
+    "ts": "2026-09-10T13:29:23Z",
+    "model": "claude-fable-5-1-thinking-high",
+    "summary": "Additive-floor program remains closed. Run two report-only statistic-definition falsifiers: matched-scan denominator and flat-strip aspect ladder. No ceiling, default, or issue resolution; convene D9 on oracle completion or any A2/A3 BLOCKED."
   },
   "director_pending": {
     "triggered_at": "2026-09-10T13:25:00Z",
-    "status": "unanswered",
-    "reason": "USER_DIRECTIVE + trigger (e)/(f)/(g): last director_session is Grok D7; ready queues empty; user ordered Fable D8",
-    "must_be": "claude-fable-5-thinking-high (fallback claude-fable-5-1-thinking-high)",
-    "session_id": "D8"
+    "status": "answered",
+    "answered_at": "2026-09-10T13:29:23Z",
+    "session_id": "D8",
+    "model": "claude-fable-5-1-thinking-high"
   },
   "a1_must_not": [
     "Do not flip use_level_set_clustering, apply_shot_noise_node_cap, or require_separation_evidence. A2-T8 is killed; keep the zero-cross guard and passthrough default off.",
@@ -826,21 +958,27 @@
     "Do not tune or remove the DM margin/verdict; do not revive cross-flow likelihood, descent-tier, tissue-fraction, or scene-scaling families.",
     "Bimodal is n-conditioned but weak is statistic-limited; do not change metric-of-record expectations or weaken a test.",
     "Do not resolve #45 or #48; do not delete prepass code this burn; do not run the persistence chunk.",
-    "Do not refill beyond this list and director_backlog without a new director session.",
+    "Do not refill beyond the D8 tasks and director_backlog without a new Fable director session.",
     "Do not promote A3-T10, a min-side floor, an n-indexed phi ceiling, or the A6 paper sentence formerly gated on A2-T8.",
     "Do not treat max_nodes=46 or phi=0.201 as a new cap, ceiling, or calibrated threshold; do not open #47 insertion work from this refill.",
-    "Do not revive densify, within-interval, overlap-threshold, load-weighted, or halve-grid-steps sweeps; A6 is limited to T19-T21.",
+    "Do not revive densify, within-interval, overlap-threshold, load-weighted, or halve-grid-steps sweeps; A6 is limited to A6-T22.",
     "Do not revive cut-persistence/Jaccard variants, isolated L0+L1 cap probes, further bimodal ablations, or any cap-rule family.",
     "Do not revive density contrast or implement require_density_valley; A2-T10/T11 are killed.",
-    "Do not treat Grok D7 as a Fable session. Do not MERGE_DONE mailbox-only tips. Do not invent a refill yourself. THIS TURN convene Fable D8; after that, obey Fable.",
-    "Do not spawn Grok as director. If both Fable slugs fail, leave director_pending unanswered and EXIT \u2014 do not answer with Grok."
+    "Do not spawn Grok as director. If both Fable slugs fail, leave director_pending unanswered and EXIT \u2014 do not answer with Grok.",
+    "Do not implement matched-scan as an acceptance change, set any ceiling for phi_m, or let report_matched_scan alter a decision; shadow/report only until D9.",
+    "Do not extend the aspect ladder beyond {1,2,4.71,9.42} x seeds 0-19 or add geometries.",
+    "Do not start A2-T17, A3-T17, or A5-T17 if A2-T16 is BLOCKED.",
+    "Do not open #47 yourself; that is a D9 decision.",
+    "Do not spawn Grok as director; D9 must use the Fable primary or declared fallback."
   ],
   "orchestrator_directive": {
     "ts": "2026-09-10T13:25:00Z",
     "from": "ORCH",
     "priority": "immediate",
     "action": "convene_fable_D8",
-    "note": "User 2026-09-10: stop idle mailbox merges; convene a real Fable director session THIS TURN as D8. D4-D7 were Grok and do not answer A1-T4. D7 'do not refill / do not convene' is void until Fable restates it. Merge only merge-worthy tips (diff vs integration has paths other than COORDINATION.jsonl). Do not MERGE_DONE idle heartbeats. Apply Fable verbatim; do not invent tasks."
+    "note": "User 2026-09-10: stop idle mailbox merges; convene a real Fable director session THIS TURN as D8. D4-D7 were Grok and do not answer A1-T4. D7 'do not refill / do not convene' is void until Fable restates it. Merge only merge-worthy tips (diff vs integration has paths other than COORDINATION.jsonl). Do not MERGE_DONE idle heartbeats. Apply Fable verbatim; do not invent tasks.",
+    "status": "applied",
+    "applied_at": "2026-09-10T13:29:23Z"
   },
   "last_grok_override_session": {
     "id": "D7",
