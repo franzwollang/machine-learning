@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-10T07:30:18Z",
+  "updated_at": "2026-09-10T13:25:00Z",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -24,7 +24,8 @@
     "Never run the whole suite in a cloud turn. Named chunks in swarm-coordination.mdc. Wrap pytest in timeout 600. Persistence is A6-only.",
     "SI.tex is shared by section (see owns_files); edit only your sections, keep hunks local, and never restructure. paper.tex belongs to A6.",
     "Leadership split: A1 manages. Director slug is claude-fable-5-thinking-high (fallback claude-fable-5-1-thinking-high). Everyone else: cursor-grok-4.5-high (fallback cursor-grok-4.6-high-fast). A missing slug does NOT block merges or REQUEST_TRACKER. Do not invent beyond director_backlog / the last director session.",
-    "A1 NEVER idles: merge, refill, or convene director — else EXIT the turn with no mailbox spam and no no-op commit. A1-T2/T3/T4 stay ready (standing). Marking them completed is what froze A1 after D1."
+    "A1 NEVER idles: merge, refill, or convene director \u2014 else EXIT the turn with no mailbox spam and no no-op commit. A1-T2/T3/T4 stay ready (standing). Marking them completed is what froze A1 after D1.",
+    "Workers: if your ready queue is empty, EXIT before merging integration and do not append a mailbox NOTE. Idle heartbeats are not work."
   ],
   "agents": {
     "A1": {
@@ -39,7 +40,7 @@
         "SWARM_TASKS.json",
         "COORDINATION.jsonl (own branch)"
       ],
-      "turn_protocol": "1 merge if any worker tip not in integration. 2 refill if any worker has <2 ready. 3 convene director if a trigger is unanswered. 4 else EXIT — no idle HELLO/NOTE/commit.",
+      "turn_protocol": "0 honor orchestrator_directive/USER_DIRECTIVE. 1 convene Fable if director_pending unanswered OR last director_session is not Fable. 2 merge only MERGE-WORTHY tips (git diff --name-only integration...A* has paths besides COORDINATION.jsonl). 3 refill only from last Fable backlog. 4 else EXIT \u2014 no idle HELLO/NOTE/MERGE_DONE.",
       "queue": [
         {
           "id": "A1-T1",
@@ -50,7 +51,7 @@
           "id": "A1-T2",
           "status": "ready",
           "standing": true,
-          "summary": "STANDING merge heartbeat. Never mark completed. If any origin/coord/A2..A6 tip is not in origin/coord/integration, merge A2->A6 this turn, run gate+foundation+evidence+scenarios (timeout 600 each), apply REQUEST_TRACKER, MERGE_DONE, push. Every ~3rd merge also run the 5-seed normal-path sweep (timeout 2400). If every worker tip is already in integration, skip — do not commit a no-op."
+          "summary": "STANDING merge heartbeat. Never mark completed. A worker tip is merge-worthy iff `git diff --name-only origin/coord/integration...origin/coord/A*` lists any path other than COORDINATION.jsonl. Mailbox-only / idle-heartbeat / merge-of-integration tips are NOT merge-worthy: skip them (no chunks, no MERGE_DONE, no integration push). If a merge-worthy tip exists, merge A2->A6 this turn, run gate+foundation+evidence+scenarios (timeout 600 each), apply REQUEST_TRACKER, MERGE_DONE, push. Two consecutive idle MERGE_DONEs is already a violation \u2014 never a third."
         },
         {
           "id": "A1-T3",
@@ -62,7 +63,7 @@
           "id": "A1-T4",
           "status": "ready",
           "standing": true,
-          "summary": "STANDING director gate. Convene Fable (claude-fable-5-thinking-high, fallback claude-fable-5-1-thinking-high) only when a trigger is live and unanswered (kill/BLOCKED, flip-default, ~5th MERGE_DONE, refill beyond backlog). Never mark blocked on a slug miss. If no trigger, skip — do not spawn Fable for a heartbeat."
+          "summary": "STANDING director gate. A session counts ONLY if model is claude-fable-5-thinking-high or claude-fable-5-1-thinking-high. D4-D7 were Grok and do not answer this task. Triggers: (a)-(d) plus (e) last director_session is not Fable, (f) orchestrator_directive/USER_DIRECTIVE, (g) all ready queues empty after a Grok-only 'do not refill'. THIS TURN: convene Fable as D8. Hand the D3-D7 dossier (corrected S-curve min 0.096; all #48 floor families killed by Grok). Apply Fable verbatim. Never mark blocked on a slug miss; never substitute Grok."
         }
       ]
     },
@@ -116,7 +117,7 @@
           "status": "blocked",
           "issue": 48,
           "summary": "Generalize the T2 guard into a flag-gated cross-flow likelihood gate (default off): P(observed cross-cut flow | hit totals on boundary nodes) under the one-feature Poisson model, declared alpha, no new calibrated constant. Table exactly: swiss s17 (0.288), scurve s8 (0.2494), lone_gauss2d s17 (phi=0), bimodal/weak FAIL best-candidate (~0.334), two_gaussians_clear/tori/nested accepts s0-4.",
-          "kill": "If the likelihood does not separate the two null breaches from the composite accepts by >=2 orders of magnitude while leaving all s0-4 composite root accepts intact, graph flow adds nothing beyond phi — BLOCKED, do not tune alpha."
+          "kill": "If the likelihood does not separate the two null breaches from the composite accepts by >=2 orders of magnitude while leaving all s0-4 composite root accepts intact, graph flow adds nothing beyond phi \u2014 BLOCKED, do not tune alpha."
         },
         {
           "id": "A2-T6",
@@ -158,7 +159,9 @@
           "id": "A2-T11",
           "status": "blocked",
           "issue": 48,
-          "depends_on": ["A2-T10"],
+          "depends_on": [
+            "A2-T10"
+          ],
           "summary": "Only if T10 separates: implement flag-gated require_density_valley default off in level_set.py. Require boundary median r_k > max(interior A, interior B) using the existing C-D radius, with no new constant; unit-test a 2-clump scaffold.",
           "kill": "If T10 blocks, do not start. If the gate rejects any clear/tori/nested root accept s0-4 or still accepts any corrected S-curve accept, BLOCKED; do not tune a margin."
         },
@@ -234,14 +237,14 @@
           "status": "completed",
           "issue": 48,
           "summary": "Dissect ONE read: scurve_sheet_null s8 step6 N=100 tau=0.034 phi=0.2494. Which nodes are A/B; is the cut at the fold vs a sampling gap; is the numerator deflated (missing Hebbian links) or the denominator inflated (Fiedler/hop-geodesic not the min cut)? Confirm generator is unit-speed in arc length (no real density variation).",
-          "kill": "If an alternative internal bisection gives phi>=0.4, the statistic DEFINITION is wrong, not the ceiling — NOTE and stop (director item)."
+          "kill": "If an alternative internal bisection gives phi>=0.4, the statistic DEFINITION is wrong, not the ceiling \u2014 NOTE and stop (director item)."
         },
         {
           "id": "A3-T5",
           "status": "completed",
           "issue": 48,
           "summary": "From the T2 table already collected (NO new runs): stratify null envelope min/p1/p5 by n in {400,800,1600} and by whether the read was at N=n/k. Two-way table; also how many composite root accepts s0-4 occur at the bound vs before it.",
-          "kill": "n/a (report). If envelope min at n=400 is below the s8 breach, say so — that is the child-sized regime."
+          "kill": "n/a (report). If envelope min at n=400 is below the s8 breach, say so \u2014 that is the child-sized regime."
         },
         {
           "id": "A3-T6",
@@ -305,7 +308,9 @@
           "id": "A3-T15",
           "status": "completed",
           "issue": 48,
-          "depends_on": ["A3-T11"],
+          "depends_on": [
+            "A3-T11"
+          ],
           "summary": "After T11, add one SI S14.3 sentence recording the covariate result. If all overlap, record no covariate floor; if one separates across seeds, REQUEST_TRACKER and do not implement. Any gap remains record-only this burn.",
           "kill": "If apparent separation is confined to one seed, treat it as noise and stop."
         }
@@ -367,7 +372,7 @@
           "status": "completed",
           "issue": 45,
           "summary": "Analytic resolvability oracle for bimodal_circle and two_gaussians_weak: from the known mixture density, valley depth (min/peak on the mode-connecting path) and expected sample count in the valley band at current n, per seed; expose in metadata/ground_truth.py.",
-          "kill": "If valley depth and valley-band count do not differ between PASS and FAIL seeds (same geometry, sampling only), failures are sampling noise at fixed n — NOTE and stop; do not touch test expectations."
+          "kill": "If valley depth and valley-band count do not differ between PASS and FAIL seeds (same geometry, sampling only), failures are sampling noise at fixed n \u2014 NOTE and stop; do not touch test expectations."
         },
         {
           "id": "A4-T6",
@@ -415,7 +420,9 @@
           "id": "A4-T12",
           "status": "completed",
           "issue": 48,
-          "depends_on": ["A4-T11"],
+          "depends_on": [
+            "A4-T11"
+          ],
           "summary": "Fill S14 benchmark-card T9/T10 cells: clear 5/5 at n=300/600; nested/tori 0/5 at child n vs 5/5 full; hierarchy pairwise sibling depth about 0.9993 including seed0. Leave missing values explicitly pending.",
           "kill": "n/a"
         },
@@ -430,7 +437,9 @@
           "id": "A4-T14",
           "status": "completed",
           "issue": 45,
-          "depends_on": ["A4-T13"],
+          "depends_on": [
+            "A4-T13"
+          ],
           "summary": "Fill SI S14.1 residual-semantics cells: weak tissue-sufficient (A5-T11), bimodal s2 non-reproducible (A5-T13), and A4-T13 numbers when present. Leave missing values pending; no expectation change.",
           "kill": "n/a (documentation-only)"
         },
@@ -513,7 +522,7 @@
           "status": "blocked",
           "issue": 44,
           "summary": "n-scaling oracle, root read only (--max-depth 1): failing bimodal_circle and two_gaussians_weak seeds at n*4 and n*10, same seed/geometry. Does root K become 2, and at what phi?",
-          "kill": "If at 10x n, root K=1 persists on >= half the failing seeds, the miss is a statistic limit not a sample limit — stop scene work on #44 and hand to A2-T5."
+          "kill": "If at 10x n, root K=1 persists on >= half the failing seeds, the miss is a statistic limit not a sample limit \u2014 stop scene work on #44 and hand to A2-T5."
         },
         {
           "id": "A5-T6",
@@ -591,7 +600,9 @@
           "id": "A5-T15",
           "status": "completed",
           "issue": 45,
-          "depends_on": ["A5-T16"],
+          "depends_on": [
+            "A5-T16"
+          ],
           "summary": "Only if T16 finds nested over-split on at least one seed: context ablation (both/no-tissue versus one+tissue/no-sibling versus isolated). If T16 kills, add only the SI closeout sentence and stop.",
           "kill": "If neither ablation restores over-split, NOTE three-way interaction; no option D or A/B revival."
         }
@@ -662,14 +673,14 @@
           "status": "completed",
           "issue": 46,
           "summary": "#46 closeout: time the default tests/stage1 slice after the persistence split; confirm the conftest unmarked-budget guard actually trips (temporary probe in /tmp). If default stage1 <10 min and guard fires, REQUEST_TRACKER to resolve #46.",
-          "kill": "If default slice is still >10 min, BLOCKED with the durations table — no further slow-marking without director."
+          "kill": "If default slice is still >10 min, BLOCKED with the durations table \u2014 no further slow-marking without director."
         },
         {
           "id": "A6-T8",
           "status": "completed",
           "issue": 28,
           "summary": "Triage the pre-existing failure tests/stage1/test_recursion.py::test_mst_critical_hollow_contrast_vs_h_and_conj: is the asserted property one that was deliberately retired (falsified hollow prepass)? Report only; propose strict-xfail-with-issue-pointer or fix via REQUEST_TRACKER. Ownership exception: A6 may edit that SINGLE test function only; A5 keeps the file.",
-          "kill": "If the property is still supposed to hold, it is a real regression — BLOCKED, do not xfail."
+          "kill": "If the property is still supposed to hold, it is a real regression \u2014 BLOCKED, do not xfail."
         },
         {
           "id": "A6-T9",
@@ -691,7 +702,10 @@
           "issue": 48,
           "summary": "paper.tex sync for landed results: corrected S-curve statistic failure; 0.25 calibrated-provisional but not sufficient; DM as background-partition confirmation only; require_separation_evidence remains default off. Create a one-sentence follow-up only if A2-T8 later flips.",
           "kill": "n/a",
-          "depends_on": ["A3-T6", "A2-T6"]
+          "depends_on": [
+            "A3-T6",
+            "A2-T6"
+          ]
         },
         {
           "id": "A6-T12",
@@ -734,7 +748,9 @@
           "id": "A6-T17",
           "status": "cancelled",
           "issue": 28,
-          "depends_on": ["A6-T16"],
+          "depends_on": [
+            "A6-T16"
+          ],
           "summary": "Only if T16's first accept is the true L0/L1 cut: isolated GT L0+L1 subset at n=200, seeds 0-4, default cap=25. Report accept/reject, N, phi, tau*. Do not use the normal-path tree (seeds 1-4 already 6/6 there). /tmp only; no src edit.",
           "kill": "If T16 blocks, do not start. If only seed 0 rejects at 25, residual is seed-0 sampling at fixed n - NOTE and stop; do not propose a cap. If >=2 of seeds 1-4 also reject at 25, NOTE systematic under-resolution of this sibling valley as an n=200 child (#28x#47 diagnosis) and still do not flip the cap."
         },
@@ -764,7 +780,10 @@
           "id": "A6-T21",
           "status": "completed",
           "issue": 28,
-          "depends_on": ["A6-T19", "A6-T20"],
+          "depends_on": [
+            "A6-T19",
+            "A6-T20"
+          ],
           "summary": "Audit paper.tex and SI S2.5.1 for max_nodes=46, phi about 0.201, first accept presented as stable, or density presented as the remaining floor. Fix leftovers only in owned sections and stop.",
           "kill": "Correct leftovers without adding a new cap or floor narrative."
         }
@@ -772,9 +791,9 @@
       "tests_before_done": "gate + foundation chunks; persistence chunk only inside A6-T1 with --durations"
     }
   },
-  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only. D7 closeout is drained: density contrast, persistence, and the final covariate-floor family are killed. A5-T16 found nested clean on 5/5 but a tip-sensitive bimodal s2 over-split. Worker queues are intentionally suspended with no refill. All defaults remain unchanged.",
+  "notes": "ORCH 2026-09-10T13:25Z: A1 convenes Fable D8 this turn. Idle mailbox merge loop is a protocol violation. D7 Grok suspension does not bind Fable/user. Defaults still unchanged until Fable says otherwise.",
   "director_backlog": {
-    "note": "Director session D7 (2026-09-10). Approved closeout tasks are assigned directly in worker queues. After they drain, do not refill; scientific suspension replaces low-information work.",
+    "note": "D7 was Grok (invalid as director). Closeout items remain historical. A1 must not refill from this list until Fable D8 restates or replaces it.",
     "items": [
       {
         "for": "any",
@@ -795,8 +814,11 @@
     "summary": "Density contrast is killed (A2-T10 overlap, gap 0.60), so every tested #48 floor family this burn has failed. Narrow to documentation and negative-result closeout, then suspend refill. A3-T11 may finish as the final record-only covariate check. No default, ceiling, cap, #47, or prepass work."
   },
   "director_pending": {
-    "triggered_at": "2026-09-10T07:01:24Z",
-    "status": "answered by D7 at 2026-09-10T07:17:17Z"
+    "triggered_at": "2026-09-10T13:25:00Z",
+    "status": "unanswered",
+    "reason": "USER_DIRECTIVE + trigger (e)/(f)/(g): last director_session is Grok D7; ready queues empty; user ordered Fable D8",
+    "must_be": "claude-fable-5-thinking-high (fallback claude-fable-5-1-thinking-high)",
+    "session_id": "D8"
   },
   "a1_must_not": [
     "Do not flip use_level_set_clustering, apply_shot_noise_node_cap, or require_separation_evidence. A2-T8 is killed; keep the zero-cross guard and passthrough default off.",
@@ -810,6 +832,20 @@
     "Do not revive densify, within-interval, overlap-threshold, load-weighted, or halve-grid-steps sweeps; A6 is limited to T19-T21.",
     "Do not revive cut-persistence/Jaccard variants, isolated L0+L1 cap probes, further bimodal ablations, or any cap-rule family.",
     "Do not revive density contrast or implement require_density_valley; A2-T10/T11 are killed.",
-    "Do not refill after D7 closeout drains. Convene again only for a multi-seed A3-T11 gap or an A5-T16 result that would require a new descent family."
-  ]
+    "Do not treat Grok D7 as a Fable session. Do not MERGE_DONE mailbox-only tips. Do not invent a refill yourself. THIS TURN convene Fable D8; after that, obey Fable.",
+    "Do not spawn Grok as director. If both Fable slugs fail, leave director_pending unanswered and EXIT \u2014 do not answer with Grok."
+  ],
+  "orchestrator_directive": {
+    "ts": "2026-09-10T13:25:00Z",
+    "from": "ORCH",
+    "priority": "immediate",
+    "action": "convene_fable_D8",
+    "note": "User 2026-09-10: stop idle mailbox merges; convene a real Fable director session THIS TURN as D8. D4-D7 were Grok and do not answer A1-T4. D7 'do not refill / do not convene' is void until Fable restates it. Merge only merge-worthy tips (diff vs integration has paths other than COORDINATION.jsonl). Do not MERGE_DONE idle heartbeats. Apply Fable verbatim; do not invent tasks."
+  },
+  "last_grok_override_session": {
+    "id": "D7",
+    "ts": "2026-09-10T07:17:17Z",
+    "model": "cursor-grok-4.6-high-fast",
+    "summary": "Density contrast is killed (A2-T10 overlap, gap 0.60), so every tested #48 floor family this burn has failed. Narrow to documentation and negative-result closeout, then suspend refill. A3-T11 may finish as the final record-only covariate check. No default, ceiling, cap, #47, or prepass work."
+  }
 }
