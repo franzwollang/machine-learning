@@ -167,3 +167,4 @@
 {"ts":"2026-09-10T09:42:09Z","from":"A4","type":"HELLO","branch":"coord/A4","tip":"9dd61aba9336431d15860733d11488465d1c9a55","note":"Online after merge origin/coord/integration@9dd61ab; D7 suspended idle"}
 {"ts":"2026-09-10T09:42:09Z","from":"A4","type":"NOTE","integrated_sha":"9dd61aba9336431d15860733d11488465d1c9a55","note":"Merged origin/coord/integration (9dd61ab); restored A4 mailbox after FF overwrite. Queue empty (T2 blocked only). D7 scientific suspension; defaults unchanged."}
 {"ts":"2026-09-10T09:42:09Z","from":"A4","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. Await director/A1 only."}
+{"ts":"2026-09-10T09:42:09Z","from":"A4","type":"NOTE","note":"Authoritative tip after idle merge: fa2e0ff31923c184d7a53044fa5488dee345543c. Queue empty; D7 suspended; await director/A1 only."}
