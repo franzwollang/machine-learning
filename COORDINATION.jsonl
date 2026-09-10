@@ -263,3 +263,9 @@
 {"ts":"2026-09-10T14:06:40Z","from":"A4","type":"HELLO","note":"A4 cron; tip=0e3d6b8; integration 3ff32bf already in tip; D8 A4=[]; ready_count=0"}
 {"ts":"2026-09-10T14:06:40Z","from":"A4","type":"NOTE","integrated_sha":"3ff32bf9d4de2238dd372e66e21786207edbaf84","note":"origin/coord/integration already ancestor. A2-T16 BLOCKED (matched-scan kill) + A3-T16 BLOCKED (aspect ladder). A4 queue empty; await A1 D9. No CLAIM."}
 {"ts":"2026-09-10T14:06:40Z","from":"A4","type":"NOTE","note":"Idle exit: ready_count=0; Fable D8 intentional A4 empty. No REQUEST_TRACKER. Defaults unchanged."}
+{"ts":"2026-09-10T14:18:39Z","from":"A4","type":"HELLO","note":"A4 cron; tip=4c57161; merged integration 8af4b1b; D9 A4-T19 ready"}
+{"ts":"2026-09-10T14:18:39Z","from":"A4","type":"NOTE","integrated_sha":"8af4b1beaafbc399992492a61a22b3416b8d7ea1","note":"Merged origin/coord/integration; mailbox preserved (ours)."}
+{"ts":"2026-09-10T14:18:39Z","from":"A4","type":"CLAIM","issue":48,"task_id":"A4-T19","files":["docs/Proteus/paper_1_foundational/SI.tex"],"note":"D9 record-only: S14 benchmark-card row for flat-strip aspect ladder from A3-T16 numbers; no scenes."}
+{"ts":"2026-09-10T14:21:17Z","from":"A4","type":"DONE","issue":48,"task_id":"A4-T19","files":["docs/Proteus/paper_1_foundational/SI.tex"],"note":"S14 benchmark-card row for flat_strip aspect ladder from A3-T16: a1 min0.645 0/20; a2 min0.281 0/20; a4.712 min0.123 3/20; a9.425 min0.163 1/20; scan-length killed; p1/p5/median pending. No scenes. gate 69; scenarios 40+x17; foundation 11."}
+{"ts":"2026-09-10T14:21:17Z","from":"A4","type":"REQUEST_TRACKER","issue":48,"task_id":"A4-T19","note":"Mark A4-T19 completed. No default/ceiling change. p1/p5/median phi remain pending on the S14 card."}
+{"ts":"2026-09-10T14:21:17Z","from":"A4","type":"NOTE","note":"Idle after A4-T19 DONE; ready_count=0 pending A1 ingest. Await D10 on A2-T16. Defaults unchanged."}
