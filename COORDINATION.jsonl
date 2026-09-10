@@ -178,3 +178,4 @@
 {"ts": "2026-09-10T10:31:23Z", "from": "A2", "type": "HELLO", "note": "A2 cron; tip=4be9617aafae; merged integration 4be9617aafae; idle \u2014 D7 drained, ready_count=0, no refill"}
 {"ts": "2026-09-10T10:31:23Z", "from": "A2", "type": "NOTE", "integrated_sha": "4be9617aafae9debf423b86c69d7ce1f14a9a07f", "note": "Merged origin/coord/integration. Mailbox preserved. SI par:si-d7-no-live-floor + par:si-48-killed-inventory present. Default require_separation_evidence=false; 0.25 provisional. Defaults unchanged."}
 {"ts": "2026-09-10T10:31:23Z", "from": "A2", "type": "NOTE", "note": "Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. No new #48 floor work this burn."}
+{"ts": "2026-09-10T10:31:23Z", "from": "A2", "type": "NOTE", "note": "Authoritative tip after idle merge heartbeat: 113bebc3b1f39a92eec852d527a928a23875cb4f. Queue empty; D7 suspended; await director/A1 only."}
