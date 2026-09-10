@@ -1149,23 +1149,45 @@ def tissue_mass_metadata(
     *,
     tissue_fraction: float,
     tissue_mass: float | None,
-    tissue_mass_actual: float,
-) -> dict[str, float | str | None]:
-    """Standard requested-vs-actual tissue metadata for faded generators.
+    labels: np.ndarray,
+) -> dict[str, float | int | str | None]:
+    """Standard requested-vs-actual tissue/signal metadata for faded generators.
 
     ``tissue_fraction`` is the historical support-box *padding* knob — it does
     not set background mass.  ``tissue_mass`` is the honest mass fraction
-    (``None`` = legacy fade-balanced floor).
+    (``None`` = legacy fade-balanced floor).  Counts and actual mass come from
+    λ-threshold labels (``< 0`` = tissue).
     """
+    lab = np.asarray(labels)
+    n = int(lab.shape[0])
+    tissue_count = int(np.sum(lab < 0))
+    signal_count = int(n - tissue_count)
+    tissue_mass_actual = float(tissue_count / max(n, 1))
+    if tissue_mass is None:
+        tissue_mass_requested: float | None = None
+        tissue_count_requested: int | None = None
+        signal_count_requested: int | None = None
+        mode = "legacy_fade_balanced"
+    else:
+        mass = float(tissue_mass)
+        tissue_mass_requested = mass
+        tissue_count_requested = min(max(int(np.round(mass * n)), 0), n)
+        signal_count_requested = int(n - tissue_count_requested)
+        mode = "requested_mass"
     return {
         "tissue_fraction_requested": float(tissue_fraction),
         "tissue_fraction_role": "support_box_padding",
-        "tissue_fraction_actual": float(tissue_mass_actual),
-        "tissue_mass_requested": None if tissue_mass is None else float(tissue_mass),
-        "tissue_mass_actual": float(tissue_mass_actual),
-        "tissue_mass_mode": (
-            "legacy_fade_balanced" if tissue_mass is None else "requested_mass"
-        ),
+        "tissue_fraction_actual": tissue_mass_actual,
+        "tissue_mass_requested": tissue_mass_requested,
+        "tissue_mass_actual": tissue_mass_actual,
+        "tissue_mass_mode": mode,
+        "signal_count_requested": signal_count_requested,
+        "signal_count_actual": signal_count,
+        "tissue_count_requested": tissue_count_requested,
+        "tissue_count_actual": tissue_count,
+        # Short aliases match sample_faded_mixture region-conditional keys.
+        "signal_count": signal_count,
+        "tissue_count": tissue_count,
     }
 
 

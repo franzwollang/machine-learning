@@ -141,7 +141,6 @@ def make_swiss_roll(
         noise_variance=effective_noise_variance,
         tau_grid_hint=(min(signal_tau, tissue_tau) / 8.0, max(signal_tau, tissue_tau) * 8.0),
     )
-    actual_tissue_fraction = float(np.mean(labels < 0))
     return SyntheticDataset(
         points=points,
         labels=labels,
@@ -153,15 +152,15 @@ def make_swiss_roll(
             "twists": twists,
             "signal_expected_tau": float(signal_tau),
             "tissue_expected_tau": float(tissue_tau),
-            **tissue_mass_metadata(
-                tissue_fraction=tissue_fraction,
-                tissue_mass=tissue_mass,
-                tissue_mass_actual=actual_tissue_fraction,
-            ),
             "support_bounds_lo": tissue_bounds[0].tolist(),
             "support_bounds_hi": tissue_bounds[1].tolist(),
             "anchor_count": 0,
             "sampling": "continuous_area_uniform",
             **sampler_meta,
+            **tissue_mass_metadata(
+                tissue_fraction=tissue_fraction,
+                tissue_mass=tissue_mass,
+                labels=labels,
+            ),
         },
     )

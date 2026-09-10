@@ -74,6 +74,7 @@
         "code/proteus/tests/stage1/test_dm_cluster.py",
         "code/proteus/tests/properties/test_dm_invariants.py",
         "code/proteus/tests/reductions/test_dm_consistency.py",
+        "code/proteus/tests/scenarios/synthetic/level_set_normal_path_sweep.py (A2-T7 passthrough only)",
         "docs/Proteus/paper_1_foundational/SI.tex :: S2.6.2 'Finer-walk evidence floor' paragraphs and S10 DM verdict text only"
       ],
       "queue": [
@@ -100,23 +101,44 @@
         },
         {
           "id": "A2-T4",
-          "status": "in_progress",
+          "status": "completed",
           "issue": 48,
           "summary": "If A2-T2 guard is correct on seeds 0-4: extend the measurement to seeds 5-19 on the six nulls via A3's harness and report false-accept count with and without the guard.",
           "kill": "If the guard rejects any composite root accept, report BLOCKED and abandon the guard."
         },
         {
           "id": "A2-T5",
-          "status": "ready",
+          "status": "blocked",
           "issue": 48,
           "summary": "Generalize the T2 guard into a flag-gated cross-flow likelihood gate (default off): P(observed cross-cut flow | hit totals on boundary nodes) under the one-feature Poisson model, declared alpha, no new calibrated constant. Table exactly: swiss s17 (0.288), scurve s8 (0.2494), lone_gauss2d s17 (phi=0), bimodal/weak FAIL best-candidate (~0.334), two_gaussians_clear/tori/nested accepts s0-4.",
           "kill": "If the likelihood does not separate the two null breaches from the composite accepts by >=2 orders of magnitude while leaving all s0-4 composite root accepts intact, graph flow adds nothing beyond phi — BLOCKED, do not tune alpha."
         },
         {
           "id": "A2-T6",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "SI S10 verdict text only (no code): DM is a background-partition confirmation, not the valley-existence floor. Record 69% overlap, s17 2162->128, and two_gaussians_clear sitting inside the null band. REQUEST_TRACKER the #48 wording.",
+          "kill": "n/a"
+        },
+        {
+          "id": "A2-T7",
+          "status": "ready",
+          "issue": 48,
+          "summary": "Flip-readiness sweep: add only a --require-separation-evidence passthrough to level_set_normal_path_sweep.py and run all scenes seeds 0-4 with the guard on, including hierarchy.",
+          "kill": "Any regression versus the OFF baseline in null pass, root K, leaves, hierarchy recovery, ARI by >0.01, or coverage keeps the guard default off."
+        },
+        {
+          "id": "A2-T8",
+          "status": "ready",
+          "issue": 48,
+          "summary": "Conditionally flip require_separation_evidence default true and update its test plus SI S2.6.2 only if A2-T7 is identical to OFF on every metric line and null accepts remain 0 over seeds 0-19.",
+          "kill": "If either prerequisite fails, mark BLOCKED and do not change the default."
+        },
+        {
+          "id": "A2-T9",
+          "status": "ready",
+          "issue": 48,
+          "summary": "SI S2.6.2 negative result: cross-flow Poisson likelihood separates by only 1.74 orders and N-scaling inverts; phi plus the zero-cross guard remain.",
           "kill": "n/a"
         }
       ],
@@ -153,24 +175,46 @@
         },
         {
           "id": "A3-T3",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "Rescoped = E3 (director D1): composite root-read phi (accepts AND best-candidate misses) for linked_tori, nested, two_gaussians_clear, bimodal_circle, two_gaussians_weak, hierarchy, seeds 0-9, plus the generator analytic valley-depth covariate (A4-T5 metadata when available, else inline). Table only; no code.",
           "kill": "n/a (report). Do not propose a new ceiling number."
         },
         {
           "id": "A3-T4",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "Dissect ONE read: scurve_sheet_null s8 step6 N=100 tau=0.034 phi=0.2494. Which nodes are A/B; is the cut at the fold vs a sampling gap; is the numerator deflated (missing Hebbian links) or the denominator inflated (Fiedler/hop-geodesic not the min cut)? Confirm generator is unit-speed in arc length (no real density variation).",
           "kill": "If an alternative internal bisection gives phi>=0.4, the statistic DEFINITION is wrong, not the ceiling — NOTE and stop (director item)."
         },
         {
           "id": "A3-T5",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "From the T2 table already collected (NO new runs): stratify null envelope min/p1/p5 by n in {400,800,1600} and by whether the read was at N=n/k. Two-way table; also how many composite root accepts s0-4 occur at the bound vs before it.",
           "kill": "n/a (report). If envelope min at n=400 is below the s8 breach, say so — that is the child-sized regime."
+        },
+        {
+          "id": "A3-T6",
+          "status": "ready",
+          "issue": 48,
+          "summary": "Fix make_scurve_sheet to the true area-uniform S-curve (t in [-1.5pi,1.5pi], z=sign(t)(cos(t)-1)); unit-test 50/50 occupancy and injectivity; rerun seeds 0-19 envelope.",
+          "kill": "If the corrected sheet still accepts below phi=0.25, D1's statistic-failure stance stands; NOTE and stop."
+        },
+        {
+          "id": "A3-T7",
+          "status": "ready",
+          "issue": 48,
+          "summary": "Wire A4-T6 component_only scenes into the null-envelope harness at n in {200,500}, seeds 0-19; report the child-sized envelope.",
+          "kill": "n/a (report)"
+        },
+        {
+          "id": "A3-T8",
+          "status": "ready",
+          "issue": 48,
+          "summary": "Update SI S14.3 envelope table per geometry and n after T6/T7; label 0.25 calibrated-provisional, never final.",
+          "kill": "n/a",
+          "depends_on": ["A3-T6", "A3-T7"]
         }
       ],
       "tests_before_done": "gate chunk + `pytest tests/scenarios/synthetic/level_set_null_envelope.py`-adjacent unit tests you add"
@@ -179,7 +223,8 @@
       "branch": "coord/A4",
       "role": "worker",
       "owns_issues": [
-        45
+        45,
+        48
       ],
       "owns_files": [
         "code/proteus/tests/datasets/synthetic/faded_density.py",
@@ -226,17 +271,38 @@
         },
         {
           "id": "A4-T5",
-          "status": "ready",
+          "status": "completed",
           "issue": 45,
           "summary": "Analytic resolvability oracle for bimodal_circle and two_gaussians_weak: from the known mixture density, valley depth (min/peak on the mode-connecting path) and expected sample count in the valley band at current n, per seed; expose in metadata/ground_truth.py.",
           "kill": "If valley depth and valley-band count do not differ between PASS and FAIL seeds (same geometry, sampling only), failures are sampling noise at fixed n — NOTE and stop; do not touch test expectations."
         },
         {
           "id": "A4-T6",
-          "status": "ready",
+          "status": "completed",
           "issue": 45,
           "summary": "Add a component_only option to nested_spheres / circles / two-Gaussians generators emitting one signal component's samples with no tissue and no sibling, at child-sized n (200-500), metadata-flagged as a null. A3 wires them later (backlog).",
           "kill": "n/a (generator)"
+        },
+        {
+          "id": "A4-T7",
+          "status": "ready",
+          "issue": 48,
+          "summary": "Audit null-generator injectivity and area uniformity at n=20000; add one unit test per A4-owned generator and report A3-owned defects by NOTE only.",
+          "kill": "n/a (audit)"
+        },
+        {
+          "id": "A4-T8",
+          "status": "ready",
+          "issue": 48,
+          "summary": "Root-only two-Gaussian resolvability curve at separations {2.5,3,3.5,4,6}, seeds 0-4; table analytic valley depth, K=2 rate, accepted phi, and best-miss phi; /tmp driver only.",
+          "kill": "If acceptance is non-monotone in valley depth by more than one seed across adjacent rungs, NOTE and stop; propose no ceiling change."
+        },
+        {
+          "id": "A4-T9",
+          "status": "ready",
+          "issue": 48,
+          "summary": "Child-sized power oracle: clear two-Gaussian, nested, and linked-tori at total n in {300,600}, seeds 0-4, root-only; report K, accept step/N, and phi versus full n.",
+          "kill": "If clear two-Gaussian at n=600 accepts <=2/5, REQUEST_TRACKER that the child regime is under-powered; do not lower the ceiling."
         }
       ],
       "tests_before_done": "gate + scenarios chunks + `pytest tests/foundation/test_linked_tori_generator.py tests/foundation/test_dataset_scales.py`"
@@ -286,17 +352,38 @@
         },
         {
           "id": "A5-T5",
-          "status": "ready",
+          "status": "blocked",
           "issue": 44,
           "summary": "n-scaling oracle, root read only (--max-depth 1): failing bimodal_circle and two_gaussians_weak seeds at n*4 and n*10, same seed/geometry. Does root K become 2, and at what phi?",
           "kill": "If at 10x n, root K=1 persists on >= half the failing seeds, the miss is a statistic limit not a sample limit — stop scene work on #44 and hand to A2-T5."
         },
         {
           "id": "A5-T6",
+          "status": "completed",
+          "issue": 45,
+          "summary": "Pure-child walk oracle, nested only: subset an existing nested-spheres dataset by ground-truth label to one signal shell (no tissue, no sibling; no generator change required) and run the child walk.",
+          "kill": "If the lone child-sized shell still over-splits, residual #45 over-split is #48-at-small-n; NOTE and REQUEST_TRACKER."
+        },
+        {
+          "id": "A5-T7",
           "status": "ready",
           "issue": 45,
-          "summary": "Pure-child walk oracle: subset existing nested/bimodal datasets by ground-truth label to one signal component (no tissue, no sibling; no generator change required) and run the child walk.",
-          "kill": "If a lone child-sized component still over-splits, residual #45 over-split is #48-at-small-n; NOTE, REQUEST_TRACKER to move the item from #45 to #48."
+          "summary": "Pure-child walk oracle narrowed to the 194-sample weak two-Gaussian child only; no tissue/sibling and no generator change.",
+          "kill": "If the lone child still over-splits, NOTE and REQUEST_TRACKER; do not generalize from bimodal, already answered by T6."
+        },
+        {
+          "id": "A5-T8",
+          "status": "ready",
+          "issue": 48,
+          "summary": "Dissect weak seed-2 non-monotonicity at 4x versus 10x n at matched tau: compare best phi, reject reason, and resolution-bound timing; report only.",
+          "kill": "If matched-tau phi differs by >0.1, raise a director item for n-stratification; propose no ceiling number."
+        },
+        {
+          "id": "A5-T9",
+          "status": "ready",
+          "issue": 45,
+          "summary": "SI S2.6.2 descent/background paragraph: record A/B falsified, option C adopted, and pure-child oracle clean; REQUEST_TRACKER to trim #45.",
+          "kill": "n/a"
         }
       ],
       "tests_before_done": "gate + scenarios chunks"
@@ -305,7 +392,8 @@
       "branch": "coord/A6",
       "role": "worker",
       "owns_issues": [
-        28
+        28,
+        48
       ],
       "owns_files": [
         "code/proteus/tests/conftest.py",
@@ -354,77 +442,91 @@
         },
         {
           "id": "A6-T6",
-          "status": "ready",
+          "status": "completed",
           "issue": 28,
           "summary": "paper.tex + SI S2.4/S2.5 sync only for what has landed: walk stop is N<=n/k; phi ceiling described as calibrated *provisional* with the scurve s8 breach cited; remove any 'DM is the evidence floor' phrasing from paper.tex (S10 is A2's). No new claims.",
           "kill": "n/a"
         },
         {
           "id": "A6-T7",
-          "status": "ready",
+          "status": "completed",
           "issue": 46,
           "summary": "#46 closeout: time the default tests/stage1 slice after the persistence split; confirm the conftest unmarked-budget guard actually trips (temporary probe in /tmp). If default stage1 <10 min and guard fires, REQUEST_TRACKER to resolve #46.",
           "kill": "If default slice is still >10 min, BLOCKED with the durations table — no further slow-marking without director."
         },
         {
           "id": "A6-T8",
-          "status": "ready",
+          "status": "completed",
           "issue": 28,
           "summary": "Triage the pre-existing failure tests/stage1/test_recursion.py::test_mst_critical_hollow_contrast_vs_h_and_conj: is the asserted property one that was deliberately retired (falsified hollow prepass)? Report only; propose strict-xfail-with-issue-pointer or fix via REQUEST_TRACKER. Ownership exception: A6 may edit that SINGLE test function only; A5 keeps the file.",
           "kill": "If the property is still supposed to hold, it is a real regression — BLOCKED, do not xfail."
+        },
+        {
+          "id": "A6-T9",
+          "status": "ready",
+          "issue": 48,
+          "summary": "Complete the OFF baseline from integration a38d6b0 for nested, bimodal_circle, two_gaussians_weak, and clear if present, seeds 0-4; timeout 2400 and report exact lines.",
+          "kill": "Any regression versus the 2026-09-09 baseline is BLOCKED for A1 merge bisection."
+        },
+        {
+          "id": "A6-T10",
+          "status": "ready",
+          "issue": 28,
+          "summary": "Dissect hierarchy seeds yielding 5/6 fine leaves: trace the unsplit child tau*, N versus n/k, best phi, and reject reason; report-only /tmp probe.",
+          "kill": "n/a; if phi>0.25, hand its analytic valley depth to A4-T8."
+        },
+        {
+          "id": "A6-T11",
+          "status": "pending",
+          "issue": 48,
+          "summary": "paper.tex sync after A3-T6 and A2 guard decision: corrected S-curve finding, zero-cross default if flipped, and DM-confirmation wording only.",
+          "kill": "n/a",
+          "depends_on": ["A3-T6", "A2-T6", "A2-T8"]
         }
       ],
       "tests_before_done": "gate + foundation chunks; persistence chunk only inside A6-T1 with --durations"
     }
   },
-  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only: workers merge origin/coord/integration at turn start if behind; A1 publishes MERGE_DONE after merges (no mid-turn pause). A1 keeps queues 2-3 deep and may reassign owns_issues/owns_files over time. Known pre-existing failing test: tests/stage1/test_recursion.py::test_mst_critical_hollow_contrast_vs_h_and_conj (deselect it).",
+  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only: workers merge origin/coord/integration at turn start if behind; A1 publishes MERGE_DONE after merges (no mid-turn pause). Director D2 refilled every worker 2-3 deep. The retired hollow-prepass regression is strict-xfail with #44.",
   "director_backlog": {
-    "note": "Director session D1 (2026-09-09). A1 may refill from here without reconvening. Anything else needs a new director session. Reconvene immediately if A2-T5 or A3-T4 kill fires.",
+    "note": "Director session D2 (2026-09-10). A1 may promote only these dependency-gated items. Reconvene on A2-T7, A3-T6, any A5-T8 trigger, or any new BLOCKED.",
     "items": [
       {
-        "for": "A2",
-        "summary": "If A2-T5 separates: rewrite SI S2.6.2 acceptance as the declared-alpha cross-flow likelihood rule with fixed 0.25 demoted to operational fallback.",
-        "kill": "T5 kill fired"
+        "for": "A4",
+        "summary": "SI S14 benchmark card per scene: n, actual tissue mass, analytic valley depth, root-accept rate seeds0-9 and phi range, plus uniformity audit result.",
+        "kill": "n/a",
+        "depends_on": ["A4-T7", "A4-T8", "A4-T9", "A3-T3"]
       },
       {
         "for": "A3",
-        "summary": "SI S14.3 envelope table per geometry x n including the s8 breach; ceiling tier 'calibrated, provisional'. Do not call 0.25 final.",
-        "kill": "n/a"
-      },
-      {
-        "for": "A3",
-        "summary": "Wire A4-T6 lone-component child-sized scenes into the null envelope harness; report envelope at n=200-500.",
-        "kill": "n/a (report)"
-      },
-      {
-        "for": "A5",
-        "summary": "If A5-T5 shows root K=2 at 4x n: REQUEST_TRACKER to record bimodal/weak as n-conditioned in #44 and the sweep header (metric of record unchanged). Do not change test expectations.",
-        "kill": "T5 kill fired"
+        "summary": "Add min-side node-fraction and sample-mass columns to the envelope harness; compare nulls phi<0.5 with composite accepts seeds0-4.",
+        "kill": "If any composite accept has min-side fraction <= the maximum null-breach fraction, propose no floor."
       },
       {
         "for": "A6",
-        "summary": "paper.tex follow-up after backlog 1-2 land: acceptance rule and DM demotion wording.",
-        "kill": "n/a"
+        "summary": "Promote A6-T11 paper follow-up when its dependencies land.",
+        "kill": "n/a",
+        "depends_on": ["A3-T6", "A2-T6", "A2-T8"]
       },
       {
         "for": "any",
-        "summary": "Prepass-flag code deletion only after a future director confirms the list.",
-        "kill": "n/a"
+        "summary": "Prepass-flag deletion remains forbidden this burn; revisit only after use_level_set_clustering flips.",
+        "kill": "n/a (prohibition)"
       }
     ]
   },
   "director_session": {
-    "id": "D1",
-    "ts": "2026-09-09T22:20-05:00",
-    "model": "claude-fable-5-1-thinking-high (local orchestrator; cloud primary is claude-fable-5-thinking-high)",
-    "summary": "Session 1: all five kills confirmed. Keep 0.25 fixed, relabel calibrated-provisional. Do not drop S-curve. DM demoted from floor. Descent A/B closed. E1/E2 rejected; E3=A3-T3. Next lever is hit-count-conditioned cross-flow likelihood (A2-T5)."
+    "id": "D2",
+    "ts": "2026-09-10T04:20:00Z",
+    "model": "claude-fable-5-1-thinking-high",
+    "summary": "Cross-flow likelihood and weak-scene scaling killed. S-curve generator double-covers a half-arc and must be corrected before judging phi. Refilled A2-A6; prepass deletion forbidden; option C retained for #45."
   },
   "a1_must_not": [
-    "Do not flip use_level_set_clustering, require_separation_evidence, apply_shot_noise_node_cap, or any A2-T5 flag.",
+    "Do not flip use_level_set_clustering or apply_shot_noise_node_cap. Do not flip require_separation_evidence yourself; only A2-T8 may do so after every stated A2-T7 condition passes.",
     "Do not write 0.25 into SI S14.3 as final; do not change it to 0.35 or 0.20; do not adopt a relative ceiling; do not remove S-curve from the null family.",
-    "Do not tune or remove the DM margin/verdict; do not merge descent-tier, tissue-fraction, or fold-threshold work — those families are dead.",
-    "Do not re-state bimodal/weak sweep expectations until A5-T5 reports; never weaken a test.",
-    "Do not resolve #45 or #48; do not delete prepass code; do not run the persistence chunk.",
+    "Do not tune or remove the DM margin/verdict; do not revive cross-flow likelihood, descent-tier, tissue-fraction, or scene-scaling families.",
+    "Bimodal is n-conditioned but weak is statistic-limited; do not change metric-of-record expectations or weaken a test.",
+    "Do not resolve #45 or #48; do not delete prepass code this burn; do not run the persistence chunk.",
     "Do not refill beyond this list and director_backlog without a new director session."
   ]
 }
