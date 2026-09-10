@@ -39,6 +39,11 @@ Usage::
 
     PYTHONPATH="src:$PWD" pipenv run python \\
         tests/scenarios/synthetic/level_set_normal_path_sweep.py
+
+    # Honest tissue_mass sweep (#45 / A4-T2); omit flag for legacy default:
+    PYTHONPATH="src:$PWD" pipenv run python \\
+        tests/scenarios/synthetic/level_set_normal_path_sweep.py \\
+        --tissue-mass 0.05 --scenes nested_spheres bimodal_circle
 """
 
 from __future__ import annotations
@@ -122,6 +127,7 @@ class Result:
     coverage: float | None
     elapsed: float
     note: str
+    tissue_mass: float | None = None
 
 
 def _keep_signal_plus_nearby_tissue(
@@ -151,8 +157,12 @@ def _keep_signal_plus_nearby_tissue(
     return arr[keep], out_lab
 
 
-def _lone_torus_null(seed: int) -> SyntheticDataset:
-    data = make_linked_tori(n_per_torus=LONE_TORUS_N_PER, seed=seed)
+def _lone_torus_null(
+    seed: int, tissue_mass: float | None = None,
+) -> SyntheticDataset:
+    data = make_linked_tori(
+        n_per_torus=LONE_TORUS_N_PER, seed=seed, tissue_mass=tissue_mass,
+    )
     points, labels = _keep_signal_plus_nearby_tissue(
         data.points, data.labels, 0, LONE_TISSUE_RADIUS,
     )
@@ -164,8 +174,12 @@ def _lone_torus_null(seed: int) -> SyntheticDataset:
     )
 
 
-def _lone_shell_inner_null(seed: int) -> SyntheticDataset:
-    data = make_nested_spheres(n_per_sphere=LONE_SHELL_N_PER, seed=seed)
+def _lone_shell_inner_null(
+    seed: int, tissue_mass: float | None = None,
+) -> SyntheticDataset:
+    data = make_nested_spheres(
+        n_per_sphere=LONE_SHELL_N_PER, seed=seed, tissue_mass=tissue_mass,
+    )
     points, labels = _keep_signal_plus_nearby_tissue(
         data.points, data.labels, 1, LONE_TISSUE_RADIUS,
     )
@@ -203,20 +217,38 @@ def _lone_gauss4d_null(seed: int) -> SyntheticDataset:
     )
 
 
-def _scenes() -> tuple[Scene, ...]:
+def _scenes(tissue_mass: float | None = None) -> tuple[Scene, ...]:
+    """Build the suite; faded factories get ``tissue_mass`` when set (#45).
+
+    Hierarchy and pure-Gaussian nulls ignore the flag (no faded tissue).
+    """
+
+    tm = tissue_mass
     return (
         Scene(
             "circle_null",
-            lambda seed: make_circle(n_samples=CIRCLE_N, seed=seed),
+            lambda seed: make_circle(
+                n_samples=CIRCLE_N, seed=seed, tissue_mass=tm,
+            ),
             None,
         ),
         Scene(
             "swiss_roll_null",
-            lambda seed: make_swiss_roll(n_samples=SWISS_N, seed=seed),
+            lambda seed: make_swiss_roll(
+                n_samples=SWISS_N, seed=seed, tissue_mass=tm,
+            ),
             None,
         ),
-        Scene("lone_torus_null", _lone_torus_null, None),
-        Scene("lone_shell_inner_null", _lone_shell_inner_null, None),
+        Scene(
+            "lone_torus_null",
+            lambda seed: _lone_torus_null(seed, tissue_mass=tm),
+            None,
+        ),
+        Scene(
+            "lone_shell_inner_null",
+            lambda seed: _lone_shell_inner_null(seed, tissue_mass=tm),
+            None,
+        ),
         Scene("lone_gauss2d_null", _lone_gauss2d_null, None),
         Scene("lone_gauss4d_null", _lone_gauss4d_null, None),
         Scene(
@@ -228,14 +260,18 @@ def _scenes() -> tuple[Scene, ...]:
         ),
         Scene(
             "linked_tori",
-            lambda seed: make_linked_tori(n_per_torus=TORI_N_PER, seed=seed),
+            lambda seed: make_linked_tori(
+                n_per_torus=TORI_N_PER, seed=seed, tissue_mass=tm,
+            ),
             TORI_K,
             min_ari=TORI_MIN_ARI,
             min_coverage=TORI_MIN_COVERAGE,
         ),
         Scene(
             "nested_spheres",
-            lambda seed: make_nested_spheres(n_per_sphere=NESTED_N_PER, seed=seed),
+            lambda seed: make_nested_spheres(
+                n_per_sphere=NESTED_N_PER, seed=seed, tissue_mass=tm,
+            ),
             NESTED_K,
             min_ari=NESTED_MIN_ARI,
             min_coverage=NESTED_MIN_COVERAGE,
@@ -243,7 +279,10 @@ def _scenes() -> tuple[Scene, ...]:
         Scene(
             "bimodal_circle",
             lambda seed: make_bimodal_circle(
-                n_samples=BIMODAL_CIRCLE_N, kappa=BIMODAL_CIRCLE_KAPPA, seed=seed,
+                n_samples=BIMODAL_CIRCLE_N,
+                kappa=BIMODAL_CIRCLE_KAPPA,
+                seed=seed,
+                tissue_mass=tm,
             ),
             BIMODAL_CIRCLE_K,
         ),
@@ -254,6 +293,7 @@ def _scenes() -> tuple[Scene, ...]:
                 sigma=TWO_GAUSSIANS_SIGMA,
                 separation=TWO_GAUSSIANS_WEAK_SEP,
                 seed=seed,
+                tissue_mass=tm,
             ),
             2,
         ),
@@ -264,6 +304,7 @@ def _scenes() -> tuple[Scene, ...]:
                 sigma=TWO_GAUSSIANS_SIGMA,
                 separation=TWO_GAUSSIANS_CLEAR_SEP,
                 seed=seed,
+                tissue_mass=tm,
             ),
             2,
         ),
@@ -325,12 +366,18 @@ def _config(args: argparse.Namespace, seed: int) -> RecursionConfig:
     )
 
 
-def run_scene(scene: Scene, seed: int, args: argparse.Namespace) -> Result:
+def run_scene(
+    scene: Scene,
+    seed: int,
+    args: argparse.Namespace,
+    tissue_mass: float | None = None,
+) -> Result:
     data = scene.factory(seed)
     if scene.name == "linked_tori" and not data.metadata["resolvable_k8"]:
         return Result(
             scene.name, seed, False, None, 0, 0, 0, None, None, None, 0.0,
             "generator metadata says k=8 cannot resolve the lambda=0.5 gap",
+            tissue_mass=tissue_mass,
         )
 
     started = time.time()
@@ -351,6 +398,7 @@ def run_scene(scene: Scene, seed: int, args: argparse.Namespace) -> Result:
             scene.name, seed, passed, tau_star, root_k, n_sig_leaves,
             len(tree.leaves), None, None, None, elapsed,
             "connected-manifold null must stay one root feature",
+            tissue_mass=tissue_mass,
         )
 
     ari, background_recall, coverage = score(data.labels, pred)
@@ -367,6 +415,7 @@ def run_scene(scene: Scene, seed: int, args: argparse.Namespace) -> Result:
             f"require root K={scene.expected_k}, ARI>={scene.min_ari:.2f}, "
             f"coverage>={scene.min_coverage:.2f}"
         ),
+        tissue_mass=tissue_mass,
     )
 
 
@@ -379,8 +428,13 @@ def _format(result: Result) -> str:
             f" ARI={result.ari:.3f} bg={result.background_recall:.3f}"
             f" cover={result.coverage:.3f}"
         )
+    tm = (
+        "tm=legacy"
+        if result.tissue_mass is None
+        else f"tm={result.tissue_mass:.2f}"
+    )
     return (
-        f"{verdict:4s} {result.scene:19s} s{result.seed} "
+        f"{verdict:4s} {result.scene:19s} s{result.seed} {tm:10s} "
         f"{tau:14s} rootK={result.n_signal_root} "
         f"sigLeaves={result.n_signal_leaves} leaves={result.n_leaves}"
         f"{metrics} t={result.elapsed:6.1f}s"
@@ -394,7 +448,7 @@ def main() -> int:
         "--scenes",
         nargs="+",
         default=None,
-        help="Subset of scene names (default: all five).",
+        help="Subset of scene names (default: all).",
     )
     parser.add_argument("--max-epochs", type=int, default=12)
     parser.add_argument("--max-grid-points", type=int, default=8)
@@ -410,24 +464,48 @@ def main() -> int:
         default="track_tau",
         help="Level-set finer-walk growth policy (default: track_tau).",
     )
+    parser.add_argument(
+        "--tissue-mass",
+        type=float,
+        nargs="+",
+        default=None,
+        help=(
+            "Honest background mass fraction(s) for faded generators "
+            "(#45). Omit for legacy fade-balanced ~46-49%%. Example: "
+            "--tissue-mass 0.05 0.20 0.46"
+        ),
+    )
     args = parser.parse_args()
 
     wanted = None if args.scenes is None else set(args.scenes)
+    tissue_masses: list[float | None]
+    if args.tissue_mass is None:
+        tissue_masses = [None]
+    else:
+        tissue_masses = [float(m) for m in args.tissue_mass]
+        for mass in tissue_masses:
+            if not (0.0 <= mass < 1.0):
+                raise SystemExit(f"--tissue-mass must lie in [0, 1); got {mass}")
+
     results: list[Result] = []
     print(
         "normal-path level-set diagnostic "
         f"(load_crossover, finer_steps={args.max_finer_steps}, "
         f"max_epochs={args.max_epochs}, grid={args.max_grid_points}, "
-        f"growth_policy={args.growth_policy})",
+        f"growth_policy={args.growth_policy}, "
+        f"tissue_mass={tissue_masses})",
         flush=True,
     )
-    for scene in _scenes():
-        if wanted is not None and scene.name not in wanted:
-            continue
-        for seed in args.seeds:
-            result = run_scene(scene, int(seed), args)
-            results.append(result)
-            print(_format(result), flush=True)
+    for tissue_mass in tissue_masses:
+        for scene in _scenes(tissue_mass=tissue_mass):
+            if wanted is not None and scene.name not in wanted:
+                continue
+            for seed in args.seeds:
+                result = run_scene(
+                    scene, int(seed), args, tissue_mass=tissue_mass,
+                )
+                results.append(result)
+                print(_format(result), flush=True)
 
     passed = sum(result.passed for result in results)
     print(f"summary: {passed}/{len(results)} scene-seeds passed")
