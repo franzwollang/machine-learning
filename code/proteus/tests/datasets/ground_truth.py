@@ -194,6 +194,26 @@ def tissue_partition_report(metadata: dict) -> dict[str, float | int | str | Non
     }
 
 
+def valley_resolvability_report(metadata: dict) -> dict[str, float | int | str | None]:
+    """Expose analytic valley-depth / valley-band covariates (#45 A4-T5).
+
+    Connected-support generators (``bimodal_circle``, ``two_gaussians``) record
+    these via ``valley_resolvability_metadata``.  Missing keys raise
+    ``KeyError``.
+    """
+    return {
+        "valley_depth": float(metadata["valley_depth"]),
+        "valley_min_over_peak": float(metadata["valley_min_over_peak"]),
+        "valley_peak_density": float(metadata["valley_peak_density"]),
+        "valley_min_density": float(metadata["valley_min_density"]),
+        "valley_band_rel": float(metadata["valley_band_rel"]),
+        "valley_band_mass": float(metadata["valley_band_mass"]),
+        "valley_band_expected_count": float(metadata["valley_band_expected_count"]),
+        "valley_band_count": int(metadata["valley_band_count"]),
+        "valley_path": metadata.get("valley_path"),
+    }
+
+
 @dataclass
 class SyntheticDataset:
     """A generated synthetic dataset paired with its ground truth."""
@@ -205,3 +225,7 @@ class SyntheticDataset:
     def tissue_partition(self) -> dict[str, float | int | str | None]:
         """Requested vs actual tissue mass and signal/tissue counts (#45)."""
         return tissue_partition_report(self.metadata)
+
+    def valley_resolvability(self) -> dict[str, float | int | str | None]:
+        """Analytic valley depth and valley-band counts (#45 A4-T5)."""
+        return valley_resolvability_report(self.metadata)
