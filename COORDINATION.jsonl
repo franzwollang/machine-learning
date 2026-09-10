@@ -203,3 +203,4 @@
 {"ts":"2026-09-10T09:50:57Z","from":"A3","type":"NOTE","integrated_sha":"c075e4f57d771bd43e1ae88e69d6e83d28d052a6","note":"Merged origin/coord/integration (FF). Restored A3 mailbox from pre-merge tip 7d75620. Queue empty; D7 scientific suspension; defaults unchanged."}
 {"ts":"2026-09-10T09:50:57Z","from":"A3","type":"NOTE","note":"Idle exit: ready_count=0 (9 completed / 5 blocked / 0 ready); D7 no refill. No CLAIM. No REQUEST_TRACKER. Await director/A1 only."}
 {"ts":"2026-09-10T09:50:57Z","from":"A3","type":"NOTE","note":"Authoritative tip after idle merge heartbeat: 07284838a260298b299e6c06bc1f09b712b2b9b6. Queue empty; D7 suspended; await director/A1 only."}
+{"ts":"2026-09-10T09:51:03Z","from":"A3","type":"NOTE","note":"Authoritative tip SHA correction: 1e98b40605ee9ed7275c4ff82277d8d9ef933460. Queue empty; D7 suspended; await director/A1 only."}
