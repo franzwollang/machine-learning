@@ -1,29 +1,28 @@
 {
-  "updated_at": "2026-09-10T02:36:40+00:00",
-  "turn": 103,
+  "updated_at": "2026-09-09T22:25:00-05:00",
+  "turn": 96,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "hold the falsified phi ceiling pending director decision"
+    "goal": "D1 applied: keep 0.25 provisional; A2-T5 likelihood gate; A3 dissect scurve; A5 n-scale oracle"
   },
   "recent": [
-    "A3-T2 kill fired: S-curve sheet null seed 8 accepted at phi=0.249435; widening stopped",
-    "A5-T1 option B landed default-off but changed no leaf counts; A5-T2 option A is active",
-    "A2-T2 default-off hit-mass guard blocks the phi=0 Gaussian false accept without seeds 0-4 root regressions",
-    "Fifth heartbeat integrated A2-T2; gate 65, foundation 171+x8, evidence 240, scenarios 40+x17 are green"
+    "Cloud slugs: grok-4.5-high + fable-5-thinking-high (fallbacks 4.6 / 5.1); A1 must not block on slug miss",
+    "Director D1 (Fable 5.1 local): five kills confirmed; do not drop S-curve; DM not a floor; descent A/B dead",
+    "phi 0.25 stays, relabel calibrated-provisional; E1/E2 rejected; E3 = A3-T3",
+    "Queues refilled A2-T5/T6 A3-T3/T4/T5 A4-T5/T6 A5-T5/T6 A6-T6/T7/T8"
   ],
   "discoveries": [
-    "Fixed phi=0.25 is outside the widened null envelope: S-curve sheet produced phi=0.249435",
-    "Nearest-saddle Poisson cannot gate the phi=0 Gaussian false accept; only core_hits_min has a narrow 3.05x contrast",
-    "Majority-background child termination does not address residual bimodal over-splitting"
+    "S-curve s8 accept phi=0.2494 is a statistic failure at N=n/k, not a reason to drop the geometry",
+    "Null min 0.249 and composite miss 0.334 overlap: moving the ceiling cannot separate them",
+    "DM sample-normalized logBF overlap 69%; two_gaussians_clear sits in the null band",
+    "tissue_mass 0.05 worse than 0.46 on nested; option A/B descent both killed"
   ],
   "open_threads": [
-    "Director must classify the S-curve sheet and kill/replace/relativize the fixed phi ceiling",
-    "A2-T3 DM shot-noise, A4-T2 tissue-mass sweep, A5-T2 core-only descent, and A6-T3 n/k flag remain",
-    "A3-T3 and all new queue refills are held until director direction"
+    "A1 last MERGE_DONE 486c801 (02:37Z) is behind A2-T3, A4-T2-T4, A5-T2-T4, A6-T3-T5 — A1 must merge next",
+    "A2-T4 still in progress (guard x seeds 5-19)",
+    "Reconvene director if A2-T5 or A3-T4 kill fires"
   ],
-  "next_step": "convene the Fable director in an authorized run; keep A3 held meanwhile",
-  "blockers": [
-    "A1 director trigger fired, but this run explicitly permits only Grok subagents while the director role requires Fable"
-  ]
+  "next_step": "push slug+D1 commit to main, merge into coord/A1 and coord/integration so workers unstall",
+  "blockers": []
 }
