@@ -782,11 +782,13 @@ Remaining (2026-09-09; ordered by severity):
   itself, so cross flow is exactly 0 (φ = 0) and DM confirms with logBF
   2162. A2-T1 found that nearest-saddle/Poisson support is stronger on
   this false accept than on true two-Gaussian accepts, so a cut-local
-  link-absence guard is not valid. Only region `core_hits_min` separates
-  all five true controls, and only narrowly (20 versus at least 61,
-  3.05x); clump mean misses the 3x bar on one seed. Determine whether a
-  derived region-support guard is possible or whether this must move to
-  #47 insertion evidence; do not tune a nearest-pair threshold. Repro:
+  link-absence guard is not valid. A default-off
+  `require_separation_evidence` guard now requires zero-cross cuts to
+  clear the derived hit-mass mixing expectation
+  `λ = k·2p(1-p) > log(tau_bf)`. It blocks the seed-17 false accept while
+  preserving two-Gaussian, linked-tori, and nested-sphere root accepts
+  on seeds 0--4. Keep the flag off pending director review; the DM
+  shot-noise task and seeds 5--19 extension remain. Repro:
   `level_set_root_accept_probe.py --seed 17 --scenes
   lone_gauss2d_null --max-depth 1`.
 - **Connected-support valleys (bimodal circle 2/5, weak two-Gaussians
