@@ -174,3 +174,4 @@
 {"ts": "2026-09-10T10:23:47Z", "from": "A2", "type": "NOTE", "integrated_sha": "0c9d4d1e1796078a990717776a866e11205d444c", "note": "Merged origin/coord/integration. Restored A2 mailbox after FF overwrite. SI par:si-d7-no-live-floor + par:si-48-killed-inventory present. Default require_separation_evidence=false; 0.25 provisional. Defaults unchanged."}
 {"ts": "2026-09-10T10:23:47Z", "from": "A2", "type": "NOTE", "note": "Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. No new #48 floor work this burn."}
 {"ts": "2026-09-10T10:23:53Z", "from": "A2", "type": "NOTE", "note": "Authoritative tip after idle merge heartbeat: bda499c0ddf7. Queue empty; D7 suspended; await director/A1 only."}
+{"ts": "2026-09-10T10:23:53Z", "from": "A2", "type": "NOTE", "note": "Authoritative tip SHA correction: 84efc51d71b8a56b48977a0a8ad69d78272b5460. Queue empty; D7 suspended; await director/A1 only."}
