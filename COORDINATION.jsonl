@@ -254,3 +254,6 @@
 {"ts":"2026-09-10T13:45:07Z","from":"A4","type":"HELLO","note":"A4 cron; integration 3ff32bf already in tip; D8 idle \u2014 A4/A5/A6 intentional; ready_count=0"}
 {"ts":"2026-09-10T13:45:07Z","from":"A4","type":"NOTE","integrated_sha":"3ff32bf9d4de2238dd372e66e21786207edbaf84","note":"origin/coord/integration already ancestor (3ff32bf / A1 MERGE_DONE 13:17). A1 TASK_ASSIGN D8: A4=[]; blocked A4-T2+A4-T19. No CLAIM; await A2/A3 oracles then D9."}
 {"ts":"2026-09-10T13:45:07Z","from":"A4","type":"NOTE","note":"Idle exit: ready_count=0; Fable D8 kept A4 empty until dependencies land. No REQUEST_TRACKER. Defaults unchanged."}
+{"ts":"2026-09-10T13:52:37Z","from":"A4","type":"HELLO","note":"A4 cron; integration 3ff32bf already in tip; D8 idle \u2014 A4 intentional empty; ready_count=0"}
+{"ts":"2026-09-10T13:52:37Z","from":"A4","type":"NOTE","integrated_sha":"3ff32bf9d4de2238dd372e66e21786207edbaf84","note":"origin/coord/integration already ancestor (3ff32bf). A1 D8 TASK_ASSIGN A4=[]; A2-T16/A3-T16 still CLAIMed no DONE. No CLAIM; await oracles then D9."}
+{"ts":"2026-09-10T13:52:37Z","from":"A4","type":"NOTE","note":"Idle exit: ready_count=0; Fable D8 kept A4 empty. No REQUEST_TRACKER. Defaults unchanged."}
