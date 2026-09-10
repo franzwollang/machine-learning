@@ -4275,7 +4275,11 @@ n_i^{\mathrm{eff}}\cdot\frac{C(i\to j)}{\sum_{j'}C(i\to j')},
 \qquad
 \sum_i n_i^{\mathrm{eff}}=n.
 \]
-Each node's contribution to $F_{\mathrm{DM}}$ is then bounded by $O(n_i^{\mathrm{eff}}\log J_i)$ (derived), matching the Fisher-information scale $I_i\propto n_i$ below. Runtime flag: \texttt{DMClusterConfig.sample\_normalized\_counts} (default off; proposed path). Do not flip the default until null-versus-composite $\log\mathrm{BF}$ separation under this correction is accepted.
+Each node's contribution to $F_{\mathrm{DM}}$ is then bounded by $O(n_i^{\mathrm{eff}}\log J_i)$ (derived), matching the Fisher-information scale $I_i\propto n_i$ below. Runtime flag: \texttt{DMClusterConfig.sample\_normalized\_counts} (default off; proposed path).
+
+\paragraph{Verdict: DM is not the valley-existence floor.}
+\label{par:si-dm-not-valley-floor}
+Background-aware DM confirms that a candidate partition of an already-accepted cut is not a fade/tissue homogeneity (S2.6.3 / \#45). It is \emph{not} the one-feature valley-existence evidence floor of S2.6.2. Measured on the declared null ensemble $\times$ seeds $0$--$4$ root reads versus composite root accepts (OPEN\_ISSUES~\#48 / A2-T3): sample-normalized $\log\mathrm{BF}$ still overlaps on $69\%$ of reads (null median $659$ on $n{=}92$ balanced cuts; composite-accept median $3477$ on $n{=}15$, but \texttt{two\_gaussians\_clear} accepts sit at $508$--$548$ inside the null band). The false $\phi{=}0$ accept \texttt{lone\_gauss2d\_null} seed~17 drops from raw $\log\mathrm{BF}{=}2162$ to $128$ under the correction yet remains in the null bulk. Overlap exceeds the $20\%$ stop criterion, so DM is abandoned as a valley floor --- do not tune a margin and do not flip \texttt{sample\_normalized\_counts}. Valley existence remains the calibrated $\phi$ ceiling (and the proposed-path zero-cross separation-evidence guard); DM stays a background-partition confirmation only.
 
 \paragraph{MaxEnt/MAP connection.}
 With a flat prior on $m$, maximizing the joint log-likelihood gives the MaxEnt/MLE estimator
