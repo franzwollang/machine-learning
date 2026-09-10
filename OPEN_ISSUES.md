@@ -806,9 +806,21 @@ Remaining (ordered by severity):
   the two child-envelope phi=0 cases are now complete:
   every measured covariate overlaps the composite-accept band, and both circle
   cases are ordinary graph disconnections in the same class as lone-Gaussian
-  seed 17. No #48 floor candidate remains this burn. Any future statistic must
-  use a declared protocol and null envelope, pass corrected S-curve 0/20, and
-  retain every seed-0--4 composite root accept.
+  seed 17. No additive floor candidate remains. D8 (Fable) reopens the
+  statistic's definition, not the ceiling: phi compares the coarsest C--D cut
+  (the region's deepest sampling gap, hence an extreme) against a single
+  typical Fiedler bisection. Under the one-feature null, phi may therefore sit
+  systematically below one. A3-T16 killed the stronger scan-length prediction:
+  fixed-area flat strips at aspect 1/2/4.71/9.42 accepted 0/0/3/1 of 20 seeds,
+  with minimum phi 0.645/0.281/0.123/0.163; the final 0.040 rise violates the
+  preregistered monotonicity bound. Do not extend or tune that seed-fragile
+  family. The independent matched-scan denominator falsifier (A2-T16) remains
+  in flight. The 0.25 ceiling,
+  `require_separation_evidence`, and `use_level_set_clustering` remain
+  unchanged pending D10. Any accepted successor must use a declared protocol
+  and null envelope, pass the corrected S-curve and every flat-strip aspect at
+  0/20, the six nulls at 0/120, and the child envelope at 0/N, while retaining
+  every seed-0--4 composite root accept.
 - **Graph-disconnection false accept (acceptance path, owns the DM
   overconfidence item).** lone 2-D Gaussian seed 17 accepts at N=50,
   τ=0.012: a 72-point clump in the shoulder has no Hebbian link outside
