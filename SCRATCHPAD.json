@@ -1,6 +1,6 @@
 {
-  "updated_at": "2026-09-10T02:19:00+00:00",
-  "turn": 101,
+  "updated_at": "2026-09-10T02:36:40+00:00",
+  "turn": 103,
   "focus": {
     "milestone": "M1",
     "issue": 48,
@@ -9,7 +9,8 @@
   "recent": [
     "A3-T2 kill fired: S-curve sheet null seed 8 accepted at phi=0.249435; widening stopped",
     "A5-T1 option B landed default-off but changed no leaf counts; A5-T2 option A is active",
-    "Fourth heartbeat integrated A3-T2 and A5-T1; gate/foundation/evidence/scenarios chunks are green"
+    "A2-T2 default-off hit-mass guard blocks the phi=0 Gaussian false accept without seeds 0-4 root regressions",
+    "Fifth heartbeat integrated A2-T2; gate 65, foundation 171+x8, evidence 240, scenarios 40+x17 are green"
   ],
   "discoveries": [
     "Fixed phi=0.25 is outside the widened null envelope: S-curve sheet produced phi=0.249435",
@@ -18,10 +19,10 @@
   ],
   "open_threads": [
     "Director must classify the S-curve sheet and kill/replace/relativize the fixed phi ceiling",
-    "A2-T2 region-support guard, A4-T2 tissue-mass sweep, A5-T2 core-only descent, and A6-T3 n/k flag remain active",
+    "A2-T3 DM shot-noise, A4-T2 tissue-mass sweep, A5-T2 core-only descent, and A6-T3 n/k flag remain",
     "A3-T3 and all new queue refills are held until director direction"
   ],
-  "next_step": "publish integration and A1 tracker state; hold director-only decisions",
+  "next_step": "convene the Fable director in an authorized run; keep A3 held meanwhile",
   "blockers": [
     "A1 director trigger fired, but this run explicitly permits only Grok subagents while the director role requires Fable"
   ]

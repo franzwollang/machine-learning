@@ -13,7 +13,7 @@ bodies below stay static descriptions.
 | Milestone | Status |
 |---|---|
 | M0 — Spec/implementation sync pass | done |
-| M1 — Canonical clustering objective | blocked — #44 flag stays off. #48: S-curve-sheet null seed 8 accepted at φ=0.249435, falsifying the fixed 0.25 ceiling; graph-disconnection and DM overconfidence also remain. Director decision is required before more ceiling calibration. #45: explicit `tissue_mass` path landed; option B changed no leaf counts, while the mass sweep and option A remain active. |
+| M1 — Canonical clustering objective | blocked — #44 flag stays off. #48: S-curve-sheet null seed 8 accepted at φ=0.249435, falsifying the fixed 0.25 ceiling; the default-off hit-mass separation guard blocks the φ=0 Gaussian false accept without seeds 0–4 root regressions, while DM overconfidence remains. Director review is required before any default or ceiling change. #45: explicit `tissue_mass` path landed; option B changed no leaf counts, while the mass sweep and option A remain active. |
 | M2 — Characteristic-scale selection rebuild | in progress (half×sArg mid-closer except seed2; LC straddle fine>coarse but LC≡0. Do not flip default.) |
 | M3 — Constant audit & calibration tier | done (c_{d,k} + C_Q(d) calibrated on the shared uniform-d-ball ensemble; S14.3 three-tier audit #37 complete; intrinsic-dim estimator #39 validated vs GT + Levina–Bickel cross-check shipped, SI S1.4.1. Operational estimator-wiring divergence surfaced as #40, deferred to the M5 junction-detection consumer.) |
 | M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 traj×fail_closed compose 177p flags off; do not close. #41: densify294/318 both hard-fail; mult3 dip@0.23; denser512 void-absent. Remaining: densify290/320 / #45) |
