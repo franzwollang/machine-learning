@@ -369,10 +369,10 @@ lower-density component is crude at the first-accept scale.
 Remaining work: use the explicit `tissue_mass` path to compare mass
 fractions 0.05/0.20 against the legacy 0.46--0.49 regime; correct the SI
 S14 calibration text where box-padding `tissue_fraction` was described as
-a mass fraction; choose benchmark-wide halo/background descent semantics
-(A core-only, B majority-background terminal guard, or C as-is); retain
-signal-only ARI + background recall until then; re-baseline the `@awaiting`
-recovery expectations (#41, #26) without weakening topology criteria.
+a mass fraction; evaluate core-only descent (A) after majority-background
+termination (B) changed no leaf counts on seeds 0--4; retain signal-only
+ARI + background recall until then; re-baseline the `@awaiting` recovery
+expectations (#41, #26) without weakening topology criteria.
 
 Level-set consequence (2026-09-09, from #48): the root split assigns about
 half the tissue to signal children (nested seed-0 bg recall 0.51; nested
@@ -770,11 +770,12 @@ Remaining (2026-09-09; ordered by severity):
   value to the protocol. The reproducible harness rerun found 357 reads,
   min 0.2876, p1 0.521, p5 0.642, and median 1.365: the minimum and false
   accept reproduce, but the count and percentiles drift slightly from the
-  published table. Reconcile that drift before widening the ensemble.
-  Remaining: the 13% margin (0.25 vs 0.288) is thin — widen the ensemble
-  (more null geometries, sample sizes, n/k regimes) before calling the
-  protocol final, and decide whether the ceiling should be stated relative
-  to the envelope rather than as a fixed number.
+  published table. Widening falsified the fixed ceiling: an S-curve sheet
+  null accepted at seed 8, step 6 (`N=100`, `tau=0.03413`,
+  `phi=0.249435`). A director decision must classify the folded sheet as
+  null/non-null and choose whether to abandon the fixed ceiling, use a
+  relative envelope rule, or replace the statistic; no further calibration
+  sweep or SI update should proceed first.
 - **Graph-disconnection false accept (acceptance path, owns the DM
   overconfidence item).** lone 2-D Gaussian seed 17 accepts at N=50,
   τ=0.012: a 72-point clump in the shoulder has no Hebbian link outside
