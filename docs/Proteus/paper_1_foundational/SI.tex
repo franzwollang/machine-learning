@@ -2021,6 +2021,32 @@ requires an awaiting-flip review and evidence-gated insertion (\#47).
 Direct fine-$\tau$ diagnostics
 alone must not silently change default behavior.
 
+\paragraph{Descent / background-partition semantics (OPEN\_ISSUES \#45).}
+Root accepts can leak tissue into signal children; the child's own
+level-set read then parks most samples in background and the residual
+shell{+}tissue fragment may shatter. Three descent options were tested
+on the equalized scaffold (same $\lambda{=}0.5$ tier as the faded GT):
+\begin{itemize}[leftmargin=1.5em]
+  \item \emph{Option~A} (\texttt{core\_only\_descent}, default off):
+    relabel per-cluster density-halo nodes
+    ($d_i{<}0.5\cdot\max_C d$) as background before recurse. Kill fired
+    --- coverage dropped on linked tori / nested when the half-max tier
+    discarded real signal.
+  \item \emph{Option~B}
+    (\texttt{terminate\_majority\_background\_child}, default off): keep
+    Hartigan assignment but stop descending when a non-root child's own
+    read sends ${>}1/2$ of its samples to background. Did not reduce
+    residual over-splits (no leaf-count effect on the failing seeds).
+  \item \emph{Option~C}: keep the Hartigan child assignment and score
+    signal-only (background-aware ARI / recall). \emph{Adopted.}
+\end{itemize}
+Pure-child oracles without tissue or siblings --- nested-shell GT
+subsets, bimodal connected-valley components, and the 194-sample weak
+two-Gaussian \texttt{component\_only} child --- stay single-leaf on
+seeds~$0$--$4$. Residual \#45 over-split therefore needs tissue or
+sibling context, not an intrinsic child-geometry fix. Do not flip
+either option-A/B flag default.
+
 \paragraph{Landed proposal-path wiring and protocol.}
 Module \texttt{proteus.stage1.edge\_evidence} exposes
 \texttt{hollowness\_scores} / \texttt{prune\_hollow\_edges} behind
