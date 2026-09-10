@@ -1,17 +1,17 @@
 {
-  "updated_at": "2026-09-10T09:56:02Z",
-  "turn": 116,
+  "updated_at": "2026-09-10T10:05:10Z",
+  "turn": 117,
   "focus": {
     "milestone": "M1",
     "issue": 48,
     "goal": "maintain D7 suspension and integrate idle worker tips"
   },
   "recent": [
-    "Fast chunks green; periodic sweep timed out after 44/60 passing rows and was not retried",
     "Integrated A2-A6 idle mailbox tips; four fast chunks green and D7 suspension unchanged",
     "Integrated A2/A3 idle mailbox tips; fast chunks green and D7 suspension unchanged",
     "Integrated fresh A2/A3 idle mailbox tips; four fast chunks green and D7 suspension unchanged",
-    "Integrated fresh A4-A6 idle mailbox tips; four fast chunks green and D7 suspension unchanged"
+    "Integrated fresh A4-A6 idle mailbox tips; four fast chunks green and D7 suspension unchanged",
+    "Integrated fresh A2-A6 idle mailbox tips; four fast chunks green and D7 suspension unchanged"
   ],
   "discoveries": [
     "All A3-T11 cut covariates overlap composite accepts; no covariate floor exists in the tested family",
