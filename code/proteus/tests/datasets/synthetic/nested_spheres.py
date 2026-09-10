@@ -22,6 +22,7 @@ from .faded_density import (
     SupportBox,
     assign_labels_by_lambda,
     sample_faded_mixture,
+    tissue_mass_metadata,
 )
 from .tissue import (
     expected_tau_for_uniform_tissue_box,
@@ -48,12 +49,17 @@ def make_nested_spheres(
     extrusion_dim: int = 1,
     extrusion_sigma: float | None = None,
     tissue_fraction: float = 0.03,
+    tissue_mass: float | None = None,
     seed: int = 0,
 ) -> SyntheticDataset:
     """Generate concentric thickened spheres as exact faded densities.
 
     Each sphere is a (``ambient_dim - 1``)-sphere embedded in
     ``ambient_dim`` dimensions.
+
+    ``tissue_fraction`` only pads the support box (historical name).
+    Pass ``tissue_mass`` for an honest expected λ<0.5 background fraction;
+    ``None`` keeps the legacy fade-balanced floor (~46–49% tissue).
     """
     if extrusion_dim < 0:
         raise ValueError("extrusion_dim must be non-negative")
@@ -117,7 +123,7 @@ def make_nested_spheres(
         min_padding=0.05,
         extra_padding=3.0 * shell_sigma,
     )
-    mixture = FadedMixture(components, support)
+    mixture = FadedMixture(components, support, tissue_mass=tissue_mass)
     points, sampler_meta = sample_faded_mixture(mixture, n_per_sphere * len(radii), rng)
     labels = assign_labels_by_lambda(
         points,
@@ -189,8 +195,11 @@ def make_nested_spheres(
             "base_ambient_dim": ambient_dim,
             "signal_expected_tau": float(signal_tau),
             "tissue_expected_tau": float(tissue_tau),
-            "tissue_fraction_actual": float(np.mean(labels < 0)),
-            "tissue_fraction_requested": tissue_fraction,
+            **tissue_mass_metadata(
+                tissue_fraction=tissue_fraction,
+                tissue_mass=tissue_mass,
+                tissue_mass_actual=float(np.mean(labels < 0)),
+            ),
             "support_bounds_lo": tissue_bounds[0].tolist(),
             "support_bounds_hi": tissue_bounds[1].tolist(),
             **sampler_meta,
