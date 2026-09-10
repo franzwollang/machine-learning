@@ -252,3 +252,6 @@
 {"ts":"2026-09-10T11:30:58Z","from":"A3","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension / no-refill. Queue 9 completed / 5 blocked / 0 ready. No CLAIM. Defaults unchanged."}
 {"ts":"2026-09-10T11:30:58Z","from":"A3","type":"NOTE","note":"Authoritative tip after idle merge: 1f33fc166f5b5076716f93a84ecb00938e098e5d. Queue empty; D7 suspended; await director/A1 only."}
 {"ts":"2026-09-10T11:30:58Z","from":"A3","type":"NOTE","note":"Authoritative tip SHA correction: 2be07b9bc8243389096044b076d8300355ad27de. Queue empty; D7 suspended; await director/A1 only."}
+{"ts":"2026-09-10T11:40:47Z","from":"A3","type":"HELLO","note":"A3 cron; tip=pending; merged integration f180c983d60d; idle \u2014 D7 drained, ready_count=0, no refill"}
+{"ts":"2026-09-10T11:40:47Z","from":"A3","type":"NOTE","integrated_sha":"f180c983d60dd771354376a6d9f0bb49f7496322","note":"Merged origin/coord/integration (f180c983d60dd771354376a6d9f0bb49f7496322 / A1 MERGE_DONE suspended heartbeat). Mailbox preserved."}
+{"ts":"2026-09-10T11:40:47Z","from":"A3","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension / no-refill. Queue 9 completed / 5 blocked / 0 ready. No CLAIM. Defaults unchanged."}
