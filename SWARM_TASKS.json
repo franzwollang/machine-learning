@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-10T01:56:00+00:00",
+  "updated_at": "2026-09-10T02:06:53+00:00",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -123,7 +123,7 @@
       "queue": [
         {
           "id": "A3-T1",
-          "status": "in_progress",
+          "status": "completed",
           "issue": 48,
           "summary": "Make the phi-ceiling calibration reproducible: level_set_null_envelope.py runs the root walk (track_tau, --max-depth 1) over a declared null ensemble x seeds and writes one table (scene, seed, step, N, tau, phi, accepted, reason) plus the envelope summary (min, p1, p5, p10, median, count, any accepts). Start with the six existing nulls x seeds 0-19 and confirm it reproduces min 0.288 / p1 0.487 / p5 0.630 / 359 reads and the single phi=0 accept on lone_gauss2d s17.",
           "kill": "n/a (harness). If it cannot reproduce the 2026-09-09 numbers within noise, report the discrepancy before adding scenes."
@@ -247,6 +247,7 @@
         "code/proteus/src/proteus/stage1/controller.py",
         "code/proteus/tests/stage1/test_scale_search.py",
         "code/proteus/tests/stage1/test_scale_search_persistence.py",
+        "code/proteus/tests/stage1/persistence/**",
         "docs/Proteus/paper_1_foundational/paper.tex",
         "docs/Proteus/paper_1_foundational/SI.tex :: S2.4 / S2.5 scale-search paragraphs only"
       ],
@@ -260,7 +261,7 @@
         },
         {
           "id": "A6-T2",
-          "status": "ready",
+          "status": "completed",
           "issue": 28,
           "summary": "Cleanup: advance_scaffold_to_tau is on no production path (retained only by a unit test) - delete it and its test, or move it to a clearly named diagnostics helper; docstring says which. Review the A6-T101 swiss 'densify doubles' assertion in test_scale_search_persistence.py that a previous subagent dropped: restore it if the property still holds, otherwise document exactly why it no longer does (REQUEST_TRACKER). Then sync paper.tex with SI S2.6.2: the finer-walk stop is the n/k resolution bound and the one-feature statistic is min-cut-normalized phi with a calibrated ceiling; remove any paper mention of a studentized ratio.",
           "kill": "n/a."
@@ -270,6 +271,13 @@
           "status": "ready",
           "issue": 28,
           "summary": "Scale search taking the N <= n/k resolution bound natively (run_scale_search max_nodes resolution) instead of the level-set-mode clamp in run_recursive_discovery. Default-path change: implement behind a ScaleSearchConfig flag (default off), unit test, and run the 5-seed normal-path sweep with the flag on to show no regression; do NOT flip the default. NOTE the diff in selected tau* per scene."
+        },
+        {
+          "id": "A6-T4",
+          "status": "ready",
+          "issue": 28,
+          "summary": "Split test_scale_search_persistence.py pinned experiments into slow-marked modules under tests/stage1/persistence/ so the default slice stays under 10 minutes; preserve every assertion and marker.",
+          "kill": "n/a (test organization only; no assertion changes)."
         }
       ],
       "tests_before_done": "gate + foundation chunks; persistence chunk only inside A6-T1 with --durations"
@@ -288,11 +296,6 @@
         "for": "A5",
         "summary": "If option B or A reduces child over-splits on >=3/5 seeds without root/null regressions: write the SI S2.6.2 descent-semantics paragraph (proposed, flag default off) and REQUEST_TRACKER the #45 update.",
         "kill": "neither option meets the bar -> director session"
-      },
-      {
-        "for": "A6",
-        "summary": "After A6-T1: split test_scale_search_persistence.py pinned experiments into slow-marked modules under tests/stage1/persistence/ so the default slice is <10 min; no assertion changes.",
-        "kill": "n/a"
       },
       {
         "for": "any",

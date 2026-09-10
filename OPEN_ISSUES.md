@@ -767,11 +767,14 @@ Remaining (2026-09-09; ordered by severity):
   reads, φ min 0.288 (swiss s17), p1 0.487, p5 0.63, median 1.30;
   composite accepts 0.006–0.244. SI S2.6.2 / S14.3 rewritten;
   `test_max_bottleneck_ratio_is_calibrated_null_envelope` pins the
-  value to the protocol. Remaining: the 13% margin (0.25 vs 0.288) is
-  thin — widen the ensemble (more null geometries, sample sizes, n/k
-  regimes) before calling the protocol final, and decide whether the
-  ceiling should be stated relative to the envelope rather than as a
-  fixed number.
+  value to the protocol. The reproducible harness rerun found 357 reads,
+  min 0.2876, p1 0.521, p5 0.642, and median 1.365: the minimum and false
+  accept reproduce, but the count and percentiles drift slightly from the
+  published table. Reconcile that drift before widening the ensemble.
+  Remaining: the 13% margin (0.25 vs 0.288) is thin — widen the ensemble
+  (more null geometries, sample sizes, n/k regimes) before calling the
+  protocol final, and decide whether the ceiling should be stated relative
+  to the envelope rather than as a fixed number.
 - **Graph-disconnection false accept (acceptance path, owns the DM
   overconfidence item).** lone 2-D Gaussian seed 17 accepts at N=50,
   τ=0.012: a 72-point clump in the shoulder has no Hebbian link outside
@@ -805,7 +808,5 @@ Remaining (2026-09-09; ordered by severity):
   at 3–8 hits/node; 2162 on the φ = 0 Gaussian false accept above).
   Not acting as an evidence floor; calibrate or derive its per-node
   likelihood in the shot-noise regime.
-- `advance_scaffold_to_tau` is now on no path (unit-locked helper);
-  delete or keep for diagnostics.
 - Do not flip `use_level_set_clustering`. Do not delete S2.6.1
   stand-ins. Do not retune frozen suite numbers.
