@@ -1,21 +1,24 @@
 {
-  "updated_at": "2026-09-10T07:45:45Z",
-  "turn": 111,
+  "updated_at": "2026-09-10T08:37:20Z",
+  "turn": 112,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "finish D7 closeout and suspend burn queues"
+    "goal": "maintain D7 suspension and integrate idle worker tips"
   },
   "recent": [
     "Merged A2-A6 closeouts: no-live-floor SI/paper sync, S14 audits, covariate result, and tissue census",
     "Marked all D7 closeout tasks finished or killed; worker queues are intentionally suspended without refill",
-    "Integrated post-closeout worker mailbox tips; all four fast test chunks remain green"
+    "Integrated post-closeout worker mailbox tips; all four fast test chunks remain green",
+    "Integrated fresh idle mailbox tips from A2/A3/A5/A6; no tracker or implementation change",
+    "Fast chunks green; periodic sweep timed out after 44/60 passing rows and was not retried"
   ],
   "discoveries": [
     "All A3-T11 cut covariates overlap composite accepts; no covariate floor exists in the tested family",
     "Circle phi=0 child cases are graph disconnections, same class as lone-Gaussian seed17",
     "Nested is clean on 5/5 current-tip seeds; bimodal s2 over-split returned and is tip-sensitive",
-    "Every tested #48 floor family this burn is killed; phi=0.25 remains provisional and default-off"
+    "Every tested #48 floor family this burn is killed; phi=0.25 remains provisional and default-off",
+    "Periodic full 5-seed sweep exceeds 2,400s: 44/60 rows passed through nested s3 before timeout"
   ],
   "open_threads": [
     "#45 stays open for benchmark-semantics documentation; no descent-family work is authorized",
