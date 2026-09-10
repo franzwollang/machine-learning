@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import pathlib
 import sys
 
@@ -65,6 +66,54 @@ _SLOW_NAME_PARTS = (
     "multi_tau_hollow",
 )
 
+# OPEN_ISSUES #46: whole-module simulations that blow the default Stage-1
+# slice (~45 min). Director backlog may later split these into slow-marked
+# submodules with a small unmarked smoke set.
+_SLOW_STAGE1_MODULES = frozenset(
+    {
+        "test_scale_search_persistence.py",
+    }
+)
+
+# Markers that opt a test out of the unmarked call-budget guard (#46).
+_BUDGET_EXEMPT_MARKERS = frozenset({"slow", "real_data", "benchmark"})
+
+# Declared default: any unmarked test whose call phase exceeds this fails
+# the default suite instead of silently expanding runtime.
+_DEFAULT_UNMARKED_CALL_BUDGET_SECONDS = 60.0
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addini(
+        "unmarked_test_budget_seconds",
+        "Fail unmarked (not slow/real_data/benchmark) tests whose call "
+        "phase exceeds this many seconds. 0 disables. OPEN_ISSUES #46.",
+        default=str(int(_DEFAULT_UNMARKED_CALL_BUDGET_SECONDS)),
+    )
+
+
+def unmarked_call_budget_seconds(config: pytest.Config | None = None) -> float | None:
+    """Return the unmarked call-phase budget in seconds, or None if disabled.
+
+    Precedence: ``PROTEUS_UNMARKED_TEST_BUDGET_SECONDS`` env (``0`` disables),
+    then pytest.ini ``unmarked_test_budget_seconds``, then the #46 default.
+    """
+
+    raw_env = os.environ.get("PROTEUS_UNMARKED_TEST_BUDGET_SECONDS")
+    if raw_env is not None:
+        value = float(raw_env)
+        return None if value <= 0 else value
+    if config is not None:
+        raw_ini = str(config.getini("unmarked_test_budget_seconds")).strip()
+        if raw_ini:
+            value = float(raw_ini)
+            return None if value <= 0 else value
+    return _DEFAULT_UNMARKED_CALL_BUDGET_SECONDS
+
+
+def _is_budget_exempt(item: pytest.Item) -> bool:
+    return any(m.name in _BUDGET_EXEMPT_MARKERS for m in item.iter_markers())
+
 
 def pytest_collection_modifyitems(config, items):
     """Attach stable semantic markers to every collected test.
@@ -83,6 +132,8 @@ def pytest_collection_modifyitems(config, items):
             markers.update(_DIR_MARKERS.get(top, ()))
             if top == "scenarios" and len(rel_parts) > 1:
                 markers.update(_SCENARIO_MARKERS.get(rel_parts[1], ("scenario",)))
+            if top == "stage1" and rel_parts[-1] in _SLOW_STAGE1_MODULES:
+                markers.add("slow")
             if top == "stage1" and rel_parts[-1] == "test_recursion.py":
                 name = item.name.lower()
                 if any(part in name for part in _SLOW_NAME_PARTS):
@@ -104,7 +155,7 @@ def pytest_collection_modifyitems(config, items):
 
 
 # ---------------------------------------------------------------------------
-# Marker-grouped terminal summary
+# Marker-grouped terminal summary + #46 unmarked runtime guard
 # ---------------------------------------------------------------------------
 
 _SUMMARY_MARKERS = [
@@ -134,6 +185,22 @@ def pytest_runtest_makereport(item, call):
     report._marker_names = {
         m.name for m in item.iter_markers() if m.name in _SUMMARY_MARKERS
     }
+
+    # OPEN_ISSUES #46: fail newly misclassified multi-minute simulations in
+    # the default suite instead of silently expanding wall time.
+    if call.when != "call" or _is_budget_exempt(item):
+        return
+    budget = unmarked_call_budget_seconds(item.config)
+    if budget is None or report.duration <= budget:
+        return
+    report.outcome = "failed"
+    budget_txt = f"{budget:.0f}" if budget >= 10 else f"{budget:g}"
+    report.longrepr = (
+        f"OPEN_ISSUES #46: unmarked test exceeded call budget "
+        f"({report.duration:.1f}s > {budget_txt}s). "
+        f"Mark @pytest.mark.slow (or real_data/benchmark) if this is a "
+        f"simulation; set PROTEUS_UNMARKED_TEST_BUDGET_SECONDS=0 to disable."
+    )
 
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config):

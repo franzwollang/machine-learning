@@ -1,30 +1,28 @@
 {
-  "updated_at": "2026-09-09T21:05:00-05:00",
-  "turn": 95,
+  "updated_at": "2026-09-10T02:19:00+00:00",
+  "turn": 101,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "second swarm burn launched from main @ 3ac67c7; orchestrator idle until user resumes"
+    "goal": "hold the falsified phi ceiling pending director decision"
   },
   "recent": [
-    "Swarm prep: models override -> grok-4.6-high-fast for all, Fable only for A1 analysis; burn lessons added to swarm rule",
-    "SWARM_TASKS.json rewritten: A2 phi=0 guard + DM, A3 null-envelope harness, A4 tissue mass, A5 descent semantics B/A, A6 test runtime + cleanup",
-    "User authorized force-push of coord/* to current main (history dropped)",
-    "Broad tests/stage1 cancelled by user (time); checkpoint 3ac67c7 committed",
-    "coord/integration + coord/A1..A6 force-pushed to main (user-authorized)"
+    "A3-T2 kill fired: S-curve sheet null seed 8 accepted at phi=0.249435; widening stopped",
+    "A5-T1 option B landed default-off but changed no leaf counts; A5-T2 option A is active",
+    "Fourth heartbeat integrated A3-T2 and A5-T1; gate/foundation/evidence/scenarios chunks are green"
   ],
   "discoveries": [
-    "FadedMixture: ~50% tissue regardless of tissue_fraction (box padding only)",
-    "First-accept tau is coarsest resolving; lower-density component barely above u there -> crude bg partition",
-    "Min-cut phi IS the per-side one-feature null; a disagreeing-cuts null on the signal graph cannot exist",
-    "phi=0 from link-graph disconnection is uncatchable by any phi ceiling; evidence must weigh saddle-node hit counts (A2-T1/T2)",
-    "tests/stage1 ~50 min with slow deselected: swarm turns cannot run it (A6-T1)"
+    "Fixed phi=0.25 is outside the widened null envelope: S-curve sheet produced phi=0.249435",
+    "Nearest-saddle Poisson cannot gate the phi=0 Gaussian false accept; only core_hits_min has a narrow 3.05x contrast",
+    "Majority-background child termination does not address residual bimodal over-splitting"
   ],
   "open_threads": [
-    "#45 descent semantics assigned to swarm (A5-T1 B, A5-T2 A); user deferred decision to measurement",
-    "phi ceiling margin thin (0.25 vs 0.288): A3-T2 widens the ensemble",
-    "Only tests/stage1/test_scale_search_persistence.py is slow (~45 min); other chunks <2 min and green on 6a66225 (A6-T1 owns the split)"
+    "Director must classify the S-curve sheet and kill/replace/relativize the fixed phi ceiling",
+    "A2-T2 region-support guard, A4-T2 tissue-mass sweep, A5-T2 core-only descent, and A6-T3 n/k flag remain active",
+    "A3-T3 and all new queue refills are held until director direction"
   ],
-  "next_step": "user launches 6 cloud agents from _SWARM_PROMPTS.tmp.txt; orchestrator reviews A1 MERGE_DONE lines when asked",
-  "blockers": []
+  "next_step": "publish integration and A1 tracker state; hold director-only decisions",
+  "blockers": [
+    "A1 director trigger fired, but this run explicitly permits only Grok subagents while the director role requires Fable"
+  ]
 }
