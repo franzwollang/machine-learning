@@ -1,29 +1,21 @@
 {
-  "updated_at": "2026-09-10T09:05:44Z",
-  "turn": 114,
+  "updated_at": "2026-09-10T14:05:24Z",
+  "turn": 135,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "maintain D7 suspension and integrate idle worker tips"
+    "goal": "finish A2-T16 matched-scan after A3-T16 killed scan-length"
   },
   "recent": [
-    "Integrated post-closeout worker mailbox tips; all four fast test chunks remain green",
-    "Integrated fresh idle mailbox tips from A2/A3/A5/A6; no tracker or implementation change",
-    "Fast chunks green; periodic sweep timed out after 44/60 passing rows and was not retried",
-    "Integrated A2-A6 idle mailbox tips; four fast chunks green and D7 suspension unchanged",
-    "Integrated A2/A3 idle mailbox tips; fast chunks green and D7 suspension unchanged"
+    "D9 validated A3-T16 kill and retained A2-T16 as the sole live statistic-definition falsifier"
   ],
   "discoveries": [
-    "All A3-T11 cut covariates overlap composite accepts; no covariate floor exists in the tested family",
-    "Circle phi=0 child cases are graph disconnections, same class as lone-Gaussian seed17",
-    "Nested is clean on 5/5 current-tip seeds; bimodal s2 over-split returned and is tip-sensitive",
-    "Every tested #48 floor family this burn is killed; phi=0.25 remains provisional and default-off",
-    "Periodic full 5-seed sweep exceeds 2,400s: 44/60 rows passed through nested s3 before timeout"
+    "Flat-strip min phi is non-monotone: aspect 4.71 to 9.42 rises 0.123 to 0.163; scan-length is killed"
   ],
   "open_threads": [
-    "#45 stays open for benchmark-semantics documentation; no descent-family work is authorized",
-    "#48 stays blocked until a future burn proposes a new statistic with a declared null envelope"
+    "A2-T16 matched-scan denominator oracle",
+    "A3-T18 and A4-T19 documentation-only aspect-ladder closeout"
   ],
-  "next_step": "exit until a new worker tip or authorized future-burn trigger appears",
+  "next_step": "integrate A3-T16 harness; convene D10 when A2-T16 reports",
   "blockers": []
 }
