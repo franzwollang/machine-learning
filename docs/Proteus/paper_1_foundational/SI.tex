@@ -1887,12 +1887,14 @@ constant). Measured (A2-T4): over seeds $5$--$19$ the six nulls yield
 one false accept with the guard off (\texttt{lone\_gauss2d} seed~$17$)
 and zero with it on; composites
 \texttt{linked\_tori}/\texttt{nested}/\texttt{two\_gaussians\_clear}
-seeds $0$--$4$ still root-accept. Flip-readiness (A2-T7/T8): the
+seeds $0$--$4$ still root-accept. Flip-readiness (A2-T7): the
 normal-path suite seeds $0$--$4$ is byte-identical ON versus OFF on
 every metric line (nulls $30/30$, hierarchy $5/5$, tori $5/5$, nested
 $5/5$, clear $5/5$, bimodal $2/5$, weak $2/5$; ARI/coverage deltas
-$0$), and null false accepts remain $0$ over seeds $0$--$19$, so the
-default is now \texttt{true}.
+$0$), and null false accepts remain $0$ over seeds $0$--$19$.
+Director D3 forbids flipping the default until review confirms identity
+against the A6-T9/T12 OFF metric-of-record, so the default stays
+\texttt{false} (A2-T8 held).
 
 \paragraph{Negative result: cross-flow Poisson likelihood (A2-T5/T9).}
 \label{par:si-cross-flow-poisson-kill}
@@ -4334,7 +4336,7 @@ Each node's contribution to $F_{\mathrm{DM}}$ is then bounded by $O(n_i^{\mathrm
 
 \paragraph{Verdict: DM is not the valley-existence floor.}
 \label{par:si-dm-not-valley-floor}
-Background-aware DM confirms that a candidate partition of an already-accepted cut is not a fade/tissue homogeneity (S2.6.3 / \#45). It is \emph{not} the one-feature valley-existence evidence floor of S2.6.2. Measured on the declared null ensemble $\times$ seeds $0$--$4$ root reads versus composite root accepts (OPEN\_ISSUES~\#48 / A2-T3): sample-normalized $\log\mathrm{BF}$ still overlaps on $69\%$ of reads (null median $659$ on $n{=}92$ balanced cuts; composite-accept median $3477$ on $n{=}15$, but \texttt{two\_gaussians\_clear} accepts sit at $508$--$548$ inside the null band). The false $\phi{=}0$ accept \texttt{lone\_gauss2d\_null} seed~17 drops from raw $\log\mathrm{BF}{=}2162$ to $128$ under the correction yet remains in the null bulk. Overlap exceeds the $20\%$ stop criterion, so DM is abandoned as a valley floor --- do not tune a margin and do not flip \texttt{sample\_normalized\_counts}. Valley existence remains the calibrated $\phi$ ceiling and the default-on zero-cross separation-evidence guard (S2.6.2); DM stays a background-partition confirmation only.
+Background-aware DM confirms that a candidate partition of an already-accepted cut is not a fade/tissue homogeneity (S2.6.3 / \#45). It is \emph{not} the one-feature valley-existence evidence floor of S2.6.2. Measured on the declared null ensemble $\times$ seeds $0$--$4$ root reads versus composite root accepts (OPEN\_ISSUES~\#48 / A2-T3): sample-normalized $\log\mathrm{BF}$ still overlaps on $69\%$ of reads (null median $659$ on $n{=}92$ balanced cuts; composite-accept median $3477$ on $n{=}15$, but \texttt{two\_gaussians\_clear} accepts sit at $508$--$548$ inside the null band). The false $\phi{=}0$ accept \texttt{lone\_gauss2d\_null} seed~17 drops from raw $\log\mathrm{BF}{=}2162$ to $128$ under the correction yet remains in the null bulk. Overlap exceeds the $20\%$ stop criterion, so DM is abandoned as a valley floor --- do not tune a margin and do not flip \texttt{sample\_normalized\_counts}. Valley existence remains the calibrated $\phi$ ceiling (and the proposed-path zero-cross separation-evidence guard, default off pending A2-T8 director review); DM stays a background-partition confirmation only.
 
 \paragraph{MaxEnt/MAP connection.}
 With a flat prior on $m$, maximizing the joint log-likelihood gives the MaxEnt/MLE estimator
@@ -5411,7 +5413,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{LevelSetConfig.min\_excess\_mass} & 0.02\ (\text{normalized mass$\times$rank integral; runt screen}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_cluster\_frac} & 0.15\ (\text{fraction of region node budget; coarse satellite / partial-activation floor}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.max\_bottleneck\_ratio} & 0.25\ (\text{ceiling on min-cut-normalized $\phi$; cross-cut max-flow over the weaker side's intrinsic min-cut}) & \text{S2.6.2} & \text{calibrated (null-ensemble envelope protocol, min $0.288$ over $359$ reads, seeds $0$--$19$; acceptance path; \#48)}\\
-\texttt{LevelSetConfig.require\_separation\_evidence} & \text{true}\ (\text{zero-cross hit-mass guard $\lambda=k\cdot 2p(1-p)>\log\tau_{\mathrm{bf}}$; flipped A2-T8 after ON$\equiv$OFF normal-path seeds $0$--$4$ and null false accepts $0$ over $0$--$19$; general cross-flow Poisson killed A2-T5}) & \text{S2.6.2} & \text{operational (proposal-path; \#48)}\\
+\texttt{LevelSetConfig.require\_separation\_evidence} & \text{false}\ (\text{zero-cross hit-mass guard $\lambda=k\cdot 2p(1-p)>\log\tau_{\mathrm{bf}}$; A2-T7 ON$\equiv$OFF on normal-path seeds $0$--$4$ and null false accepts $0$ over $0$--$19$; default flip held for director A2-T8; general cross-flow Poisson killed A2-T5}) & \text{S2.6.2} & \text{operational (proposal-path; \#48)}\\
 \texttt{advance\_scaffold\_to\_tau} & \text{warm in-place $\tau$ continuation; no longer on any path (diagnostic helper, unit-locked)} & \text{S2.6.2} & \text{operational (proposal-path; retired from the finer walk, \#48)}\\
 \texttt{fit\_scaffold\_at\_tau} & \text{fresh fit at each finer $\tau$, $N\le n/k$ (track\_tau finer walk); derived bound, no free constant} & \text{S2.6.2} & \text{derived (\#48)}\\
 \text{geometry/hollow prepass zoo} & \text{all default false; quarantined (falsified 2026-08; \#44)} & \text{S2.6.2} & \text{quarantined}\\

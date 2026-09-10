@@ -501,9 +501,8 @@ def main() -> int:
         "--require-separation-evidence",
         action="store_true",
         help=(
-            "OPEN_ISSUES #48: force LevelSetConfig."
-            "require_separation_evidence=True (already default on "
-            "after A2-T8; flag retained for explicit ON sweeps)."
+            "OPEN_ISSUES #48 / A2-T7: pass LevelSetConfig."
+            "require_separation_evidence=True (default off)."
         ),
     )
     args = parser.parse_args()
