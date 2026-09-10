@@ -132,17 +132,19 @@ def _build_tau_grid(config: ScaleSearchConfig) -> np.ndarray:
     return np.exp(np.linspace(log_max, log_min, n_points))
 
 
-def advance_scaffold_to_tau(
+def diagnostic_advance_scaffold_to_tau(
     scaffold: Stage1Scaffold,
     data: np.ndarray,
     tau: float,
     stabilization: StabilizationConfig | None = None,
 ) -> Stage1Scaffold:
-    """Continue an existing sweep by lowering ``tau`` and re-equilibrating.
+    """Diagnostics-only warm ``τ`` continuation (SI S2.6.2 / #48).
 
-    Used by the level-set finer walk (SI S2.6.2) so each step is a warm
-    continuation rather than a fresh ``run_scale_search``.  Does not
-    re-seed nodes.
+    Not on any production path. The level-set finer walk re-seeds via
+    ``fit_scaffold_at_tau``; the non-level-set path keeps a fresh
+    ``run_scale_search`` per finer step. This helper lowers ``tau`` in
+    place and re-equilibrates without re-seeding — retained solely for
+    unit-locked warm-continuation experiments.
     """
 
     data_arr = np.asarray(data, dtype=float)
@@ -157,6 +159,10 @@ def advance_scaffold_to_tau(
         stabilization if stabilization is not None else StabilizationConfig(),
     )
     return scaffold
+
+
+# Deprecated alias — prefer ``diagnostic_advance_scaffold_to_tau``.
+advance_scaffold_to_tau = diagnostic_advance_scaffold_to_tau
 
 
 def fit_scaffold_at_tau(

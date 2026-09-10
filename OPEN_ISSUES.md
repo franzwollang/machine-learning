@@ -366,15 +366,13 @@ outer shell (cover ≥ 0.886) and give 2 leaves. Not a growth-policy
 defect: the accepted cut is right, its background partition of the
 lower-density component is crude at the first-accept scale.
 
-Remaining work: define benchmark-wide halo/background semantics
-(descent options recorded in `SCRATCHPAD_LOG`: A core-only descent, B
-interim guard, C as-is — C in effect); decide whether the sampler
-should honour a true tissue *mass* fraction and rename/fix
-`tissue_fraction`; decide whether the reader should refine the
-background partition below the first-accept τ before descending;
-retain signal-only ARI + background recall until then; re-baseline the
-`@awaiting` recovery expectations (#41, #26) on repaired scenes without
-weakening their topology criteria.
+Remaining work: use the explicit `tissue_mass` path to compare mass
+fractions 0.05/0.20 against the legacy 0.46--0.49 regime; correct the SI
+S14 calibration text where box-padding `tissue_fraction` was described as
+a mass fraction; choose benchmark-wide halo/background descent semantics
+(A core-only, B majority-background terminal guard, or C as-is); retain
+signal-only ARI + background recall until then; re-baseline the `@awaiting`
+recovery expectations (#41, #26) without weakening topology criteria.
 
 Level-set consequence (2026-09-09, from #48): the root split assigns about
 half the tissue to signal children (nested seed-0 bg recall 0.51; nested
@@ -402,17 +400,6 @@ is and score signal-only. Nested also loses 755 outer-shell points to the
 root background child at the selected level (coverage 0.76): the outer
 shell is only fully connected at radii where it also connects to the inner
 shell through tissue.
-
-## 46. Pytest runtime hygiene: simulations are misclassified as tests
-
-Default `pytest` now skips `slow` and `real_data` (`pytest.ini` addopts;
-`test_recursion.py` name-parts auto-marked `slow` in `conftest.py`).
-Remaining:
-- Runtime guard so a newly misclassified multi-minute simulation fails
-  the default suite instead of silently expanding it.
-- Keep the unmarked Stage-1 unit/integration slice within roughly two
-  minutes; profile any leftover accidental regressions.
-
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
@@ -780,21 +767,26 @@ Remaining (2026-09-09; ordered by severity):
   reads, φ min 0.288 (swiss s17), p1 0.487, p5 0.63, median 1.30;
   composite accepts 0.006–0.244. SI S2.6.2 / S14.3 rewritten;
   `test_max_bottleneck_ratio_is_calibrated_null_envelope` pins the
-  value to the protocol. Remaining: the 13% margin (0.25 vs 0.288) is
-  thin — widen the ensemble (more null geometries, sample sizes, n/k
-  regimes) before calling the protocol final, and decide whether the
-  ceiling should be stated relative to the envelope rather than as a
-  fixed number.
+  value to the protocol. The reproducible harness rerun found 357 reads,
+  min 0.2876, p1 0.521, p5 0.642, and median 1.365: the minimum and false
+  accept reproduce, but the count and percentiles drift slightly from the
+  published table. Reconcile that drift before widening the ensemble.
+  Remaining: the 13% margin (0.25 vs 0.288) is thin — widen the ensemble
+  (more null geometries, sample sizes, n/k regimes) before calling the
+  protocol final, and decide whether the ceiling should be stated relative
+  to the envelope rather than as a fixed number.
 - **Graph-disconnection false accept (acceptance path, owns the DM
   overconfidence item).** lone 2-D Gaussian seed 17 accepts at N=50,
-  τ=0.012: a 72-point clump in the shoulder (r ≈ 1.2–2σ, ~5 nodes)
-  has no Hebbian link outside itself, so cross flow is exactly 0
-  (φ = 0, no ceiling can catch it) and DM confirms with logBF 2162.
-  Absence of a link after ~20 hits/node is weak evidence and nothing
-  weighs it. 1 of 120 null scene-seeds. Fix belongs with the per-node
-  likelihood / DM shot-noise item: the separation evidence must be a
-  function of hit counts on the saddle nodes, not of link existence.
-  Repro: `level_set_root_accept_probe.py --seed 17 --scenes
+  τ=0.012: a 72-point clump in the shoulder has no Hebbian link outside
+  itself, so cross flow is exactly 0 (φ = 0) and DM confirms with logBF
+  2162. A2-T1 found that nearest-saddle/Poisson support is stronger on
+  this false accept than on true two-Gaussian accepts, so a cut-local
+  link-absence guard is not valid. Only region `core_hits_min` separates
+  all five true controls, and only narrowly (20 versus at least 61,
+  3.05x); clump mean misses the 3x bar on one seed. Determine whether a
+  derived region-support guard is possible or whether this must move to
+  #47 insertion evidence; do not tune a nearest-pair threshold. Repro:
+  `level_set_root_accept_probe.py --seed 17 --scenes
   lone_gauss2d_null --max-depth 1`.
 - **Connected-support valleys (bimodal circle 2/5, weak two-Gaussians
   2/5).** Root K=1 on the failing seeds; passes on weak have bg recall
@@ -816,7 +808,5 @@ Remaining (2026-09-09; ordered by severity):
   at 3–8 hits/node; 2162 on the φ = 0 Gaussian false accept above).
   Not acting as an evidence floor; calibrate or derive its per-node
   likelihood in the shot-noise regime.
-- `advance_scaffold_to_tau` is now on no path (unit-locked helper);
-  delete or keep for diagnostics.
 - Do not flip `use_level_set_clustering`. Do not delete S2.6.1
   stand-ins. Do not retune frozen suite numbers.

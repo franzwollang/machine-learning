@@ -975,31 +975,119 @@ class SphereShellFadedComponent:
 
 @dataclass(frozen=True)
 class FadedMixture:
+    """Faded signal-plus-tissue density on a compact support.
+
+    Default (``tissue_mass is None``) uses the legacy fade-balanced floor
+    ``Σ_c w_c [λ_c f_c + (1-λ_c) u]``.  That form puts roughly equal mass on
+    the signal and the uniform box floor, so λ<0.5 labels land near 46–49%
+    regardless of the generators' historical ``tissue_fraction`` padding knob.
+
+    When ``tissue_mass`` is set in ``[0, 1)``, the density is the honest
+    two-region mixture that places mass ``tissue_mass`` on the λ<0.5
+    (background) region and ``1 - tissue_mass`` on the λ≥0.5 region, so the
+    expected label tissue fraction matches the request.
+    """
+
     components: Sequence[FadedComponent]
     support: Support
+    tissue_mass: float | None = None
+
+    def __post_init__(self) -> None:
+        if not self.components:
+            raise ValueError("components must be non-empty")
+        if self.tissue_mass is not None:
+            mass = float(self.tissue_mass)
+            if not 0.0 <= mass < 1.0:
+                raise ValueError("tissue_mass must lie in [0, 1)")
+            object.__setattr__(self, "tissue_mass", mass)
+        object.__setattr__(self, "_region_norm_cache", {})
 
     @property
     def weights(self) -> np.ndarray:
         raw = np.array([max(float(comp.weight), _EPS) for comp in self.components], dtype=float)
         return raw / raw.sum()
 
-    def density(self, x: np.ndarray) -> np.ndarray:
+    def lambda_max(self, x: np.ndarray) -> np.ndarray:
+        """Pointwise max fade weight across components (label tissue iff < 0.5)."""
         arr = np.asarray(x, dtype=float)
-        in_support = self.support.contains(arr).astype(float)
-        u = self.support.uniform_density
+        best = np.zeros(arr.shape[0], dtype=float)
+        for comp in self.components:
+            best = np.maximum(best, comp.fade_weight(arr))
+        return best
+
+    def signal_density(self, x: np.ndarray) -> np.ndarray:
+        """Mixture of component densities without the uniform tissue floor."""
+        arr = np.asarray(x, dtype=float)
         out = np.zeros(arr.shape[0], dtype=float)
         for weight, comp in zip(self.weights, self.components, strict=True):
-            lam = comp.fade_weight(arr)
-            out += weight * (lam * comp.density(arr) + (1.0 - lam) * u * in_support)
+            out += weight * comp.density(arr)
+        return out
+
+    def _region_normalizers(self, *, n_mc: int = 20000) -> tuple[float, float]:
+        """MC estimates of ∫_{λ≥0.5} signal_density and ∫_{λ<0.5} u."""
+        cache = self._region_norm_cache
+        if cache:
+            return float(cache["zs"]), float(cache["zt"])
+        rng = np.random.default_rng(0)
+        # Importance: draw from the component mixture (~∫ signal_density ≈ 1).
+        sig = self.draw_signal_proposals(n_mc, rng)
+        in_support = self.support.contains(sig)
+        zs = float(np.mean((self.lambda_max(sig) >= 0.5) & in_support))
+        uni = self.support.sample_uniform(n_mc, rng)
+        zt = float(np.mean(self.lambda_max(uni) < 0.5))
+        zs = max(zs, _EPS)
+        zt = max(zt, _EPS)
+        cache["zs"] = zs
+        cache["zt"] = zt
+        return zs, zt
+
+    def density(self, x: np.ndarray) -> np.ndarray:
+        arr = np.asarray(x, dtype=float)
+        in_support = self.support.contains(arr)
+        u = self.support.uniform_density
+        if self.tissue_mass is None:
+            # Legacy fade-balanced floor (≈ half the cloud labelled tissue).
+            mask = in_support.astype(float)
+            out = np.zeros(arr.shape[0], dtype=float)
+            for weight, comp in zip(self.weights, self.components, strict=True):
+                lam = comp.fade_weight(arr)
+                out += weight * (lam * comp.density(arr) + (1.0 - lam) * u * mask)
+            return out
+
+        mass = float(self.tissue_mass)
+        gauss = self.signal_density(arr)
+        lam = self.lambda_max(arr)
+        is_tissue = in_support & (lam < 0.5)
+        is_signal = in_support & (lam >= 0.5)
+        zs, zt = self._region_normalizers()
+        out = np.zeros(arr.shape[0], dtype=float)
+        out[is_signal] = (1.0 - mass) * gauss[is_signal] / zs
+        out[is_tissue] = mass * u / zt
         return out
 
     def proposal_density(self, x: np.ndarray, proposal_signal_fraction: float) -> np.ndarray:
         arr = np.asarray(x, dtype=float)
         in_support = self.support.contains(arr).astype(float)
-        gauss_mix = np.zeros(arr.shape[0], dtype=float)
-        for weight, comp in zip(self.weights, self.components, strict=True):
-            gauss_mix += weight * comp.density(arr)
-        return proposal_signal_fraction * gauss_mix + (1.0 - proposal_signal_fraction) * self.support.uniform_density * in_support
+        gauss_mix = self.signal_density(arr)
+        if self.tissue_mass is None:
+            frac = float(proposal_signal_fraction)
+        else:
+            # Match the honest mass mixture: tissue_mass weight on uniform.
+            frac = 1.0 - float(self.tissue_mass)
+        return frac * gauss_mix + (1.0 - frac) * self.support.uniform_density * in_support
+
+    def draw_signal_proposals(self, n: int, rng: np.random.Generator) -> np.ndarray:
+        """Draw ``n`` proposals from the component mixture alone."""
+        proposals = np.empty((n, self.support.dim), dtype=float)
+        if n <= 0:
+            return proposals
+        indices = rng.choice(len(self.components), size=n, p=self.weights)
+        for comp_idx, comp in enumerate(self.components):
+            mask = indices == comp_idx
+            count = int(mask.sum())
+            if count > 0:
+                proposals[mask] = comp.sample(count, rng)
+        return proposals
 
     def draw_proposals(
         self,
@@ -1008,20 +1096,77 @@ class FadedMixture:
         proposal_signal_fraction: float,
     ) -> np.ndarray:
         proposals = np.empty((n, self.support.dim), dtype=float)
-        use_signal = rng.random(n) < proposal_signal_fraction
+        if self.tissue_mass is None:
+            use_signal = rng.random(n) < proposal_signal_fraction
+        else:
+            use_signal = rng.random(n) >= float(self.tissue_mass)
         signal_count = int(use_signal.sum())
         if signal_count > 0:
-            indices = rng.choice(len(self.components), size=signal_count, p=self.weights)
-            positions = np.where(use_signal)[0]
-            for comp_idx, comp in enumerate(self.components):
-                mask = indices == comp_idx
-                count = int(mask.sum())
-                if count > 0:
-                    proposals[positions[mask]] = comp.sample(count, rng)
+            proposals[use_signal] = self.draw_signal_proposals(signal_count, rng)
         if signal_count < n:
-            positions = np.where(~use_signal)[0]
-            proposals[positions] = self.support.sample_uniform(n - signal_count, rng)
+            proposals[~use_signal] = self.support.sample_uniform(n - signal_count, rng)
         return proposals
+
+    def sample_region(
+        self,
+        n: int,
+        rng: np.random.Generator,
+        *,
+        tissue: bool,
+        max_rounds: int = 200,
+    ) -> np.ndarray:
+        """Sample ``n`` points from the λ-threshold tissue or signal region."""
+        n = int(n)
+        if n <= 0:
+            return np.empty((0, self.support.dim), dtype=float)
+        accepted: list[np.ndarray] = []
+        remaining = n
+        for _ in range(max_rounds):
+            if remaining <= 0:
+                break
+            batch_n = max(128, 8 * remaining)
+            if tissue:
+                props = self.support.sample_uniform(batch_n, rng)
+            else:
+                props = self.draw_signal_proposals(batch_n, rng)
+            in_support = self.support.contains(props)
+            lam = self.lambda_max(props)
+            keep = in_support & ((lam < 0.5) if tissue else (lam >= 0.5))
+            if keep.any():
+                kept = props[keep][:remaining]
+                accepted.append(kept)
+                remaining -= int(kept.shape[0])
+        if remaining > 0:
+            kind = "tissue" if tissue else "signal"
+            raise RuntimeError(
+                f"failed to sample {n} {kind}-region points "
+                f"(short by {remaining}); check support / fade geometry"
+            )
+        return np.vstack(accepted)[:n]
+
+
+def tissue_mass_metadata(
+    *,
+    tissue_fraction: float,
+    tissue_mass: float | None,
+    tissue_mass_actual: float,
+) -> dict[str, float | str | None]:
+    """Standard requested-vs-actual tissue metadata for faded generators.
+
+    ``tissue_fraction`` is the historical support-box *padding* knob — it does
+    not set background mass.  ``tissue_mass`` is the honest mass fraction
+    (``None`` = legacy fade-balanced floor).
+    """
+    return {
+        "tissue_fraction_requested": float(tissue_fraction),
+        "tissue_fraction_role": "support_box_padding",
+        "tissue_fraction_actual": float(tissue_mass_actual),
+        "tissue_mass_requested": None if tissue_mass is None else float(tissue_mass),
+        "tissue_mass_actual": float(tissue_mass_actual),
+        "tissue_mass_mode": (
+            "legacy_fade_balanced" if tissue_mass is None else "requested_mass"
+        ),
+    }
 
 
 def assign_labels_by_lambda(
@@ -1055,10 +1200,39 @@ def sample_faded_mixture(
     max_rounds: int = 500,
     max_restarts: int = 6,
 ) -> tuple[np.ndarray, dict[str, float | int]]:
-    """Rejection-sample exactly from the faded density with fixed-envelope restarts."""
+    """Rejection-sample exactly from the faded density with fixed-envelope restarts.
+
+    When ``mixture.tissue_mass`` is set, samples are drawn region-conditionally
+    so the λ<0.5 label fraction matches the requested mass (up to rounding).
+    """
     n_samples = int(n_samples)
     if n_samples <= 0:
         raise ValueError("n_samples must be positive")
+
+    if mixture.tissue_mass is not None:
+        mass = float(mixture.tissue_mass)
+        n_tissue = int(np.round(mass * n_samples))
+        n_tissue = min(max(n_tissue, 0), n_samples)
+        n_signal = n_samples - n_tissue
+        tissue_pts = mixture.sample_region(n_tissue, rng, tissue=True)
+        signal_pts = mixture.sample_region(n_signal, rng, tissue=False)
+        if n_tissue and n_signal:
+            points = np.vstack([tissue_pts, signal_pts])
+        elif n_tissue:
+            points = tissue_pts
+        else:
+            points = signal_pts
+        perm = rng.permutation(n_samples)
+        return points[perm], {
+            "acceptance_rate": 1.0,
+            "total_proposal_draws": int(n_samples),
+            "proposal_m_bound": 1.0,
+            "sampler_restarts": 0,
+            "tissue_mass_requested": mass,
+            "tissue_count": int(n_tissue),
+            "signal_count": int(n_signal),
+        }
+
     bound = 0.0
     total_drawn = 0
 

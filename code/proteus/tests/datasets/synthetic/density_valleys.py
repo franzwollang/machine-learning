@@ -26,6 +26,7 @@ from .faded_density import (
     SupportBox,
     assign_labels_by_lambda,
     sample_faded_mixture,
+    tissue_mass_metadata,
 )
 from .tissue import expected_tau_for_uniform_tissue_box
 
@@ -38,10 +39,16 @@ def make_bimodal_circle(
     target_n_nodes: int = 32,
     extrusion_dim: int = 2,
     tissue_fraction: float = 0.03,
+    tissue_mass: float | None = None,
     seed: int = 0,
     transition_radius: float = 3.0,
 ) -> SyntheticDataset:
-    """Connected circle with a von Mises angular valley (should split)."""
+    """Connected circle with a von Mises angular valley (should split).
+
+    ``tissue_fraction`` only pads the support box (historical name).
+    Pass ``tissue_mass`` for an honest expected λ<0.5 background fraction;
+    ``None`` keeps the legacy fade-balanced floor (~46–49% tissue).
+    """
 
     if extrusion_dim < 0:
         raise ValueError("extrusion_dim must be non-negative")
@@ -65,7 +72,9 @@ def make_bimodal_circle(
         min_padding=0.05,
         extra_padding=3.0 * tube_sigma,
     )
-    mixture = FadedMixture(components=[component], support=support)
+    mixture = FadedMixture(
+        components=[component], support=support, tissue_mass=tissue_mass,
+    )
     points, sampler_meta = sample_faded_mixture(mixture, n_samples, rng)
     fade = component.fade_weight(points)
     labels = component.mode_labels(points)
@@ -128,7 +137,11 @@ def make_bimodal_circle(
             "mode_angles": list(component.mode_angles),
             "connected_support": True,
             "expected_k": 2,
-            "tissue_fraction_actual": float(np.mean(labels < 0)),
+            **tissue_mass_metadata(
+                tissue_fraction=tissue_fraction,
+                tissue_mass=tissue_mass,
+                tissue_mass_actual=float(np.mean(labels < 0)),
+            ),
             **sampler_meta,
         },
     )
@@ -140,6 +153,7 @@ def make_two_gaussians(
     separation: float = 2.5,
     ambient_dim: int = 2,
     tissue_fraction: float = 0.03,
+    tissue_mass: float | None = None,
     seed: int = 0,
     transition_radius: float = 3.0,
 ) -> SyntheticDataset:
@@ -147,6 +161,10 @@ def make_two_gaussians(
 
     ``separation=2.5`` is a weak-valley control (heavy overlap).
     ``separation=6.0`` is a clear Hartigan split.
+
+    ``tissue_fraction`` only pads the support box (historical name).
+    Pass ``tissue_mass`` for an honest expected λ<0.5 background fraction;
+    ``None`` keeps the legacy fade-balanced floor (~46–49% tissue).
     """
 
     if separation <= 0.0:
@@ -171,7 +189,9 @@ def make_two_gaussians(
         min_padding=3.0 * float(sigma),
         extra_padding=3.0 * float(sigma),
     )
-    mixture = FadedMixture(components=components, support=support)
+    mixture = FadedMixture(
+        components=components, support=support, tissue_mass=tissue_mass,
+    )
     points, sampler_meta = sample_faded_mixture(mixture, n_samples, rng)
     labels = assign_labels_by_lambda(points, components, label_offsets=[0, 1])
     signal = labels >= 0
@@ -220,7 +240,11 @@ def make_two_gaussians(
             "center_distance": float(separation * sigma),
             "expected_k": 2,
             "valley": "weak" if separation < 4.0 else "clear",
-            "tissue_fraction_actual": float(np.mean(labels < 0)),
+            **tissue_mass_metadata(
+                tissue_fraction=tissue_fraction,
+                tissue_mass=tissue_mass,
+                tissue_mass_actual=float(np.mean(labels < 0)),
+            ),
             **sampler_meta,
         },
     )

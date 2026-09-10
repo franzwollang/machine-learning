@@ -1,30 +1,33 @@
 {
-  "updated_at": "2026-09-09T21:05:00-05:00",
-  "turn": 95,
+  "updated_at": "2026-09-10T02:05:33+00:00",
+  "turn": 99,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "second swarm burn launched from main @ 3ac67c7; orchestrator idle until user resumes"
+    "goal": "coordinate graph-disconnection evidence and tissue-mass follow-ups"
   },
   "recent": [
-    "Swarm prep: models override -> grok-4.6-high-fast for all, Fable only for A1 analysis; burn lessons added to swarm rule",
-    "SWARM_TASKS.json rewritten: A2 phi=0 guard + DM, A3 null-envelope harness, A4 tissue mass, A5 descent semantics B/A, A6 test runtime + cleanup",
-    "User authorized force-push of coord/* to current main (history dropped)",
-    "Broad tests/stage1 cancelled by user (time); checkpoint 3ac67c7 committed",
-    "coord/integration + coord/A1..A6 force-pushed to main (user-authorized)"
+    "A4-T1: explicit tissue_mass sampling and metadata landed; legacy generator defaults unchanged",
+    "#46 resolved: 60 s unmarked-test guard landed; default Stage-1 is 129 tests in 28.6 s",
+    "A3-T1 harness reproduced min phi 0.2876 and lone-Gaussian phi=0 false accept; count/percentiles drift softly",
+    "A6-T2 renamed the dead-path helper as diagnostic, retained alias, and synced paper S2.6.2",
+    "Third heartbeat merged completed A3-T1 and A6-T2"
   ],
   "discoveries": [
-    "FadedMixture: ~50% tissue regardless of tissue_fraction (box padding only)",
     "First-accept tau is coarsest resolving; lower-density component barely above u there -> crude bg partition",
     "Min-cut phi IS the per-side one-feature null; a disagreeing-cuts null on the signal graph cannot exist",
     "phi=0 from link-graph disconnection is uncatchable by any phi ceiling; evidence must weigh saddle-node hit counts (A2-T1/T2)",
-    "tests/stage1 ~50 min with slow deselected: swarm turns cannot run it (A6-T1)"
+    "A3 live envelope is 357 reads, p1 0.521, p5 0.642, median 1.365 vs SI 359/0.487/0.630/1.30; minimum is stable",
+    "Nearest-saddle Poisson cannot gate phi=0: false s17 has stronger local hit support than true s0/s4; region core minimum is the only 3x contrast"
   ],
   "open_threads": [
     "#45 descent semantics assigned to swarm (A5-T1 B, A5-T2 A); user deferred decision to measurement",
     "phi ceiling margin thin (0.25 vs 0.288): A3-T2 widens the ensemble",
-    "Only tests/stage1/test_scale_search_persistence.py is slow (~45 min); other chunks <2 min and green on 6a66225 (A6-T1 owns the split)"
+    "A2-T2 must test derived region support or fail to #47; nearest-pair threshold tuning is ruled out",
+    "A3-T2 holds for director decision on SI envelope drift; A4-T2 tissue-mass sweep remains in progress"
   ],
-  "next_step": "user launches 6 cloud agents from _SWARM_PROMPTS.tmp.txt; orchestrator reviews A1 MERGE_DONE lines when asked",
-  "blockers": []
+  "next_step": "finish merge verification; publish MERGE_DONE/TASK_REFILL; monitor A2-T2, A4-T2, A5 startup, A6-T3",
+  "blockers": [
+    "A3 requested a Fable director ruling on SI envelope drift, but this automation turn explicitly permits only Grok subagents"
+  ]
 }
