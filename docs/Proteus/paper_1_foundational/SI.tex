@@ -4847,7 +4847,7 @@ The deterministic term decays with half-life $k$. Azuma--Hoeffding gives the dis
 \subsection*{S14.1 Datasets and Splits}
 Synthetic benchmarks should include known topological and geometric ground truth: nested manifolds, variable-density curves/surfaces, linked components, dimensionality junctions, and high-curvature patches. Real benchmarks should be chosen for local structure and query relevance rather than only classification accuracy. Use fixed train/test splits or repeated random splits with logged seeds.
 
-\paragraph{Level-set suite benchmark cards (A4-T11/T12/T14--T16 / \#45/\#48).}
+\paragraph{Level-set suite benchmark cards (A4-T11/T12/T14--T18 / \#45/\#48).}
 \label{sec:si-s14-level-set-benchmark-cards}
 Per-scene cards for the frozen normal-path suite in
 \texttt{tests/scenarios/synthetic/level\_set\_suite.py}
@@ -4863,6 +4863,14 @@ A4-T10 pairwise / shell / torus valley depths, and residual-semantics
 cells from A5-T11/T13 and A4-T13 where present.
 Scenes never run under A4-T9 keep child-power cells
 \emph{pending} --- do not invent values and do not change defaults.
+These cards do \emph{not} list cut-local density contrast or
+cut-persistence as live \#48 floor candidates (both killed; D6/D7).
+\textbf{D7 leftover-language closeout (A4-T17 / \#45).}
+A4-T13 is complete --- not measuring. The tissue-in-child residual
+family is \emph{killed}, not pending: nested seed~$0$ yields $2$
+signal leaves with child tissue-mass ratio $\approx 0.97$ vs clean;
+where an over-splitting bimodal child was observed, ratio
+$\approx 0.91{<}2$. Do not invent option~D or change generators.
 Tissue masses below are sample fractions at seed~$0$; legacy mode still
 yields $\approx 46$--$49\%$ $\lambda{<}0.5$ tissue on faded manifolds
 (honest mass uses \texttt{tissue\_mass}; see S2.6.2).
@@ -4941,8 +4949,9 @@ from this note alone.
   (step med~$9$, $N$ med~$768$, $\phi$ mean $\approx 0.087$).
   Analytic valley depth (A4-T10): $\approx 1.0$ (gap-segment path;
   seed-$0$ metadata).
-  Residual semantics (\#45): \emph{pending} (not in A4-T13 / A5-T11
-  residual table).
+  Residual semantics (\#45): n/a for this scene (not in A4-T13 /
+  A5-T11 table); tissue-in-child residual family already killed
+  (A4-T17) --- not an open pending measurement.
 
   \item \textbf{\texttt{nested\_spheres}}.
   $n{=}6000$ ($3000$ per shell).
@@ -5034,6 +5043,11 @@ $n{\in}\{300,600\}$ versus $5/5$ at full suite $n$) is a
 \emph{power boundary} at child budgets --- not grounds to lower
 \texttt{max\_bottleneck\_ratio}${=}0.25$. Do not invent unswept T9
 scene accepts; leave those cells \emph{pending}.
+\textbf{Honesty pass (A4-T18 / \#48).}
+Retain the T14--T16 landed numbers above; keep unswept T9 scenes
+\emph{pending}; do not list density contrast or cut-persistence as
+live floors on these cards (no live \#48 floor candidate remains this
+burn after D7).
 
 \subsection*{S14.2 Metrics}
 Metrics include persistent-homology distances or topology summaries where ground truth exists, reconstruction/projection error, held-out log-likelihood under the reconstructed density, sample quality (e.g.\ MMD or nearest-neighbor two-sample tests), membership-trajectory stability, accepted-edit counts, and diagnostic residuals. Each metric should map to a named architectural claim.
