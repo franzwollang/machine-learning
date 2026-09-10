@@ -103,6 +103,11 @@ WIDEN_NEW_SCENES: tuple[str, ...] = (
     "filled_ball_null",
 )
 
+# Mechanism-control nulls (A3-T9): same arc/width as scurve, R=∞ flat strip.
+MECHANISM_CONTROL_SCENES: tuple[str, ...] = (
+    "flat_strip_null",
+)
+
 # Envelope on candidate reads with φ > 0 (excludes the lone_gauss2d s17 φ=0).
 # REFERENCE_* is the 2026-09-09 published protocol (SI S2.6.2 / S14.3).
 # OBSERVED_* is this harness's first full reproduction (2026-09-10): min and
@@ -386,6 +391,7 @@ def default_n_for_scene(scene_name: str) -> int:
         "lone_gauss3d_null": WIDEN_NULL_N,
         "scurve_sheet_null": WIDEN_NULL_N,
         "filled_ball_null": WIDEN_NULL_N,
+        "flat_strip_null": WIDEN_NULL_N,
     }[scene_name]
 
 
@@ -415,6 +421,13 @@ def build_dataset(scene_name: str, seed: int, n_samples: int) -> SyntheticDatase
         return make_lone_gauss3d(n_samples=n, sigma=LONE_GAUSS3D_SIGMA, seed=seed)
     if scene_name == "scurve_sheet_null":
         return make_scurve_sheet(n_samples=n, noise=SCURVE_SHEET_NOISE, seed=seed)
+    if scene_name == "flat_strip_null":
+        return make_scurve_sheet(
+            n_samples=n,
+            noise=SCURVE_SHEET_NOISE,
+            seed=seed,
+            curvature_radius=float("inf"),
+        )
     if scene_name == "filled_ball_null":
         return make_filled_ball(
             n_samples=n, radius=FILLED_BALL_RADIUS, dim=3, seed=seed,
@@ -463,7 +476,7 @@ def _recursion_config(
 
 
 def known_null_scenes() -> tuple[str, ...]:
-    return DEFAULT_NULL_SCENES + WIDEN_NEW_SCENES
+    return DEFAULT_NULL_SCENES + WIDEN_NEW_SCENES + MECHANISM_CONTROL_SCENES
 
 
 def collect_root_candidate_reads(
@@ -1008,6 +1021,54 @@ def test_scurve_sheet_half_occupancy_and_injectivity() -> None:
     lo, hi = data.metadata["theta_range"]
     assert np.isclose(lo, -1.5 * np.pi)
     assert np.isclose(hi, 1.5 * np.pi)
+    assert float(data.metadata["curvature_radius"]) == 1.0
+    arc = np.asarray(data.metadata["arc"], dtype=float)
+    assert arc.shape == (20_000,)
+    assert float(arc.min()) >= -1e-9
+    assert float(arc.max()) <= 3.0 * np.pi + 1e-9
+
+
+def test_scurve_sheet_curvature_radius_controls() -> None:
+    """A3-T9: R=1 byte-identical; R=2 scaled S; R=∞ flat strip (arc 3π, width 2)."""
+
+    n = 4_000
+    r1 = make_scurve_sheet(n_samples=n, noise=0.0, seed=7, curvature_radius=1.0)
+    r1_default = make_scurve_sheet(n_samples=n, noise=0.0, seed=7)
+    assert np.array_equal(r1.points, r1_default.points)
+
+    r2 = make_scurve_sheet(n_samples=n, noise=0.0, seed=7, curvature_radius=2.0)
+    assert float(r2.metadata["curvature_radius"]) == 2.0
+    assert np.isclose(r2.metadata["arc_length"], 3.0 * np.pi)
+    assert np.isclose(r2.metadata["width"], 2.0)
+    # Half-angle span is L/(2R) = 0.75π; centerline injectivity on (x,z).
+    th = np.linspace(-0.75 * np.pi, 0.75 * np.pi, 2001)
+    xz = np.column_stack(
+        [2.0 * np.sin(th), 2.0 * np.sign(th) * (np.cos(th) - 1.0)],
+    )
+    assert np.unique(np.round(xz, decimals=6), axis=0).shape[0] == th.shape[0]
+    # Same seed ⇒ same (u,s); R=2 is a radial scale of the R=1 embedding
+    # only when θ_R1 = 2·θ_R2, which holds because θ ∝ 1/R for fixed u.
+    assert np.allclose(r2.points[:, 1], r1.points[:, 1], atol=1e-12)
+    assert float(np.max(np.abs(r2.points[:, 2]))) > float(
+        np.max(np.abs(r1.points[:, 2]))
+    )
+
+    flat = make_scurve_sheet(
+        n_samples=n, noise=0.0, seed=7, curvature_radius=float("inf"),
+    )
+    assert np.isinf(float(flat.metadata["curvature_radius"]))
+    assert flat.ground_truth.name == "flat_strip"
+    assert flat.metadata["sampling"] == "area_uniform_flat_strip"
+    pts = np.asarray(flat.points, dtype=float)
+    assert float(np.max(np.abs(pts[:, 2]))) < 1e-12
+    assert abs(float(np.ptp(pts[:, 0])) - 3.0 * np.pi) < 0.05
+    assert abs(float(np.ptp(pts[:, 1])) - 2.0) < 0.05
+    arc = np.asarray(flat.metadata["arc"], dtype=float)
+    assert abs(float(np.ptp(arc)) - 3.0 * np.pi) < 0.05
+    # Flat strip builds via the envelope scene name.
+    built = build_dataset("flat_strip_null", seed=0, n_samples=WIDEN_NULL_N)
+    assert built.points.shape == (WIDEN_NULL_N, 3)
+    assert built.ground_truth.name == "flat_strip"
 
 
 def test_parse_seed_spec_ranges() -> None:
