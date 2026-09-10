@@ -465,8 +465,10 @@ def test_weak_bridge_split_passes_bottleneck_guard() -> None:
     assert len(set(labels[:12]) | set(labels[12:])) == 2
 
 
-def test_require_separation_evidence_defaults_off() -> None:
-    assert LevelSetConfig().require_separation_evidence is False
+def test_require_separation_evidence_defaults_on() -> None:
+    """A2-T8: flipped after A2-T7 ON≡OFF metric identity + nulls 0..19 clear."""
+
+    assert LevelSetConfig().require_separation_evidence is True
 
 
 def test_separation_evidence_lambda_is_k_times_gini() -> None:

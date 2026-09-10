@@ -115,16 +115,17 @@ class LevelSetConfig:
     ``n/k``.  There is no node-budget gate, no ``no_cut`` trigger, and
     no scale-match ratio.  Descent ends when the bound binds.
 
-    ``require_separation_evidence`` (default off; OPEN_ISSUES #48) is a
-    flag-gated guard for pure graph disconnections (``φ = 0`` / zero
-    cross flow).  Link absence alone is not evidence: under the
-    one-feature null each of the reader's ``k`` neighbour stubs mixes
-    to either side in proportion to hit mass, so the expected number of
-    cross stubs is ``λ = k · 2 p (1-p)`` with ``p = H_a / (H_a+H_b)``.
-    A zero-cross accept requires ``λ > log(tau_bf)`` (same margin as the
-    DM verdict; no new constant).  When any cross flow is present the
-    min-cut-normalized ``φ`` ceiling already scores the valley and this
-    guard is not applied.
+    ``require_separation_evidence`` (default on; OPEN_ISSUES #48 / A2-T8)
+    is the zero-cross graph-disconnection guard.  Link absence alone is
+    not evidence: under the one-feature null each of the reader's ``k``
+    neighbour stubs mixes to either side in proportion to hit mass, so
+    the expected number of cross stubs is ``λ = k · 2 p (1-p)`` with
+    ``p = H_a / (H_a+H_b)``.  A zero-cross accept requires
+    ``λ > log(tau_bf)`` (same margin as the DM verdict; no new
+    constant).  When any cross flow is present the min-cut-normalized
+    ``φ`` ceiling already scores the valley and this guard is not
+    applied.  Flip-readiness (A2-T7): normal-path seeds 0--4 ON≡OFF on
+    every metric line; null false accepts remain 0 over seeds 0--19.
     """
 
     k_neighbors: int = 8
@@ -136,7 +137,7 @@ class LevelSetConfig:
     min_cluster_frac: float = 0.15
     max_bottleneck_ratio: float = 0.25
     growth_policy: str = "track_tau"
-    require_separation_evidence: bool = False
+    require_separation_evidence: bool = True
 
     def __post_init__(self) -> None:
         if self.growth_policy not in {"track_tau"}:
