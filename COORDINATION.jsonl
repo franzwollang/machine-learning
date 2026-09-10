@@ -286,3 +286,4 @@
 {"ts": "2026-09-10T12:40:45Z","from": "A3","type": "NOTE","integrated_sha": "000348d5a501ee20bd3c18f7269c1093999abc12","note": "Merged origin/coord/integration (000348d5a501ee20bd3c18f7269c1093999abc12 / A1 MERGE_DONE 000348d). Restored A3-only COORDINATION after FF overwrite (integration carried multi-agent mailbox)."}
 {"ts": "2026-09-10T12:40:45Z","from": "A3","type": "NOTE","note": "Idle exit: ready_count=0; D7 scientific suspension / no-refill. Queue 9 completed / 5 blocked / 0 ready. No CLAIM. Defaults unchanged."}
 {"ts": "2026-09-10T12:40:45Z","from": "A3","type": "NOTE","note": "Authoritative tip after idle merge: d4c8f0df60a355b85118152bd8b87a9016535f66. Queue empty; D7 suspended; await director/A1 only."}
+{"ts": "2026-09-10T12:40:45Z","from": "A3","type": "NOTE","note": "Authoritative tip SHA correction: 97c5fbb80fa1dcf04f7e31bce3c6b3a7feaa71e2. Queue empty; D7 suspended; await director/A1 only."}
