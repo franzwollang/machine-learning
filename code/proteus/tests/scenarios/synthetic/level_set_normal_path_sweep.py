@@ -44,6 +44,11 @@ Usage::
     PYTHONPATH="src:$PWD" pipenv run python \\
         tests/scenarios/synthetic/level_set_normal_path_sweep.py \\
         --tissue-mass 0.05 --scenes nested_spheres bimodal_circle
+
+    # #48 separation-evidence guard (default off); A2-T7 flip-readiness:
+    PYTHONPATH="src:$PWD" pipenv run python \\
+        tests/scenarios/synthetic/level_set_normal_path_sweep.py \\
+        --require-separation-evidence
 """
 
 from __future__ import annotations
@@ -361,7 +366,12 @@ def _config(args: argparse.Namespace, seed: int) -> RecursionConfig:
         use_level_set_clustering=True,
         allow_finer_research=True,
         max_finer_scale_steps=int(args.max_finer_steps),
-        level_set=LevelSetConfig(growth_policy=args.growth_policy),
+        level_set=LevelSetConfig(
+            growth_policy=args.growth_policy,
+            require_separation_evidence=bool(
+                getattr(args, "require_separation_evidence", False),
+            ),
+        ),
         terminate_majority_background_child=bool(
             getattr(args, "terminate_majority_background_child", False),
         ),
@@ -487,6 +497,14 @@ def main() -> int:
             "--tissue-mass 0.05 0.20 0.46"
         ),
     )
+    parser.add_argument(
+        "--require-separation-evidence",
+        action="store_true",
+        help=(
+            "OPEN_ISSUES #48 / A2-T7: pass LevelSetConfig."
+            "require_separation_evidence=True (default off)."
+        ),
+    )
     args = parser.parse_args()
 
     wanted = None if args.scenes is None else set(args.scenes)
@@ -506,6 +524,8 @@ def main() -> int:
         f"max_epochs={args.max_epochs}, grid={args.max_grid_points}, "
         f"growth_policy={args.growth_policy}, "
         f"option_b={bool(args.terminate_majority_background_child)}, "
+        f"require_separation_evidence="
+        f"{bool(args.require_separation_evidence)}, "
         f"tissue_mass={tissue_masses})",
         flush=True,
     )
