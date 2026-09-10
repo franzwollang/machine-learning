@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-10T06:24:37Z",
+  "updated_at": "2026-09-10T06:39:01Z",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -148,7 +148,7 @@
         },
         {
           "id": "A2-T10",
-          "status": "ready",
+          "status": "in_progress",
           "priority": "next",
           "issue": 48,
           "summary": "Report-only /tmp cut-local density-contrast oracle. On corrected S-curve accepts s1/16/17/18, flat-strip accepts s5/18/19, and clear/tori/nested root accepts s0-4, table median node spacing/r_k on boundary nodes and interiors A/B plus boundary/min(interior). No threshold or src edit.",
@@ -480,7 +480,7 @@
         },
         {
           "id": "A5-T11",
-          "status": "ready",
+          "status": "in_progress",
           "priority": "next",
           "issue": 45,
           "summary": "Weak two-Gaussian context ablation in /tmp: compare both signals/no tissue versus one signal+tissue/no sibling against isolated n=194 clean reads. Report leaves and phi; no new descent flag.",
@@ -607,7 +607,7 @@
         },
         {
           "id": "A6-T14",
-          "status": "ready",
+          "status": "completed",
           "priority": "next",
           "issue": 28,
           "summary": "Report-only hierarchy s0 unsplit L0/L1 child probe: find the smallest max_nodes >25 at which it accepts and phi at that N. Valley depth is about 0.9993; uncapped accept phi=0.232. Do not flip the node cap or lower 0.25.",
@@ -615,23 +615,46 @@
         },
         {
           "id": "A6-T15",
-          "status": "ready",
+          "status": "completed",
           "issue": 28,
           "summary": "SI S2.4/S2.5 record hierarchy s0 as a resolution-cap times provisional-ceiling interaction using A6-T10/A4-T10. Do not flip any ScaleSearchConfig or PersistenceConfig default.",
           "kill": "n/a"
         },
         {
           "id": "A6-T13",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "paper.tex D4 sync: zero-cross guard remains default off; standalone flip killed; curvature killed; 0.25 provisional/not sufficient; next oracles are density contrast and cut persistence. No A2-T8 follow-up sentence.",
           "kill": "n/a"
+        },
+        {
+          "id": "A6-T16",
+          "status": "ready",
+          "priority": "next",
+          "issue": 28,
+          "summary": "Report-only /tmp reconciliation of T10 vs T14 on the same hierarchy s0 L0+L1 child (n=200). One probe; table max_nodes in {25,45,46,64,n/2=100}: tau*, N, phi, L=1 vs finer, accept/reject/reason, and sample-level agreement of accepted A/B vs GT L0 vs L1. Explain T10 uncapped phi=0.232 vs T14 cap-64 L=1 phi=0.0305. No src edit; no new constant.",
+          "kill": "If the first accept is not the L0/L1 sibling cut (K!=2 on those two labels or ARI<0.8), or cut identity flips across {46,64,n/2}, or phi after first accept is non-monotone by >0.1 across adjacent listed caps, N=46 is path-dependent - BLOCKED; do not propose a cap rule."
+        },
+        {
+          "id": "A6-T17",
+          "status": "ready",
+          "issue": 28,
+          "depends_on": ["A6-T16"],
+          "summary": "Only if T16's first accept is the true L0/L1 cut: isolated GT L0+L1 subset at n=200, seeds 0-4, default cap=25. Report accept/reject, N, phi, tau*. Do not use the normal-path tree (seeds 1-4 already 6/6 there). /tmp only; no src edit.",
+          "kill": "If T16 blocks, do not start. If only seed 0 rejects at 25, residual is seed-0 sampling at fixed n - NOTE and stop; do not propose a cap. If >=2 of seeds 1-4 also reject at 25, NOTE systematic under-resolution of this sibling valley as an n=200 child (#28x#47 diagnosis) and still do not flip the cap."
+        },
+        {
+          "id": "A6-T18",
+          "status": "ready",
+          "issue": 28,
+          "summary": "paper.tex only: one short sentence next to the existing N<=n/k / provisional-ceiling paragraph matching landed SI S2.5.1 - hierarchy s0 L0/L1 miss is cap x ceiling (first accept max_nodes=46, phi~0.201; valley~0.9993; T10/T14 phi at N=64 still discrepant). No new number, no cap/ceiling implication. Do not touch SI S2.6.2.",
+          "kill": "n/a (doc sync of landed T14/T15). If T16 later kills path-stability, REQUEST_TRACKER a one-line paper/SI S2.5.1 correction; do not invent a threshold."
         }
       ],
       "tests_before_done": "gate + foundation chunks; persistence chunk only inside A6-T1 with --durations"
     }
   },
-  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only. D4 declined the standalone zero-cross default flip: it is clean but cannot see the live positive-phi failures. Fixed-ceiling, curvature, and n-indexed-ceiling families are killed; next oracles are density contrast and cut persistence. The retired hollow-prepass regression is strict-xfail with #44.",
+  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only. D4 declined the standalone zero-cross default flip: it is clean but cannot see the live positive-phi failures. D5 keeps fixed-ceiling, curvature, and n-indexed-ceiling families killed; A6 now reconciles the hierarchy cap probe before any cap inference. The retired hollow-prepass regression is strict-xfail with #44.",
   "director_backlog": {
     "note": "Director session D4 (2026-09-10). Approved tasks are assigned directly in worker queues. Do not promote killed D3 follow-ons or invent beyond the D4 package.",
     "items": [
@@ -643,14 +666,14 @@
     ]
   },
   "director_session": {
-    "id": "D4",
-    "ts": "2026-09-10T06:06:00Z",
+    "id": "D5",
+    "ts": "2026-09-10T06:39:01Z",
     "model": "cursor-grok-4.6-high-fast",
-    "summary": "Session model override. Do not flip require_separation_evidence; A2-T8 killed. Curvature/fixed-ceiling/n-indexed-ceiling families stay dead. Next: density-contrast and cut-persistence oracles; ownership unchanged."
+    "summary": "Session model override. A6 ownership unchanged. Reconcile T10/T14 cut identity and cap path, then test isolated n=200 siblings; sync paper without making max_nodes=46 a threshold. All defaults remain unchanged."
   },
   "director_pending": {
-    "triggered_at": "2026-09-10T06:04:52Z",
-    "status": "answered by D4 at 2026-09-10T06:06:00Z"
+    "triggered_at": "2026-09-10T06:27:06Z",
+    "status": "answered by D5 at 2026-09-10T06:39:01Z"
   },
   "a1_must_not": [
     "Do not flip use_level_set_clustering, apply_shot_noise_node_cap, or require_separation_evidence. A2-T8 is killed; keep the zero-cross guard and passthrough default off.",
@@ -659,6 +682,8 @@
     "Bimodal is n-conditioned but weak is statistic-limited; do not change metric-of-record expectations or weaken a test.",
     "Do not resolve #45 or #48; do not delete prepass code this burn; do not run the persistence chunk.",
     "Do not refill beyond this list and director_backlog without a new director session.",
-    "Do not promote A3-T10, a min-side floor, an n-indexed phi ceiling, or the A6 paper sentence formerly gated on A2-T8."
+    "Do not promote A3-T10, a min-side floor, an n-indexed phi ceiling, or the A6 paper sentence formerly gated on A2-T8.",
+    "Do not treat max_nodes=46 or phi=0.201 as a new cap, ceiling, or calibrated threshold; do not open #47 insertion work from this refill.",
+    "Do not revive densify, within-interval, overlap-threshold, load-weighted, or halve-grid-steps sweeps; A6 is limited to T16-T18."
   ]
 }
