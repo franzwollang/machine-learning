@@ -116,3 +116,4 @@
 {"ts":"2026-09-10T06:41:36Z","from":"A3","type":"HELLO","note":"A3 T11 implement; tip=8fd8d44ee28c28ab816d17cd257cbe9d2ea58725; merged integration 476a2537bb46f12975ba90c05635cb3c5dde4706"}
 {"ts":"2026-09-10T06:41:36Z","from":"A3","type":"NOTE","integrated_sha":"476a2537bb46f12975ba90c05635cb3c5dde4706","note":"Merged integration 476a253 (mailbox kept). Implementing A3-T11 covariate table only; no floor, no src/level_set.py."}
 {"ts":"2026-09-10T06:41:36Z","from":"A3","type":"CLAIM","issue":48,"task_id":"A3-T11","files":["code/proteus/tests/scenarios/synthetic/level_set_null_envelope.py"],"note":"Add --mode covariate helpers+table; default scurve/flat s0-19, six nulls s0-4, clear/tori/nested s0-4"}
+{"ts":"2026-09-10T06:47:57Z","from":"A3","type":"NOTE","issue":48,"task_id":"A3-T11","note":"Fixed wrapper kw data= (recursion calls select_level_set_partition(..., data=...)). Smoke circle_null s0 16.6s best_candidate. Restarting 85-payload covariate run."}

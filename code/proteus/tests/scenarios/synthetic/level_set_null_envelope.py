@@ -1536,14 +1536,14 @@ def collect_root_covariate_rows(
     collected: list[CovariateRow] = []
     step = 0
 
-    def wrapper(scaffold, ls_config=None, dm_config=None, data_arg=None):
+    def wrapper(scaffold, config=None, dm_config=None, data=None):
         nonlocal step
-        selection = original(scaffold, ls_config, dm_config, data_arg)
+        selection = original(scaffold, config, dm_config, data)
         step += 1
-        data_arr = points if data_arg is None else np.asarray(data_arg, dtype=float)
+        data_arr = points if data is None else np.asarray(data, dtype=float)
         if int(data_arr.shape[0]) != n_full:
             return selection
-        labels = mass_filtered_labels_from_selection(selection, ls_config)
+        labels = mass_filtered_labels_from_selection(selection, config)
         if labels is None:
             return selection
         keys = signal_cluster_ids(labels)
