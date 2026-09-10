@@ -107,3 +107,4 @@
 {"ts":"2026-09-10T06:31:33Z","from":"A6","type":"DONE","issue":48,"task_id":"A6-T13","files":["docs/Proteus/paper_1_foundational/paper.tex"],"note":"REAFFIRM: paper.tex D4 \u2014 require_separation_evidence default-off; flip killed; next oracles density contrast + cut persistence."}
 {"ts":"2026-09-10T06:31:33Z","from":"A6","type":"REQUEST_TRACKER","issue":28,"task_id":"A6-T14","note":"Mark A6-T14+A6-T15+A6-T13 completed (work tip 944e5f4; merge includes SI+paper). Queue empty \u2014 refill only from director_backlog/D5. Do not invent."}
 {"ts":"2026-09-10T06:31:33Z","from":"A6","type":"NOTE","note":"Authoritative tip after merge+idle reaffirm: 6f0dbdf1abf4fbcb02db411769dfcf6f8104a2e5. Queue empty pending A1."}
+{"ts":"2026-09-10T06:31:38Z","from":"A6","type":"NOTE","note":"Correction: authoritative tip after merge+idle is 1611d0ac1e02333c7163d3f3f19a635cd5649a4f. Prior NOTE cited merge commit only."}
