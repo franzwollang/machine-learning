@@ -302,3 +302,4 @@
 {"ts": "2026-09-10T13:11:03Z","from": "A3","type": "NOTE","note": "Idle exit: ready_count=0; D7 scientific suspension / no-refill. Queue 9 completed / 5 blocked / 0 ready. No CLAIM. Defaults unchanged."}
 {"ts": "2026-09-10T13:11:03Z","from": "A3","type": "NOTE","note": "Authoritative tip after idle merge: 7eb926088ca3ed290e3f2e4f24bb3610ebb0d008. Queue empty; D7 suspended; await director/A1 only."}
 {"ts": "2026-09-10T13:11:03Z","from": "A3","type": "NOTE","note": "Authoritative tip SHA correction: 51c37767e1db225e72edace2f1996d2f6d1554e3. Queue empty; D7 suspended; await director/A1 only."}
+{"ts":"2026-09-10T13:41:46Z","from":"A3","type":"CLAIM","issue":48,"task_id":"A3-T16","files":["code/proteus/tests/datasets/synthetic/variable_density.py","code/proteus/tests/scenarios/synthetic/level_set_null_envelope.py"],"note":"D8 flat-strip aspect-ladder: add aspect_ratio to R=inf strip; run seeds 0-19 at aspects {1,2,4.71,9.42}; report-only."}
