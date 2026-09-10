@@ -544,10 +544,12 @@ reference implementation (OPEN\_ISSUES~\#28).
 \emph{Optional mesh resolution bound (flag-gated; default off).}
 \texttt{ScaleSearchConfig.apply\_shot\_noise\_node\_cap} applies the derived
 bound $N\le n/k$ (\hyperref[sec:si-level-set]{S2.6.2} / \#48) when
-\texttt{run\_scale\_search} resolves \texttt{max\_nodes}.  Today the level-set
-path still clamps the same bound in \texttt{run\_recursive\_discovery}; the
-flag is the proposed native home for that clamp (OPEN\_ISSUES~\#28).  Do not
-flip the default without a normal-path review.
+\texttt{run\_scale\_search} resolves \texttt{max\_nodes}.  The same $N\le n/k$
+bound is the finer-walk \emph{stop} under level-set clustering (not a free step
+budget and not a DM evidence floor).  Today the level-set path still clamps the
+bound in \texttt{run\_recursive\_discovery}; the flag is the proposed native
+home for that clamp (OPEN\_ISSUES~\#28).  Do not flip the default without a
+normal-path review.
 
 \emph{Support/response traces are diagnostics, not the selector.} The Lindeberg
 response $\Phi_C(\tau)$ and the compensated node-count / support trace

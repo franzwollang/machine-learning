@@ -155,7 +155,7 @@ alone takes ~50 min with `slow` deselected. Run named chunks, each wrapped in
 
 | Chunk | Command (from `code/proteus`, `PYTHONPATH="src:$PWD" pipenv run …`) | Who runs it |
 |---|---|---|
-| `gate` | `pytest tests/stage1/test_level_set.py tests/stage1/test_scale_search.py tests/stage1/test_recursion.py -q -p no:cacheprovider --deselect tests/stage1/test_recursion.py::test_mst_critical_hollow_contrast_vs_h_and_conj` (~15 s) | every worker before `DONE`; A1 on every merge |
+| `gate` | `pytest tests/stage1/test_level_set.py tests/stage1/test_scale_search.py tests/stage1/test_recursion.py -q -p no:cacheprovider` (~15 s; `test_mst_critical_hollow_contrast_vs_h_and_conj` is strict-xfail #44 / A6-T8) | every worker before `DONE`; A1 on every merge |
 | `foundation` | `pytest tests/foundation tests/properties tests/reductions tests/contracts -q -p no:cacheprovider` (~10 s) | A1 on every merge |
 | `evidence` | `pytest tests/evidence tests/stage1/test_dm_cluster.py tests/stage1/test_edge_evidence.py -q -p no:cacheprovider` (~3 s) | A1 on every merge; A2 before `DONE` |
 | `scenarios` | `pytest tests/scenarios tests/inference tests/diagnostics tests/stage2 -q -p no:cacheprovider` (~60 s) | A1 on every merge; A4/A5 before `DONE` |
