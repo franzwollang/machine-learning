@@ -541,6 +541,16 @@ stabilized point is taken. The reference implementation is
 heuristic ($0.65\le L\le1$, coarsest in band) has been removed from the
 reference implementation (OPEN\_ISSUES~\#28).
 
+\emph{Optional mesh resolution bound (flag-gated; default off).}
+\texttt{ScaleSearchConfig.apply\_shot\_noise\_node\_cap} applies the derived
+bound $N\le n/k$ (\hyperref[sec:si-level-set]{S2.6.2} / \#48) when
+\texttt{run\_scale\_search} resolves \texttt{max\_nodes}.  The same $N\le n/k$
+bound is the finer-walk \emph{stop} under level-set clustering (not a free step
+budget and not a DM evidence floor).  Today the level-set path still clamps the
+bound in \texttt{run\_recursive\_discovery}; the flag is the proposed native
+home for that clamp (OPEN\_ISSUES~\#28).  Do not flip the default without a
+normal-path review.
+
 \emph{Support/response traces are diagnostics, not the selector.} The Lindeberg
 response $\Phi_C(\tau)$ and the compensated node-count / support trace
 $V_C(\tau)\propto N(\tau)\,\tau^{d/2}$ are logged as cross-checks, but neither is
@@ -1724,8 +1734,20 @@ Geometric floors are family-wise operational defaults, not per-scene
 knobs (S14.3). The bounded protocol in
 \texttt{tests/scenarios/synthetic/level\_set\_branch\_calibrate.py}
 takes, on each connected-manifold null (ring, swiss roll, line, density
-gradient, disk; seeds $0$--$2$; node budgets $32$/$64$; tissue fractions
-$0$/$0.05$), the largest non-root branch statistic in that region. The
+gradient, disk; seeds $0$--$2$; node budgets $32$/$64$; appended-background
+fractions $f\in\{0,0.05\}$), the largest non-root branch statistic in that
+region. Here $f$ is an \emph{append} ratio relative to the signal point
+count ($n_{\mathrm{tissue}}=\mathrm{round}(f\cdot n)$ uniform points in a
+slightly expanded AABB when $f>0$; $f{=}0$ leaves the cloud unchanged), so
+the final background mass is $0$ or $\approx 0.045$--$0.059$
+($n{=}64$: $3/67$; $n{=}32$: $2/34$) --- not the faded-generator
+\texttt{tissue\_fraction} knob, which only pads the support box and still
+yields $\approx 46$--$49\%$ $\lambda{<}0.5$ tissue under legacy
+fade-balanced sampling (circle $\approx 0.484$, swiss $\approx 0.471$,
+nested $\approx 0.463$, tori $\approx 0.491$, bimodal $\approx 0.481$ at
+$n{\approx}4000$; identical at \texttt{tissue\_fraction}${}=0$ and
+$0.05$ because padding is $\max(0.05,f)$). Honest mass control on faded
+scenes is the separate \texttt{tissue\_mass} parameter. The
 measured null envelope ($P\le 0.642$, $M\le 0.166$) overlaps true two-blob
 and four-clump split branches, so
 \texttt{min\_persistence}${}=0.05$ and

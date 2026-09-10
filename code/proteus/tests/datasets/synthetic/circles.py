@@ -36,15 +36,22 @@ def make_circle(
     tissue_mass: float | None = None,
     seed: int = 0,
     transition_radius: float = 3.0,
+    component_only: bool = False,
 ) -> SyntheticDataset:
     """Generate a circle as an exact faded density.
 
     ``tissue_fraction`` only pads the support box (historical name).
     Pass ``tissue_mass`` for an honest expected λ<0.5 background fraction;
     ``None`` keeps the legacy fade-balanced floor (~46–49% tissue).
+
+    ``component_only=True`` (#45 A4-T6) emits pure signal samples from the
+    circle tube with no tissue floor — a child-sized null scene
+    (``n_samples`` typically 200–500).  Metadata sets ``null_scene=True``.
     """
     if extrusion_dim < 0:
         raise ValueError("extrusion_dim must be non-negative")
+    if component_only and tissue_mass not in (None, 0.0):
+        raise ValueError("component_only forbids nonzero tissue_mass")
 
     rng = np.random.default_rng(seed)
     if extrusion_sigma is None:
@@ -65,6 +72,67 @@ def make_circle(
         center=np.zeros(ambient_dim),
         weight=1.0,
     )
+    effective_noise_variance = ambient_dim * tube_sigma**2
+    signal_tau = expected_tau_for_arc(
+        perimeter=2.0 * np.pi * radius,
+        target_n_nodes=target_n_nodes,
+        noise_variance=effective_noise_variance,
+    )
+
+    if component_only:
+        points = component.sample(int(n_samples), rng)
+        labels = np.zeros(int(n_samples), dtype=int)
+        signal_points = points
+        ideal_nodes = int(np.ceil(ideal_nodes_for_arc(
+            perimeter=2.0 * np.pi * radius,
+            tau=signal_tau,
+            noise_variance=effective_noise_variance,
+        )))
+        gt = GroundTruthManifold(
+            name="circle_component_only",
+            ambient_dim=points.shape[1],
+            intrinsic_dim=1,
+            expected_scale_levels=1,
+            cluster_hierarchy=[
+                ClusterNode(
+                    cluster_id=0, level=0, parent_id=None, weight=1.0,
+                    center=signal_points.mean(axis=0),
+                    covariance=np.cov(signal_points, rowvar=False),
+                    is_leaf=True, intrinsic_dim=1,
+                ),
+            ],
+            topology=TopologyExpectation(
+                connected_components=1, betti_numbers=(1, 1), intrinsic_dim=1,
+            ),
+            expected_tau=signal_tau,
+            expected_node_count=ideal_nodes,
+            node_count_upper_bound=3 * ideal_nodes,
+            noise_variance=effective_noise_variance,
+            tau_grid_hint=(signal_tau / 8.0, signal_tau * 8.0),
+        )
+        return SyntheticDataset(
+            points=points,
+            labels=labels,
+            ground_truth=gt,
+            metadata={
+                "extrusion_dim": extrusion_dim,
+                "extrusion_sigma": tube_sigma if extrusion_dim > 0 else 0.0,
+                "base_radius": radius,
+                "signal_expected_tau": float(signal_tau),
+                "tissue_expected_tau": 0.0,
+                "anchor_count": int(manifold_points.shape[0]),
+                "component_only": True,
+                "null_scene": True,
+                "component_index": 0,
+                "parent_scene": "circle",
+                **tissue_mass_metadata(
+                    tissue_fraction=0.0,
+                    tissue_mass=0.0,
+                    labels=labels,
+                ),
+            },
+        )
+
     support = SupportBox.from_points(
         manifold_points,
         padding_fraction=max(0.05, tissue_fraction),
@@ -77,13 +145,7 @@ def make_circle(
     points, sampler_meta = sample_faded_mixture(mixture, n_samples, rng)
     labels = assign_labels_by_lambda(points, [component], label_offsets=[0])
     signal_points = component.sample(n_samples, np.random.default_rng(seed + 17))
-    effective_noise_variance = ambient_dim * tube_sigma**2
 
-    signal_tau = expected_tau_for_arc(
-        perimeter=2.0 * np.pi * radius,
-        target_n_nodes=target_n_nodes,
-        noise_variance=effective_noise_variance,
-    )
     tissue_bounds = support.bounds
     tissue_tau = expected_tau_for_uniform_tissue_box(
         tissue_bounds,
@@ -125,7 +187,6 @@ def make_circle(
         noise_variance=effective_noise_variance,
         tau_grid_hint=(min(signal_tau, tissue_tau) / 8.0, max(signal_tau, tissue_tau) * 8.0),
     )
-    actual_tissue_fraction = float(np.mean(labels < 0))
     return SyntheticDataset(
         points=points,
         labels=labels,
@@ -136,14 +197,16 @@ def make_circle(
             "base_radius": radius,
             "signal_expected_tau": float(signal_tau),
             "tissue_expected_tau": float(tissue_tau),
-            **tissue_mass_metadata(
-                tissue_fraction=tissue_fraction,
-                tissue_mass=tissue_mass,
-                tissue_mass_actual=actual_tissue_fraction,
-            ),
             "support_bounds_lo": tissue_bounds[0].tolist(),
             "support_bounds_hi": tissue_bounds[1].tolist(),
             "anchor_count": int(manifold_points.shape[0]),
+            "component_only": False,
+            "null_scene": False,
             **sampler_meta,
+            **tissue_mass_metadata(
+                tissue_fraction=tissue_fraction,
+                tissue_mass=tissue_mass,
+                labels=labels,
+            ),
         },
     )
