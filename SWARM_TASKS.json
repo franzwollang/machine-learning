@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-10T02:15:00+00:00",
+  "updated_at": "2026-09-10T02:33:49+00:00",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -84,7 +84,7 @@
         },
         {
           "id": "A2-T2",
-          "status": "in_progress",
+          "status": "completed",
           "issue": 48,
           "summary": "Flag-gated separation-evidence guard in select_level_set_partition (default off, LevelSetConfig flag): when cross flow is 0 or below the ceiling, require that the absence of flow is supported by the hit counts on the boundary nodes (likelihood of observing zero cross transitions given the nodes' hit totals under a one-feature Poisson model), not by link existence alone. No new tuned constant: the threshold is a probability level tied to the existing DM margin or derived. Unit test on a synthetic 2-clump scaffold with controlled hit counts.",
           "kill": "If the guard rejects any linked_tori / nested / two_gaussians_clear root accept on seeds 0-4, or accepts lone_gauss2d s17, it is wrong as designed; BLOCKED with the sweep lines."
