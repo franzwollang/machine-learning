@@ -89,15 +89,18 @@ Remaining work:
   rejected as anti-SI. Paper §scale synced to L=1 + coarse-end; hierarchy hybrid≫expected
   regression locked. Do **not** flip the default; persistence stays structural arbiter
   with coarse-end resolution until a SI-justified within-interval signal exists.
-- **Hierarchy child resolution-cap interaction (A6-T10):** hierarchy recovers
-  6/6 fine leaves on seeds 1--4 and 5/6 on seed 0. The unsplit seed-0 child has
-  `n=200`, binds at `N=25=n/k`, and sees best `phi=0.617`; without the cap the
-  same region accepts at `phi=0.232`. A4-T10's analytic oracle has landed:
-  all 15 hierarchy fine-leaf pairs are reported and sibling valley depths are
-  about 0.9993 (seed-invariant), including the seed-0 unsplit pair. This is a
-  scale-resolution interaction, not grounds to lower the provisional ceiling.
-  A6-T14 will measure the smallest node cap above 25 that admits the child;
-  do not flip the cap or within-interval defaults.
+- **Hierarchy child resolution-cap interaction (A6-T10/T14/T15):** hierarchy
+  recovers 6/6 fine leaves on seeds 1--4 and 5/6 on seed 0. The unsplit seed-0
+  child has `n=200`, binds at `N=25=n/k`, and rejects with `phi` above 0.25
+  (T14: L=1 `phi=0.284`, finer best 0.427; T10 capped best 0.617). The first
+  accept is at `max_nodes=46` with `phi=0.201`; cap 45 fails (best
+  `phi=0.258`). Sibling valley depth is about 0.9993 (A4-T10), seed-invariant.
+  SI S2.5.1 records this as a resolution-cap times provisional-ceiling
+  interaction. Remaining: reconcile T10's uncapped `phi=0.232` with T14's
+  cap-64 L=1 `phi=0.0305` and confirm that the N=46 accept is the true L0/L1
+  cut (A6-T16); then test isolated n=200 L0+L1 at cap 25 on seeds 0--4
+  (A6-T17). Do not flip the node cap, within-interval / scale-search defaults,
+  or 0.25.
 - **Landed (A3-T31 SI A+C):** SI S2.6.2 + S14.3 document
   `PersistenceConfig.resolve_within_interval` (`none` | `load_crossover`, default
   `none`; hybrid ≤ fine-leaf).
@@ -863,6 +866,14 @@ Remaining (ordered by severity):
   SI S10.2 now records the negative result and limits DM to
   background-partition confirmation. Do not tune its margin or flip
   `sample_normalized_counts`.
+- **Paper sync and hierarchy cross-check (A6-T13/T14):** the D4 paper update
+  has landed (the separation guard stays default off; no A2-T8 follow-up
+  sentence). The hierarchy seed-0 child accept at N=46, `phi=0.201`, lies
+  inside the corrected-sheet false-accept band 0.096--0.244. This further
+  shows that `phi` plus 0.25 cannot separate a true deep valley from
+  sheet/strip nulls; it is not grounds to lower 0.25 or raise the cap. The
+  next floor candidates remain cut-local density contrast (A2-T10/T11) and
+  cut persistence (A3-T13).
 - Do not flip `use_level_set_clustering` until the corrected S-curve
   null is 0/20 under the acceptance-path statistic. Do not delete S2.6.1
   stand-ins. Do not retune frozen suite numbers.
