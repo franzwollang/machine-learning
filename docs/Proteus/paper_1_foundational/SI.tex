@@ -1892,9 +1892,14 @@ normal-path suite seeds $0$--$4$ is byte-identical ON versus OFF on
 every metric line (nulls $30/30$, hierarchy $5/5$, tori $5/5$, nested
 $5/5$, clear $5/5$, bimodal $2/5$, weak $2/5$; ARI/coverage deltas
 $0$), and null false accepts remain $0$ over seeds $0$--$19$.
-Director D3 forbids flipping the default until review confirms identity
-against the A6-T9/T12 OFF metric-of-record, so the default stays
-\texttt{false} (A2-T8 held).
+A6-T12 OFF metric-of-record matches T7 on the shared slice (nulls
+$30/30$, hierarchy $5/5$ with \texttt{sigLeaves}${}=[5,6,6,6,6]$,
+\texttt{linked\_tori} root $K{=}2$ $5/5$); A6-T9 OFF matches the
+remainder (nested $5/5$, bimodal $2/5$, weak $2/5$, clear $5/5$).
+Corrected S-curve envelope count $60$ has $\phi_{\min}{=}0.096$ (no
+zero-cross read), so the guard is a no-op there by construction.
+Director D3 still requires an explicit flip review, so the default stays
+\texttt{false} (A2-T8 held pending director).
 
 \paragraph{Negative result: cross-flow Poisson likelihood (A2-T5/T9).}
 \label{par:si-cross-flow-poisson-kill}
