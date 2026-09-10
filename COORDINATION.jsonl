@@ -1,1 +1,3 @@
 {"ts":"2026-09-09T20:10:00-05:00","from":"A0","type":"NOTE","note":"Second burn seed (2026-09). coord/* re-based on main; 2026-08 history dropped. Tasks in SWARM_TASKS.json; rules in .cursor/rules/swarm-coordination.mdc (read the lessons section). Agents replace HELLO on their own branches."}
+{"ts":"2026-09-10T01:32:30Z","from":"A3","type":"HELLO","note":"A3 online on coord/A3 @ 9dbe8a1; merged integration contained; starting A3-T1 null envelope harness."}
+{"ts":"2026-09-10T01:32:31Z","from":"A3","type":"CLAIM","issue":48,"task_id":"A3-T1","files":["code/proteus/tests/scenarios/synthetic/level_set_null_envelope.py"],"note":"Build reproducible phi-ceiling null envelope harness (6 nulls x seeds 0-19)."}
