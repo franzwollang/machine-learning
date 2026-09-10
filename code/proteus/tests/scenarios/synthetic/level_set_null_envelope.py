@@ -28,6 +28,12 @@ seeds 0–4 via ``_scenes`` factories.  Propose no floor: if every
 covariate's null-accept band overlaps the composite-accept band, print
 ``NO_COVARIATE_FLOOR`` and stop.
 
+A3-T16 ``--mode aspect-ladder`` runs the R=∞ flat strip at fixed area
+``6π`` / ``n=800`` across aspect ratios ``{1, 2, 3π/2, 3π}`` (≈1, 2,
+4.71, 9.42) × seeds 0–19.  Report-only mechanism control for scan
+length; no ceiling proposal.  Kill: aspect-1 accepts ≥2/20, or min φ
+non-monotone across adjacent rungs by >0.03.
+
 Not a default pytest test.  Pure helpers below are unit-tested.
 
 Usage::
@@ -43,6 +49,11 @@ Usage::
     PYTHONPATH="src:$PWD" pipenv run python \\
         tests/scenarios/synthetic/level_set_null_envelope.py \\
         --mode covariate --jobs 4 --csv /tmp/a3_t11_covariate.csv
+
+    PYTHONPATH="src:$PWD" pipenv run python \\
+        tests/scenarios/synthetic/level_set_null_envelope.py \\
+        --mode aspect-ladder --seeds 0-19 --jobs 4 \\
+        --csv /tmp/a3_t16_aspect_ladder.csv
 """
 
 from __future__ import annotations
@@ -74,6 +85,9 @@ from tests.datasets.synthetic.linked_tori import make_linked_tori
 from tests.datasets.synthetic.nested_spheres import make_nested_spheres
 from tests.datasets.synthetic.swiss_roll import make_swiss_roll
 from tests.datasets.synthetic.variable_density import (
+    FLAT_STRIP_AREA,
+    FLAT_STRIP_DEFAULT_ASPECT,
+    canonicalize_flat_strip_aspect,
     make_filled_ball,
     make_lone_gauss3d,
     make_scurve_sheet,
@@ -129,6 +143,16 @@ WIDEN_NEW_SCENES: tuple[str, ...] = (
 MECHANISM_CONTROL_SCENES: tuple[str, ...] = (
     "flat_strip_null",
 )
+
+# A3-T16 flat-strip aspect ladder (area-preserving; default = 3π/2 ≈ 4.71).
+ASPECT_LADDER_RUNGS: tuple[float, ...] = (
+    1.0,
+    2.0,
+    float(FLAT_STRIP_DEFAULT_ASPECT),
+    float(2.0 * FLAT_STRIP_DEFAULT_ASPECT),  # 3π ≈ 9.42
+)
+ASPECT_LADDER_KILL_ACCEPTS_AT_SQUARE: int = 2
+ASPECT_LADDER_KILL_MIN_PHI_JUMP: float = 0.03
 
 # A4-T6 / A3-T7: lone-component child-sized nulls (no tissue, no sibling).
 COMPONENT_ONLY_SCENES: tuple[str, ...] = (
@@ -224,6 +248,8 @@ TABLE_FIELDS: tuple[str, ...] = (
     "reason",
     "n_samples",
     "k",
+    "aspect_ratio",
+    "min_side_sample_mass",
 )
 
 
@@ -239,6 +265,8 @@ class ReadRow:
     reason: str | None
     n_samples: int | None = None
     k: int | None = None
+    aspect_ratio: float | None = None
+    min_side_sample_mass: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -252,6 +280,14 @@ class ReadRow:
             "reason": self.reason if self.reason is not None else "",
             "n_samples": "" if self.n_samples is None else int(self.n_samples),
             "k": "" if self.k is None else int(self.k),
+            "aspect_ratio": (
+                "" if self.aspect_ratio is None else float(self.aspect_ratio)
+            ),
+            "min_side_sample_mass": (
+                ""
+                if self.min_side_sample_mass is None
+                else float(self.min_side_sample_mass)
+            ),
         }
 
 
@@ -478,7 +514,13 @@ def default_n_for_scene(scene_name: str) -> int:
     }[scene_name]
 
 
-def build_dataset(scene_name: str, seed: int, n_samples: int) -> SyntheticDataset:
+def build_dataset(
+    scene_name: str,
+    seed: int,
+    n_samples: int,
+    *,
+    aspect_ratio: float | None = None,
+) -> SyntheticDataset:
     """Materialize a null scene at a chosen sample budget."""
 
     n = int(n_samples)
@@ -510,6 +552,7 @@ def build_dataset(scene_name: str, seed: int, n_samples: int) -> SyntheticDatase
             noise=SCURVE_SHEET_NOISE,
             seed=seed,
             curvature_radius=float("inf"),
+            aspect_ratio=aspect_ratio,
         )
     if scene_name == "filled_ball_null":
         return make_filled_ball(
@@ -527,6 +570,37 @@ def build_dataset(scene_name: str, seed: int, n_samples: int) -> SyntheticDatase
         )
     raise ValueError(f"unknown null scene {scene_name!r}")
 
+
+def canonicalize_aspect_ratio(aspect: float) -> float:
+    """Map near-nominal ladder labels (4.71 / 9.42) onto exact ``3π/2`` / ``3π``."""
+
+    return canonicalize_flat_strip_aspect(aspect)
+
+def aspect_ladder_scene_tag(aspect: float) -> str:
+    """Stable scene label for grouping envelopes by aspect rung."""
+
+    a = canonicalize_aspect_ratio(aspect)
+    return f"flat_strip_ar{a:.4g}"
+
+
+def parse_aspect_spec(spec: Sequence[float | str] | None) -> list[float]:
+    """Parse aspect ladder rungs; default ``ASPECT_LADDER_RUNGS``."""
+
+    if spec is None:
+        return [float(a) for a in ASPECT_LADDER_RUNGS]
+    out: list[float] = []
+    for token in spec:
+        out.append(canonicalize_aspect_ratio(float(token)))
+    # unique preserving order
+    seen: set[float] = set()
+    uniq: list[float] = []
+    for a in out:
+        key = round(a, 12)
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(float(a))
+    return uniq
 
 def _recursion_config(
     seed: int,
@@ -588,6 +662,7 @@ def collect_root_candidate_reads(
     max_grid_points: int = 8,
     max_finer_steps: int = 16,
     growth_policy: str = "track_tau",
+    aspect_ratio: float | None = None,
 ) -> list[ReadRow]:
     """Run one scene-seed root walk; return rows for reads with a candidate φ."""
 
@@ -596,9 +671,15 @@ def collect_root_candidate_reads(
             f"unknown null scene {scene_name!r}; known: {list(known_null_scenes())}"
         )
     n = int(default_n_for_scene(scene_name) if n_samples is None else n_samples)
-    data = build_dataset(scene_name, int(seed), n)
+    aspect = (
+        None if aspect_ratio is None else canonicalize_aspect_ratio(float(aspect_ratio))
+    )
+    data = build_dataset(scene_name, int(seed), n, aspect_ratio=aspect)
     points = np.asarray(data.points, dtype=float)
     dim = int(data.ground_truth.ambient_dim)
+    report_scene = (
+        scene_name if aspect is None else aspect_ladder_scene_tag(aspect)
+    )
     config = _recursion_config(
         int(seed),
         k=int(k),
@@ -623,9 +704,17 @@ def collect_root_candidate_reads(
         reason = None
         if selection.resolvability is not None:
             reason = selection.resolvability.reject_reason
+        min_side: float | None = None
+        if aspect is not None:
+            labels = mass_filtered_labels_from_selection(selection, config)
+            if labels is not None:
+                data_arr = points if data is None else np.asarray(data, dtype=float)
+                min_side = min_side_sample_mass_fraction(
+                    labels, scaffold, samples=data_arr,
+                )
         rows.append(
             ReadRow(
-                scene=scene_name,
+                scene=report_scene,
                 seed=int(seed),
                 step=int(step),
                 N=len(getattr(scaffold, "nodes", ())),
@@ -639,6 +728,8 @@ def collect_root_candidate_reads(
                 reason=reason,
                 n_samples=int(n),
                 k=int(k),
+                aspect_ratio=aspect,
+                min_side_sample_mass=min_side,
             )
         )
         return selection
@@ -665,6 +756,7 @@ def _worker(payload: dict[str, Any]) -> tuple[str, int, list[dict[str, Any]], fl
         max_grid_points=int(payload["max_grid_points"]),
         max_finer_steps=int(payload["max_finer_steps"]),
         growth_policy=str(payload["growth_policy"]),
+        aspect_ratio=payload.get("aspect_ratio"),
     )
     return (
         payload["scene"],
@@ -679,6 +771,8 @@ def _rows_from_dicts(dicts: Iterable[dict[str, Any]]) -> list[ReadRow]:
     for d in dicts:
         n_raw = d.get("n_samples", "")
         k_raw = d.get("k", "")
+        ar_raw = d.get("aspect_ratio", "")
+        ms_raw = d.get("min_side_sample_mass", "")
         out.append(
             ReadRow(
                 scene=str(d["scene"]),
@@ -691,6 +785,12 @@ def _rows_from_dicts(dicts: Iterable[dict[str, Any]]) -> list[ReadRow]:
                 reason=(None if d.get("reason") in (None, "") else str(d["reason"])),
                 n_samples=None if n_raw in (None, "") else int(n_raw),
                 k=None if k_raw in (None, "") else int(k_raw),
+                aspect_ratio=(
+                    None if ar_raw in (None, "") else float(ar_raw)
+                ),
+                min_side_sample_mass=(
+                    None if ms_raw in (None, "") else float(ms_raw)
+                ),
             )
         )
     return out
@@ -940,6 +1040,137 @@ def _component_only_payloads(
                     }
                 )
     return payloads
+
+
+def _aspect_ladder_payloads(
+    seeds: Sequence[int],
+    *,
+    aspects: Sequence[float],
+    max_depth: int,
+    max_epochs: int,
+    max_grid_points: int,
+    max_finer_steps: int,
+    growth_policy: str,
+    k: int = WIDEN_K_DEFAULT,
+    n_samples: int | None = None,
+) -> list[dict[str, Any]]:
+    """A3-T16: flat_strip_null × aspect rungs × seeds (fixed area / n)."""
+
+    n = int(WIDEN_NULL_N if n_samples is None else n_samples)
+    base = {
+        "scene": "flat_strip_null",
+        "n_samples": n,
+        "k": int(k),
+        "max_depth": int(max_depth),
+        "max_epochs": int(max_epochs),
+        "max_grid_points": int(max_grid_points),
+        "max_finer_steps": int(max_finer_steps),
+        "growth_policy": str(growth_policy),
+    }
+    payloads: list[dict[str, Any]] = []
+    for aspect in aspects:
+        a = canonicalize_aspect_ratio(float(aspect))
+        for seed in seeds:
+            payloads.append({**base, "seed": int(seed), "aspect_ratio": float(a)})
+    return payloads
+
+
+def _accept_seeds_for_aspect(rows: Sequence[ReadRow], aspect: float) -> set[int]:
+    a = canonicalize_aspect_ratio(aspect)
+    tag = aspect_ladder_scene_tag(a)
+    return {
+        int(r.seed)
+        for r in rows
+        if r.scene == tag and r.accepted and r.phi is not None and float(r.phi) > 0.0
+    }
+
+
+def aspect_ladder_kill_reasons(
+    rows: Sequence[ReadRow],
+    aspects: Sequence[float],
+) -> list[str]:
+    """A3-T16 kill criteria (report-only; no new geometries)."""
+
+    reasons: list[str] = []
+    ordered = [canonicalize_aspect_ratio(float(a)) for a in aspects]
+    # Square (aspect=1): accepts on >=2 distinct seeds ⇒ boundary/pocket.
+    if any(np.isclose(a, 1.0, rtol=0.0, atol=1e-9) for a in ordered):
+        n_acc = len(_accept_seeds_for_aspect(rows, 1.0))
+        if n_acc >= ASPECT_LADDER_KILL_ACCEPTS_AT_SQUARE:
+            reasons.append(
+                f"aspect=1 accepts={n_acc}/20 "
+                f"(>= {ASPECT_LADDER_KILL_ACCEPTS_AT_SQUARE}): "
+                "boundary/pocket rather than scan length"
+            )
+    # Min-φ monotone non-increasing across adjacent rungs (tol 0.03).
+    mins: list[tuple[float, float | None]] = []
+    for a in ordered:
+        tag = aspect_ladder_scene_tag(a)
+        env = summarize_envelope([r for r in rows if r.scene == tag])
+        mins.append((a, env.min))
+    for (a0, m0), (a1, m1) in zip(mins, mins[1:]):
+        if m0 is None or m1 is None:
+            continue
+        # Prediction: min phi non-increasing with aspect ⇒ m1 <= m0 + jump.
+        if float(m1) > float(m0) + ASPECT_LADDER_KILL_MIN_PHI_JUMP:
+            reasons.append(
+                f"min_phi non-monotone: aspect {a0:.4g}->{a1:.4g} "
+                f"min {float(m0):.4g}->{float(m1):.4g} "
+                f"(jump>{ASPECT_LADDER_KILL_MIN_PHI_JUMP})"
+            )
+    return reasons
+
+
+def format_aspect_ladder_report(
+    rows: Sequence[ReadRow],
+    aspects: Sequence[float],
+) -> str:
+    """Per-rung reads/accepts/envelope + min-side fraction on accepts."""
+
+    lines: list[str] = ["ASPECT_LADDER_REPORT:"]
+    for aspect in aspects:
+        a = canonicalize_aspect_ratio(float(aspect))
+        tag = aspect_ladder_scene_tag(a)
+        subset = [r for r in rows if r.scene == tag]
+        env = summarize_envelope(subset)
+        n_reads = len(subset)
+        accept_seeds = _accept_seeds_for_aspect(rows, a)
+        n_accept_seeds = len(accept_seeds)
+        n_accept_rows = sum(1 for r in subset if r.accepted)
+        ms = [
+            float(r.min_side_sample_mass)
+            for r in subset
+            if r.accepted and r.min_side_sample_mass is not None
+        ]
+        ms_summary = (
+            "n/a"
+            if not ms
+            else (
+                f"min={min(ms):.4g} median={float(np.median(ms)):.4g} "
+                f"max={max(ms):.4g} n={len(ms)}"
+            )
+        )
+        L = float(np.sqrt(a * FLAT_STRIP_AREA))
+        W = float(FLAT_STRIP_AREA / L)
+        lines.append(
+            f"  aspect={a:.4g} (L={L:.4g} W={W:.4g} area={FLAT_STRIP_AREA:.4g}) "
+            f"scene={tag}"
+        )
+        lines.append(
+            f"    reads={n_reads} accept_rows={n_accept_rows} "
+            f"accept_seeds={n_accept_seeds}/20"
+        )
+        lines.append(
+            f"    phi: min={_fmt(env.min)} p1={_fmt(env.p1)} "
+            f"p5={_fmt(env.p5)} median={_fmt(env.median)} "
+            f"count_phi_gt0={env.count}"
+        )
+        lines.append(f"    min_side_sample_mass (accepts): {ms_summary}")
+        if accept_seeds:
+            lines.append(
+                f"    accept_seed_list={sorted(accept_seeds)}"
+            )
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -1717,11 +1948,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument(
         "--mode",
-        choices=("protocol", "widen", "widen-new", "component-only", "covariate"),
+        choices=(
+            "protocol",
+            "widen",
+            "widen-new",
+            "component-only",
+            "covariate",
+            "aspect-ladder",
+        ),
         default="protocol",
         help="protocol=six nulls; widen-new=new geometries only; "
         "widen=new + existing n×k grid; component-only=A4-T6 child-sized nulls; "
-        "covariate=A3-T11 cut-covariate table (no floor).",
+        "covariate=A3-T11 cut-covariate table (no floor); "
+        "aspect-ladder=A3-T16 flat-strip aspect mechanism control.",
     )
     parser.add_argument(
         "--seeds",
@@ -1752,6 +1991,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         type=str,
         default="",
         help="Optional path to write the candidate-read table.",
+    )
+    parser.add_argument(
+        "--aspects",
+        nargs="+",
+        default=None,
+        help="Aspect-ladder rungs (default: 1 2 4.71 9.42 ≈ 1,2,3π/2,3π).",
     )
     parser.add_argument(
         "--check-reference",
@@ -1806,11 +2051,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.seeds = ["0-9"]
         elif args.mode == "component-only":
             args.seeds = ["0-19"]
+        elif args.mode == "aspect-ladder":
+            args.seeds = ["0-19"]
         else:
             args.seeds = ["0-19"]
     seeds = parse_seed_spec(args.seeds)
 
     payloads: list[dict[str, Any]] | None = None
+    aspects: list[float] | None = None
     if args.mode in {"widen", "widen-new"}:
         payloads = _widen_payloads(
             seeds,
@@ -1833,6 +2081,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             k=int(args.k),
         )
         scenes = list(COMPONENT_ONLY_SCENES)
+    elif args.mode == "aspect-ladder":
+        aspects = parse_aspect_spec(args.aspects)
+        payloads = _aspect_ladder_payloads(
+            seeds,
+            aspects=aspects,
+            max_depth=int(args.max_depth),
+            max_epochs=int(args.max_epochs),
+            max_grid_points=int(args.max_grid_points),
+            max_finer_steps=int(args.max_finer_steps),
+            growth_policy=str(args.growth_policy),
+            k=int(args.k),
+            n_samples=args.n_samples,
+        )
+        scenes = [aspect_ladder_scene_tag(a) for a in aspects]
     else:
         scenes = list(args.scenes) if args.scenes else list(DEFAULT_NULL_SCENES)
         unknown = [s for s in scenes if s not in known_null_scenes()]
@@ -1914,6 +2176,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         per_sn = group_envelopes(rows, lambda r: (r.scene, r.n_samples))
         for key, env in per_sn:
             print(format_envelope(env, title=f"  {key}"), flush=True)
+
+    if args.mode == "aspect-ladder":
+        assert aspects is not None
+        print(format_aspect_ladder_report(rows, aspects), flush=True)
+        kill_reasons = aspect_ladder_kill_reasons(rows, aspects)
+        if kill_reasons:
+            print("KILL_FIRED aspect-ladder:", flush=True)
+            for reason in kill_reasons:
+                print(f"  {reason}", flush=True)
+            print(f"TOTAL_ELAPSED={elapsed:.1f}s n_rows={len(rows)}", flush=True)
+            return 2
+        print(
+            "ASPECT_LADDER_OK prediction holds "
+            "(square 0/20 accepts; min_phi non-increasing within 0.03)",
+            flush=True,
+        )
 
     print(f"TOTAL_ELAPSED={elapsed:.1f}s n_rows={len(rows)}", flush=True)
 
@@ -2063,10 +2341,118 @@ def test_scurve_sheet_curvature_radius_controls() -> None:
     assert abs(float(np.ptp(pts[:, 1])) - 2.0) < 0.05
     arc = np.asarray(flat.metadata["arc"], dtype=float)
     assert abs(float(np.ptp(arc)) - 3.0 * np.pi) < 0.05
+    assert np.isclose(float(flat.metadata["aspect_ratio"]), FLAT_STRIP_DEFAULT_ASPECT)
+    assert np.isclose(float(flat.metadata["area"]), FLAT_STRIP_AREA)
     # Flat strip builds via the envelope scene name.
     built = build_dataset("flat_strip_null", seed=0, n_samples=WIDEN_NULL_N)
     assert built.points.shape == (WIDEN_NULL_N, 3)
     assert built.ground_truth.name == "flat_strip"
+
+
+def test_flat_strip_aspect_ratio_ladder_geometry() -> None:
+    """A3-T16: default aspect byte-identical; area fixed; ladder L/W correct."""
+
+    n = 3_000
+    seed = 11
+    default = make_scurve_sheet(
+        n_samples=n, noise=0.0, seed=seed, curvature_radius=float("inf"),
+    )
+    explicit = make_scurve_sheet(
+        n_samples=n,
+        noise=0.0,
+        seed=seed,
+        curvature_radius=float("inf"),
+        aspect_ratio=FLAT_STRIP_DEFAULT_ASPECT,
+    )
+    near = make_scurve_sheet(
+        n_samples=n,
+        noise=0.0,
+        seed=seed,
+        curvature_radius=float("inf"),
+        aspect_ratio=4.71,
+    )
+    assert np.array_equal(default.points, explicit.points)
+    assert np.array_equal(default.points, near.points)
+
+    for aspect in ASPECT_LADDER_RUNGS:
+        data = make_scurve_sheet(
+            n_samples=n,
+            noise=0.0,
+            seed=seed,
+            curvature_radius=float("inf"),
+            aspect_ratio=aspect,
+        )
+        L = float(data.metadata["arc_length"])
+        W = float(data.metadata["width"])
+        assert np.isclose(L * W, FLAT_STRIP_AREA, rtol=0.0, atol=1e-9)
+        assert np.isclose(L / W, float(aspect), rtol=0.0, atol=1e-9)
+        assert np.isclose(float(data.metadata["aspect_ratio"]), float(aspect))
+        pts = np.asarray(data.points, dtype=float)
+        assert float(np.max(np.abs(pts[:, 2]))) < 1e-12
+        # Area-uniform rectangle: points fill [−L/2,L/2] × [0,W] injectively
+        # in the (x,y) plane (no fold).
+        assert abs(float(np.ptp(pts[:, 0])) - L) < 0.08
+        assert abs(float(np.ptp(pts[:, 1])) - W) < 0.08
+
+    built = build_dataset(
+        "flat_strip_null",
+        seed=0,
+        n_samples=WIDEN_NULL_N,
+        aspect_ratio=1.0,
+    )
+    assert np.isclose(float(built.metadata["aspect_ratio"]), 1.0)
+    assert np.isclose(float(built.metadata["area"]), FLAT_STRIP_AREA)
+
+
+def test_aspect_ladder_payloads_and_kill_helpers() -> None:
+    payloads = _aspect_ladder_payloads(
+        [0, 1],
+        aspects=ASPECT_LADDER_RUNGS,
+        max_depth=1,
+        max_epochs=12,
+        max_grid_points=8,
+        max_finer_steps=16,
+        growth_policy="track_tau",
+    )
+    assert len(payloads) == len(ASPECT_LADDER_RUNGS) * 2
+    assert {p["scene"] for p in payloads} == {"flat_strip_null"}
+    assert sorted({p["aspect_ratio"] for p in payloads}) == sorted(
+        float(a) for a in ASPECT_LADDER_RUNGS
+    )
+    assert canonicalize_aspect_ratio(4.71) == float(FLAT_STRIP_DEFAULT_ASPECT)
+    assert canonicalize_aspect_ratio(9.42) == float(2.0 * FLAT_STRIP_DEFAULT_ASPECT)
+
+    # Synthetic kill: two aspect=1 accepts on distinct seeds.
+    kill_rows = [
+        ReadRow(
+            aspect_ladder_scene_tag(1.0), 0, 1, 10, 0.1, 0.3, True, None,
+            aspect_ratio=1.0,
+        ),
+        ReadRow(
+            aspect_ladder_scene_tag(1.0), 1, 1, 10, 0.1, 0.4, True, None,
+            aspect_ratio=1.0,
+        ),
+        ReadRow(
+            aspect_ladder_scene_tag(2.0), 0, 1, 10, 0.1, 0.5, False, "bottleneck",
+            aspect_ratio=2.0,
+        ),
+    ]
+    reasons = aspect_ladder_kill_reasons(kill_rows, [1.0, 2.0])
+    assert any("aspect=1" in r for r in reasons)
+
+    # Non-monotone min phi across rungs.
+    mono_rows = [
+        ReadRow(
+            aspect_ladder_scene_tag(1.0), 0, 1, 10, 0.1, 0.50, False, "bottleneck",
+            aspect_ratio=1.0,
+        ),
+        ReadRow(
+            aspect_ladder_scene_tag(2.0), 0, 1, 10, 0.1, 0.60, False, "bottleneck",
+            aspect_ratio=2.0,
+        ),
+    ]
+    reasons2 = aspect_ladder_kill_reasons(mono_rows, [1.0, 2.0])
+    assert any("non-monotone" in r for r in reasons2)
 
 
 def test_parse_seed_spec_ranges() -> None:
