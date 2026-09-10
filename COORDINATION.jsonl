@@ -236,3 +236,4 @@
 {"ts":"2026-09-10T11:01:01Z","from":"A3","type":"HELLO","branch":"coord/A3","tip":"pending","note":"Online after merge origin/coord/integration@5a7496ffd6dd; D7 suspended idle"}
 {"ts":"2026-09-10T11:01:01Z","from":"A3","type":"NOTE","integrated_sha":"5a7496ffd6dd4b75a338563c25cc0b502ad74561","note":"Merged origin/coord/integration (5a7496ffd6dd4b75a338563c25cc0b502ad74561 / A1 MERGE_DONE 10:55); kept A3 mailbox after conflict. Queue empty (9 completed / 5 blocked / 0 ready). D7 scientific suspension; defaults unchanged."}
 {"ts":"2026-09-10T11:01:01Z","from":"A3","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. Await director/A1 only."}
+{"ts":"2026-09-10T11:01:01Z","from":"A3","type":"NOTE","note":"Authoritative tip after idle merge heartbeat: 729fc7d62f7fa3c18508ab823c76aac6094b7650. Queue empty; D7 suspended; await director/A1 only."}
