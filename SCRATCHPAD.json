@@ -1,32 +1,32 @@
 {
-  "updated_at": "2026-09-10T06:58:30Z",
-  "turn": 108,
+  "updated_at": "2026-09-10T07:17:17Z",
+  "turn": 109,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "publish D6 queues after persistence and cap-path kills"
+    "goal": "publish D7 negative-result closeout queues"
   },
   "recent": [
-    "D4 declined the zero-cross default flip and refilled all workers with density, persistence, context, and cap oracles",
     "Merged A6-T14/T15/T13; hierarchy child first accepts at cap46, and paper/SI D4 sync landed",
     "D5 refilled A6 with T16-T18 reconciliation, isolated-child probe, and paper sync; all four fast chunks green",
     "Merged A3-A6: covariate harness, benchmark cards, tissue evidence, n-instability SI, and cap-path kill",
-    "D6 killed cut persistence and cap rules, retained density contrast, and restored every worker to 3 ready tasks"
+    "D6 killed cut persistence and cap rules, retained density contrast, and restored every worker to 3 ready tasks",
+    "Merged A2-A6; D7 killed density contrast and narrowed the burn to documentation closeout"
   ],
   "discoveries": [
     "Clear two-Gaussian is 5/5 at n=300/600; nested and tori are 0/5 there but 5/5 at full suite size",
     "Hierarchy sibling valley depth is about 0.9993 despite seed0 binding at N=25 with phi=0.617",
     "Weak one-signal+tissue children shatter 5/10; sibling-only and isolated n=194 controls stay clean",
     "Adjacent-tau cut Jaccard overlaps: null/composite minima 0.257/0.251 and medians both 1.0",
-    "Hierarchy true L0/L1 cut has path-dependent N/phi; first accept 45 vs 46 and phi 0.197 to 0.061 across caps"
+    "Density contrast overlaps: null median 1.095 vs composite 1.114; gap 0.60, so no live #48 floor remains this burn"
   ],
   "open_threads": [
-    "A2 T10-T13: density oracle, conditional default-off gate, and D6 SI record",
-    "A3 T11/T12/T14/T15: covariates, zero-cross classification, and D6 SI record",
-    "A4 T13-T16: tissue residual table and S14 closeouts",
+    "A2 T13-T15: #48 negative-result SI closeout and audit",
+    "A3 T11/T12/T14/T15: final covariates, phi=0 classification, and SI closeout",
+    "A4 T17-T18: S14 leftover and benchmark-card audits",
     "A5 T14-T16: descent SI and current-tip nested/bimodal leaf census",
-    "A6 T19-T21: correct path-dependent hierarchy claims in SI and paper"
+    "A6 T19-T21: path-dependent hierarchy and no-live-floor paper closeout"
   ],
-  "next_step": "publish MERGE_DONE; workers pull integration and continue D6 queues",
+  "next_step": "publish MERGE_DONE and D7 queues; after closeout drains, do not refill",
   "blockers": []
 }
