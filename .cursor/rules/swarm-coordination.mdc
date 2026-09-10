@@ -115,8 +115,9 @@ A1 (Grok) is the **manager**: integration merges, test chunks, tracker artifacts
 grooming, applying `REQUEST_TRACKER`, and relaying decisions. A1 does **not** invent new
 overarching tasks or change direction on its own.
 
-The **director** is a `claude-fable-5-1-thinking-high` review/audit subagent that A1
-spawns (one at a time) and that is **solely responsible** for:
+The **director** is a `claude-fable-5-thinking-high` review/audit subagent that A1
+spawns (one at a time; fallback `claude-fable-5-1-thinking-high`) and that is
+**solely responsible** for:
 
 - assigning new overarching tasks and work packages (what each worker's next 2–3 tasks
  are, with kill criteria), and reassigning `owns_issues` / `owns_files`;
@@ -135,12 +136,16 @@ may only refill from tasks the director already approved (the `director_backlog`
 director's decisions verbatim (summarized) in `SCRATCHPAD_LOG.jsonl` and applies them via
 `TASK_ASSIGN` / `TASK_REFILL`.
 
+A1 never marks `A1-T4` blocked because a slug failed. Try primary then fallback the same
+turn. Merges, test chunks, `REQUEST_TRACKER` (mark DONE/BLOCKED, abandon killed families),
+and refills from `director_backlog` continue even when the director has not yet answered.
+
 ## Models
 
 Obey `.cursor/rules/subagent-models.mdc` temporary override: every swarm agent and every
-subagent uses `cursor-grok-4.6-high-fast`. The only exception is A1's director subagent
-(`claude-fable-5-1-thinking-high`, above), which never implements. Workers never spawn
-Claude.
+subagent uses `cursor-grok-4.5-high` (fallback `cursor-grok-4.6-high-fast`). The only
+exception is A1's director (`claude-fable-5-thinking-high`, fallback
+`claude-fable-5-1-thinking-high`), which never implements. Workers never spawn Claude.
 
 ## Test chunks (cloud turns time out; never run the whole suite)
 
