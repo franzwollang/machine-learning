@@ -551,6 +551,19 @@ bound in \texttt{run\_recursive\_discovery}; the flag is the proposed native
 home for that clamp (OPEN\_ISSUES~\#28).  Do not flip the default without a
 normal-path review.
 
+\emph{Hierarchy seed~$0$ diagnostic (report-only; \#28).}
+On the hierarchical Gaussian suite (seed~$0$), one root child mixes fine leaves
+L0/L1 ($n{=}200$; sibling valley depth $\approx0.9993$ by the pairwise oracle,
+A4-T10) and stays unsplit under the default $N\le n/k{=}25$ clamp: L$=$1 and the
+finer walk both reject with $\phi$ above the provisional $0.25$ ceiling (best
+capped $\phi\approx0.43$; A6-T10 previously reported capped best $\phi\approx0.617$).
+Raising only the mesh cap (no default flip) first accepts at
+$\texttt{max\_nodes}{=}46$ with $\phi\approx0.201$ at $N{=}46$ (finer step;
+A6-T14); at the legacy uncapped probe $N{=}64$ the same child accepts with
+$\phi\approx0.031$ (L$=$1) / historically $\phi\approx0.232$.  The miss is therefore a
+\emph{resolution-cap $\times$ provisional-ceiling} interaction, not a missing
+valley: do not raise the node cap or lower $0.25$ from this observation alone.
+
 \emph{Support/response traces are diagnostics, not the selector.} The Lindeberg
 response $\Phi_C(\tau)$ and the compensated node-count / support trace
 $V_C(\tau)\propto N(\tau)\,\tau^{d/2}$ are logged as cross-checks, but neither is
@@ -1999,6 +2012,19 @@ keeps its fresh \texttt{run\_scale\_search} per finer step; the warm
 in-place continuation \texttt{advance\_scaffold\_to\_tau} is no longer
 on either path (retained, unit-locked, for diagnostics).
 
+\paragraph{$n$-instability of $\phi$ (weak two-Gaussians; A5-T8).}
+Matched-$\tau$ reads on weak two-Gaussians seed~2 at $4\times$ vs
+$10\times$ scene $n$ flip the reject regime without a recoverable
+root split: at $\tau\!\approx\!0.079$, the $4\times$ mesh reports
+\texttt{bottleneck} with $\phi\!\approx\!0.36$ while the $10\times$
+mesh reports \texttt{no\_cut}; at $\tau\!\approx\!0.056$ both report
+\texttt{bottleneck} but $\phi\!\approx\!1.14$ vs $\phi{=}\infty$.
+This is $n$-instability of the bottleneck statistic under denser
+sampling of the same weak valley --- \emph{not} a warrant for an
+$n$-indexed $\phi$ ceiling, scene-scaling revival, or a new calibrated
+number. Keep the existing min-cut-normalized ceiling; treat residual
+weak misses as connected-valley difficulty (\#48), not sample poverty.
+
 \paragraph{Quarantine of the geometry / hollow prepass zoo.}
 The 2026-08 swarm falsified radial / PCA / tube / spectral / hollow-edge
 prepasses as Stage-1 structural proposals (connected support under
@@ -2061,9 +2087,12 @@ on the equalized scaffold (same $\lambda{=}0.5$ tier as the faded GT):
 Pure-child oracles without tissue or siblings --- nested-shell GT
 subsets, bimodal connected-valley components, and the 194-sample weak
 two-Gaussian \texttt{component\_only} child --- stay single-leaf on
-seeds~$0$--$4$. Residual \#45 over-split therefore needs tissue or
-sibling context, not an intrinsic child-geometry fix. Do not flip
-either option-A/B flag default.
+seeds~$0$--$4$. Weak context ablation (A5-T11; honest
+\texttt{tissue\_mass}${}{=}0.46$): both-signals/no-tissue never
+over-splits ($0/5$), while one-signal$+$tissue/no-sibling restores
+shatter on $5/10$ child reads ($\phi_{\mathrm{acc}}{=}0$) ---
+\emph{tissue-sufficient} for weak; not sibling-alone and not option~D.
+Do not flip either option-A/B flag default.
 
 \paragraph{Landed proposal-path wiring and protocol.}
 Module \texttt{proteus.stage1.edge\_evidence} exposes
@@ -4813,6 +4842,158 @@ The deterministic term decays with half-life $k$. Azuma--Hoeffding gives the dis
 
 \subsection*{S14.1 Datasets and Splits}
 Synthetic benchmarks should include known topological and geometric ground truth: nested manifolds, variable-density curves/surfaces, linked components, dimensionality junctions, and high-curvature patches. Real benchmarks should be chosen for local structure and query relevance rather than only classification accuracy. Use fixed train/test splits or repeated random splits with logged seeds.
+
+\paragraph{Level-set suite benchmark cards (A4-T11/T12 / \#48).}
+\label{sec:si-s14-level-set-benchmark-cards}
+Per-scene cards for the frozen normal-path suite in
+\texttt{tests/scenarios/synthetic/level\_set\_suite.py}
+(and factories in
+\texttt{level\_set\_normal\_path\_sweep.py}).
+Fields filled here are already-landed measurements only:
+suite $n$, seed-$0$ actual tissue mass under the legacy fade-balanced
+default (\texttt{tissue\_mass\_requested}${}={}$\texttt{None}),
+A4-T7 injectivity / area-uniformity audit, A4-T8 two-Gaussian root
+resolvability curve, A3-T3 composite root-read $\phi$ on seeds
+$0$--$9$, A4-T9 child-sized power (root-only, seeds~$0$--$4$), and
+A4-T10 pairwise / shell / torus valley depths.
+Scenes never run under A4-T9 keep child-power cells
+\emph{pending} --- do not invent values and do not change defaults.
+Tissue masses below are sample fractions at seed~$0$; legacy mode still
+yields $\approx 46$--$49\%$ $\lambda{<}0.5$ tissue on faded manifolds
+(honest mass uses \texttt{tissue\_mass}; see S2.6.2).
+
+\begin{itemize}[leftmargin=1.2em]
+  \item \textbf{\texttt{circle\_null}}.
+  $n{=}1500$.
+  Actual tissue mass $\approx 0.477$ (legacy fade-balanced).
+  Uniformity (A4-T7): pass (uniform angle; injective).
+  Root-accept / $\phi$ (null): not in A3-T3 composite table.
+  Child power (A4-T9): \emph{pending}.
+  Analytic valley (A4-T10): n/a (one-feature null).
+
+  \item \textbf{\texttt{swiss\_roll\_null}}.
+  $n{=}2000$.
+  Actual tissue mass $\approx 0.455$ (legacy).
+  Uniformity (A4-T7): pass (arc-length CDF $\times$ uniform height;
+  injective spiral).
+  Root-accept / $\phi$: not in A3-T3 composite table.
+  Child power (A4-T9): \emph{pending}.
+  Analytic valley (A4-T10): n/a.
+
+  \item \textbf{\texttt{lone\_torus\_null}}.
+  Parent \texttt{make\_linked\_tori} at $n_{\mathrm{per}}{=}4000$
+  ($n{=}8000$), then keep signal label~$0$ plus nearby tissue
+  ($r{=}1$); seed~$0$ kept $n{\approx}3539$.
+  Parent actual tissue mass $\approx 0.493$ (legacy); subset mass
+  varies by seed.
+  Uniformity (A4-T7): parent torus surface continuous area-uniform
+  (pass).
+  Root-accept / $\phi$: not in A3-T3 composite table.
+  Child power (A4-T9): \emph{pending}.
+  Analytic valley (A4-T10): n/a (null).
+
+  \item \textbf{\texttt{lone\_shell\_inner\_null}}.
+  Parent \texttt{make\_nested\_spheres} at $n_{\mathrm{per}}{=}3000$
+  ($n{=}6000$), keep inner shell label~$1$ plus nearby tissue;
+  seed~$0$ kept $n{\approx}2542$.
+  Parent actual tissue mass $\approx 0.466$ (legacy).
+  Uniformity (A4-T7): parent shell surface-uniform (pass).
+  Root-accept / $\phi$: not in A3-T3 composite table.
+  Child power (A4-T9): \emph{pending}.
+  Analytic valley (A4-T10): n/a (null).
+
+  \item \textbf{\texttt{lone\_gauss2d\_null} / \texttt{lone\_gauss4d\_null}}.
+  $n{=}800$ each; no faded tissue (isotropic Gaussian draws).
+  Uniformity (A4-T7): n/a (not a manifold area sampler).
+  Root-accept / $\phi$: not in A3-T3 composite table
+  (null-envelope / \#48 gate separate).
+  Child power (A4-T9): \emph{pending}.
+  Analytic valley (A4-T10): n/a.
+
+  \item \textbf{\texttt{hierarchy}}.
+  $n{=}600$; no faded tissue metadata.
+  Uniformity (A4-T7): n/a (hierarchical isotropic Gaussians).
+  Root-accept seeds~$0$--$9$ (A3-T3): $10/10$, $\phi{=}0$, root $K{=}3$.
+  Child power (A4-T9): \emph{pending} (not in T9 child-budget sweep).
+  Pairwise fine-leaf valley depths (A4-T10): sibling pairs
+  $\approx 0.9993$ on seeds~$0$--$4$ (geometry-fixed; includes seed~$0$;
+  $C(6,2){=}15$ pairs, $3$ siblings; cross-coarse deeper).
+
+  \item \textbf{\texttt{linked\_tori}}.
+  $n{=}8000$ ($4000$ per torus).
+  Actual tissue mass $\approx 0.493$ (legacy).
+  Uniformity (A4-T7): pass (continuous area-uniform torus surface).
+  Root-accept seeds~$0$--$9$ (A3-T3): $10/10$,
+  accepted $\phi\in[0.036,0.236]$.
+  Child power (A4-T9): total $n{\in}\{300,600\}$ root-only seeds~$0$--$4$
+  accept $0/5$ each; full suite $n{=}8000$ accept $5/5$
+  (step med~$9$, $N$ med~$768$, $\phi$ mean $\approx 0.087$).
+  Analytic valley depth (A4-T10): $\approx 1.0$ (gap-segment path;
+  seed-$0$ metadata).
+
+  \item \textbf{\texttt{nested\_spheres}}.
+  $n{=}6000$ ($3000$ per shell).
+  Actual tissue mass $\approx 0.466$ (legacy).
+  Uniformity (A4-T7): pass (surface-uniform shells).
+  Root-accept seeds~$0$--$9$ (A3-T3): $10/10$,
+  accepted $\phi\in[0.014,0.174]$.
+  Child power (A4-T9): total $n{\in}\{300,600\}$ root-only seeds~$0$--$4$
+  accept $0/5$ each; full suite $n{=}6000$ accept $5/5$
+  (step med~$10$, $N$ med~$577$, $\phi$ mean $\approx 0.055$).
+  Analytic valley depth (A4-T10): $1.0$ (radial shell gap;
+  seed-$0$ metadata).
+
+  \item \textbf{\texttt{bimodal\_circle}}.
+  $n{=}1500$, $\kappa{=}3$.
+  Actual tissue mass $\approx 0.485$ (legacy).
+  Uniformity (A4-T7): intentional angular non-uniformity; equal modes
+  (pass as declared).
+  Analytic valley depth (A4-T5): $\approx 0.901$ (identical across seeds;
+  PASS/FAIL band-count overlap --- sampling noise at fixed $n$).
+  Root-accept seeds~$0$--$9$ (A3-T3): $6/10$;
+  accepted $\phi\in[0.097,0.207]$;
+  miss best-candidate $\phi\in[0.334,0.781]$ (bottleneck reject).
+  Child power (A4-T9): \emph{pending}.
+
+  \item \textbf{\texttt{two\_gaussians\_weak}}.
+  $n{=}800$, $\sigma{=}0.25$, separation ${=}2.5$.
+  Actual tissue mass $\approx 0.018$ (legacy; low tissue draw).
+  Uniformity (A4-T7): pass (equal weights; injective centers).
+  Analytic valley depth (A4-T5): $\approx 0.130$ (identical across seeds;
+  band-count overlaps PASS/FAIL).
+  Root-accept seeds~$0$--$9$ (A3-T3): $3/10$;
+  accepted $\phi\approx 0.098$--$0.100$;
+  miss best-candidate $\phi\in[0.334,1.003]$ (two seeds with $0$
+  candidates).
+  A4-T8 root curve (same geometry family, seeds~$0$--$4$, root-only):
+  separation $2.5\to$ depth $0.130\to$ $K{=}2$ accept $2/5$
+  (accepted-$\phi$ mean $\approx 0.099$).
+  Child power (A4-T9): \emph{pending}.
+
+  \item \textbf{\texttt{two\_gaussians\_clear}}.
+  $n{=}800$, $\sigma{=}0.25$, separation ${=}6$.
+  Actual tissue mass $\approx 0.021$ (legacy).
+  Uniformity (A4-T7): pass.
+  Analytic valley depth (A4-T5 metadata): $\approx 0.978$.
+  Root-accept seeds~$0$--$9$ (A3-T3): $10/10$,
+  accepted $\phi\in[0.0,0.244]$.
+  A4-T8 root curve (seeds~$0$--$4$):
+  sep$\to$depth$\to$accept:
+  $2.5{\to}0.130{\to}2/5$;
+  $3.0{\to}0.358{\to}3/5$;
+  $3.5{\to}0.568{\to}5/5$;
+  $4.0{\to}0.729{\to}5/5$;
+  $6.0{\to}0.978{\to}5/5$
+  (monotone; kill not fired; accepted-$\phi$ means
+  $\approx 0.099/0.102/0/0.107/0.017$).
+  Child power (A4-T9): clear geometry root-only seeds~$0$--$4$
+  accept $5/5$ at total $n{\in}\{300,600\}$ (and at suite $n{=}800$);
+  $\phi$ means $\approx 0.090/0.095$ at $300/600$ (step med~$1$;
+  $N$ med $35/62$). Kill not fired (clear@$600{=}5/5$).
+\end{itemize}
+Remaining \emph{pending} child-power cells are scenes A4-T9 did not
+sweep (nulls, hierarchy, bimodal, weak). Do not retune $\phi$ ceiling
+or suite $n$ from these figures alone.
 
 \subsection*{S14.2 Metrics}
 Metrics include persistent-homology distances or topology summaries where ground truth exists, reconstruction/projection error, held-out log-likelihood under the reconstructed density, sample quality (e.g.\ MMD or nearest-neighbor two-sample tests), membership-trajectory stability, accepted-edit counts, and diagnostic residuals. Each metric should map to a named architectural claim.
