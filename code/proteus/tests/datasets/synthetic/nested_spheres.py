@@ -195,13 +195,13 @@ def make_nested_spheres(
             "base_ambient_dim": ambient_dim,
             "signal_expected_tau": float(signal_tau),
             "tissue_expected_tau": float(tissue_tau),
-            **tissue_mass_metadata(
-                tissue_fraction=tissue_fraction,
-                tissue_mass=tissue_mass,
-                tissue_mass_actual=float(np.mean(labels < 0)),
-            ),
             "support_bounds_lo": tissue_bounds[0].tolist(),
             "support_bounds_hi": tissue_bounds[1].tolist(),
             **sampler_meta,
+            **tissue_mass_metadata(
+                tissue_fraction=tissue_fraction,
+                tissue_mass=tissue_mass,
+                labels=labels,
+            ),
         },
     )

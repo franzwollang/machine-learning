@@ -137,12 +137,12 @@ def make_bimodal_circle(
             "mode_angles": list(component.mode_angles),
             "connected_support": True,
             "expected_k": 2,
+            **sampler_meta,
             **tissue_mass_metadata(
                 tissue_fraction=tissue_fraction,
                 tissue_mass=tissue_mass,
-                tissue_mass_actual=float(np.mean(labels < 0)),
+                labels=labels,
             ),
-            **sampler_meta,
         },
     )
 
@@ -240,11 +240,11 @@ def make_two_gaussians(
             "center_distance": float(separation * sigma),
             "expected_k": 2,
             "valley": "weak" if separation < 4.0 else "clear",
+            **sampler_meta,
             **tissue_mass_metadata(
                 tissue_fraction=tissue_fraction,
                 tissue_mass=tissue_mass,
-                tissue_mass_actual=float(np.mean(labels < 0)),
+                labels=labels,
             ),
-            **sampler_meta,
         },
     )

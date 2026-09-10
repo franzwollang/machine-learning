@@ -177,6 +177,23 @@ class GroundTruthManifold:
         return max(c.level for c in self.cluster_hierarchy) + 1
 
 
+def tissue_partition_report(metadata: dict) -> dict[str, float | int | str | None]:
+    """Expose requested vs actual tissue mass and signal counts from metadata.
+
+    Faded generators (#45) record these via ``tissue_mass_metadata``.  Missing
+    keys raise ``KeyError`` so incomplete generators fail loudly in tests.
+    """
+    return {
+        "tissue_mass_requested": metadata.get("tissue_mass_requested"),
+        "tissue_mass_actual": float(metadata["tissue_mass_actual"]),
+        "signal_count_requested": metadata.get("signal_count_requested"),
+        "signal_count_actual": int(metadata["signal_count_actual"]),
+        "tissue_count_requested": metadata.get("tissue_count_requested"),
+        "tissue_count_actual": int(metadata["tissue_count_actual"]),
+        "tissue_mass_mode": metadata.get("tissue_mass_mode"),
+    }
+
+
 @dataclass
 class SyntheticDataset:
     """A generated synthetic dataset paired with its ground truth."""
@@ -184,3 +201,7 @@ class SyntheticDataset:
     labels: np.ndarray                        # (N,) integer cluster labels
     ground_truth: GroundTruthManifold
     metadata: dict = field(default_factory=dict)
+
+    def tissue_partition(self) -> dict[str, float | int | str | None]:
+        """Requested vs actual tissue mass and signal/tissue counts (#45)."""
+        return tissue_partition_report(self.metadata)
