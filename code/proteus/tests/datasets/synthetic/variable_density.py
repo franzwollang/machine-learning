@@ -261,12 +261,36 @@ def make_lone_gauss3d(
     )
 
 
+# Default flat-strip aspect (length/width) at fixed area ``3π * 2`` (A3-T9/T16).
+FLAT_STRIP_DEFAULT_ASPECT: float = 3.0 * np.pi / 2.0
+FLAT_STRIP_AREA: float = 3.0 * np.pi * 2.0
+# Labels like 4.71 / 9.42 map onto exact 3π/2 / 3π (A3-T16 ladder).
+_FLAT_STRIP_ASPECT_LABEL_ATOL: float = 0.02
+
+
+def canonicalize_flat_strip_aspect(aspect: float) -> float:
+    """Map near-nominal ladder labels onto exact ``3π/2`` / ``3π``."""
+
+    a = float(aspect)
+    if not np.isfinite(a) or a <= 0.0:
+        raise ValueError(f"aspect_ratio must be finite and positive, got {aspect!r}")
+    if np.isclose(
+        a, FLAT_STRIP_DEFAULT_ASPECT, rtol=0.0, atol=_FLAT_STRIP_ASPECT_LABEL_ATOL,
+    ):
+        return float(FLAT_STRIP_DEFAULT_ASPECT)
+    double = float(2.0 * FLAT_STRIP_DEFAULT_ASPECT)
+    if np.isclose(a, double, rtol=0.0, atol=_FLAT_STRIP_ASPECT_LABEL_ATOL):
+        return double
+    return a
+
+
 def make_scurve_sheet(
     n_samples: int = 800,
     noise: float = 0.0,
     seed: int = 0,
     *,
     curvature_radius: float = 1.0,
+    aspect_ratio: float | None = None,
 ) -> SyntheticDataset:
     """S-shaped 2-D sheet in R^3 (classic S-curve extruded along an axis).
 
@@ -276,6 +300,11 @@ def make_scurve_sheet(
     ``z = R sign(θ)(cos(θ) - 1)``, ``y ∈ [0, 2]``.  Default ``R = 1`` is
     byte-identical to the post-A3-T6 generator.  ``R = ∞`` is a flat
     strip of the same arc length and width (mechanism control / A3-T9).
+
+    For ``R = ∞`` only, ``aspect_ratio`` (length/width) may vary while
+    holding area ``L·W = 6π`` and ``n_samples`` fixed (A3-T16).  Default
+    ``None`` / ``3π/2`` is byte-identical to the A3-T9 strip.  Finite-``R``
+    calls ignore ``aspect_ratio``.
 
     Per-sample arc coordinate (distance along the centerline from the
     low-θ end) is exposed in ``metadata["arc"]``.
@@ -293,7 +322,20 @@ def make_scurve_sheet(
         raise ValueError("curvature_radius must be positive or +inf")
 
     if np.isinf(R):
-        # Flat strip: arc ∈ [0, L], width ∈ [0, 2], embedded in the xy-plane.
+        # Flat strip in the xy-plane. Default aspect 3π/2 keeps L=3π, W=2.
+        if aspect_ratio is None:
+            aspect = float(FLAT_STRIP_DEFAULT_ASPECT)
+        else:
+            aspect = canonicalize_flat_strip_aspect(float(aspect_ratio))
+        if np.isclose(aspect, FLAT_STRIP_DEFAULT_ASPECT, rtol=0.0, atol=0.0):
+            # Exact A3-T9 geometry (byte-identical points for the same seed).
+            arc_len = 3.0 * np.pi
+            width = 2.0
+            aspect = float(FLAT_STRIP_DEFAULT_ASPECT)
+        else:
+            # Area-preserving ladder rung: L = sqrt(aspect * area), W = area/L.
+            arc_len = float(np.sqrt(aspect * FLAT_STRIP_AREA))
+            width = float(FLAT_STRIP_AREA / arc_len)
         arc = arc_len * u
         x = arc - 0.5 * arc_len
         y = width * s
@@ -326,6 +368,20 @@ def make_scurve_sheet(
     if float(noise) > 0.0:
         points = points + rng.normal(scale=float(noise), size=points.shape)
     labels = np.zeros(int(n_samples), dtype=int)
+    meta: dict = {
+        "noise": float(noise),
+        "sampling": sampling,
+        "curvature_radius": float(R),
+        "arc_length": float(arc_len),
+        "width": float(width),
+        "theta_range": theta_range,
+        "arc": np.asarray(arc, dtype=float),
+        "theta": np.asarray(theta, dtype=float),
+        "width_coord": np.asarray(width * s, dtype=float),
+    }
+    if np.isinf(R):
+        meta["aspect_ratio"] = float(aspect)
+        meta["area"] = float(arc_len * width)
     return SyntheticDataset(
         points=points,
         labels=labels,
@@ -337,17 +393,7 @@ def make_scurve_sheet(
                 connected_components=1, betti_numbers=(1, 0), intrinsic_dim=2,
             ),
         ),
-        metadata={
-            "noise": float(noise),
-            "sampling": sampling,
-            "curvature_radius": float(R),
-            "arc_length": float(arc_len),
-            "width": float(width),
-            "theta_range": theta_range,
-            "arc": np.asarray(arc, dtype=float),
-            "theta": np.asarray(theta, dtype=float),
-            "width_coord": np.asarray(width * s, dtype=float),
-        },
+        metadata=meta,
     )
 
 

@@ -1120,3 +1120,6 @@
 {"ts":"2026-09-10T13:21:19Z","from":"A6","type":"HELLO","note":"A6 cron; merged integration 3ff32bf; idle \u2014 D7 drained, ready_count=0, no refill; A1 has USER_DIRECTIVE D8 pending"}
 {"ts":"2026-09-10T13:21:19Z","from":"A6","type":"NOTE","integrated_sha":"3ff32bf9d4de2238dd372e66e21786207edbaf84","note":"Merged origin/coord/integration (3ff32bf9d4de2238dd372e66e21786207edbaf84 / A1 MERGE_DONE suspended heartbeat). Mailbox preserved (ours)."}
 {"ts":"2026-09-10T13:21:19Z","from":"A6","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension / no-refill. No CLAIM. A6-T16 remains blocked (family killed). Defaults unchanged. ORCH USER_DIRECTIVE to A1 for D8 Fable \u2014 A6 waits for TASK_ASSIGN."}
+{"ts":"2026-09-10T14:20:52Z","from":"A6","type":"HELLO","note":"A6 cron; merged integration 8af4b1b; idle \u2014 D9 A6=[]; ready_count=0; A2-T16 reported BLOCKED (D10 pending A1)"}
+{"ts":"2026-09-10T14:20:52Z","from":"A6","type":"NOTE","integrated_sha":"8af4b1beaafbc399992492a61a22b3416b8d7ea1","note":"Merged origin/coord/integration (8af4b1beaafbc399992492a61a22b3416b8d7ea1 / A1 MERGE_DONE D9). Mailbox preserved (ours)."}
+{"ts":"2026-09-10T14:20:52Z","from":"A6","type":"NOTE","note":"Idle exit: ready_count=0; D9 intentional A6 empty. A6-T16/T22 remain blocked. No CLAIM. Defaults/0.25 unchanged. Await D10 after A2-T16 kill."}

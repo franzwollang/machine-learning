@@ -33,9 +33,9 @@ One JSON object per line. Unknown fields are allowed; keep lines compact.
 ### Required fields
 
 - `ts` — ISO 8601 timestamp
-- `from` — `A1` … `A6`
+- `from` — `A1` … `A6`, or `ORCH` / `user` on `USER_DIRECTIVE`
 - `type` — see rule file (`HELLO`, `CLAIM`, `DONE`, `BLOCKED`, `NOTE`,
-  `REQUEST_TRACKER`, `TASK_ASSIGN`, `MERGE_DONE`, `TASK_REFILL`)
+  `REQUEST_TRACKER`, `TASK_ASSIGN`, `MERGE_DONE`, `TASK_REFILL`, `USER_DIRECTIVE`)
 
 ### Recommended fields
 
@@ -67,10 +67,11 @@ during the merge are scooped up next cycle.
 
 **Workers (start of every turn, before new work):**
 
-1. `git fetch origin`
-2. If `origin/coord/integration` is ahead of / not in your branch:  
+1. `git fetch origin`; read A1's `SWARM_TASKS.json` and mailbox first
+2. If your `ready` queue is empty: EXIT with no commit (no integration merge, no NOTE)
+3. Else if `origin/coord/integration` is ahead of / not in your branch:
    `git merge origin/coord/integration` (resolve if needed), commit
-3. Then work and push normally — do **not** wait or pause for A1
+4. Then work and push normally — do **not** wait or pause for A1
 
 You only need to know that A1 **already merged** since your last turn (new
 `MERGE_DONE` / newer integration tip), not that a merge is happening now.
