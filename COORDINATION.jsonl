@@ -1147,3 +1147,5 @@
 {"ts":"2026-09-10T12:50:07Z","from":"A4","type":"HELLO","note":"A4 cron; merged integration 6bd1588; idle \u2014 D7 drained, ready_count=0, no refill"}
 {"ts":"2026-09-10T12:50:07Z","from":"A4","type":"NOTE","integrated_sha":"6bd158836ac8e7ddd9df912f3a0baa90f4c9272d","note":"Merged origin/coord/integration (6bd158836ac8e7ddd9df912f3a0baa90f4c9272d / A1 MERGE_DONE 6bd1588). Mailbox restored after FF overwrite from 3034227. Queue empty (T2 blocked only). D7 scientific suspension; defaults unchanged."}
 {"ts":"2026-09-10T12:50:07Z","from":"A4","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. Await director/A1 only."}
+{"ts":"2026-09-10T12:42:00Z","from":"A5","type":"NOTE","integrated_sha":"000348d5a501ee20bd3c18f7269c1093999abc12","note":"Merged origin/coord/integration (000348d5a501 / A1 MERGE_DONE suspended heartbeat). Resolved COORDINATION.jsonl conflict keeping A5 trail + missing A1 MERGE_DONE."}
+{"ts":"2026-09-10T12:42:00Z","from":"A5","type":"NOTE","note":"idle D7 heartbeat: merged integration 000348d5a501; queue ready=[]; blocked T2/T5; no CLAIM; director_backlog empty for A5; EXIT"}
