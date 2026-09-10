@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-09T21:05-05:00",
+  "updated_at": "2026-09-10T01:56:00+00:00",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -39,17 +39,17 @@
       "queue": [
         {
           "id": "A1-T1",
-          "status": "ready",
+          "status": "completed",
           "summary": "Seed HELLO; verify worker HELLOs; announce TASK_ASSIGN snapshot of this file. Confirm each worker's first CLAIM matches its owns_files."
         },
         {
           "id": "A1-T2",
-          "status": "ready",
+          "status": "completed",
           "summary": "Merge heartbeat (A2->A6 into coord/integration, best-effort snapshot). Run the four fast chunks per the swarm rule on EVERY merge: `gate` (~15 s), `foundation` (~10 s), `evidence` (~3 s), `scenarios` (~60 s) - each under `timeout 600`; never `persistence` (A6 owns it, ~45 min) and never a bare `pytest tests`. A timeout is BLOCKED on #46, not a retry. Every ~3rd merge run the 5-seed normal-path sweep (`timeout 2400`; if it times out, run seeds 0 1 2 only and say so) and record it on the PLANNING M1 board line. Append MERGE_DONE with integration_sha; push integration + A1."
         },
         {
           "id": "A1-T3",
-          "status": "ready",
+          "status": "completed",
           "summary": "Apply REQUEST_TRACKER edits (OPEN_ISSUES current-only convention, logs append-only, stable numbering; next issue number is in the OPEN_ISSUES header). Keep queues 2-3 deep ONLY from director-approved tasks (director_backlog) or by splitting approved tasks; record every kill decision in OPEN_ISSUES_LOG."
         },
         {
@@ -77,14 +77,14 @@
       "queue": [
         {
           "id": "A2-T1",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "Reproduce the phi=0 graph-disconnection false accept (level_set_root_accept_probe.py --seed 17 --scenes lone_gauss2d_null --max-depth 1: N=50, tau=0.012, 72-pt shoulder clump, no Hebbian link outside it, DM logBF 2162). Dissect: hit counts of the clump nodes, of the background nodes between clump and core, and of the two_gaussians_clear phi=0 TRUE accepts (seeds 0-4) at their accept step. NOTE the contrast table: what quantity separates the false accept from the true ones (saddle-node hit deficit? clump node count? link-absence likelihood under Poisson hits?).",
           "kill": "If no per-node hit-count statistic separates lone_gauss2d s17 from the two_gaussians_clear accepts by at least a factor of 3, report BLOCKED - the fix is not in the selection gate and belongs to #47 (insertion evidence)."
         },
         {
           "id": "A2-T2",
-          "status": "ready",
+          "status": "in_progress",
           "issue": 48,
           "summary": "Flag-gated separation-evidence guard in select_level_set_partition (default off, LevelSetConfig flag): when cross flow is 0 or below the ceiling, require that the absence of flow is supported by the hit counts on the boundary nodes (likelihood of observing zero cross transitions given the nodes' hit totals under a one-feature Poisson model), not by link existence alone. No new tuned constant: the threshold is a probability level tied to the existing DM margin or derived. Unit test on a synthetic 2-clump scaffold with controlled hit counts.",
           "kill": "If the guard rejects any linked_tori / nested / two_gaussians_clear root accept on seeds 0-4, or accepts lone_gauss2d s17, it is wrong as designed; BLOCKED with the sweep lines."
@@ -95,6 +95,13 @@
           "issue": 48,
           "summary": "DM overconfidence in the shot-noise regime: dm_partition_background_verdict returns logBF in the thousands on 200-500-sample regions at 3-8 hits/node. Derive (or bound) the per-node likelihood at low hits and write the SI S10 note; propose the corrected verdict flag-gated; measure logBF on the 6 null scenes x seeds 0-4 root reads vs composite accepts and NOTE the two distributions.",
           "kill": "If the corrected logBF distributions of nulls and composites still overlap by more than 20% of reads, the DM is not usable as the evidence floor - say so and stop; do not tune a margin."
+        },
+        {
+          "id": "A2-T4",
+          "status": "ready",
+          "issue": 48,
+          "summary": "If A2-T2 guard is correct on seeds 0-4: extend the measurement to seeds 5-19 on the six nulls via A3's harness and report false-accept count with and without the guard.",
+          "kill": "If the guard rejects any composite root accept, report BLOCKED and abandon the guard."
         }
       ],
       "tests_before_done": "gate + evidence chunks"
@@ -116,7 +123,7 @@
       "queue": [
         {
           "id": "A3-T1",
-          "status": "ready",
+          "status": "in_progress",
           "issue": 48,
           "summary": "Make the phi-ceiling calibration reproducible: level_set_null_envelope.py runs the root walk (track_tau, --max-depth 1) over a declared null ensemble x seeds and writes one table (scene, seed, step, N, tau, phi, accepted, reason) plus the envelope summary (min, p1, p5, p10, median, count, any accepts). Start with the six existing nulls x seeds 0-19 and confirm it reproduces min 0.288 / p1 0.487 / p5 0.630 / 359 reads and the single phi=0 accept on lone_gauss2d s17.",
           "kill": "n/a (harness). If it cannot reproduce the 2026-09-09 numbers within noise, report the discrepancy before adding scenes."
@@ -161,14 +168,14 @@
       "queue": [
         {
           "id": "A4-T1",
-          "status": "ready",
+          "status": "completed",
           "issue": 45,
           "summary": "FadedMixture samples ~46-49% tissue regardless of tissue_fraction (density = sum w_c [lambda f_c + (1-lambda) u], u uniform on the box; tissue_fraction only pads the box). Add an honest tissue MASS fraction parameter (e.g. tissue_mass) that sets the actual expected background mass, keep the current behaviour as the default so no benchmark changes silently, make metadata report requested vs actual mass, and fix the misleading name/docstring. Unit test: sampled tissue fraction within +-3% of the requested mass at n=4000.",
           "kill": "n/a (generator correctness)."
         },
         {
           "id": "A4-T2",
-          "status": "ready",
+          "status": "in_progress",
           "issue": 45,
           "summary": "Re-run the normal-path sweep (seeds 0-4, level-set scenes) at tissue_mass in {0.05, 0.20, 0.46(current)} via a sweep flag, WITHOUT changing defaults. Report per scene: root K, leaves, bg-aware ARI, bg recall, coverage. The question: how much of the residual child over-splitting (nested 5 leaves on some seeds, bimodal 4) is tissue mass vs reader semantics.",
           "kill": "If results at 0.05 tissue are no better than at 0.46 on nested/bimodal child counts, tissue mass is not the driver; NOTE that and stop - do not sweep more fractions."
@@ -178,6 +185,13 @@
           "status": "ready",
           "issue": 45,
           "summary": "Check the SI S14 calibration text that speaks of 'tissue fractions 0/0.05' as mass fractions: determine what those runs actually contained (box padding vs mass) and REQUEST_TRACKER the correction with exact numbers. Then re-baseline the @awaiting recovery expectations (#41, #26 scenario tests) on the repaired generators WITHOUT weakening topology criteria - only fix ground-truth counts that the generator repair changed; list every changed expectation in the DONE note."
+        },
+        {
+          "id": "A4-T4",
+          "status": "ready",
+          "issue": 45,
+          "summary": "Metadata audit: every synthetic generator reports requested vs actual tissue mass and signal count in metadata; ground_truth.py exposes them; add one test per generator.",
+          "kill": "n/a (generator metadata correctness)."
         }
       ],
       "tests_before_done": "gate + scenarios chunks + `pytest tests/foundation/test_linked_tori_generator.py tests/foundation/test_dataset_scales.py`"
@@ -225,7 +239,6 @@
       "branch": "coord/A6",
       "role": "worker",
       "owns_issues": [
-        46,
         28
       ],
       "owns_files": [
@@ -240,7 +253,7 @@
       "queue": [
         {
           "id": "A6-T1",
-          "status": "ready",
+          "status": "completed",
           "issue": 46,
           "summary": "tests/stage1 takes ~50 min with slow already deselected. Profile (pytest --durations=40), mark every test over ~60 s as slow (or move genuine simulations under tests/scenarios), and add the runtime guard from #46: a conftest hook that fails the default suite if any unmarked test exceeds a declared budget. Target: default tests/stage1 under ~5 min so swarm turns can run it. Do not delete or weaken any test; slow-marking is the only allowed change to a test's status.",
           "kill": "n/a (hygiene). Report the before/after durations table."
@@ -267,18 +280,8 @@
     "note": "Tasks pre-approved by the orchestrator (Fable) at burn start. A1 may refill worker queues from here without convening the director; anything not listed needs a director session.",
     "items": [
       {
-        "for": "A2",
-        "summary": "If A2-T2 guard is correct on seeds 0-4: extend the measurement to seeds 5-19 on the six nulls via A3's harness and report false-accept count with and without the guard.",
-        "kill": "guard rejects any composite root accept"
-      },
-      {
         "for": "A3",
         "summary": "Add the phi-ceiling calibration table (per geometry, per n/k) to SI S14.3 as the declared protocol result; keep the fixed 0.25 unless the director approves a relative rule.",
-        "kill": "n/a"
-      },
-      {
-        "for": "A4",
-        "summary": "Metadata audit: every synthetic generator reports requested vs actual tissue mass and signal count in metadata; ground_truth.py exposes them; one test per generator.",
         "kill": "n/a"
       },
       {
