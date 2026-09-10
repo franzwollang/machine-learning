@@ -291,3 +291,4 @@
 {"ts": "2026-09-10T12:51:03Z","from": "A3","type": "NOTE","integrated_sha": "6bd158836ac8e7ddd9df912f3a0baa90f4c9272d","note": "Merged origin/coord/integration (6bd158836ac8e7ddd9df912f3a0baa90f4c9272d / A1 MERGE_DONE 6bd1588). Mailbox preserved (ours after conflict)."}
 {"ts": "2026-09-10T12:51:03Z","from": "A3","type": "NOTE","note": "Idle exit: ready_count=0; D7 scientific suspension / no-refill. Queue 9 completed / 5 blocked / 0 ready. No CLAIM. Defaults unchanged."}
 {"ts": "2026-09-10T12:51:10Z","from": "A3","type": "NOTE","note": "Authoritative tip after idle merge: 8530f5bec2fe4d2813f65688c98870e8d9cce32b. Queue empty; D7 suspended; await director/A1 only."}
+{"ts": "2026-09-10T12:51:10Z","from": "A3","type": "NOTE","note": "Authoritative tip SHA correction: 2b4959c83d67021587c15405ac18e5495066b9c5. Queue empty; D7 suspended; await director/A1 only."}
