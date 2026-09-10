@@ -1114,3 +1114,6 @@
 {"ts":"2026-09-10T13:00:37Z","from":"A6","type":"HELLO","note":"A6 cron; merged integration 413a958; idle \u2014 D7 drained, ready_count=0, no refill"}
 {"ts":"2026-09-10T13:00:37Z","from":"A6","type":"NOTE","integrated_sha":"413a95894c9483a659760286fe821f360a29c7db","note":"Merged origin/coord/integration (413a95894c9483a659760286fe821f360a29c7db / A1 MERGE_DONE suspended heartbeat). Mailbox preserved (ours)."}
 {"ts":"2026-09-10T13:00:37Z","from":"A6","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension / no-refill. No CLAIM. A6-T16 remains blocked (family killed). Defaults unchanged."}
+{"ts":"2026-09-10T13:10:38Z","from":"A6","type":"HELLO","note":"A6 cron; merged integration b44cfdd; idle \u2014 D7 drained, ready_count=0, no refill"}
+{"ts":"2026-09-10T13:10:38Z","from":"A6","type":"NOTE","integrated_sha":"b44cfdd802bbf306802d623898690024464eefbd","note":"Merged origin/coord/integration (b44cfdd802bbf306802d623898690024464eefbd / A1 MERGE_DONE suspended heartbeat). Mailbox preserved (ours)."}
+{"ts":"2026-09-10T13:10:38Z","from":"A6","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension / no-refill. No CLAIM. A6-T16 remains blocked (family killed). Defaults unchanged."}
