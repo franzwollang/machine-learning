@@ -128,3 +128,4 @@
 {"ts":"2026-09-10T08:12:13Z","from":"A2","type":"HELLO","note":"A2 cron; tip=bde6b3abd615077f5ed9c4125432a1e4e23083b6; integration 5dd6aa32eea6e60afef9d3eef6bde9512ec1f380 already in tip; idle — D7 drained, ready_count=0, no refill"}
 {"ts":"2026-09-10T08:12:13Z","from":"A2","type":"NOTE","integrated_sha":"5dd6aa32eea6e60afef9d3eef6bde9512ec1f380","note":"No merge needed. SI par:si-d7-no-live-floor + par:si-48-killed-inventory present. Default require_separation_evidence=false; 0.25 provisional. Defaults unchanged."}
 {"ts":"2026-09-10T08:12:13Z","from":"A2","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. No new #48 floor work this burn."}
+{"ts":"2026-09-10T08:12:13Z","from":"A2","type":"NOTE","note":"Authoritative tip after idle heartbeat: b02fc5d9bab3fbb4d31ef2c8f2410b1be3526d7b. Queue empty; D7 suspended; await director/A1 only."}
