@@ -6,7 +6,7 @@ import numpy as np
 
 from proteus.stage1.controller import (
     ScaleSearchConfig,
-    advance_scaffold_to_tau,
+    diagnostic_advance_scaffold_to_tau,
     fit_scaffold_at_tau,
     run_scale_search,
 )
@@ -101,8 +101,8 @@ def test_swiss_roll_scale_search_finds_peak_near_expected_tau() -> None:
     )
 
 
-def test_advance_scaffold_to_tau_lowers_tau_without_reseeding() -> None:
-    """Level-set finer walk continues the parent mesh (SI S2.6.2 / #48)."""
+def test_diagnostic_advance_scaffold_to_tau_lowers_tau_without_reseeding() -> None:
+    """Diagnostics warm-continuation helper (SI S2.6.2 / #48; not on path)."""
 
     rng = np.random.default_rng(0)
     theta = rng.uniform(0.0, 2.0 * np.pi, size=80)
@@ -117,7 +117,7 @@ def test_advance_scaffold_to_tau_lowers_tau_without_reseeding() -> None:
     positions_before = np.asarray(
         [node.position for node in scaffold.nodes], dtype=float,
     )
-    advance_scaffold_to_tau(scaffold, points, 0.05, lean)
+    diagnostic_advance_scaffold_to_tau(scaffold, points, 0.05, lean)
     assert scaffold.tau == 0.05
     assert np.allclose(scaffold.tau_local, 0.05)
     assert len(scaffold.nodes) >= 4
