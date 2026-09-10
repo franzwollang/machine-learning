@@ -1915,10 +1915,11 @@ $30/30$, hierarchy $5/5$ with \texttt{sigLeaves}${}=[5,6,6,6,6]$,
 remainder (nested $5/5$, bimodal $2/5$, weak $2/5$, clear $5/5$).
 Corrected S-curve envelope count $60$ has $\phi_{\min}{=}0.096$ (no
 zero-cross read), so the guard is a no-op there by construction.
-Director D4 declined the standalone default flip (A2-T8 killed): the
-guard is metric-identical and null-clean, but cannot see the live
-positive-$\phi$ sheet/strip/child family, so
-\texttt{require\_separation\_evidence} remains default \texttt{false}.
+Directors D4 and D6 declined the standalone default flip (A2-T8
+killed): the guard is metric-identical and null-clean, but cannot see
+the live positive-$\phi$ sheet/strip/child family, so
+\texttt{require\_separation\_evidence} remains default \texttt{false}
+(D6: no flip; record only).
 
 \paragraph{Negative result: cut-local density contrast (A2-T10).}
 \label{par:si-density-contrast-kill}
@@ -1935,6 +1936,19 @@ gap is $<2\times$ on every tabulated definition (C--D
 valley-interface, Hebbian interface, mutual $k$NN, near-other).
 Density contrast is not the next floor --- do not invent a margin;
 do not land \texttt{require\_density\_valley} (A2-T11 not started).
+D6 had named this oracle the remaining live \#48 floor candidate; the
+overlap above closes that candidacy.
+
+\paragraph{Negative result: cut persistence (A3-T13).}
+\label{par:si-cut-persistence-kill}
+Adjacent-$\tau$ C--D label Jaccard on the same accept set does not
+separate null accepts from composites (A3-T13): null-accept minima
+$0.257$ versus composite minima $0.251$, with both medians $1.0$
+($|\mathrm{med}_{\mathrm{null}}-\mathrm{med}_{\mathrm{comp}}|{=}0$).
+Do not invent a cut-persistence gate. With density contrast also
+overlapping (\hyperref[par:si-density-contrast-kill]{above}), this
+burn leaves no new valley-floor oracle beyond calibrated $\phi$ and
+the default-off zero-cross guard.
 
 \paragraph{Negative result: cross-flow Poisson likelihood (A2-T5/T9).}
 \label{par:si-cross-flow-poisson-kill}
@@ -4432,7 +4446,7 @@ Each node's contribution to $F_{\mathrm{DM}}$ is then bounded by $O(n_i^{\mathrm
 
 \paragraph{Verdict: DM is not the valley-existence floor.}
 \label{par:si-dm-not-valley-floor}
-Background-aware DM confirms that a candidate partition of an already-accepted cut is not a fade/tissue homogeneity (S2.6.3 / \#45). It is \emph{not} the one-feature valley-existence evidence floor of S2.6.2. Measured on the declared null ensemble $\times$ seeds $0$--$4$ root reads versus composite root accepts (OPEN\_ISSUES~\#48 / A2-T3): sample-normalized $\log\mathrm{BF}$ still overlaps on $69\%$ of reads (null median $659$ on $n{=}92$ balanced cuts; composite-accept median $3477$ on $n{=}15$, but \texttt{two\_gaussians\_clear} accepts sit at $508$--$548$ inside the null band). The false $\phi{=}0$ accept \texttt{lone\_gauss2d\_null} seed~17 drops from raw $\log\mathrm{BF}{=}2162$ to $128$ under the correction yet remains in the null bulk. Overlap exceeds the $20\%$ stop criterion, so DM is abandoned as a valley floor --- do not tune a margin and do not flip \texttt{sample\_normalized\_counts}. Valley existence remains the calibrated $\phi$ ceiling (and the proposed-path zero-cross separation-evidence guard, default off; D4 killed the standalone flip because it is a no-op on the live positive-$\phi$ sheet/strip family; cut-local density contrast likewise fails to separate, A2-T10); DM stays a background-partition confirmation only.
+Background-aware DM confirms that a candidate partition of an already-accepted cut is not a fade/tissue homogeneity (S2.6.3 / \#45). It is \emph{not} the one-feature valley-existence evidence floor of S2.6.2. Measured on the declared null ensemble $\times$ seeds $0$--$4$ root reads versus composite root accepts (OPEN\_ISSUES~\#48 / A2-T3): sample-normalized $\log\mathrm{BF}$ still overlaps on $69\%$ of reads (null median $659$ on $n{=}92$ balanced cuts; composite-accept median $3477$ on $n{=}15$, but \texttt{two\_gaussians\_clear} accepts sit at $508$--$548$ inside the null band). The false $\phi{=}0$ accept \texttt{lone\_gauss2d\_null} seed~17 drops from raw $\log\mathrm{BF}{=}2162$ to $128$ under the correction yet remains in the null bulk. Overlap exceeds the $20\%$ stop criterion, so DM is abandoned as a valley floor --- do not tune a margin and do not flip \texttt{sample\_normalized\_counts}. Valley existence remains the calibrated $\phi$ ceiling (and the proposed-path zero-cross separation-evidence guard, default off; D4/D6 killed the standalone flip because it is a no-op on the live positive-$\phi$ sheet/strip/child family; cut-local density contrast and cut persistence likewise fail to separate, A2-T10 / A3-T13); DM stays a background-partition confirmation only.
 
 \paragraph{MaxEnt/MAP connection.}
 With a flat prior on $m$, maximizing the joint log-likelihood gives the MaxEnt/MLE estimator
