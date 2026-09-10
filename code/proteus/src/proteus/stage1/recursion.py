@@ -143,8 +143,20 @@ class RecursionConfig:
     evidence: ~80x).  Default ``8`` is an operational budget; the flag remains
     off so the default acceptance path is unchanged.
 
-    ``prefer_disconnected_prepass`` (OPEN_ISSUES #44c, **proposed /
-    operational, default off**) short-circuits the finer re-search walk when
+    **DEPRECATED / falsified prepass zoo** (OPEN_ISSUES #44, 2026-08 burn):
+    every flag listed in ``FALSIFIED_PREPASS_FLAGS``
+    (``prefer_disconnected_prepass``, ``prefer_radial_gap_prepass``,
+    ``prefer_radial_band_prepass``, ``prefer_noncentroid_radial_band_prepass``,
+    ``prefer_signal_density_band_prepass``, ``prefer_pca_axis_gap_prepass``,
+    ``prefer_tube_major_radius_prepass``, ``prefer_spectral_gap_prepass``,
+    ``prefer_hollow_edge_prepass``) is **deprecated**. Kept default-off for
+    ROC / adversarial-null calibration only; do not enable on the acceptance
+    path; do not delete until the director confirms the list. Level-set
+    (SI S2.6.2) is the Stage-1 structural proposal. Historical notes below
+    retain measurement context only.
+
+    ``prefer_disconnected_prepass`` (OPEN_ISSUES #44c, **DEPRECATED /
+    falsified, default off**) short-circuits the finer re-search walk when
     the lifted Hebbian graph at a capped scale has **≥2 major connected
     components** (each at least ``finer_prepass_min_frac`` of the scaffold
     nodes, and at least 3 nodes).  Tiny components are absorbed into the
@@ -406,21 +418,30 @@ class RecursionConfig:
     allow_finer_research: bool = False
     finer_tau_cap_ratio: float = 1.0 / np.sqrt(2.0)
     max_finer_scale_steps: int = 8
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_disconnected_prepass: bool = False
     finer_prepass_min_frac: float = 0.2
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_radial_gap_prepass: bool = False
     finer_radial_min_gap_ratio: float = 0.25
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_radial_band_prepass: bool = False
     finer_radial_hist_bins: int = 16
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_noncentroid_radial_band_prepass: bool = False
     finer_radial_min_trough_rel: float = 0.0
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_signal_density_band_prepass: bool = False
     finer_signal_density_keep_frac: float = 0.55
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_pca_axis_gap_prepass: bool = False
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_tube_major_radius_prepass: bool = False
     finer_tube_min_residual_ratio: float = 0.15
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_spectral_gap_prepass: bool = False
     finer_spectral_knn: int = 8
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_hollow_edge_prepass: bool = False
     hollow_mid_radius_frac: float = 0.35
     hollow_h0: float = 0.35
@@ -439,9 +460,12 @@ class RecursionConfig:
     seed: int = 42
 
 
-# Falsified 2026-08 swarm (OPEN_ISSUES #44). Kept default-off for ROC /
-# adversarial-null calibration. Do not enable on the acceptance path;
-# level-set replaces this zoo as the Stage-1 structural proposal (SI S2.6.2).
+# DEPRECATED — falsified geometry / hollow prepass zoo (2026-08 swarm,
+# OPEN_ISSUES #44). Each name is a ``RecursionConfig`` bool that stays
+# default-off for ROC / adversarial-null calibration only. Do **not**
+# enable on the acceptance path; do **not** delete until the director
+# confirms the list. Level-set (SI S2.6.2) replaces this zoo as the
+# Stage-1 structural proposal. Inventory only — no behaviour change.
 FALSIFIED_PREPASS_FLAGS: tuple[str, ...] = (
     "prefer_disconnected_prepass",
     "prefer_radial_gap_prepass",

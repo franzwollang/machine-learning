@@ -1564,14 +1564,26 @@ def test_spectral_gap_bipartitions_offset_rings() -> None:
 
 
 def test_falsified_prepass_flags_stay_off() -> None:
-    """#44 quarantine: geometry/hollow prepass zoo remains default-off."""
+    """#44 quarantine: geometry/hollow prepass zoo remains default-off.
+
+    Names in ``FALSIFIED_PREPASS_FLAGS`` are docstring-deprecated; this
+    test pins the behavioural quarantine (all False) and that the
+    inventory / RecursionConfig docstring still mark them DEPRECATED.
+    """
 
     from proteus.stage1.recursion import FALSIFIED_PREPASS_FLAGS
 
     cfg = RecursionConfig()
     assert FALSIFIED_PREPASS_FLAGS
+    assert len(FALSIFIED_PREPASS_FLAGS) == 9
     for name in FALSIFIED_PREPASS_FLAGS:
         assert getattr(cfg, name) is False
+        assert name in RecursionConfig.__dataclass_fields__
+    doc = RecursionConfig.__doc__ or ""
+    assert "DEPRECATED / falsified prepass zoo" in doc
+    for name in FALSIFIED_PREPASS_FLAGS:
+        assert name in doc
+
 
 
 def test_research_finer_split_rejects_invalid_cap() -> None:
