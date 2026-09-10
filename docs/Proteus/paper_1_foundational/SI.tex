@@ -1974,7 +1974,8 @@ $\phi$ regime flips); extrinsic curvature (A3-T9 flat-strip still
 accepts below $0.25$); DM-as-floor (S10.2 overlap); cross-flow Poisson
 likelihood (A2-T5/T9); zero-cross guard as a standalone default flip
 (A2-T8; clean but no-op on positive-$\phi$ sheets); cut persistence
-(A3-T13); cut-local density contrast (A2-T10).
+(A3-T13); cut-local density contrast (A2-T10); flat-strip aspect-ladder
+/ scan-length (A3-T16).
 
 \paragraph{Negative result: cross-flow Poisson likelihood (A2-T5/T9).}
 \label{par:si-cross-flow-poisson-kill}
@@ -2036,6 +2037,13 @@ Director D7 keeps $0.25$ unchanged and provisional / not sufficient;
 there is \emph{no live \#48 floor candidate this burn}. Do not invent
 min-side, bound, curvature, persistence, density-contrast, or
 $n$-indexed ceiling rules from these controls.
+
+\paragraph{Negative result: flat-strip aspect-ladder / scan-length (A3-T16).}
+\label{par:si-aspect-ladder-kill}
+Holding area and $n$ fixed while varying flat-strip aspect ratio does not
+yield a monotone-decreasing min-$\phi$ ladder (A3-T16); the scan-length
+mechanism is killed. Do not invent an aspect-derived floor; keep $0.25$
+unchanged (D9 record-only).
 
 The shot-noise floor is a \emph{resolution bound on the mesh}: a node's
 catchment must hold at least the $k$ samples that define the local
@@ -5782,7 +5790,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{LevelSetConfig.min\_persistence} & 0.05\ (\text{core-radius rank lifetime; runt screen; connected-null envelope overlaps true splits}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_excess\_mass} & 0.02\ (\text{normalized mass$\times$rank integral; runt screen}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_cluster\_frac} & 0.15\ (\text{fraction of region node budget; coarse satellite / partial-activation floor}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{LevelSetConfig.max\_bottleneck\_ratio} & 0.25\ (\text{ceiling on min-cut-normalized $\phi$; cross-cut max-flow over the weaker side's intrinsic min-cut; provisional / not sufficient}) & \text{S2.6.2} & \text{calibrated (six-scene null-ensemble envelope, min $0.288$ / $359$ reads, seeds $0$--$19$; corrected S-curve min $\phi\approx 0.096$ with $4/20$ accepts; flat-strip min $\phi\approx 0.123$ kills curvature; child envelope min $\phi\approx 0.167$ plus two circle $\phi{=}0$; cut-persistence, covariate, and density-contrast floors killed A3-T11/T13/A2-T10 --- value unchanged; no live \#48 floor this burn; \#48)}\\
+\texttt{LevelSetConfig.max\_bottleneck\_ratio} & 0.25\ (\text{ceiling on min-cut-normalized $\phi$; cross-cut max-flow over the weaker side's intrinsic min-cut; provisional / not sufficient}) & \text{S2.6.2} & \text{calibrated (six-scene null-ensemble envelope, min $0.288$ / $359$ reads, seeds $0$--$19$; corrected S-curve min $\phi\approx 0.096$ with $4/20$ accepts; flat-strip min $\phi\approx 0.123$ kills curvature; child envelope min $\phi\approx 0.167$ plus two circle $\phi{=}0$; cut-persistence, covariate, and density-contrast floors killed A3-T11/T13/A2-T10; flat-strip aspect-ladder scan-length mechanism killed A3-T16 --- value unchanged; no live \#48 floor this burn; \#48)}\\
 \texttt{LevelSetConfig.require\_separation\_evidence} & \text{false}\ (\text{zero-cross hit-mass guard $\lambda=k\cdot 2p(1-p)>\log\tau_{\mathrm{bf}}$; A2-T7 ON$\equiv$OFF on normal-path seeds $0$--$4$ and null false accepts $0$ over $0$--$19$; D4 killed standalone flip --- clean but no-op on positive-$\phi$ sheet/strip; density-contrast oracle overlaps, A2-T10; cross-flow Poisson killed A2-T5}) & \text{S2.6.2} & \text{operational (proposal-path; \#48)}\\
 \texttt{advance\_scaffold\_to\_tau} & \text{warm in-place $\tau$ continuation; no longer on any path (diagnostic helper, unit-locked)} & \text{S2.6.2} & \text{operational (proposal-path; retired from the finer walk, \#48)}\\
 \texttt{fit\_scaffold\_at\_tau} & \text{fresh fit at each finer $\tau$, $N\le n/k$ (track\_tau finer walk); derived bound, no free constant} & \text{S2.6.2} & \text{derived (\#48)}\\
