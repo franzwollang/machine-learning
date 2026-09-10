@@ -1,34 +1,32 @@
 {
-  "updated_at": "2026-09-10T04:20:46Z",
-  "turn": 98,
+  "updated_at": "2026-09-10T04:43:21Z",
+  "turn": 100,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "integrate D1 work; test cross-flow likelihood and child-sized nulls"
+    "goal": "publish tested heartbeat and continue D2 queues"
   },
   "recent": [
-    "Merged A2-A6 tips after D1; restored A1 mailbox on integration conflicts",
-    "A2-T4: six nulls seeds5-19 had 1/266 accept off, 0/266 on; all 15 composite roots preserved",
-    "A2-T3: sample-normalized DM overlap 69%; DM cannot be valley floor",
-    "A4-T5 kill fired; T6 landed component-only child null generators",
-    "Cadence sweep stopped to publish: nulls30/30 hierarchy5/5 tori5/5 green; later scenes not run"
+    "Merged current A2-A6 tips plus A1 standing-duty patch into integration",
+    "Green: gate 69+x1, foundation 187+x8, evidence 242, scenarios 40+x17",
+    "A2-T6 S10 DM demotion and A2-T7 sweep passthrough are integrated",
+    "A2-T7 and A6-T9 are active on the D2 queues",
+    "All worker queues retain 2-3 ready tasks; no refill or director session due"
   ],
   "discoveries": [
-    "S-curve s8 accept phi=0.2494 is a statistic failure at N=n/k, not a reason to drop the geometry",
-    "Null min 0.249 and composite miss 0.334 overlap: moving the ceiling cannot separate them",
+    "Current scurve s8 breach is confounded: generator retraces half its circle, creating a 2:1 density step",
     "DM sample-normalized logBF overlap 69%; two_gaussians_clear sits in the null band",
-    "Valley depth/count do not separate bimodal/weak PASS from FAIL seeds; fixed-n sampling noise",
-    "component_only circle/nested/two-Gaussian generators now provide child-sized nulls"
+    "General cross-flow Poisson likelihood separates only 1.74 orders and rejects true composites; family dead",
+    "Bimodal recovers at 4x n; weak stays K=1 at 10x and is statistic-limited",
+    "Pure child nested+bimodal 20/20 clean; #45 residual needs tissue/sibling context"
   ],
   "open_threads": [
-    "A2-T5/T6 ready: generalized cross-flow likelihood then S10 DM wording",
-    "A3-T3 in progress; T4/T5 ready for composite/scurve/envelope analysis",
-    "A5-T5 in progress; T6/T7 split from approved pure-child oracle and ready",
-    "A4 and A6 queues exhausted; post-D1 A4-T5 kill requires director-approved refill",
-    "Reconvene director if A2-T5 or A3-T4 also fires"
+    "A2 T7-T9: guard-on sweep, conditional flip, negative-result SI",
+    "A3 T6-T8: corrected S-curve, child envelope, provisional SI table",
+    "A4 T7-T9: generator audit, resolvability curve, child power",
+    "A5 T7-T9: weak child, non-monotonicity, descent verdict SI",
+    "A6 T9-T10 active/ready; T11 remains dependency-gated"
   ],
-  "next_step": "push tested integration and A1 MERGE_DONE immediately; convene director for A4/A6 refill",
-  "blockers": [
-    "This run permits only Grok subagents; the required Fable director cannot be convened for A4/A6 refill"
-  ]
+  "next_step": "publish MERGE_DONE, then ingest the next worker DONE tips",
+  "blockers": []
 }
