@@ -551,6 +551,19 @@ bound in \texttt{run\_recursive\_discovery}; the flag is the proposed native
 home for that clamp (OPEN\_ISSUES~\#28).  Do not flip the default without a
 normal-path review.
 
+\emph{Hierarchy seed~$0$ diagnostic (report-only; \#28).}
+On the hierarchical Gaussian suite (seed~$0$), one root child mixes fine leaves
+L0/L1 ($n{=}200$; sibling valley depth $\approx0.9993$ by the pairwise oracle,
+A4-T10) and stays unsplit under the default $N\le n/k{=}25$ clamp: L$=$1 and the
+finer walk both reject with $\phi$ above the provisional $0.25$ ceiling (best
+capped $\phi\approx0.43$; A6-T10 previously reported capped best $\phi\approx0.617$).
+Raising only the mesh cap (no default flip) first accepts at
+$\texttt{max\_nodes}{=}46$ with $\phi\approx0.201$ at $N{=}46$ (finer step;
+A6-T14); at the legacy uncapped probe $N{=}64$ the same child accepts with
+$\phi\approx0.031$ (L$=$1) / historically $\phi\approx0.232$.  The miss is therefore a
+\emph{resolution-cap $\times$ provisional-ceiling} interaction, not a missing
+valley: do not raise the node cap or lower $0.25$ from this observation alone.
+
 \emph{Support/response traces are diagnostics, not the selector.} The Lindeberg
 response $\Phi_C(\tau)$ and the compensated node-count / support trace
 $V_C(\tau)\propto N(\tau)\,\tau^{d/2}$ are logged as cross-checks, but neither is
@@ -1981,6 +1994,19 @@ keeps its fresh \texttt{run\_scale\_search} per finer step; the warm
 in-place continuation \texttt{advance\_scaffold\_to\_tau} is no longer
 on either path (retained, unit-locked, for diagnostics).
 
+\paragraph{$n$-instability of $\phi$ (weak two-Gaussians; A5-T8).}
+Matched-$\tau$ reads on weak two-Gaussians seed~2 at $4\times$ vs
+$10\times$ scene $n$ flip the reject regime without a recoverable
+root split: at $\tau\!\approx\!0.079$, the $4\times$ mesh reports
+\texttt{bottleneck} with $\phi\!\approx\!0.36$ while the $10\times$
+mesh reports \texttt{no\_cut}; at $\tau\!\approx\!0.056$ both report
+\texttt{bottleneck} but $\phi\!\approx\!1.14$ vs $\phi{=}\infty$.
+This is $n$-instability of the bottleneck statistic under denser
+sampling of the same weak valley --- \emph{not} a warrant for an
+$n$-indexed $\phi$ ceiling, scene-scaling revival, or a new calibrated
+number. Keep the existing min-cut-normalized ceiling; treat residual
+weak misses as connected-valley difficulty (\#48), not sample poverty.
+
 \paragraph{Quarantine of the geometry / hollow prepass zoo.}
 The 2026-08 swarm falsified radial / PCA / tube / spectral / hollow-edge
 prepasses as Stage-1 structural proposals (connected support under
@@ -2043,9 +2069,12 @@ on the equalized scaffold (same $\lambda{=}0.5$ tier as the faded GT):
 Pure-child oracles without tissue or siblings --- nested-shell GT
 subsets, bimodal connected-valley components, and the 194-sample weak
 two-Gaussian \texttt{component\_only} child --- stay single-leaf on
-seeds~$0$--$4$. Residual \#45 over-split therefore needs tissue or
-sibling context, not an intrinsic child-geometry fix. Do not flip
-either option-A/B flag default.
+seeds~$0$--$4$. Weak context ablation (A5-T11; honest
+\texttt{tissue\_mass}${}{=}0.46$): both-signals/no-tissue never
+over-splits ($0/5$), while one-signal$+$tissue/no-sibling restores
+shatter on $5/10$ child reads ($\phi_{\mathrm{acc}}{=}0$) ---
+\emph{tissue-sufficient} for weak; not sibling-alone and not option~D.
+Do not flip either option-A/B flag default.
 
 \paragraph{Landed proposal-path wiring and protocol.}
 Module \texttt{proteus.stage1.edge\_evidence} exposes
