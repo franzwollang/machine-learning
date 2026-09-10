@@ -1490,15 +1490,18 @@ def _covariate_payloads(
             for seed in use_seeds:
                 payloads.append({**base, "scene": scene, "seed": int(seed)})
         return payloads
+    # Composites first: linked_tori / nested_spheres are the long walks;
+    # starting them early keeps a 10-minute budget from dropping the
+    # composite-accept band (needed for the kill check).
+    short_seeds = list(seeds) if seeds is not None else list(COVARIATE_NULL_SHORT_SEEDS)
+    for scene in COMPOSITE_COVARIATE_SCENES:
+        for seed in short_seeds:
+            payloads.append({**base, "scene": scene, "seed": int(seed)})
     for scene in COVARIATE_NULL_LONG_SCENES:
         long_seeds = list(seeds) if seeds is not None else list(COVARIATE_NULL_LONG_SEEDS)
         for seed in long_seeds:
             payloads.append({**base, "scene": scene, "seed": int(seed)})
-    short_seeds = list(seeds) if seeds is not None else list(COVARIATE_NULL_SHORT_SEEDS)
     for scene in DEFAULT_NULL_SCENES:
-        for seed in short_seeds:
-            payloads.append({**base, "scene": scene, "seed": int(seed)})
-    for scene in COMPOSITE_COVARIATE_SCENES:
         for seed in short_seeds:
             payloads.append({**base, "scene": scene, "seed": int(seed)})
     return payloads
@@ -1667,38 +1670,44 @@ def _covariate_rows_from_dicts(dicts: Iterable[dict[str, Any]]) -> list[Covariat
     return out
 
 
+def _flush_covariate_csv(path: str, rows: Sequence[CovariateRow]) -> None:
+    ordered = sorted(rows, key=lambda r: (r.family, r.scene, r.seed, r.step))
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(format_covariate_table(ordered))
+
+
 def run_covariate_table(
     payloads: Sequence[dict[str, Any]],
     *,
     jobs: int = 1,
+    csv_path: str = "",
 ) -> list[CovariateRow]:
     collected: list[CovariateRow] = []
-    if jobs <= 1 or len(payloads) <= 1:
-        iterator: Iterable[tuple[dict[str, Any], tuple[Any, ...]]] = (
-            (p, _covariate_worker(p)) for p in payloads
+
+    def _ingest(scene: str, seed: int, dicts: list[dict[str, Any]], elapsed: float) -> None:
+        rows = _covariate_rows_from_dicts(dicts)
+        collected.extend(rows)
+        print(
+            f"DONE {scene} seed={seed} family={covariate_family(scene)} "
+            f"emitted={len(rows)} elapsed={elapsed:.1f}s",
+            flush=True,
         )
-        for payload, (scene, seed, dicts, elapsed) in iterator:
-            rows = _covariate_rows_from_dicts(dicts)
-            collected.extend(rows)
-            print(
-                f"DONE {scene} seed={seed} family={covariate_family(scene)} "
-                f"emitted={len(rows)} elapsed={elapsed:.1f}s",
-                flush=True,
-            )
+        if csv_path:
+            _flush_covariate_csv(csv_path, collected)
+
+    if jobs <= 1 or len(payloads) <= 1:
+        for payload in payloads:
+            scene, seed, dicts, elapsed = _covariate_worker(payload)
+            _ingest(scene, seed, dicts, elapsed)
     else:
         with ProcessPoolExecutor(max_workers=int(jobs)) as pool:
             futures = {pool.submit(_covariate_worker, p): p for p in payloads}
             for fut in as_completed(futures):
-                payload = futures[fut]
                 scene, seed, dicts, elapsed = fut.result()
-                rows = _covariate_rows_from_dicts(dicts)
-                collected.extend(rows)
-                print(
-                    f"DONE {scene} seed={seed} family={covariate_family(scene)} "
-                    f"emitted={len(rows)} elapsed={elapsed:.1f}s",
-                    flush=True,
-                )
+                _ingest(scene, seed, dicts, elapsed)
     collected.sort(key=lambda r: (r.family, r.scene, r.seed, r.step))
+    if csv_path:
+        _flush_covariate_csv(csv_path, collected)
     return collected
 
 
@@ -1773,13 +1782,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             flush=True,
         )
         t0 = time.time()
-        cov_rows = run_covariate_table(cov_payloads, jobs=int(args.jobs))
+        cov_rows = run_covariate_table(
+            cov_payloads, jobs=int(args.jobs), csv_path=str(args.csv or ""),
+        )
         elapsed = time.time() - t0
         table = format_covariate_table(cov_rows)
         print(table, end="", flush=True)
         if args.csv:
-            with open(args.csv, "w", encoding="utf-8") as fh:
-                fh.write(table)
+            _flush_covariate_csv(str(args.csv), cov_rows)
             print(f"WROTE_CSV {args.csv}", flush=True)
         bands = summarize_covariate_bands(cov_rows)
         print(format_covariate_summary(bands), flush=True)
@@ -2398,6 +2408,7 @@ def test_covariate_payloads_default_packs() -> None:
     comp_n = sum(1 for p in payloads if p["scene"] in COMPOSITE_COVARIATE_SCENES)
     assert comp_n == len(COMPOSITE_COVARIATE_SCENES) * 5
     assert len(payloads) == 40 + 30 + 15
+    assert payloads[0]["scene"] in COMPOSITE_COVARIATE_SCENES
 
 
 def test_build_covariate_dataset_composites_use_scenes_factories() -> None:
