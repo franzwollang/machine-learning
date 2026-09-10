@@ -369,6 +369,16 @@ class RecursionConfig:
       cue) or ``prefer_tube_major_radius_prepass`` (interlock cue) —
       e2e recovery not claimed.  Hollow-edge is the intended general
       replacement (flag off until calibrated).
+
+    ``terminate_majority_background_child`` (OPEN_ISSUES #45 option B,
+    **proposed / operational, default off**) applies only on non-root
+    regions under ``use_level_set_clustering``.  After a child's own
+    level-set read accepts a partition, map samples to BMU labels; if
+    more than half land on background (label ``< 0``), treat the region
+    as a terminal leaf instead of descending into the residual
+    shell+tissue chunks.  Root reads are unchanged (half-cloud tissue
+    at the first accept is expected).  Threshold is fixed at one half —
+    the same λ=0.5 tier as the faded GT — not a free tuned constant.
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
@@ -412,6 +422,7 @@ class RecursionConfig:
     hollow_soft_capacity_only: bool = False
     hollow_soft_capacity_frac: float = 0.25
     hollow_soft_capacity_method: str = "betweenness"
+    terminate_majority_background_child: bool = False
     seed: int = 42
 
 
@@ -1874,6 +1885,53 @@ def _dm_accepts_split(
     return bool(accepted)
 
 
+def _majority_background_sample_fraction(
+    data: np.ndarray,
+    scaffold: "Stage1Scaffold",  # noqa: F821
+    labels: np.ndarray,
+) -> float:
+    """Fraction of samples whose BMU carries a background (``< 0``) label."""
+
+    sample_map = assign_samples_to_clusters(data, scaffold, labels)
+    n = int(data.shape[0])
+    if n <= 0:
+        return 0.0
+    n_bg = 0
+    for label, indices in sample_map.items():
+        if int(label) < 0:
+            n_bg += int(len(indices))
+    return float(n_bg) / float(n)
+
+
+def _option_b_terminate_majority_background(
+    *,
+    level: int,
+    data: np.ndarray,
+    scaffold: "Stage1Scaffold",  # noqa: F821
+    cluster_result: Any,
+    config: RecursionConfig,
+) -> bool:
+    """OPEN_ISSUES #45 option B: child majority-background → terminal leaf.
+
+    Applies only when ``terminate_majority_background_child`` is on, the
+    path is level-set, and ``level > 0`` (root tissue separation is kept).
+    Threshold is strictly greater than one half.
+    """
+
+    if not config.terminate_majority_background_child:
+        return False
+    if not config.use_level_set_clustering:
+        return False
+    if int(level) <= 0:
+        return False
+    labels = getattr(cluster_result, "labels", None)
+    if labels is None:
+        return False
+    return _majority_background_sample_fraction(
+        data, scaffold, labels,
+    ) > 0.5
+
+
 def _descend_into_clusters(
     *,
     data_arr: np.ndarray,
@@ -1979,6 +2037,9 @@ def _descend_into_clusters(
             hollow_soft_capacity_only=config.hollow_soft_capacity_only,
             hollow_soft_capacity_frac=config.hollow_soft_capacity_frac,
             hollow_soft_capacity_method=config.hollow_soft_capacity_method,
+            terminate_majority_background_child=(
+                config.terminate_majority_background_child
+            ),
             seed=config.seed + region_id + label,
         )
 
@@ -2213,6 +2274,19 @@ def run_recursive_discovery(
         # whose split is not evidence-bearing is a single intrinsic feature
         # (terminal leaf), the non-degenerate likelihood-ratio null that the
         # graph-local Q cannot supply (SI S2.6.1 / S3.4, OPEN_ISSUES #27).
+        node.n_clusters = 1
+        return tree
+
+    if _option_b_terminate_majority_background(
+        level=_level,
+        data=data_arr,
+        scaffold=scaffold,
+        cluster_result=cluster_result,
+        config=config,
+    ):
+        # OPEN_ISSUES #45 option B: child's own level-set read sent most
+        # samples to background — keep Hartigan assignment at the parent
+        # and stop rather than accepting residual shell+tissue chunks.
         node.n_clusters = 1
         return tree
 

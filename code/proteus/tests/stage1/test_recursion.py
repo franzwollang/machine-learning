@@ -206,6 +206,175 @@ def test_level_set_flag_runs_end_to_end_and_emits_background(
     assert set(background[0].sample_indices) == {4, 5}
 
 
+def test_option_b_majority_background_flag_default_off() -> None:
+    """#45 option B stays off on the default acceptance path."""
+
+    assert RecursionConfig().terminate_majority_background_child is False
+
+
+def test_option_b_terminates_child_majority_background(
+    monkeypatch,
+) -> None:
+    """Child whose level-set read is >50% background becomes a leaf."""
+
+    data = np.array([
+        [-2.0, 0.0],
+        [-1.9, 0.0],
+        [2.0, 0.0],
+        [1.9, 0.0],
+        [0.0, 2.0],
+        [0.0, -2.0],
+        [0.1, 2.1],
+        [-0.1, -2.1],
+    ])
+
+    class _Node:
+        def __init__(self, position):
+            self.position = np.asarray(position, dtype=float)
+            self.d_final = 2
+
+    class _ANN:
+        def query_knn(self, point, k=1):
+            dists = np.linalg.norm(data - np.asarray(point), axis=1)
+            idx = int(np.argmin(dists))
+            return np.array([idx]), np.array([dists[idx]])
+
+    class _Links:
+        @staticmethod
+        def lifted_links():
+            return []
+
+    class _Scaffold:
+        nodes = [_Node(p) for p in data]
+        ann = _ANN()
+        links = _Links()
+        prune_beta = 0.5
+
+    # 5 of 8 samples map to background BMUs → fraction 0.625 > 0.5.
+    majority_bg = ClusterResult(
+        labels=np.array([0, 0, 1, -1, -1, -1, -1, -1]),
+        exemplar_indices=np.array([0, 2]),
+        n_clusters=2,
+        partition_q_score=-1.0,
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.run_scale_search",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            tau_star=1.0,
+            scaffold_at_star=_Scaffold(),
+        ),
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.select_level_set_partition",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            accepted=True,
+            cluster_result=majority_bg,
+        ),
+    )
+
+    tree = run_recursive_discovery(
+        data,
+        dim=2,
+        config=RecursionConfig(
+            min_samples=3,
+            max_depth=3,
+            use_level_set_clustering=True,
+            terminate_majority_background_child=True,
+        ),
+        _level=1,
+        _parent_id=0,
+    )
+
+    assert tree.nodes[0].is_leaf
+    assert tree.nodes[0].n_clusters == 1
+    assert tree.nodes[0].children == []
+
+
+def test_option_b_does_not_block_root_majority_background(
+    monkeypatch,
+) -> None:
+    """Root tissue separation still descends when option B is on."""
+
+    data = np.array([
+        [-2.0, 0.0],
+        [-1.9, 0.0],
+        [2.0, 0.0],
+        [1.9, 0.0],
+        [0.0, 2.0],
+        [0.0, -2.0],
+        [0.1, 2.1],
+        [-0.1, -2.1],
+    ])
+
+    class _Node:
+        def __init__(self, position):
+            self.position = np.asarray(position, dtype=float)
+            self.d_final = 2
+
+    class _ANN:
+        def query_knn(self, point, k=1):
+            dists = np.linalg.norm(data - np.asarray(point), axis=1)
+            idx = int(np.argmin(dists))
+            return np.array([idx]), np.array([dists[idx]])
+
+    class _Links:
+        @staticmethod
+        def lifted_links():
+            return []
+
+    class _Scaffold:
+        nodes = [_Node(p) for p in data]
+        ann = _ANN()
+        links = _Links()
+        prune_beta = 0.5
+
+    majority_bg = ClusterResult(
+        labels=np.array([0, 0, 1, -1, -1, -1, -1, -1]),
+        exemplar_indices=np.array([0, 2]),
+        n_clusters=2,
+        partition_q_score=-1.0,
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.run_scale_search",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            tau_star=1.0,
+            scaffold_at_star=_Scaffold(),
+        ),
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.select_level_set_partition",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            accepted=True,
+            cluster_result=majority_bg,
+        ),
+    )
+    # Children recurse into real scale search; keep them tiny/terminal.
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.apply_t2_transfer",
+        lambda data_arr, child_indices, dim, d_hat, **_kw: SimpleNamespace(
+            child_data=data_arr[np.asarray(child_indices, dtype=int)],
+            child_dim=dim,
+        ),
+    )
+
+    tree = run_recursive_discovery(
+        data,
+        dim=2,
+        config=RecursionConfig(
+            min_samples=3,
+            max_depth=1,
+            use_level_set_clustering=True,
+            terminate_majority_background_child=True,
+        ),
+    )
+
+    assert not tree.nodes[0].is_leaf
+    assert tree.nodes[0].n_clusters == 2
+    children = [tree.nodes[i] for i in tree.nodes[0].children]
+    assert any(child.is_background for child in children)
+    assert sum(not child.is_background for child in children) == 2
+
+
 def test_hierarchical_gaussian_recursion_matches_gt() -> None:
     """Recursion vs hierarchical GT: six fine leaves, ARI, full-depth unimodal harness."""
 

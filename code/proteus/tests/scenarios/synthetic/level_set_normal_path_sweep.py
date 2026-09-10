@@ -321,6 +321,9 @@ def _config(args: argparse.Namespace, seed: int) -> RecursionConfig:
         allow_finer_research=True,
         max_finer_scale_steps=int(args.max_finer_steps),
         level_set=LevelSetConfig(growth_policy=args.growth_policy),
+        terminate_majority_background_child=bool(
+            getattr(args, "terminate_majority_background_child", False),
+        ),
         seed=int(seed),
     )
 
@@ -410,6 +413,15 @@ def main() -> int:
         default="track_tau",
         help="Level-set finer-walk growth policy (default: track_tau).",
     )
+    parser.add_argument(
+        "--terminate-majority-background-child",
+        action="store_true",
+        help=(
+            "OPEN_ISSUES #45 option B: non-root regions whose level-set "
+            "read sends >half of samples to background terminate as leaves "
+            "(default off)."
+        ),
+    )
     args = parser.parse_args()
 
     wanted = None if args.scenes is None else set(args.scenes)
@@ -418,7 +430,8 @@ def main() -> int:
         "normal-path level-set diagnostic "
         f"(load_crossover, finer_steps={args.max_finer_steps}, "
         f"max_epochs={args.max_epochs}, grid={args.max_grid_points}, "
-        f"growth_policy={args.growth_policy})",
+        f"growth_policy={args.growth_policy}, "
+        f"option_b={bool(args.terminate_majority_background_child)})",
         flush=True,
     )
     for scene in _scenes():
