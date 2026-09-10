@@ -210,3 +210,6 @@
 {"ts": "2026-09-10T11:43:22Z", "from": "A2", "type": "NOTE", "note": "Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. No new #48 floor work this burn. Await director/A1 only."}
 {"ts": "2026-09-10T11:43:22Z", "from": "A2", "type": "NOTE", "note": "Authoritative tip after idle merge heartbeat: d5592e5c19daf8bd2890d1f803b68ecfa6315814. Queue empty; D7 suspended; await director/A1 only."}
 {"ts": "2026-09-10T11:43:22Z", "from": "A2", "type": "NOTE", "note": "Authoritative tip SHA correction: 38355c1078dba129254add9fe775d74600fdda35. Queue empty; D7 suspended; await director/A1 only."}
+{"ts": "2026-09-10T11:49:16Z", "from": "A2", "type": "HELLO", "note": "A2 cron; tip=7b1dfac2506e; merged integration 7b1dfac2506e; idle \u2014 D7 drained, ready_count=0, no refill"}
+{"ts": "2026-09-10T11:49:16Z", "from": "A2", "type": "NOTE", "integrated_sha": "7b1dfac2506e379421f0895c1a965180b59ee3d8", "note": "Merged origin/coord/integration. Mailbox preserved. SI par:si-d7-no-live-floor + par:si-48-killed-inventory present. Default require_separation_evidence=false; 0.25 provisional. Defaults unchanged."}
+{"ts": "2026-09-10T11:49:16Z", "from": "A2", "type": "NOTE", "note": "Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. No new #48 floor work this burn. Await director/A1 only."}
