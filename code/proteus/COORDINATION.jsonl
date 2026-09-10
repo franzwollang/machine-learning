@@ -1,3 +1,0 @@
-{"ts":"2026-09-10T06:20:47Z","from":"A2","type":"HELLO","note":"A2 cron; tip=16936edfa75b9625d8d7bcabfad6bccc9e4068c0; merged integration 0dcec668244e8c0690856c2a253451ecc7efdca9; claiming A2-T10 density-contrast oracle"}
-{"ts":"2026-09-10T06:20:47Z","from":"A2","type":"NOTE","integrated_sha":"0dcec668244e8c0690856c2a253451ecc7efdca9","note":"Merged integration 0dcec66/D4 refill. A2-T8 killed by D4; default require_separation_evidence=false. Claiming A2-T10."}
-{"ts":"2026-09-10T06:20:47Z","from":"A2","type":"CLAIM","issue":48,"task_id":"A2-T10","files":[],"note":"Report-only /tmp cut-local density-contrast oracle; no src edit"}
