@@ -4796,7 +4796,7 @@ The deterministic term decays with half-life $k$. Azuma--Hoeffding gives the dis
 \subsection*{S14.1 Datasets and Splits}
 Synthetic benchmarks should include known topological and geometric ground truth: nested manifolds, variable-density curves/surfaces, linked components, dimensionality junctions, and high-curvature patches. Real benchmarks should be chosen for local structure and query relevance rather than only classification accuracy. Use fixed train/test splits or repeated random splits with logged seeds.
 
-\paragraph{Level-set suite benchmark cards (preparatory; A4-T11 / \#48).}
+\paragraph{Level-set suite benchmark cards (A4-T11/T12 / \#48).}
 \label{sec:si-s14-level-set-benchmark-cards}
 Per-scene cards for the frozen normal-path suite in
 \texttt{tests/scenarios/synthetic/level\_set\_suite.py}
@@ -4806,10 +4806,10 @@ Fields filled here are already-landed measurements only:
 suite $n$, seed-$0$ actual tissue mass under the legacy fade-balanced
 default (\texttt{tissue\_mass\_requested}${}={}$\texttt{None}),
 A4-T7 injectivity / area-uniformity audit, A4-T8 two-Gaussian root
-resolvability curve, and A3-T3 composite root-read $\phi$ on seeds
-$0$--$9$.
-Cells that depend on A4-T9 (child-sized power) or A4-T10 (pairwise
-valley oracle on hierarchy / nested / tori) are marked
+resolvability curve, A3-T3 composite root-read $\phi$ on seeds
+$0$--$9$, A4-T9 child-sized power (root-only, seeds~$0$--$4$), and
+A4-T10 pairwise / shell / torus valley depths.
+Scenes never run under A4-T9 keep child-power cells
 \emph{pending} --- do not invent values and do not change defaults.
 Tissue masses below are sample fractions at seed~$0$; legacy mode still
 yields $\approx 46$--$49\%$ $\lambda{<}0.5$ tissue on faded manifolds
@@ -4867,8 +4867,10 @@ yields $\approx 46$--$49\%$ $\lambda{<}0.5$ tissue on faded manifolds
   $n{=}600$; no faded tissue metadata.
   Uniformity (A4-T7): n/a (hierarchical isotropic Gaussians).
   Root-accept seeds~$0$--$9$ (A3-T3): $10/10$, $\phi{=}0$, root $K{=}3$.
-  Child power (A4-T9): \emph{pending}.
-  Pairwise fine-leaf valley depths (A4-T10): \emph{pending}.
+  Child power (A4-T9): \emph{pending} (not in T9 child-budget sweep).
+  Pairwise fine-leaf valley depths (A4-T10): sibling pairs
+  $\approx 0.9993$ on seeds~$0$--$4$ (geometry-fixed; includes seed~$0$;
+  $C(6,2){=}15$ pairs, $3$ siblings; cross-coarse deeper).
 
   \item \textbf{\texttt{linked\_tori}}.
   $n{=}8000$ ($4000$ per torus).
@@ -4876,8 +4878,11 @@ yields $\approx 46$--$49\%$ $\lambda{<}0.5$ tissue on faded manifolds
   Uniformity (A4-T7): pass (continuous area-uniform torus surface).
   Root-accept seeds~$0$--$9$ (A3-T3): $10/10$,
   accepted $\phi\in[0.036,0.236]$.
-  Child power (A4-T9): \emph{pending}.
-  Analytic valley depth (A4-T10): \emph{pending}.
+  Child power (A4-T9): total $n{\in}\{300,600\}$ root-only seeds~$0$--$4$
+  accept $0/5$ each; full suite $n{=}8000$ accept $5/5$
+  (step med~$9$, $N$ med~$768$, $\phi$ mean $\approx 0.087$).
+  Analytic valley depth (A4-T10): $\approx 1.0$ (gap-segment path;
+  seed-$0$ metadata).
 
   \item \textbf{\texttt{nested\_spheres}}.
   $n{=}6000$ ($3000$ per shell).
@@ -4885,8 +4890,11 @@ yields $\approx 46$--$49\%$ $\lambda{<}0.5$ tissue on faded manifolds
   Uniformity (A4-T7): pass (surface-uniform shells).
   Root-accept seeds~$0$--$9$ (A3-T3): $10/10$,
   accepted $\phi\in[0.014,0.174]$.
-  Child power (A4-T9): \emph{pending}.
-  Analytic valley depth (A4-T10): \emph{pending}.
+  Child power (A4-T9): total $n{\in}\{300,600\}$ root-only seeds~$0$--$4$
+  accept $0/5$ each; full suite $n{=}6000$ accept $5/5$
+  (step med~$10$, $N$ med~$577$, $\phi$ mean $\approx 0.055$).
+  Analytic valley depth (A4-T10): $1.0$ (radial shell gap;
+  seed-$0$ metadata).
 
   \item \textbf{\texttt{bimodal\_circle}}.
   $n{=}1500$, $\kappa{=}3$.
@@ -4931,11 +4939,14 @@ yields $\approx 46$--$49\%$ $\lambda{<}0.5$ tissue on faded manifolds
   $6.0{\to}0.978{\to}5/5$
   (monotone; kill not fired; accepted-$\phi$ means
   $\approx 0.099/0.102/0/0.107/0.017$).
-  Child power (A4-T9): \emph{pending}.
+  Child power (A4-T9): clear geometry root-only seeds~$0$--$4$
+  accept $5/5$ at total $n{\in}\{300,600\}$ (and at suite $n{=}800$);
+  $\phi$ means $\approx 0.090/0.095$ at $300/600$ (step med~$1$;
+  $N$ med $35/62$). Kill not fired (clear@$600{=}5/5$).
 \end{itemize}
-Closing this card set: fill A4-T9 / A4-T10 pending cells after those
-tasks are tracker-complete; do not retune $\phi$ ceiling or suite $n$
-from these figures alone.
+Remaining \emph{pending} child-power cells are scenes A4-T9 did not
+sweep (nulls, hierarchy, bimodal, weak). Do not retune $\phi$ ceiling
+or suite $n$ from these figures alone.
 
 \subsection*{S14.2 Metrics}
 Metrics include persistent-homology distances or topology summaries where ground truth exists, reconstruction/projection error, held-out log-likelihood under the reconstructed density, sample quality (e.g.\ MMD or nearest-neighbor two-sample tests), membership-trajectory stability, accepted-edit counts, and diagnostic residuals. Each metric should map to a named architectural claim.
