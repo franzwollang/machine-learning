@@ -4915,7 +4915,7 @@ The deterministic term decays with half-life $k$. Azuma--Hoeffding gives the dis
 \subsection*{S14.1 Datasets and Splits}
 Synthetic benchmarks should include known topological and geometric ground truth: nested manifolds, variable-density curves/surfaces, linked components, dimensionality junctions, and high-curvature patches. Real benchmarks should be chosen for local structure and query relevance rather than only classification accuracy. Use fixed train/test splits or repeated random splits with logged seeds.
 
-\paragraph{Level-set suite benchmark cards (A4-T11/T12/T14--T18 / \#45/\#48).}
+\paragraph{Level-set suite benchmark cards (A4-T11/T12/T14--T19 / \#45/\#48).}
 \label{sec:si-s14-level-set-benchmark-cards}
 Per-scene cards for the frozen normal-path suite in
 \texttt{tests/scenarios/synthetic/level\_set\_suite.py}
@@ -4927,8 +4927,9 @@ default (\texttt{tissue\_mass\_requested}${}={}$\texttt{None}),
 A4-T7 injectivity / area-uniformity audit, A4-T8 two-Gaussian root
 resolvability curve, A3-T3 composite root-read $\phi$ on seeds
 $0$--$9$, A4-T9 child-sized power (root-only, seeds~$0$--$4$),
-A4-T10 pairwise / shell / torus valley depths, and residual-semantics
-cells from A5-T11/T13 and A4-T13 where present.
+A4-T10 pairwise / shell / torus valley depths, residual-semantics
+cells from A5-T11/T13 and A4-T13 where present, and the A3-T16
+flat-strip aspect-ladder envelope (A4-T19).
 Scenes never run under A4-T9 keep child-power cells
 \emph{pending} --- do not invent values and do not change defaults.
 These cards do \emph{not} list cut-local density contrast or
@@ -5101,6 +5102,27 @@ from this note alone.
   accept $5/5$ at total $n{\in}\{300,600\}$ (and at suite $n{=}800$);
   $\phi$ means $\approx 0.090/0.095$ at $300/600$ (step med~$1$;
   $N$ med $35/62$). Kill not fired (clear@$600{=}5/5$).
+
+  \item \textbf{\texttt{flat\_strip\_null} aspect ladder (A3-T16 / A4-T19)}.
+  Report-only mechanism card (not a suite recovery scene).
+  $R{=}\infty$ flat strip at fixed area $6\pi$, $n{=}800$, seeds
+  $0$--$19$; aspects $\{1,2,3\pi/2{\approx}4.71,3\pi{\approx}9.42\}$
+  (default aspect $3\pi/2$ byte-identical).
+  Uniformity / injectivity: A3 harness (area-preserving aspect change).
+  Per-rung root envelope from A3-T16 (no A4 re-run):
+  aspect~$1$: min $\phi\approx 0.645$, accepts $0/20$;
+  aspect~$2$: min $\phi\approx 0.281$, accepts $0/20$;
+  aspect~$4.712$: min $\phi\approx 0.123$, accepts $3/20$
+  (seeds $5,18,19$), accept min-side fraction $\approx 0.32$;
+  aspect~$9.425$: min $\phi\approx 0.163$, accepts $1/20$
+  (seed~$18$), accept min-side fraction $0.444$.
+  p1 / p5 / median $\phi$ and full read counts: \emph{pending}
+  (not on the A3-T16 BLOCKED line).
+  Scan-length / aspect-monotonicity prediction \emph{killed}:
+  min $\phi$ rose $0.123\to 0.163$ from aspect $4.712\to 9.425$
+  (jump ${>}0.03$); square aspect~$1$ stayed $0/20$ (square-accept
+  kill not fired). Do not propose a ceiling or aspect-derived floor
+  from this card; $\texttt{max\_bottleneck\_ratio}${=}0.25$ unchanged.
 \end{itemize}
 Remaining \emph{pending} child-power cells are scenes A4-T9 did not
 sweep (nulls, hierarchy, bimodal, weak). Do not retune $\phi$ ceiling
@@ -5116,6 +5138,10 @@ Retain the T14--T16 landed numbers above; keep unswept T9 scenes
 \emph{pending}; do not list density contrast or cut-persistence as
 live floors on these cards (no live \#48 floor candidate remains this
 burn after D7).
+\textbf{Aspect ladder (A4-T19 / \#48).}
+The flat-strip aspect-ladder card above records A3-T16 only; pending
+percentile cells stay explicit. No scene re-run and no ceiling change.
+
 
 \subsection*{S14.2 Metrics}
 Metrics include persistent-homology distances or topology summaries where ground truth exists, reconstruction/projection error, held-out log-likelihood under the reconstructed density, sample quality (e.g.\ MMD or nearest-neighbor two-sample tests), membership-trajectory stability, accepted-edit counts, and diagnostic residuals. Each metric should map to a named architectural claim.
