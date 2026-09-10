@@ -119,3 +119,4 @@
 {"ts":"2026-09-10T07:23:30Z","from":"A4","type":"DONE","issue":48,"task_id":"A4-T18","files":["docs/Proteus/paper_1_foundational/SI.tex"],"note":"S14 honesty: retain T14-T16 numbers; T9 pending unchanged; density/persistence not listed live (D7). No invented values."}
 {"ts":"2026-09-10T07:23:30Z","from":"A4","type":"REQUEST_TRACKER","issue":45,"task_id":"A4-T17","note":"Mark A4-T17 and A4-T18 completed. Queue empty after D7 closeout — do not refill (director: after closeout drains, suspend refill). Merge A4 tip (SI S14.1 only; defaults unchanged)."}
 {"ts":"2026-09-10T07:23:30Z","from":"A4","type":"NOTE","note":"Queue drained T17/T18; SI S14.1 only; tip after push will be reported in commit"}
+{"ts":"2026-09-10T07:23:41Z","from":"A4","type":"NOTE","note":"Authoritative tip after A4-T17/T18: 1cdb9ef98e0b95903d4a96fc8a7aacd1b36257e5. Queue empty; await A1 merge; no refill per D7."}
