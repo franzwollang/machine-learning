@@ -10,18 +10,23 @@ and pricing shift); the cross-family audit rule below is PROTECTED.
 
 ## TEMPORARY OVERRIDE — credit burn (active; user-approved 2026-09-09)
 
-**Until the user lifts this override, every agent in the swarm — cloud main agents on
-`coord/*` branches and every subagent they spawn — uses one slug:**
+**Until the user lifts this override, cloud swarm agents use these slugs (confirmed
+available on Cursor cloud 2026-09-09):**
 
-| Allowed slug                     | Who                                                                                                                                                                                               |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cursor-grok-4.6-high-fast`      | All swarm main agents (A1–A6) and all their subagents, for all work: exploration, implementation, math, audits, reviews                                                                           |
-| `claude-fable-5-1-thinking-high` | **A1 (tracker) only**, as the swarm's **director**: a single review/audit subagent that is *solely* responsible for assigning new overarching tasks, setting direction, and making kill/escalate decisions (see the swarm rule, "Leadership split"). Not for implementation, not for workers |
+| Allowed slug | Who |
+| --- | --- |
+| `cursor-grok-4.5-high` | All swarm main agents (A1–A6) and all their subagents. **Fallback if that slug is missing:** `cursor-grok-4.6-high-fast` |
+| `claude-fable-5-thinking-high` | **A1 (tracker) only**, as the swarm's **director**. **Fallback if that slug is missing:** `claude-fable-5-1-thinking-high`. Solely responsible for new overarching tasks, direction, and kill/escalate decisions (see the swarm rule, "Leadership split"). Not for implementation, not for workers |
+
+A1 **must try the primary director slug, then the fallback, in the same turn**. A missing
+slug is not a block: keep merging, applying `REQUEST_TRACKER`, and abandoning families
+whose kill criteria already fired. Only *new* overarching tasks wait on a successful
+director spawn.
 
 Do **not** select Composer, GPT, Gemini, or any other slug while this override is active
 — even if the historical defaults table below names them. If a Task tool call requires a
-`model` argument, pass `cursor-grok-4.6-high-fast` (or omit/`inherit` when the parent is
-already Grok). Workers never spawn Claude.
+`model` argument, pass `cursor-grok-4.5-high` (or the Grok fallback). Workers never spawn
+Claude.
 
 Cross-family audits under this override: suspended by user decision (same-family Grok
 reviews are acceptable for the burn); A1's Fable analysis subagent is the only
@@ -32,7 +37,7 @@ cross-family check. Dual independent reviewers are paused until the override is 
 Default choices balancing cost and capability. Start at the cheapest tier that fits the
 task; escalate only when a cheaper attempt fails or the task is acceptance-path critical
 (spec math, evidence gate, scale/cluster selection). **Ignored while the override above
-is active** — remap every row to `cursor-grok-4.6-high-fast` per that
+is active** — remap every row to `cursor-grok-4.5-high` (fallback `cursor-grok-4.6-high-fast`) per that
 section.
 
 | Task                                                                                                 | Model                                            | Why                                                                   |
