@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-10T04:58:53Z",
+  "updated_at": "2026-09-10T05:56:07Z",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -304,14 +304,14 @@
         },
         {
           "id": "A4-T8",
-          "status": "in_progress",
+          "status": "completed",
           "issue": 48,
           "summary": "Root-only two-Gaussian resolvability curve at separations {2.5,3,3.5,4,6}, seeds 0-4; table analytic valley depth, K=2 rate, accepted phi, and best-miss phi; /tmp driver only.",
           "kill": "If acceptance is non-monotone in valley depth by more than one seed across adjacent rungs, NOTE and stop; propose no ceiling change."
         },
         {
           "id": "A4-T9",
-          "status": "ready",
+          "status": "in_progress",
           "issue": 48,
           "summary": "Child-sized power oracle: clear two-Gaussian, nested, and linked-tori at total n in {300,600}, seeds 0-4, root-only; report K, accept step/N, and phi versus full n.",
           "kill": "If clear two-Gaussian at n=600 accepts <=2/5, REQUEST_TRACKER that the child regime is under-powered; do not lower the ceiling."
@@ -320,8 +320,15 @@
           "id": "A4-T10",
           "status": "ready",
           "issue": 28,
-          "summary": "Extend the A4-T5 analytic valley-depth oracle to hierarchy (all pairwise fine-leaf valleys), nested shells, and linked tori; expose it in metadata/ground_truth.py with one unit test per scene and hand hierarchy values to A6-T10 by NOTE.",
+          "summary": "Extend the A4-T5 analytic valley-depth oracle to hierarchy (all pairwise fine-leaf valleys), nested shells, and linked tori; expose it in metadata/ground_truth.py with one unit test per scene. Include A6-T10's hierarchy seed-0 unsplit L0/L1 child (n=200, cap=25, best phi=0.617; uncapped phi=0.232) in the NOTE handoff.",
           "kill": "n/a (oracle). Do not change any test expectation."
+        },
+        {
+          "id": "A4-T11",
+          "status": "ready",
+          "issue": 48,
+          "summary": "Director D3 benchmark-card preparatory split: create the SI S14 per-scene card structure and fill only already-landed n, actual tissue mass, A4-T7 uniformity, A4-T8 root curve, and A3-T3 phi fields. Mark A4-T9/T10-dependent cells pending; do not invent values or change defaults.",
+          "kill": "n/a (approved benchmark-card split; incomplete dependent cells remain explicit)"
         }
       ],
       "tests_before_done": "gate + scenarios chunks + `pytest tests/foundation/test_linked_tori_generator.py tests/foundation/test_dataset_scales.py`"
@@ -385,14 +392,14 @@
         },
         {
           "id": "A5-T7",
-          "status": "in_progress",
+          "status": "completed",
           "issue": 45,
           "summary": "Pure-child walk at the exact observed regime: for weak two-Gaussian seeds whose root splits, subset each accepted child by ground-truth label (no tissue/sibling or generator change) to about 194 samples with N<=24. Report n_child, bound, leaves, best phi, and bound reject reason. The prior n=365-412/component 20/20 clean run is evidence but does not close this task.",
           "kill": "If any lone about-194-sample child over-splits at N<=24, the residual is #48-at-small-n rather than #45; NOTE and REQUEST_TRACKER, do not iterate on n. If clean, the residual is tissue/sibling context."
         },
         {
           "id": "A5-T8",
-          "status": "ready",
+          "status": "in_progress",
           "issue": 48,
           "summary": "Dissect weak seed-2 non-monotonicity at 4x versus 10x n at matched tau: compare best phi, reject reason, and resolution-bound timing; report only.",
           "kill": "If matched-tau phi differs by >0.1, raise a director item for n-stratification; propose no ceiling number."
@@ -401,7 +408,14 @@
           "id": "A5-T9",
           "status": "ready",
           "issue": 45,
-          "summary": "SI S2.6.2 descent/background paragraph: record A/B falsified, option C adopted, and pure-child oracle clean; REQUEST_TRACKER to trim #45.",
+          "summary": "SI S2.6.2 descent/background paragraph: record A/B falsified, option C adopted, and the exact n=194 pure-child oracle clean.",
+          "kill": "n/a"
+        },
+        {
+          "id": "A5-T10",
+          "status": "ready",
+          "issue": 45,
+          "summary": "Tracker closeout split from A5-T9: after the SI paragraph lands, REQUEST_TRACKER to trim #45 to the tissue/sibling-context residual confirmed by the exact n=194 clean oracle; do not change benchmark expectations.",
           "kill": "n/a"
         }
       ],
@@ -489,10 +503,10 @@
         },
         {
           "id": "A6-T10",
-          "status": "in_progress",
+          "status": "completed",
           "issue": 28,
           "summary": "Dissect hierarchy seeds yielding 5/6 fine leaves: trace the unsplit child tau*, N versus n/k, best phi, and reject reason; report-only /tmp probe.",
-          "kill": "n/a; if phi>0.25, hand its analytic valley depth to A4-T8."
+          "kill": "n/a; phi>0.25 fired, so the analytic valley-depth handoff moved to A4-T10 after A4-T8 had already completed."
         },
         {
           "id": "A6-T11",
@@ -519,6 +533,7 @@
     "items": [
       {
         "for": "A4",
+        "promoted_as": "A4-T11",
         "summary": "SI S14 benchmark card per scene: n, actual tissue mass, analytic valley depth, root-accept rate seeds0-9 and phi range, plus uniformity audit result.",
         "kill": "n/a",
         "depends_on": ["A4-T7", "A4-T8", "A4-T9", "A3-T3"]
