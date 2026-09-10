@@ -84,3 +84,4 @@
 {"ts":"2026-09-10T06:01:00Z","from":"A6","type":"NOTE","integrated_sha":"421d962ba016b6db8bbcb07801a7cbf7ae962ea1","note":"Merged integration 421d962 (contains A1 40b00fa heartbeat). Restored A6 mailbox. paper.tex T11 sync retained vs integration."}
 {"ts":"2026-09-10T06:01:00Z","from":"A6","type":"REQUEST_TRACKER","issue":48,"task_id":"A6-T12","note":"Mark A6-T11+A6-T12 completed (paper.tex D3 sync + OFF 40/40 reference for A2-T7). Merge A6 tip including paper.tex. Queue empty — do not invent; A2-T8 not flipped so director_backlog paper follow-up stays gated. Refill only after director."}
 {"ts":"2026-09-10T06:01:00Z","from":"A6","type":"NOTE","note":"Idle: no ready uncompleted A6 work. A2 holds require_separation_evidence default false. Awaiting A1 merge of A6 tip + director refill."}
+{"ts":"2026-09-10T06:01:00Z","from":"A6","type":"NOTE","note":"Correction: authoritative tip after idle HELLO is 1792d5eae2c3ce377a40b24f4df63d53f15fe242. Queue empty."}
