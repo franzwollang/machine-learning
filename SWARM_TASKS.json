@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-09T20:10-05:00",
+  "updated_at": "2026-09-09T21:05-05:00",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -11,7 +11,7 @@
   ],
   "models": {
     "everyone": "cursor-grok-4.6-high-fast",
-    "A1_analysis_only": "claude-fable-5-1-thinking-high"
+    "A1_director_only": "claude-fable-5-1-thinking-high"
   },
   "ground_rules": [
     "Read .cursor/rules/swarm-coordination.mdc (incl. 'Lessons from the 2026-08 burn'), COORDINATION.md, and your OPEN_ISSUES entries before the first CLAIM.",
@@ -19,8 +19,9 @@
     "Metric of record: tests/scenarios/synthetic/level_set_normal_path_sweep.py --seeds 0 1 2 3 4 (sample-level bg-aware ARI, bg recall, coverage, leaf counts). Baseline 2026-09-09: nulls 30/30, hierarchy 5/5 (5-6 of 6 fine leaves), linked_tori root K=2 5/5, nested root K=2 5/5 (2 leaves), bimodal_circle 2/5, two_gaussians_weak 2/5. Any change that lowers a null pass or a root K is a regression regardless of what else improves.",
     "Acceptance-path code (level_set.py selection, recursion.py descent, controller.py scale search, evidence/*) changes land flag-gated with default off unless the task says otherwise; flipping a default needs the full 5-seed sweep in the DONE note.",
     "Never weaken a test. @awaiting tests flip only on green evidence. One-off probes live in /tmp or are deleted before DONE.",
-    "Default pytest already deselects slow/real_data; tests/stage1 still takes ~50 min. Run the focused subset named in your task before DONE; A1 runs the broad suite on merge.",
-    "SI.tex is shared by section (see owns_files); edit only your sections, keep hunks local, and never restructure. paper.tex belongs to A6."
+    "Never run the whole suite in a cloud turn: tests/stage1/test_scale_search_persistence.py alone is ~45 min. The four other chunks in .cursor/rules/swarm-coordination.mdc 'Test chunks' (gate ~15 s, foundation ~10 s, evidence ~3 s, scenarios ~60 s) are all green on main @ 6a66225 and A1 runs all four on every merge. Wrap every pytest call in `timeout 600`. Every worker runs `gate` plus its tests_before_done subset before DONE.",
+    "SI.tex is shared by section (see owns_files); edit only your sections, keep hunks local, and never restructure. paper.tex belongs to A6.",
+    "Leadership split: A1 manages (merges, chunks, tracker artifacts, grooming). New overarching tasks, direction, kill/escalate decisions, and acceptance-path DONE reviews come only from the Fable director subagent A1 convenes (rule: 'Leadership split'). Until the director has met, A1 refills only from director_backlog below or by splitting approved tasks."
   ],
   "agents": {
     "A1": {
@@ -44,24 +45,26 @@
         {
           "id": "A1-T2",
           "status": "ready",
-          "summary": "Merge heartbeat (A2->A6 into coord/integration, best-effort snapshot). Run: pytest tests/stage1/test_level_set.py tests/stage1/test_scale_search.py tests/stage1/test_recursion.py -q -p no:cacheprovider --deselect tests/stage1/test_recursion.py::test_mst_critical_hollow_contrast_vs_h_and_conj (known pre-existing failure). Every ~3rd merge also run the 5-seed normal-path sweep and record it in PLANNING status board. Append MERGE_DONE with integration_sha; push integration + A1."
+          "summary": "Merge heartbeat (A2->A6 into coord/integration, best-effort snapshot). Run the four fast chunks per the swarm rule on EVERY merge: `gate` (~15 s), `foundation` (~10 s), `evidence` (~3 s), `scenarios` (~60 s) - each under `timeout 600`; never `persistence` (A6 owns it, ~45 min) and never a bare `pytest tests`. A timeout is BLOCKED on #46, not a retry. Every ~3rd merge run the 5-seed normal-path sweep (`timeout 2400`; if it times out, run seeds 0 1 2 only and say so) and record it on the PLANNING M1 board line. Append MERGE_DONE with integration_sha; push integration + A1."
         },
         {
           "id": "A1-T3",
           "status": "ready",
-          "summary": "Apply REQUEST_TRACKER edits (OPEN_ISSUES current-only convention, logs append-only, stable numbering; next issue number is in the OPEN_ISSUES header). Keep queues 2-3 deep with information-priced tasks, each with a kill criterion. Record every kill decision in OPEN_ISSUES_LOG."
+          "summary": "Apply REQUEST_TRACKER edits (OPEN_ISSUES current-only convention, logs append-only, stable numbering; next issue number is in the OPEN_ISSUES header). Keep queues 2-3 deep ONLY from director-approved tasks (director_backlog) or by splitting approved tasks; record every kill decision in OPEN_ISSUES_LOG."
         },
         {
           "id": "A1-T4",
           "status": "ready",
-          "summary": "Fable analysis cadence: after roughly every 5th MERGE_DONE, or immediately when any worker fires a kill criterion, spawn ONE claude-fable-5-1-thinking-high subagent with SCRATCHPAD.json, the relevant OPEN_ISSUES entries, the latest sweep lines, and the DONE/BLOCKED notes since the last analysis; ask for: which families to kill, which to escalate, what the next 2-3 tasks per worker should be, and any spec/code divergence it sees. Apply its guidance via TASK_ASSIGN/TASK_REFILL; log the analysis summary in SCRATCHPAD_LOG."
+          "summary": "Convene the Fable director (ONE claude-fable-5-1-thinking-high subagent) per the swarm rule triggers: before the first refill beyond the seeded queues; on any kill criterion / BLOCKED; after ~every 5th MERGE_DONE; on any request to flip a default or change an acceptance-path constant. Hand it SCRATCHPAD.json, the relevant OPEN_ISSUES entries, latest sweep lines, and all DONE/BLOCKED/REQUEST_TRACKER notes since the last session. It alone assigns new overarching tasks (with kill criteria), reassigns owns_issues/owns_files, decides kill/escalate/direction, and reviews acceptance-path DONEs. Log its decisions in SCRATCHPAD_LOG; apply via TASK_ASSIGN/TASK_REFILL and update director_backlog."
         }
       ]
     },
     "A2": {
       "branch": "coord/A2",
       "role": "worker",
-      "owns_issues": [48],
+      "owns_issues": [
+        48
+      ],
       "owns_files": [
         "code/proteus/src/proteus/stage1/level_set.py",
         "code/proteus/src/proteus/evidence/dm_score.py",
@@ -93,12 +96,15 @@
           "summary": "DM overconfidence in the shot-noise regime: dm_partition_background_verdict returns logBF in the thousands on 200-500-sample regions at 3-8 hits/node. Derive (or bound) the per-node likelihood at low hits and write the SI S10 note; propose the corrected verdict flag-gated; measure logBF on the 6 null scenes x seeds 0-4 root reads vs composite accepts and NOTE the two distributions.",
           "kill": "If the corrected logBF distributions of nulls and composites still overlap by more than 20% of reads, the DM is not usable as the evidence floor - say so and stop; do not tune a margin."
         }
-      ]
+      ],
+      "tests_before_done": "gate + evidence chunks"
     },
     "A3": {
       "branch": "coord/A3",
       "role": "worker",
-      "owns_issues": [48],
+      "owns_issues": [
+        48
+      ],
       "owns_files": [
         "code/proteus/tests/scenarios/synthetic/level_set_null_envelope.py (new)",
         "code/proteus/tests/scenarios/synthetic/level_set_root_accept_probe.py",
@@ -128,12 +134,15 @@
           "issue": 48,
           "summary": "Composite margin study on the same harness: linked_tori, nested_spheres, two_gaussians_clear, bimodal_circle, two_gaussians_weak, hierarchy, seeds 0-9, root accept phi and step. Table of accept phi vs the null envelope; identify which composites sit within 20% of the envelope (bimodal 0.244 is the known one) and what geometric property (valley depth relative to component density) predicts it. NOTE only; no code."
         }
-      ]
+      ],
+      "tests_before_done": "gate chunk + `pytest tests/scenarios/synthetic/level_set_null_envelope.py`-adjacent unit tests you add"
     },
     "A4": {
       "branch": "coord/A4",
       "role": "worker",
-      "owns_issues": [45],
+      "owns_issues": [
+        45
+      ],
       "owns_files": [
         "code/proteus/tests/datasets/synthetic/faded_density.py",
         "code/proteus/tests/datasets/synthetic/circles.py",
@@ -170,12 +179,16 @@
           "issue": 45,
           "summary": "Check the SI S14 calibration text that speaks of 'tissue fractions 0/0.05' as mass fractions: determine what those runs actually contained (box padding vs mass) and REQUEST_TRACKER the correction with exact numbers. Then re-baseline the @awaiting recovery expectations (#41, #26 scenario tests) on the repaired generators WITHOUT weakening topology criteria - only fix ground-truth counts that the generator repair changed; list every changed expectation in the DONE note."
         }
-      ]
+      ],
+      "tests_before_done": "gate + scenarios chunks + `pytest tests/foundation/test_linked_tori_generator.py tests/foundation/test_dataset_scales.py`"
     },
     "A5": {
       "branch": "coord/A5",
       "role": "worker",
-      "owns_issues": [45, 44],
+      "owns_issues": [
+        45,
+        44
+      ],
       "owns_files": [
         "code/proteus/src/proteus/stage1/recursion.py",
         "code/proteus/tests/stage1/test_recursion.py",
@@ -205,12 +218,16 @@
           "issue": 44,
           "summary": "bimodal_circle 2/5 and two_gaussians_weak 2/5: use level_set_child_walk_probe.py to trace the failing seeds step by step (N, tau, phi, verdict, at the n/k bound). Classify each failure: (i) root read wrong, (ii) child walk hits n/k bound without a candidate, (iii) candidate rejected on phi ceiling (report phi vs 0.25), (iv) DM reject. NOTE the table; propose one experiment per class with a kill criterion. No code."
         }
-      ]
+      ],
+      "tests_before_done": "gate + scenarios chunks"
     },
     "A6": {
       "branch": "coord/A6",
       "role": "worker",
-      "owns_issues": [46, 28],
+      "owns_issues": [
+        46,
+        28
+      ],
       "owns_files": [
         "code/proteus/tests/conftest.py",
         "code/proteus/pytest.ini",
@@ -241,8 +258,44 @@
           "issue": 28,
           "summary": "Scale search taking the N <= n/k resolution bound natively (run_scale_search max_nodes resolution) instead of the level-set-mode clamp in run_recursive_discovery. Default-path change: implement behind a ScaleSearchConfig flag (default off), unit test, and run the 5-seed normal-path sweep with the flag on to show no regression; do NOT flip the default. NOTE the diff in selected tau* per scene."
         }
-      ]
+      ],
+      "tests_before_done": "gate + foundation chunks; persistence chunk only inside A6-T1 with --durations"
     }
   },
-  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only: workers merge origin/coord/integration at turn start if behind; A1 publishes MERGE_DONE after merges (no mid-turn pause). A1 keeps queues 2-3 deep and may reassign owns_issues/owns_files over time. Known pre-existing failing test: tests/stage1/test_recursion.py::test_mst_critical_hollow_contrast_vs_h_and_conj (deselect it)."
+  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only: workers merge origin/coord/integration at turn start if behind; A1 publishes MERGE_DONE after merges (no mid-turn pause). A1 keeps queues 2-3 deep and may reassign owns_issues/owns_files over time. Known pre-existing failing test: tests/stage1/test_recursion.py::test_mst_critical_hollow_contrast_vs_h_and_conj (deselect it).",
+  "director_backlog": {
+    "note": "Tasks pre-approved by the orchestrator (Fable) at burn start. A1 may refill worker queues from here without convening the director; anything not listed needs a director session.",
+    "items": [
+      {
+        "for": "A2",
+        "summary": "If A2-T2 guard is correct on seeds 0-4: extend the measurement to seeds 5-19 on the six nulls via A3's harness and report false-accept count with and without the guard.",
+        "kill": "guard rejects any composite root accept"
+      },
+      {
+        "for": "A3",
+        "summary": "Add the phi-ceiling calibration table (per geometry, per n/k) to SI S14.3 as the declared protocol result; keep the fixed 0.25 unless the director approves a relative rule.",
+        "kill": "n/a"
+      },
+      {
+        "for": "A4",
+        "summary": "Metadata audit: every synthetic generator reports requested vs actual tissue mass and signal count in metadata; ground_truth.py exposes them; one test per generator.",
+        "kill": "n/a"
+      },
+      {
+        "for": "A5",
+        "summary": "If option B or A reduces child over-splits on >=3/5 seeds without root/null regressions: write the SI S2.6.2 descent-semantics paragraph (proposed, flag default off) and REQUEST_TRACKER the #45 update.",
+        "kill": "neither option meets the bar -> director session"
+      },
+      {
+        "for": "A6",
+        "summary": "After A6-T1: split test_scale_search_persistence.py pinned experiments into slow-marked modules under tests/stage1/persistence/ so the default slice is <10 min; no assertion changes.",
+        "kill": "n/a"
+      },
+      {
+        "for": "any",
+        "summary": "Delete dead prepass-flag code identified as deprecation candidates in the 2026-08 retrospective (edge_evidence prepass zoo) ONLY after the director confirms the list; until then, docstring deprecation notes only.",
+        "kill": "n/a"
+      }
+    ]
+  }
 }

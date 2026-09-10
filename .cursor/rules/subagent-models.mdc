@@ -16,7 +16,7 @@ and pricing shift); the cross-family audit rule below is PROTECTED.
 | Allowed slug                     | Who                                                                                                                                                                                               |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `cursor-grok-4.6-high-fast`      | All swarm main agents (A1–A6) and all their subagents, for all work: exploration, implementation, math, audits, reviews                                                                           |
-| `claude-fable-5-1-thinking-high` | **A1 (tracker) only**, occasionally: a single analysis subagent to review the swarm's state and provide guidance on issues / next steps / kill decisions. Not for implementation, not for workers |
+| `claude-fable-5-1-thinking-high` | **A1 (tracker) only**, as the swarm's **director**: a single review/audit subagent that is *solely* responsible for assigning new overarching tasks, setting direction, and making kill/escalate decisions (see the swarm rule, "Leadership split"). Not for implementation, not for workers |
 
 Do **not** select Composer, GPT, Gemini, or any other slug while this override is active
 — even if the historical defaults table below names them. If a Task tool call requires a

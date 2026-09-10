@@ -1,6 +1,6 @@
 {
-  "updated_at": "2026-09-09T20:35:00-05:00",
-  "turn": 94,
+  "updated_at": "2026-09-09T21:05:00-05:00",
+  "turn": 95,
   "focus": {
     "milestone": "M1",
     "issue": 48,
@@ -21,10 +21,9 @@
     "tests/stage1 ~50 min with slow deselected: swarm turns cannot run it (A6-T1)"
   ],
   "open_threads": [
-    "Broad tests/stage1 not run since rho retirement (focused 56 + restored test green); A1-T2 runs it on first merge",
     "#45 descent semantics assigned to swarm (A5-T1 B, A5-T2 A); user deferred decision to measurement",
     "phi ceiling margin thin (0.25 vs 0.288): A3-T2 widens the ensemble",
-    "origin/main is 26 commits behind local main (push to main is protected; not done)"
+    "Only tests/stage1/test_scale_search_persistence.py is slow (~45 min); other chunks <2 min and green on 6a66225 (A6-T1 owns the split)"
   ],
   "next_step": "user launches 6 cloud agents from _SWARM_PROMPTS.tmp.txt; orchestrator reviews A1 MERGE_DONE lines when asked",
   "blockers": []

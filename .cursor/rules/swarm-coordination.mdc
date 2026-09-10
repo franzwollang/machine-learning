@@ -109,12 +109,57 @@ keeps conflicts bounded.
   lag never idles the swarm. When an issue closes, A1 reassigns via `TASK_ASSIGN` /
   queue refill — branches stay `coord/A*`.
 
+## Leadership split: A1 manages, the Fable director decides
+
+A1 (Grok) is the **manager**: integration merges, test chunks, tracker artifacts, queue
+grooming, applying `REQUEST_TRACKER`, and relaying decisions. A1 does **not** invent new
+overarching tasks or change direction on its own.
+
+The **director** is a `claude-fable-5-1-thinking-high` review/audit subagent that A1
+spawns (one at a time) and that is **solely responsible** for:
+
+- assigning new overarching tasks and work packages (what each worker's next 2–3 tasks
+ are, with kill criteria), and reassigning `owns_issues` / `owns_files`;
+- high-level leadership on direction — which families to kill, escalate, or open; what
+ the acceptance metric and priorities are; spec/code divergence calls;
+- reviewing worker `DONE` claims that touch acceptance-path code or flip a default.
+
+A1 must convene the director: (a) before the first `TASK_REFILL` that goes beyond the
+seeded queues in `SWARM_TASKS.json`; (b) whenever any worker fires a kill criterion or
+reports `BLOCKED`; (c) after roughly every 5th `MERGE_DONE`; (d) whenever a worker asks
+to flip a default or change an acceptance-path constant. Between director sessions A1
+may only refill from tasks the director already approved (the `director_backlog` in
+`SWARM_TASKS.json`) or split an approved task into smaller steps. A1 hands the director:
+`SCRATCHPAD.json`, the relevant `OPEN_ISSUES.md` entries, the latest sweep lines, and all
+`DONE` / `BLOCKED` / `REQUEST_TRACKER` notes since the previous session; it records the
+director's decisions verbatim (summarized) in `SCRATCHPAD_LOG.jsonl` and applies them via
+`TASK_ASSIGN` / `TASK_REFILL`.
+
 ## Models
 
 Obey `.cursor/rules/subagent-models.mdc` temporary override: every swarm agent and every
-subagent uses `cursor-grok-4.6-high-fast`. Only A1 may occasionally spawn one
-`claude-fable-5-1-thinking-high` analysis subagent for guidance on issues / next steps /
-kill decisions (no implementation). Workers never spawn Claude.
+subagent uses `cursor-grok-4.6-high-fast`. The only exception is A1's director subagent
+(`claude-fable-5-1-thinking-high`, above), which never implements. Workers never spawn
+Claude.
+
+## Test chunks (cloud turns time out; never run the whole suite)
+
+Never run `pytest tests` or `pytest tests/stage1` bare in a cloud turn — `tests/stage1`
+alone takes ~50 min with `slow` deselected. Run named chunks, each wrapped in
+`timeout 600`; if a chunk hits the timeout, report it as `BLOCKED` on #46, do not retry.
+
+| Chunk | Command (from `code/proteus`, `PYTHONPATH="src:$PWD" pipenv run …`) | Who runs it |
+|---|---|---|
+| `gate` | `pytest tests/stage1/test_level_set.py tests/stage1/test_scale_search.py tests/stage1/test_recursion.py -q -p no:cacheprovider --deselect tests/stage1/test_recursion.py::test_mst_critical_hollow_contrast_vs_h_and_conj` (~15 s) | every worker before `DONE`; A1 on every merge |
+| `foundation` | `pytest tests/foundation tests/properties tests/reductions tests/contracts -q -p no:cacheprovider` (~10 s) | A1 on every merge |
+| `evidence` | `pytest tests/evidence tests/stage1/test_dm_cluster.py tests/stage1/test_edge_evidence.py -q -p no:cacheprovider` (~3 s) | A1 on every merge; A2 before `DONE` |
+| `scenarios` | `pytest tests/scenarios tests/inference tests/diagnostics tests/stage2 -q -p no:cacheprovider` (~60 s) | A1 on every merge; A4/A5 before `DONE` |
+| `persistence` | `pytest tests/stage1/test_scale_search_persistence.py -q -p no:cacheprovider --durations=40` (~45 min — the whole problem) | **A6 only** (#46 task) until it is slow-marked into a sub-10-minute default slice; A1 skips it |
+
+Measured 2026-09-09 on `main` @ `6a66225`: the four non-persistence chunks total under
+2 minutes and are all green (163 + 240 + 40 passed, 56 in `gate`). Plus each worker's
+task-specific subset named in `SWARM_TASKS.json`. Known pre-existing
+failure: `test_recursion.py::test_mst_critical_hollow_contrast_vs_h_and_conj` (deselect).
 
 ## Lessons from the 2026-08 burn (binding this burn)
 
