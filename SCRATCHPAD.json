@@ -1,17 +1,17 @@
 {
-  "updated_at": "2026-09-09T20:20:00-05:00",
-  "turn": 93,
+  "updated_at": "2026-09-09T20:35:00-05:00",
+  "turn": 94,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "checkpoint the min-cut phi landing, then re-base coord/* on main and launch the second swarm burn"
+    "goal": "second swarm burn launched from main @ 3ac67c7; orchestrator idle until user resumes"
   },
   "recent": [
-    "rho retired; min-cut phi + calibrated 0.25 ceiling landed (3fe0973b); restored equal-weak-diameters test (passes on bottleneck)",
-    "Sweeps: nulls 30/30, hierarchy 5/5 (5-6 of 6 fine leaves), tori/nested root K=2; broad tests/stage1 running (~50 min)",
     "Swarm prep: models override -> grok-4.6-high-fast for all, Fable only for A1 analysis; burn lessons added to swarm rule",
     "SWARM_TASKS.json rewritten: A2 phi=0 guard + DM, A3 null-envelope harness, A4 tissue mass, A5 descent semantics B/A, A6 test runtime + cleanup",
-    "User authorized force-push of coord/* to current main (history dropped)"
+    "User authorized force-push of coord/* to current main (history dropped)",
+    "Broad tests/stage1 cancelled by user (time); checkpoint 3ac67c7 committed",
+    "coord/integration + coord/A1..A6 force-pushed to main (user-authorized)"
   ],
   "discoveries": [
     "FadedMixture: ~50% tissue regardless of tissue_fraction (box padding only)",
@@ -21,10 +21,11 @@
     "tests/stage1 ~50 min with slow deselected: swarm turns cannot run it (A6-T1)"
   ],
   "open_threads": [
-    "Broad tests/stage1 run in progress; checkpoint on green, then force-push main -> coord/integration, coord/A1..A6",
-    "#45 descent semantics: assigned as A5-T1 (B, flag-gated) then A5-T2 (A spike); user deferred the decision to the swarm measurement",
-    "phi ceiling margin thin (0.25 vs 0.288): A3-T2 widens the ensemble"
+    "Broad tests/stage1 not run since rho retirement (focused 56 + restored test green); A1-T2 runs it on first merge",
+    "#45 descent semantics assigned to swarm (A5-T1 B, A5-T2 A); user deferred decision to measurement",
+    "phi ceiling margin thin (0.25 vs 0.288): A3-T2 widens the ensemble",
+    "origin/main is 26 commits behind local main (push to main is protected; not done)"
   ],
-  "next_step": "when tests finish: checkpoint commit; git push --force main to all coord/* branches; tell user to launch from _SWARM_PROMPTS.tmp.txt",
+  "next_step": "user launches 6 cloud agents from _SWARM_PROMPTS.tmp.txt; orchestrator reviews A1 MERGE_DONE lines when asked",
   "blockers": []
 }

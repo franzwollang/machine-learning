@@ -20,6 +20,16 @@ bodies below stay static descriptions.
 | M5 — Inference interface & diagnostics | not started |
 | M6 — Evaluation, benchmarks, paper finalization | not started |
 
+## Swarm burn 2 (from 2026-09-09)
+
+Six cloud agents on `coord/A1`–`coord/A6` (integration on `coord/integration`), all
+re-based on `main` @ `3ac67c7`. Work packages, file ownership, and per-task kill criteria
+live only in `SWARM_TASKS.json` (A1 maintains); the binding process lessons from the
+August burn are in `.cursor/rules/swarm-coordination.mdc`. Focus: #48 (φ = 0
+disconnection guard, DM shot-noise likelihood, null-envelope calibration harness),
+#45 (tissue mass fraction, descent semantics B then A), #46/#28 hygiene. A1 records
+sweep results on the M1 board line above after every ~3rd merge.
+
 ## Current state (July 2026)
 
 - **Stage 1 is implemented and test-backed** (~3.3k LOC in `code/proteus/src/`): fixed-tau
