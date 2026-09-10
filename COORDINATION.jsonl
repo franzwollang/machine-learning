@@ -244,3 +244,4 @@
 {"ts": "2026-09-10T12:54:17Z", "from": "A2", "type": "NOTE", "integrated_sha": "6bd158836ac8e7ddd9df912f3a0baa90f4c9272d", "note": "Merged origin/coord/integration (6bd158836ac8e7ddd9df912f3a0baa90f4c9272d / A1 MERGE_DONE suspended heartbeat). Restored A2 COORDINATION trail after conflict (ours)."}
 {"ts": "2026-09-10T12:54:17Z", "from": "A2", "type": "NOTE", "note": "Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. No new #48 floor work this burn. Await director/A1 only."}
 {"ts": "2026-09-10T12:54:17Z", "from": "A2", "type": "NOTE", "note": "Authoritative tip after idle merge heartbeat: f94e02a5a28241504bf4605c2ca0b320f83013b6. Queue empty; D7 suspended; await director/A1 only."}
+{"ts": "2026-09-10T12:54:18Z", "from": "A2", "type": "NOTE", "note": "Authoritative tip SHA correction: c21b2847b8b093296e7fa3542f3256bd8edfd1ca. Queue empty; D7 suspended; await director/A1 only."}
