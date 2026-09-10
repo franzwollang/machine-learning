@@ -22,6 +22,8 @@ from proteus.stage1.level_set import (
     build_level_set_dag,
     build_level_set_tree,
     select_level_set_partition,
+    separation_evidence_lambda,
+    separation_evidence_supported,
     shot_noise_node_cap,
 )
 from proteus.stage1.recursion import (
@@ -54,8 +56,15 @@ class _Scaffold:
         positions: np.ndarray,
         edges: list[tuple[int, int, float]],
         max_nodes: int | None = None,
+        hits: np.ndarray | list[float] | None = None,
     ) -> None:
         self.nodes = [_Node(p) for p in positions]
+        if hits is not None:
+            hit_arr = np.asarray(hits, dtype=float)
+            if hit_arr.shape[0] != len(self.nodes):
+                raise ValueError("hits length must match positions")
+            for node, h in zip(self.nodes, hit_arr, strict=True):
+                node.hit_count = float(h)
         self.links = LinkCounters()
         for i, j, count in edges:
             self.links.increment_directed(i, j, float(count), lift=True)
@@ -454,6 +463,102 @@ def test_weak_bridge_split_passes_bottleneck_guard() -> None:
     assert selection.cluster_result.n_clusters == 2
     labels = selection.cluster_result.labels
     assert len(set(labels[:12]) | set(labels[12:])) == 2
+
+
+def test_require_separation_evidence_defaults_off() -> None:
+    assert LevelSetConfig().require_separation_evidence is False
+
+
+def test_separation_evidence_lambda_is_k_times_gini() -> None:
+    """λ = k · 2p(1-p); balanced → k/2, vanishing mass → 0."""
+
+    assert separation_evidence_lambda(50.0, 50.0, k_neighbors=8) == 4.0
+    assert separation_evidence_lambda(0.0, 10.0, k_neighbors=8) == 0.0
+    # lone_gauss2d s17-like imbalance: below log(tau_bf)=log(3)
+    lam_false = separation_evidence_lambda(20149.0, 1516.0, k_neighbors=8)
+    assert lam_false < float(np.log(3.0))
+    # two_gaussians_clear-like balance: clears the margin
+    lam_true = separation_evidence_lambda(5300.0, 6400.0, k_neighbors=8)
+    assert lam_true > float(np.log(3.0))
+
+
+def test_zero_cross_balanced_hits_pass_separation_evidence() -> None:
+    """Controlled 2-clump scaffold: zero bridge, balanced hits → supported."""
+
+    positions = np.asarray(
+        [n.position for n in _two_arcs(gap_flow=0.0).nodes], dtype=float,
+    )
+    edges = [(i, i + 1, 6.0) for i in range(11)]
+    edges += [(i, i + 1, 6.0) for i in range(12, 23)]
+    scaffold = _Scaffold(positions, edges, hits=np.full(24, 100.0))
+    labels = np.array([0] * 12 + [1] * 12, dtype=int)
+    assert separation_evidence_supported(
+        scaffold, labels, k_neighbors=8, tau_bf=3.0,
+    )
+    selection = select_level_set_partition(
+        scaffold,
+        LevelSetConfig(
+            k_neighbors=4,
+            min_cluster_size=4,
+            n_levels=60,
+            require_separation_evidence=True,
+        ),
+    )
+    assert selection.accepted
+    assert selection.cluster_result is not None
+    assert selection.cluster_result.n_clusters == 2
+
+
+def test_zero_cross_imbalanced_hits_fail_separation_evidence() -> None:
+    """Shoulder-clump imbalance (lone_gauss2d s17 ratio) is unsupported."""
+
+    positions = np.asarray(
+        [n.position for n in _two_arcs(gap_flow=0.0).nodes], dtype=float,
+    )
+    edges = [(i, i + 1, 6.0) for i in range(11)]
+    edges += [(i, i + 1, 6.0) for i in range(12, 23)]
+    # Match the false-accept hit-mass ratio (~13:1), zero cross links.
+    hits = np.concatenate([
+        np.full(12, 1680.0),  # core-like arc
+        np.full(12, 126.0),   # shoulder-like arc; 12*126/12*1680 ≈ 1512/20160
+    ])
+    scaffold = _Scaffold(positions, edges, hits=hits)
+    labels = np.array([0] * 12 + [1] * 12, dtype=int)
+    assert not separation_evidence_supported(
+        scaffold, labels, k_neighbors=8, tau_bf=3.0,
+    )
+    selection = select_level_set_partition(
+        scaffold,
+        LevelSetConfig(
+            k_neighbors=4,
+            min_cluster_size=4,
+            n_levels=60,
+            require_separation_evidence=True,
+        ),
+    )
+    assert not selection.accepted
+    assert selection.resolvability is not None
+    assert selection.resolvability.reject_reason == "separation_evidence"
+
+
+def test_separation_evidence_skips_when_cross_flow_present() -> None:
+    """Non-zero bridge flow relies on φ; the Poisson guard does not fire."""
+
+    scaffold = _two_arcs(gap_flow=0.05)
+    # Extreme imbalance would fail the zero-cross guard, but cross > 0.
+    for i, node in enumerate(scaffold.nodes):
+        node.hit_count = 2000.0 if i < 12 else 100.0
+    selection = select_level_set_partition(
+        scaffold,
+        LevelSetConfig(
+            k_neighbors=4,
+            min_cluster_size=4,
+            n_levels=60,
+            require_separation_evidence=True,
+        ),
+    )
+    assert selection.accepted
+    assert selection.cluster_result is not None
 
 
 def test_extraction_does_not_read_expected_k_from_config() -> None:
