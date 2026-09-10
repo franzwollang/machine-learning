@@ -167,3 +167,170 @@ def make_variable_density_sheet(
             **sampler_meta,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# One-feature null geometries for φ-ceiling widen (A3-T2 / #48)
+# Pure connected supports — no tissue floor — matching lone_gauss* style.
+# ---------------------------------------------------------------------------
+
+
+def make_uniform_disc(
+    n_samples: int = 800,
+    radius: float = 1.0,
+    seed: int = 0,
+) -> SyntheticDataset:
+    """Uniform samples in a filled 2-D disc (one-feature null)."""
+
+    rng = np.random.default_rng(int(seed))
+    # Area-uniform: r = R * sqrt(U), theta ~ Unif[0, 2π).
+    u = rng.random(int(n_samples))
+    theta = rng.uniform(0.0, 2.0 * np.pi, size=int(n_samples))
+    r = float(radius) * np.sqrt(u)
+    points = np.column_stack([r * np.cos(theta), r * np.sin(theta)])
+    labels = np.zeros(int(n_samples), dtype=int)
+    return SyntheticDataset(
+        points=points,
+        labels=labels,
+        ground_truth=GroundTruthManifold(
+            name="uniform_disc",
+            ambient_dim=2,
+            intrinsic_dim=2,
+            topology=TopologyExpectation(
+                connected_components=1, betti_numbers=(1, 0), intrinsic_dim=2,
+            ),
+        ),
+        metadata={"radius": float(radius), "sampling": "area_uniform_disc"},
+    )
+
+
+def make_uniform_cube(
+    n_samples: int = 800,
+    half_extent: float = 1.0,
+    dim: int = 3,
+    seed: int = 0,
+) -> SyntheticDataset:
+    """Uniform samples in a filled axis-aligned cube (default 3-D)."""
+
+    if int(dim) < 1:
+        raise ValueError("dim must be >= 1")
+    rng = np.random.default_rng(int(seed))
+    lo = -float(half_extent)
+    hi = float(half_extent)
+    points = rng.uniform(lo, hi, size=(int(n_samples), int(dim)))
+    labels = np.zeros(int(n_samples), dtype=int)
+    return SyntheticDataset(
+        points=points,
+        labels=labels,
+        ground_truth=GroundTruthManifold(
+            name=f"uniform_cube_{dim}d",
+            ambient_dim=int(dim),
+            intrinsic_dim=int(dim),
+            topology=TopologyExpectation(
+                connected_components=1,
+                betti_numbers=(1,) + (0,) * int(dim),
+                intrinsic_dim=int(dim),
+            ),
+        ),
+        metadata={"half_extent": float(half_extent), "sampling": "uniform_cube"},
+    )
+
+
+def make_lone_gauss3d(
+    n_samples: int = 800,
+    sigma: float = 0.25,
+    seed: int = 0,
+) -> SyntheticDataset:
+    """Isotropic 3-D Gaussian blob (one-feature null)."""
+
+    rng = np.random.default_rng(int(seed))
+    points = rng.normal(size=(int(n_samples), 3)) * float(sigma)
+    labels = np.zeros(int(n_samples), dtype=int)
+    return SyntheticDataset(
+        points=points,
+        labels=labels,
+        ground_truth=GroundTruthManifold(
+            name="lone_gauss3d",
+            ambient_dim=3,
+            intrinsic_dim=3,
+            topology=TopologyExpectation(
+                connected_components=1, betti_numbers=(1, 0, 0), intrinsic_dim=3,
+            ),
+        ),
+        metadata={"sigma": float(sigma)},
+    )
+
+
+def make_scurve_sheet(
+    n_samples: int = 800,
+    noise: float = 0.0,
+    seed: int = 0,
+) -> SyntheticDataset:
+    """S-shaped 2-D sheet in R^3 (classic S-curve extruded along an axis).
+
+    Parameterization: ``t ∈ [0, 1]`` along the S, ``s ∈ [0, 1]`` across the
+    ribbon width. Area-uniform in ``(t, s)``.
+    """
+
+    rng = np.random.default_rng(int(seed))
+    t = rng.random(int(n_samples))
+    s = rng.random(int(n_samples))
+    # Standard S-curve angle range ~ [1.5π .. 4.5π] mapped from t.
+    angle = (1.5 * np.pi) * (1.0 + 2.0 * t)
+    x = np.sin(angle)
+    y = 2.0 * s
+    z = np.sign(angle) * (np.cos(angle) - 1.0)
+    points = np.column_stack([x, y, z]).astype(float)
+    if float(noise) > 0.0:
+        points = points + rng.normal(scale=float(noise), size=points.shape)
+    labels = np.zeros(int(n_samples), dtype=int)
+    return SyntheticDataset(
+        points=points,
+        labels=labels,
+        ground_truth=GroundTruthManifold(
+            name="scurve_sheet",
+            ambient_dim=3,
+            intrinsic_dim=2,
+            topology=TopologyExpectation(
+                connected_components=1, betti_numbers=(1, 0), intrinsic_dim=2,
+            ),
+        ),
+        metadata={"noise": float(noise), "sampling": "area_uniform_scurve_sheet"},
+    )
+
+
+def make_filled_ball(
+    n_samples: int = 800,
+    radius: float = 1.0,
+    dim: int = 3,
+    seed: int = 0,
+) -> SyntheticDataset:
+    """Uniform samples in a filled Euclidean ball (default 3-D)."""
+
+    if int(dim) < 1:
+        raise ValueError("dim must be >= 1")
+    rng = np.random.default_rng(int(seed))
+    # Direction ~ N(0,I), radius via U^{1/d}.
+    direction = rng.normal(size=(int(n_samples), int(dim)))
+    norms = np.linalg.norm(direction, axis=1, keepdims=True)
+    norms = np.maximum(norms, 1e-12)
+    direction = direction / norms
+    u = rng.random(int(n_samples))
+    r = float(radius) * (u ** (1.0 / float(dim)))
+    points = direction * r[:, None]
+    labels = np.zeros(int(n_samples), dtype=int)
+    return SyntheticDataset(
+        points=points,
+        labels=labels,
+        ground_truth=GroundTruthManifold(
+            name=f"filled_ball_{dim}d",
+            ambient_dim=int(dim),
+            intrinsic_dim=int(dim),
+            topology=TopologyExpectation(
+                connected_components=1,
+                betti_numbers=(1,) + (0,) * int(dim),
+                intrinsic_dim=int(dim),
+            ),
+        ),
+        metadata={"radius": float(radius), "sampling": "volume_uniform_ball"},
+    )

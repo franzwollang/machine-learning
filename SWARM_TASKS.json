@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-10T02:05:33+00:00",
+  "updated_at": "2026-09-10T02:33:49+00:00",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -54,7 +54,7 @@
         },
         {
           "id": "A1-T4",
-          "status": "ready",
+          "status": "blocked",
           "summary": "Convene the Fable director (ONE claude-fable-5-1-thinking-high subagent) per the swarm rule triggers: before the first refill beyond the seeded queues; on any kill criterion / BLOCKED; after ~every 5th MERGE_DONE; on any request to flip a default or change an acceptance-path constant. Hand it SCRATCHPAD.json, the relevant OPEN_ISSUES entries, latest sweep lines, and all DONE/BLOCKED/REQUEST_TRACKER notes since the last session. It alone assigns new overarching tasks (with kill criteria), reassigns owns_issues/owns_files, decides kill/escalate/direction, and reviews acceptance-path DONEs. Log its decisions in SCRATCHPAD_LOG; apply via TASK_ASSIGN/TASK_REFILL and update director_backlog."
         }
       ]
@@ -84,7 +84,7 @@
         },
         {
           "id": "A2-T2",
-          "status": "in_progress",
+          "status": "completed",
           "issue": 48,
           "summary": "Flag-gated separation-evidence guard in select_level_set_partition (default off, LevelSetConfig flag): when cross flow is 0 or below the ceiling, require that the absence of flow is supported by the hit counts on the boundary nodes (likelihood of observing zero cross transitions given the nodes' hit totals under a one-feature Poisson model), not by link existence alone. No new tuned constant: the threshold is a probability level tied to the existing DM margin or derived. Unit test on a synthetic 2-clump scaffold with controlled hit counts.",
           "kill": "If the guard rejects any linked_tori / nested / two_gaussians_clear root accept on seeds 0-4, or accepts lone_gauss2d s17, it is wrong as designed; BLOCKED with the sweep lines."
@@ -130,14 +130,14 @@
         },
         {
           "id": "A3-T2",
-          "status": "ready",
+          "status": "blocked",
           "issue": 48,
           "summary": "Widen the null ensemble: add lone uniform disc, uniform cube (3-D), lone 3-D Gaussian, S-curve sheet, filled ball, and the existing nulls at n in {400, 800, 1600} and k in {reader default, 2x}. Run seeds 0-9. Report the envelope per geometry and per n/k, the worst-case min, and whether 0.25 stays below it with a >= 10% margin. Propose (do not apply) a ceiling rule if a relative form (fraction of the envelope p1) is more stable than a fixed number.",
           "kill": "If any new null geometry produces phi < 0.25 on a root read with a candidate (excluding phi=0 graph-disconnection cases, which go to A2), STOP widening and NOTE the case with the full STEP line - that is a statistic failure, not a calibration failure."
         },
         {
           "id": "A3-T3",
-          "status": "ready",
+          "status": "blocked",
           "issue": 48,
           "summary": "Composite margin study on the same harness: linked_tori, nested_spheres, two_gaussians_clear, bimodal_circle, two_gaussians_weak, hierarchy, seeds 0-9, root accept phi and step. Table of accept phi vs the null envelope; identify which composites sit within 20% of the envelope (bimodal 0.244 is the known one) and what geometric property (valley depth relative to component density) predicts it. NOTE only; no code."
         }
@@ -214,14 +214,14 @@
       "queue": [
         {
           "id": "A5-T1",
-          "status": "ready",
+          "status": "completed",
           "issue": 45,
           "summary": "Descent semantics option B, flag-gated (default off) in _descend_into_clusters / run_recursive_discovery: a child whose own level-set read sends more than half of its samples to background terminates as a leaf instead of accepting small shell+tissue chunks. Unit test with a synthetic child. Measure on seeds 0-4: nested, bimodal_circle, two_gaussians_weak, linked_tori (leaf counts, bg-aware ARI, coverage) with the flag on vs off.",
           "kill": "If option B changes any root K or lowers any null pass, it is mis-scoped; BLOCKED. If it reduces nested/bimodal over-splits on fewer than 3 of 5 seeds, it is not the mechanism - NOTE and move to A5-T2 without iterating on the fraction."
         },
         {
           "id": "A5-T2",
-          "status": "ready",
+          "status": "in_progress",
           "issue": 45,
           "summary": "Descent semantics option A (design spike then flag-gated prototype): descend on the branch CORE only - nodes below half-max density relative to the branch peak are halo and stay with the parent's background partition (same lambda=0.5 tier as the ground truth). Write the design NOTE first (what 'branch peak' is on the equalized scaffold, how the halo is scored), then prototype behind a flag. Same measurement as A5-T1.",
           "kill": "If core-only descent drops coverage below 0.8 on linked_tori or nested (i.e., it throws away real signal), the half-max tier is wrong for the reader; BLOCKED with numbers, no tier tuning."
@@ -231,6 +231,13 @@
           "status": "ready",
           "issue": 44,
           "summary": "bimodal_circle 2/5 and two_gaussians_weak 2/5: use level_set_child_walk_probe.py to trace the failing seeds step by step (N, tau, phi, verdict, at the n/k bound). Classify each failure: (i) root read wrong, (ii) child walk hits n/k bound without a candidate, (iii) candidate rejected on phi ceiling (report phi vs 0.25), (iv) DM reject. NOTE the table; propose one experiment per class with a kill criterion. No code."
+        },
+        {
+          "id": "A5-T4",
+          "status": "ready",
+          "issue": 44,
+          "summary": "Approved backlog split only: add deprecation docstrings for the falsified geometry/hollow prepass flags already listed in FALSIFIED_PREPASS_FLAGS; do not delete code, alter behavior, or expand the list before director confirmation.",
+          "kill": "n/a (documentation-only inventory of the existing quarantined list)."
         }
       ],
       "tests_before_done": "gate + scenarios chunks"
@@ -268,7 +275,7 @@
         },
         {
           "id": "A6-T3",
-          "status": "ready",
+          "status": "in_progress",
           "issue": 28,
           "summary": "Scale search taking the N <= n/k resolution bound natively (run_scale_search max_nodes resolution) instead of the level-set-mode clamp in run_recursive_discovery. Default-path change: implement behind a ScaleSearchConfig flag (default off), unit test, and run the 5-seed normal-path sweep with the flag on to show no regression; do NOT flip the default. NOTE the diff in selected tau* per scene."
         },
@@ -278,6 +285,13 @@
           "issue": 28,
           "summary": "Split test_scale_search_persistence.py pinned experiments into slow-marked modules under tests/stage1/persistence/ so the default slice stays under 10 minutes; preserve every assertion and marker.",
           "kill": "n/a (test organization only; no assertion changes)."
+        },
+        {
+          "id": "A6-T5",
+          "status": "ready",
+          "issue": 28,
+          "summary": "Approved A6-T4 split: after reorganizing persistence tests, define a representative sub-10-minute default persistence smoke slice while preserving every original assertion in slow-marked modules; report selected tests and measured runtime.",
+          "kill": "If no representative slice fits below 10 minutes without removing or weakening assertions, report BLOCKED rather than shrinking coverage."
         }
       ],
       "tests_before_done": "gate + foundation chunks; persistence chunk only inside A6-T1 with --durations"
