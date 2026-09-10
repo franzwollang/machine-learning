@@ -541,6 +541,16 @@ stabilized point is taken. The reference implementation is
 heuristic ($0.65\le L\le1$, coarsest in band) has been removed from the
 reference implementation (OPEN\_ISSUES~\#28).
 
+\emph{Optional mesh resolution bound (flag-gated; default off).}
+\texttt{ScaleSearchConfig.apply\_shot\_noise\_node\_cap} applies the derived
+bound $N\le n/k$ (\hyperref[sec:si-level-set]{S2.6.2} / \#48) when
+\texttt{run\_scale\_search} resolves \texttt{max\_nodes}.  The same $N\le n/k$
+bound is the finer-walk \emph{stop} under level-set clustering (not a free step
+budget and not a DM evidence floor).  Today the level-set path still clamps the
+bound in \texttt{run\_recursive\_discovery}; the flag is the proposed native
+home for that clamp (OPEN\_ISSUES~\#28).  Do not flip the default without a
+normal-path review.
+
 \emph{Support/response traces are diagnostics, not the selector.} The Lindeberg
 response $\Phi_C(\tau)$ and the compensated node-count / support trace
 $V_C(\tau)\propto N(\tau)\,\tau^{d/2}$ are logged as cross-checks, but neither is
@@ -4272,6 +4282,22 @@ The likelihood factor depending on $m$ is
 q(j\mid i;m)^{n_{i\to j}}.
 \]
 The mass field $m$ is therefore the generative latent in the model family, but the runtime structure-selection gate does not estimate $m$ by iterative MAP for every candidate. Instead, the gate scores outgoing transition counts directly with the BDeu/Dirichlet--multinomial marginal of S3.4, which integrates the node-local categorical probabilities analytically. This makes candidate comparison closed-form and prevents iteration-budget artifacts. Identifiability of $m$ remains important because it justifies that accepted transition structure corresponds to a well-defined mass field on the complex.
+
+\paragraph{Shot-noise trial count (proposed).}
+\label{par:si-dm-shot-noise-trials}
+The generative trial count $n_i$ is the number of \emph{independent sample routing events} at node $i$, not the lifetime online Hebbian counter total $C_i=\sum_j C(i\to j)$ nor the lifetime hit mass $h_i$. Both $C_i$ and $h_i$ accumulate over training epochs, so the Dirichlet--multinomial log-Bayes factor grows like $O(\mathrm{epochs}\cdot n)$ and reports thousands of nats on $200$--$500$-sample regions at only $3$--$8$ samples per node (OPEN\_ISSUES~\#48). Epoch re-accumulation of a stabilized router reconfirms the same sample geometry (including Poisson holes); structure selection must not multiply evidence by the epoch count. The corrected per-node likelihood keeps empirical routing rates but sets the region's total trials to the sample count $n$, shared by hit mass:
+\[
+n_i^{\mathrm{eff}}
+=
+n\cdot\frac{h_i}{\sum_{i'}h_{i'}},
+\qquad
+n_{i\to j}^{\mathrm{eff}}
+=
+n_i^{\mathrm{eff}}\cdot\frac{C(i\to j)}{\sum_{j'}C(i\to j')},
+\qquad
+\sum_i n_i^{\mathrm{eff}}=n.
+\]
+Each node's contribution to $F_{\mathrm{DM}}$ is then bounded by $O(n_i^{\mathrm{eff}}\log J_i)$ (derived), matching the Fisher-information scale $I_i\propto n_i$ below. Runtime flag: \texttt{DMClusterConfig.sample\_normalized\_counts} (default off; proposed path). Do not flip the default until null-versus-composite $\log\mathrm{BF}$ separation under this correction is accepted.
 
 \paragraph{MaxEnt/MAP connection.}
 With a flat prior on $m$, maximizing the joint log-likelihood gives the MaxEnt/MLE estimator
