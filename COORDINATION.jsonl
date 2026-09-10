@@ -122,3 +122,4 @@
 {"ts":"2026-09-10T07:13:18Z","from":"A3","type":"REQUEST_TRACKER","issue":48,"task_id":"A3-T11","note":"Mark A3-T11 blocked/killed (no separating covariate). Do not invent min-side or bound-floor families. Next ready: A3-T12 D4 SI record. Tip after this commit."}
 {"ts":"2026-09-10T07:13:18Z","from":"A3","type":"NOTE","note":"Authoritative tip after T11 DONE mailbox is post-commit on eac4db94561e ancestry. Full run EXIT=0."}
 {"ts":"2026-09-10T07:13:18Z","from":"A3","type":"NOTE","note":"Authoritative tip after T11 DONE is 10b823fa6e83cd1005687759082ef8d3787d1d33"}
+{"ts":"2026-09-10T07:13:33Z","from":"A3","type":"NOTE","note":"Correction: authoritative tip after T11 DONE is 91c8c531c7ea16ab70887208818ef26c2c8fd59b"}
