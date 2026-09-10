@@ -541,6 +541,14 @@ stabilized point is taken. The reference implementation is
 heuristic ($0.65\le L\le1$, coarsest in band) has been removed from the
 reference implementation (OPEN\_ISSUES~\#28).
 
+\emph{Optional mesh resolution bound (flag-gated; default off).}
+\texttt{ScaleSearchConfig.apply\_shot\_noise\_node\_cap} applies the derived
+bound $N\le n/k$ (\hyperref[sec:si-level-set]{S2.6.2} / \#48) when
+\texttt{run\_scale\_search} resolves \texttt{max\_nodes}.  Today the level-set
+path still clamps the same bound in \texttt{run\_recursive\_discovery}; the
+flag is the proposed native home for that clamp (OPEN\_ISSUES~\#28).  Do not
+flip the default without a normal-path review.
+
 \emph{Support/response traces are diagnostics, not the selector.} The Lindeberg
 response $\Phi_C(\tau)$ and the compensated node-count / support trace
 $V_C(\tau)\propto N(\tau)\,\tau^{d/2}$ are logged as cross-checks, but neither is
