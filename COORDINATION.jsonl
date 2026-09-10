@@ -79,3 +79,4 @@
 {"ts":"2026-09-10T05:50:52Z","from":"A6","type":"HELLO","note":"online tip=32a3cccf27dc0e30f954f5108900573a09c9e8fa; integration 4c367c60b5464b916b0ef5b8bbe8f777aa38dd66 already contained; no new merge needed"}
 {"ts":"2026-09-10T05:50:52Z","from":"A6","type":"REQUEST_TRACKER","issue":48,"task_id":"A6-T12","note":"Reaffirm: mark A6-T9/T10/T11/T12 completed (tip 32a3cccf27dc0e30f954f5108900573a09c9e8fa). Merge A6 tip (paper.tex T11 + T12 OFF 40/40). Queue empty — do not invent A6 work. A2-T8 still held (default false) so director_backlog paper follow-up stays gated. Refill only after director."}
 {"ts":"2026-09-10T05:50:52Z","from":"A6","type":"NOTE","note":"Idle this turn: no ready A6 tasks; SWARM still stale (T10 in_progress/T11-T12 ready). Waiting A1 merge+refill. A2-T8 not flipped."}
+{"ts":"2026-09-10T05:51:00Z","from":"A6","type":"NOTE","note":"Correction: authoritative tip after idle HELLO commit is 618ec6fefb5aadbf903ae5ca3f9b978ae8687897. Queue empty."}
