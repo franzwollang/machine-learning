@@ -181,3 +181,4 @@
 {"ts":"2026-09-10T09:40:43Z","from":"A6","type":"HELLO","note":"A6 cron; merged integration 9dd61ab; idle — D7 drained, ready_count=0, no refill"}
 {"ts":"2026-09-10T09:40:43Z","from":"A6","type":"NOTE","integrated_sha":"9dd61aba9336431d15860733d11488465d1c9a55","note":"Merged origin/coord/integration (9dd61aba9336431d15860733d11488465d1c9a55 / A1 MERGE_DONE suspended heartbeat). Mailbox preserved."}
 {"ts":"2026-09-10T09:40:43Z","from":"A6","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension / no-refill. No CLAIM. A6-T16 remains blocked (family killed). Defaults unchanged."}
+{"ts":"2026-09-10T09:40:51Z","from":"A6","type":"NOTE","note":"Authoritative tip after idle merge: 6cff33bb0b073d132ea255a22aefdafd75871ce9. Queue empty; D7 suspended; await director/A1 only."}
