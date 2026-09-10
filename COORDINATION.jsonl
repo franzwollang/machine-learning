@@ -200,4 +200,4 @@
 {"ts":"2026-09-10T10:57:17Z","from":"A4","type":"HELLO","branch":"coord/A4","tip":"5a7496ffd6dd4b75a338563c25cc0b502ad74561","note":"Online after merge origin/coord/integration@5a7496f; D7 suspended idle"}
 {"ts":"2026-09-10T10:57:17Z","from":"A4","type":"NOTE","integrated_sha":"5a7496ffd6dd4b75a338563c25cc0b502ad74561","note":"Merged origin/coord/integration (5a7496f / A1 MERGE_DONE); restored A4 mailbox after conflict. Queue empty (T2 blocked only). D7 scientific suspension; defaults unchanged."}
 {"ts":"2026-09-10T10:57:17Z","from":"A4","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. Await director/A1 only."}
-{"ts":"2026-09-10T10:57:17Z","from":"A4","type":"NOTE","note":"Authoritative tip after idle merge heartbeat: c6d9e7e0044624eac12a533b53f139383607377b. Queue empty; D7 suspended; await director/A1 only."}
+{"ts":"2026-09-10T10:57:30Z","from":"A4","type":"NOTE","note":"Authoritative tip after idle merge heartbeat: f31dbc2fc7c2fbabc58e1e81468490866e8fc451. Queue empty; D7 suspended; await director/A1 only."}
