@@ -268,18 +268,22 @@ def make_scurve_sheet(
 ) -> SyntheticDataset:
     """S-shaped 2-D sheet in R^3 (classic S-curve extruded along an axis).
 
-    Parameterization: ``t ∈ [0, 1]`` along the S, ``s ∈ [0, 1]`` across the
-    ribbon width. Area-uniform in ``(t, s)``.
+    True area-uniform S-curve: angle ``θ ∈ [-1.5π, 1.5π]``,
+    ``x = sin(θ)``, ``z = sign(θ)(cos(θ) - 1)``, ``y`` across the ribbon.
+    The curve is unit-speed in ``θ``, so uniform ``(θ, s)`` is area-uniform.
+
+    Prior buggy form mapped ``t ∈ [0, 1]`` onto ``[1.5π, 4.5π]`` with always-
+    positive ``sign(θ)``, which double-covered a half-arc (director D2 / A3-T6).
     """
 
     rng = np.random.default_rng(int(seed))
-    t = rng.random(int(n_samples))
+    u = rng.random(int(n_samples))
     s = rng.random(int(n_samples))
-    # Standard S-curve angle range ~ [1.5π .. 4.5π] mapped from t.
-    angle = (1.5 * np.pi) * (1.0 + 2.0 * t)
-    x = np.sin(angle)
+    # Classic S-curve angle range [-1.5π, 1.5π]; unit speed ⇒ area-uniform.
+    theta = (3.0 * np.pi) * (u - 0.5)
+    x = np.sin(theta)
     y = 2.0 * s
-    z = np.sign(angle) * (np.cos(angle) - 1.0)
+    z = np.sign(theta) * (np.cos(theta) - 1.0)
     points = np.column_stack([x, y, z]).astype(float)
     if float(noise) > 0.0:
         points = points + rng.normal(scale=float(noise), size=points.shape)
@@ -295,7 +299,11 @@ def make_scurve_sheet(
                 connected_components=1, betti_numbers=(1, 0), intrinsic_dim=2,
             ),
         ),
-        metadata={"noise": float(noise), "sampling": "area_uniform_scurve_sheet"},
+        metadata={
+            "noise": float(noise),
+            "sampling": "area_uniform_scurve_sheet",
+            "theta_range": (-1.5 * float(np.pi), 1.5 * float(np.pi)),
+        },
     )
 
 
