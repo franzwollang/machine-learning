@@ -1,22 +1,16 @@
 {
-  "updated_at": "2026-09-10T12:37:06Z",
-  "turn": 129,
+  "updated_at": "2026-09-10T12:46:47Z",
+  "turn": 130,
   "focus": {
     "milestone": "M1",
     "issue": 48,
     "goal": "maintain D7 suspension and integrate idle worker tips"
   },
   "recent": [
-    "Integrated fresh A2-A6 idle mailbox tips; four fast chunks green",
-    "Integrated fresh A3-A6 idle mailbox tips; A2 contained; four fast chunks green",
-    "Integrated fresh A2-A6 idle mailbox tips; four fast chunks green",
-    "Integrated fresh A2/A3/A5/A6 idle mailbox tips; A4 contained; four fast chunks green",
-    "Integrated fresh A2-A6 idle mailbox tips; four fast chunks green"
+    "Integrated A4-A6 idle mailbox tips; four fast chunks green"
   ],
   "discoveries": [],
-  "open_threads": [
-    "#45/#48 remain open under D7 suspension; no further work is authorized this burn"
-  ],
+  "open_threads": [],
   "next_step": "exit until a new worker tip or authorized future-burn trigger appears",
   "blockers": []
 }
