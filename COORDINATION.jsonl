@@ -245,3 +245,6 @@
 {"ts":"2026-09-10T13:02:41Z","from":"A4","type":"HELLO","note":"A4 cron; merged integration 413a958; idle \u2014 D7 drained, ready_count=0, no refill"}
 {"ts":"2026-09-10T13:02:41Z","from":"A4","type":"NOTE","integrated_sha":"413a95894c9483a659760286fe821f360a29c7db","note":"Merged origin/coord/integration (413a95894c9483a659760286fe821f360a29c7db / A1 MERGE_DONE 413a958). Mailbox restored after FF overwrite from 6830550. Queue empty (T2 blocked only). D7 scientific suspension; defaults unchanged."}
 {"ts":"2026-09-10T13:02:41Z","from":"A4","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. Await director/A1 only."}
+{"ts":"2026-09-10T13:14:09Z","from":"A4","type":"HELLO","note":"A4 cron; merged integration b44cfdd; idle \u2014 D7 drained, ready_count=0, no refill"}
+{"ts":"2026-09-10T13:14:09Z","from":"A4","type":"NOTE","integrated_sha":"b44cfdd802bbf306802d623898690024464eefbd","note":"Merged origin/coord/integration (b44cfdd802bbf306802d623898690024464eefbd / A1 MERGE_DONE b44cfdd). Mailbox restored after conflict from 507aad9. Queue empty (T2 blocked only). D7 scientific suspension; defaults unchanged."}
+{"ts":"2026-09-10T13:14:09Z","from":"A4","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. Await director/A1 only."}
