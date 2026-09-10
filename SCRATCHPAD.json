@@ -1,21 +1,21 @@
 {
-  "updated_at": "2026-09-10T13:29:23Z",
-  "turn": 134,
+  "updated_at": "2026-09-10T14:05:24Z",
+  "turn": 135,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "D8 statistic-definition oracles; convene Fable D9 after A2-T16 and A3-T16"
+    "goal": "finish A2-T16 matched-scan after A3-T16 killed scan-length"
   },
   "recent": [
-    "Fable D8 closed additive floors and assigned matched-scan plus aspect-ladder falsifiers"
+    "D9 validated A3-T16 kill and retained A2-T16 as the sole live statistic-definition falsifier"
   ],
   "discoveries": [
-    "Current phi is extreme-over-typical: deepest C-D sampling gap divided by one typical side bisection"
+    "Flat-strip min phi is non-monotone: aspect 4.71 to 9.42 rises 0.123 to 0.163; scan-length is killed"
   ],
   "open_threads": [
     "A2-T16 matched-scan denominator oracle",
-    "A3-T16 flat-strip aspect ladder"
+    "A3-T18 and A4-T19 documentation-only aspect-ladder closeout"
   ],
-  "next_step": "publish D8 TASK_ASSIGN; merge only merge-worthy tips",
+  "next_step": "integrate A3-T16 harness; convene D10 when A2-T16 reports",
   "blockers": []
 }
