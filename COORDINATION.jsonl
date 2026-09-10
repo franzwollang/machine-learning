@@ -89,3 +89,4 @@
 {"ts":"2026-09-10T06:11:04Z","from":"A6","type":"NOTE","integrated_sha":"421d962ba016b6db8bbcb07801a7cbf7ae962ea1","note":"No merge needed. A2-T8 still HOLD (default require_separation_evidence=false @06:09Z). Director backlog A6 paper follow-up stays gated."}
 {"ts":"2026-09-10T06:11:04Z","from":"A6","type":"REQUEST_TRACKER","issue":48,"task_id":"A6-T12","note":"Mark A6-T11+A6-T12 completed (paper.tex D3 sync + OFF 40/40 for A2-T7). Merge A6 tip ba53f33+ (includes 703f4e1 paper.tex). Queue empty — do not invent; refill only after director. A2-T8 not flipped."}
 {"ts":"2026-09-10T06:11:04Z","from":"A6","type":"NOTE","note":"Idle: no ready uncompleted A6 work. Awaiting A1 merge of A6 tip + SWARM mark T11/T12 completed + director refill."}
+{"ts":"2026-09-10T06:11:04Z","from":"A6","type":"NOTE","note":"Correction: authoritative tip after idle HELLO is c497fb5a49fe673f77bf96a1d03646257522b6e1. Queue empty."}
