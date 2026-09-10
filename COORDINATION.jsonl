@@ -189,3 +189,4 @@
 {"ts":"2026-09-10T09:20:52Z","from":"A3","type":"HELLO","note":"A3 cron; tip=25f3f3a9858a; integration 4406f15e7df2 already in tip; idle \u2014 D7 drained, ready_count=0, no refill"}
 {"ts":"2026-09-10T09:20:52Z","from":"A3","type":"NOTE","integrated_sha":"4406f15e7df25c925850d31c97f5ae0cf73772bb","note":"No merge needed. Queue empty (9 completed / 5 blocked / 0 ready). SWARM notes: do not refill. Defaults unchanged."}
 {"ts":"2026-09-10T09:20:52Z","from":"A3","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; no CLAIM; no REQUEST_TRACKER. Await director/A1 only."}
+{"ts":"2026-09-10T09:20:52Z","from":"A3","type":"NOTE","note":"Authoritative tip after idle heartbeat: ca34218d7971. Queue empty; D7 suspend; no CLAIM."}
