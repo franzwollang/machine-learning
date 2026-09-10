@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-10T01:11:05+00:00",
+  "updated_at": "2026-09-10T01:47:00+00:00",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -44,7 +44,7 @@
         },
         {
           "id": "A1-T2",
-          "status": "ready",
+          "status": "completed",
           "summary": "Merge heartbeat (A2->A6 into coord/integration, best-effort snapshot). Run the four fast chunks per the swarm rule on EVERY merge: `gate` (~15 s), `foundation` (~10 s), `evidence` (~3 s), `scenarios` (~60 s) - each under `timeout 600`; never `persistence` (A6 owns it, ~45 min) and never a bare `pytest tests`. A timeout is BLOCKED on #46, not a retry. Every ~3rd merge run the 5-seed normal-path sweep (`timeout 2400`; if it times out, run seeds 0 1 2 only and say so) and record it on the PLANNING M1 board line. Append MERGE_DONE with integration_sha; push integration + A1."
         },
         {
@@ -77,7 +77,7 @@
       "queue": [
         {
           "id": "A2-T1",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "Reproduce the phi=0 graph-disconnection false accept (level_set_root_accept_probe.py --seed 17 --scenes lone_gauss2d_null --max-depth 1: N=50, tau=0.012, 72-pt shoulder clump, no Hebbian link outside it, DM logBF 2162). Dissect: hit counts of the clump nodes, of the background nodes between clump and core, and of the two_gaussians_clear phi=0 TRUE accepts (seeds 0-4) at their accept step. NOTE the contrast table: what quantity separates the false accept from the true ones (saddle-node hit deficit? clump node count? link-absence likelihood under Poisson hits?).",
           "kill": "If no per-node hit-count statistic separates lone_gauss2d s17 from the two_gaussians_clear accepts by at least a factor of 3, report BLOCKED - the fix is not in the selection gate and belongs to #47 (insertion evidence)."
@@ -116,7 +116,7 @@
       "queue": [
         {
           "id": "A3-T1",
-          "status": "ready",
+          "status": "in_progress",
           "issue": 48,
           "summary": "Make the phi-ceiling calibration reproducible: level_set_null_envelope.py runs the root walk (track_tau, --max-depth 1) over a declared null ensemble x seeds and writes one table (scene, seed, step, N, tau, phi, accepted, reason) plus the envelope summary (min, p1, p5, p10, median, count, any accepts). Start with the six existing nulls x seeds 0-19 and confirm it reproduces min 0.288 / p1 0.487 / p5 0.630 / 359 reads and the single phi=0 accept on lone_gauss2d s17.",
           "kill": "n/a (harness). If it cannot reproduce the 2026-09-09 numbers within noise, report the discrepancy before adding scenes."
@@ -161,7 +161,7 @@
       "queue": [
         {
           "id": "A4-T1",
-          "status": "ready",
+          "status": "completed",
           "issue": 45,
           "summary": "FadedMixture samples ~46-49% tissue regardless of tissue_fraction (density = sum w_c [lambda f_c + (1-lambda) u], u uniform on the box; tissue_fraction only pads the box). Add an honest tissue MASS fraction parameter (e.g. tissue_mass) that sets the actual expected background mass, keep the current behaviour as the default so no benchmark changes silently, make metadata report requested vs actual mass, and fix the misleading name/docstring. Unit test: sampled tissue fraction within +-3% of the requested mass at n=4000.",
           "kill": "n/a (generator correctness)."
@@ -240,7 +240,7 @@
       "queue": [
         {
           "id": "A6-T1",
-          "status": "ready",
+          "status": "in_progress",
           "issue": 46,
           "summary": "tests/stage1 takes ~50 min with slow already deselected. Profile (pytest --durations=40), mark every test over ~60 s as slow (or move genuine simulations under tests/scenarios), and add the runtime guard from #46: a conftest hook that fails the default suite if any unmarked test exceeds a declared budget. Target: default tests/stage1 under ~5 min so swarm turns can run it. Do not delete or weaken any test; slow-marking is the only allowed change to a test's status.",
           "kill": "n/a (hygiene). Report the before/after durations table."
