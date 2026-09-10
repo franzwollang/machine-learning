@@ -217,3 +217,4 @@
 {"ts": "2026-09-10T11:32:16Z","from": "A4","type": "NOTE","note": "Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. Await director/A1 only."}
 {"ts": "2026-09-10T11:32:16Z","from": "A4","type": "NOTE","note": "Authoritative tip after idle merge heartbeat: 5d350edcdd792cf3a9e5f4e31e891211880a4b76. Queue empty; D7 suspended; await director/A1 only."}
 {"ts": "2026-09-10T11:32:16Z","from": "A4","type": "NOTE","note": "Authoritative tip SHA correction: 32fe4ae5584090e5b776d8527928153b834a488a. Queue empty; D7 suspended; await director/A1 only."}
+{"ts": "2026-09-10T11:32:31Z","from": "A4","type": "NOTE","note": "Authoritative tip SHA correction: a27d4eaa11716a12ed89b33400a275c2215fef3b. Queue empty; D7 suspended; await director/A1 only."}
