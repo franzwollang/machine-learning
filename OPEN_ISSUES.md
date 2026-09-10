@@ -366,10 +366,13 @@ outer shell (cover ≥ 0.886) and give 2 leaves. Not a growth-policy
 defect: the accepted cut is right, its background partition of the
 lower-density component is crude at the first-accept scale.
 
-Remaining work: use the landed component-only generators and A5-T6/T7
-pure-child oracle to decide whether child over-splitting belongs to
-#48-at-small-`n`; A3 then adds these child-sized nulls to the envelope.
-Keep signal-only ARI + background recall meanwhile. The explicit
+Remaining work: A5-T6 found nested+bimodal pure children clean on 20/20
+seed/component reads; an off-scope A5-T7 run also found weak components clean
+at `n≈365--412` per component. The exact weak-child failure regime
+(`n≈194`, `N≤24`) remains pending before deciding whether the residual is
+tissue/sibling context or #48-at-small-`n`; A3-T7 adds all component-only
+child-sized nulls to the envelope. Keep signal-only ARI + background recall
+meanwhile. The explicit
 `tissue_mass` sweep and descent options A/B all fired their kill criteria,
 so do not tune those families or weaken topology expectations.
 
@@ -770,12 +773,18 @@ Remaining (ordered by severity):
   value to the protocol. The reproducible harness rerun found 357 reads,
   min 0.2876, p1 0.521, p5 0.642, and median 1.365: the minimum and false
   accept reproduce, but the count and percentiles drift slightly from the
-  published table. Widening falsified the fixed ceiling: an S-curve sheet
-  null accepted at seed 8, step 6 (`N=100`, `tau=0.03413`,
-  `phi=0.249435`). Director D1 keeps the sheet in the null family and
-  retains `0.25` only as calibrated-provisional; A3-T3--T5 now measure
-  composite misses, dissect this read, and stratify the envelope before
-  any acceptance-path change.
+  published table. The old S-curve generator double-covered a half-arc,
+  so its seed-8 read is withdrawn. The corrected injective, area-uniform
+  sheet (`θ ∈ [-1.5π, 1.5π]`,
+  `z = sign(θ)(cos(θ) - 1)`, width 2, `n=800`) accepts on seeds
+  1/16/17/18 of 0--19 at φ 0.190/0.242/0.202/0.096 (60 reads).
+  Its null minimum 0.096 overlaps the composite-accept band 0.006--0.244,
+  so no fixed ceiling separates them: the defect is statistic-level, not
+  calibration (director D3). Keep 0.25 unchanged as the
+  calibrated-provisional operational ceiling of the default-off mode.
+  Next: curvature controls (A3-T9/T10), min-side features, then a
+  statistic proposal whose acceptance test is corrected S-curve 0/20
+  with every seed-0--4 composite root accept intact.
 - **Graph-disconnection false accept (acceptance path, owns the DM
   overconfidence item).** lone 2-D Gaussian seed 17 accepts at N=50,
   τ=0.012: a 72-point clump in the shoulder has no Hebbian link outside
@@ -789,24 +798,34 @@ Remaining (ordered by severity):
   preserving two-Gaussian, linked-tori, and nested-sphere root accepts
   on seeds 0--4. On the six nulls over seeds 5--19, the unguarded path
   accepted only lone-Gaussian seed 17 (1/266 candidate reads), while the
-  guard accepted none; all 15 composite roots still accept. Keep the flag
-  off pending review of the generalized cross-flow likelihood gate. Repro:
+  guard accepted none; all 15 composite roots still accept. The generalized
+  cross-flow Poisson gate is falsified: it separates by only 1.74 orders while
+  rejecting true composites, and its $N$-scaled form inverts the decision.
+  Keep the zero-cross guard off unless the A2-T7 flip-readiness sweep is
+  metric-identical to the default path and the conditional A2-T8 null check
+  remains clean. Repro:
   `level_set_root_accept_probe.py --seed 17 --scenes
   lone_gauss2d_null --max-depth 1`.
 - **Connected-support valleys (bimodal circle 2/5, weak two-Gaussians
   2/5).** Failures terminate at the root with no accepted candidate,
   usually at the `n/k` bound; neither child recursion nor DM rejection is
   implicated. Analytic valley depth is seed-invariant and valley-band
-  sample counts overlap PASS/FAIL seeds, so the residual is sampling
-  variability at fixed `n`. A5-T5 is the active `4x/10x` sample-size
-  oracle; do not change expectations.
+  sample counts overlap PASS/FAIL seeds. The `4x/10x` oracle separates the
+  cases: all three failing bimodal seeds recover by `4x` (sample-conditioned),
+  while weak two-Gaussians stays `K=1` on at least half the failures even at
+  `10x` (statistic-limited). Further scene scaling is stopped; do not change
+  expectations or lower the ceiling.
 - **Tissue-heavy children (→ #45).** Root splits leak tissue into
   signal children (bimodal child 37% tissue); the reader then marks
   most of the child background and accepts shell+tissue chunks. Nested
   no longer over-splits under the connected null (2 leaves on all
   seeds). A4's component-only child-sized null generators have landed;
-  A5-T6/T7 and the A3 null-envelope backlog determine whether the residual
-  belongs to #48-at-small-`n`.
+  A5-T6 found nested+bimodal pure children clean on 20/20 seed/component
+  reads, and an off-scope A5-T7 run found weak components clean at
+  `n≈365--412` per component. The exact weak-child regime
+  (`n≈194`, `N≤24`) and A3-T7 child-sized null envelope remain pending;
+  do not yet move the residual from tissue/sibling context to
+  #48-at-small-`n`.
 - Weak two-Gaussians (sep 2.5σ) child of 194 samples still splits at
   the bound (N ≤ 24) on the seeds where the root splits. Revisit after
   #45.
@@ -814,7 +833,9 @@ Remaining (ordered by severity):
   sample-normalized correction reduces the Gaussian false accept from
   `2162` to `128`, but corrected null/composite distributions overlap
   on 69% of reads and true two-Gaussian accepts sit inside the null band.
-  Do not tune its margin; A2-T6 only needs to finish the S10 wording that
-  limits DM to background-partition confirmation.
-- Do not flip `use_level_set_clustering`. Do not delete S2.6.1
+  SI S10.2 now records the negative result and limits DM to
+  background-partition confirmation. Do not tune its margin or flip
+  `sample_normalized_counts`.
+- Do not flip `use_level_set_clustering` until the corrected S-curve
+  null is 0/20 under the acceptance-path statistic. Do not delete S2.6.1
   stand-ins. Do not retune frozen suite numbers.

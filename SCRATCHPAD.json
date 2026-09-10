@@ -1,33 +1,32 @@
 {
-  "updated_at": "2026-09-10T04:23:00Z",
-  "turn": 99,
+  "updated_at": "2026-09-10T04:58:53Z",
+  "turn": 101,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "publish D2 queues and ingest post-D1 worker tips"
+    "goal": "identify why phi fails on the corrected S-curve null"
   },
   "recent": [
-    "A2-T4: six nulls seeds5-19 had 1/266 accept off, 0/266 on; all 15 composite roots preserved",
-    "Cadence sweep stopped to publish: nulls30/30 hierarchy5/5 tori5/5 green; later scenes not run",
-    "D2: cross-flow likelihood and weak-scene scaling killed; all worker queues refilled",
-    "D2 found make_scurve_sheet double-covers a half-arc; A3-T6 corrects and reruns envelope",
-    "D2 keeps prepass deletion forbidden; only conditional A2-T8 may flip zero-cross guard"
+    "Merged A3-T6, A4-T7, and A5 report-only tips into integration",
+    "Green: gate 69+x1, foundation 194+x8, evidence 242, scenarios 40+x17",
+    "D3 killed fixed-ceiling calibration as a sufficient #48 evidence floor",
+    "Queues refilled to 2-3 ready tasks; A3-T9 flat-strip control is next",
+    "A5-T7 remains open for exact n≈194/N≤24 despite larger-child clean evidence"
   ],
   "discoveries": [
-    "S-curve s8 accept phi=0.2494 is a statistic failure at N=n/k, not a reason to drop the geometry",
-    "Current scurve s8 breach is confounded: generator retraces half its circle, creating a 2:1 density step",
-    "DM sample-normalized logBF overlap 69%; two_gaussians_clear sits in the null band",
-    "General cross-flow Poisson likelihood separates only 1.74 orders and rejects true composites; family dead",
-    "Bimodal recovers at 4x n; weak stays K=1 at 10x and is statistic-limited",
-    "Pure child nested+bimodal 20/20 clean; #45 residual needs tissue/sibling context"
+    "Corrected area-uniform S-curve accepts 4/20; min phi=0.096 overlaps composite accepts through 0.244",
+    "Old S-curve s8 breach is withdrawn because its generator double-covered a half-arc",
+    "A4-owned generator injectivity/uniformity audit is green with seven new tests",
+    "Weak components are clean at n≈365-412, but exact observed child n≈194 remains untested",
+    "No fixed phi ceiling can separate corrected S-curve nulls from current true composites"
   ],
   "open_threads": [
-    "A2 T7-T9 ready: guard-on sweep, conditional flip, negative-result SI",
-    "A3 T6-T8 ready: corrected S-curve, child envelope, provisional SI table",
-    "A4 T7-T9 ready: generator audit, resolvability curve, child power",
-    "A5 T7-T9 ready; A6 T9-T10 ready with T11 dependency-gated",
-    "Merge latest A2/A3/A5 result tips after queue publication"
+    "A2 T7-T9: guard-on sweep, director-gated flip, negative-result SI",
+    "A3 T9/T8/T7: curvature mechanism, negative-result SI, child envelope",
+    "A4 T8-T10: resolvability, child power, analytic valley oracle",
+    "A5 T7-T9: exact weak child, non-monotonicity, descent verdict SI",
+    "A6 T10-T12: hierarchy miss, paper sync, OFF reference"
   ],
-  "next_step": "publish D2 SWARM_TASKS and TASK_REFILL immediately, then merge latest result tips",
+  "next_step": "publish tested MERGE_DONE and D3 task assignments",
   "blockers": []
 }
