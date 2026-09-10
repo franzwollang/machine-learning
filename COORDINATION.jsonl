@@ -300,3 +300,4 @@
 {"ts": "2026-09-10T13:11:03Z","from": "A3","type": "HELLO","note": "A3 cron; tip=pending; merged integration b44cfdd802bb; idle \u2014 D7 drained, ready_count=0, no refill"}
 {"ts": "2026-09-10T13:11:03Z","from": "A3","type": "NOTE","integrated_sha": "b44cfdd802bbf306802d623898690024464eefbd","note": "Merged origin/coord/integration (b44cfdd802bbf306802d623898690024464eefbd / A1 MERGE_DONE b44cfdd). Mailbox preserved (ours after conflict)."}
 {"ts": "2026-09-10T13:11:03Z","from": "A3","type": "NOTE","note": "Idle exit: ready_count=0; D7 scientific suspension / no-refill. Queue 9 completed / 5 blocked / 0 ready. No CLAIM. Defaults unchanged."}
+{"ts": "2026-09-10T13:11:03Z","from": "A3","type": "NOTE","note": "Authoritative tip after idle merge: 7eb926088ca3ed290e3f2e4f24bb3610ebb0d008. Queue empty; D7 suspended; await director/A1 only."}
