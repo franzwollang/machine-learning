@@ -749,47 +749,53 @@ background is a separate floor (DM + #45). Raw persistence / excess
 mass are already measured inseparable.
 
 **LANDED (level-set mode; `use_level_set_clustering` still default
-off):** studentized `ρ = φ_CD / φ_0` with `φ_0` the median `φ` of
-intrinsic *connected* cuts of the signal flow graph (normalized-Laplacian
-eigenvector and hop-geodesic median splits; disconnected sides
-discarded; internal-bisection denominator likewise); resolution bound
-`N ≤ n/k` (clamps scale search and the walk); `track_tau` finer walk —
-fresh `fit_scaffold_at_tau` at every finer τ with N free up to `n/k`,
-stop when the bound binds or on `one_feature_null`; no γ, no `no_cut`
-trigger, no step-budget dependence. Full normal-path sweep, seeds 0–4
-(commit 4389a76, 35 min): 54/60 — every null 30/30 (circle, swiss,
-lone torus / inner shell / 2-D / 4-D Gaussian), hierarchy root K=3
-5/5, linked tori root K=2 5/5 (ARI ≥ 0.999), nested shells root K=2
-5/5 with exactly 2 signal leaves; bimodal circle 2/5 and weak
-two-Gaussians 2/5 are the only failures. SI S2.6.2 / S14.3 updated.
+off):** one-feature statistic = min-cut-normalized `φ` (cross-cut
+max-flow over the minimum intrinsic internal cut of either side;
+Fiedler / hop-geodesic median splits, largest component per half)
+against the calibrated ceiling `max_bottleneck_ratio = 0.25`, then the
+background-aware DM verdict; resolution bound `N ≤ n/k` (clamps scale
+search and the walk); `track_tau` finer walk — fresh
+`fit_scaffold_at_tau` at every finer τ with N free up to `n/k`, stop
+when the bound binds; no γ, no `no_cut` trigger, no step-budget
+dependence, no studentized ρ. Full normal-path sweep, seeds 0–4: every
+null 30/30 (circle, swiss, lone torus / inner shell / 2-D / 4-D
+Gaussian), hierarchy root K=3 5/5 (5–6 of 6 fine leaves), linked tori
+root K=2 5/5 (ARI ≥ 0.999), nested shells root K=2 5/5 with exactly 2
+signal leaves; bimodal circle 2/5 and weak two-Gaussians 2/5 are the
+only failures. SI S2.6.2 / S14.3 updated.
 
 Remaining (2026-09-09; ordered by severity):
-- **The studentized floor is inert: the connected null pool is empty
-  on almost every read.** Per-step ρ across 12 scenes × seeds 0–4
-  (`/tmp/rho_envelope`, `level_set_root_accept_probe.py`): φ₀ is
-  `None` on 91/91 null root reads with a candidate (circle 21, swiss
-  32, lone torus 24, inner shell 14) and on every tori / nested /
-  two-Gaussians-clear / hierarchy-root accept; ρ is finite only on
-  small blob regions (hierarchy children N≈20–25, lone 4-D Gaussian).
-  The nulls hold because the raw φ — whose denominator is now the
-  intrinsic *min* cut of each side — is ≥ 0.35 on every null read
-  (swiss min 0.353, circle 0.70, torus 0.80, shell 0.71) while
-  composite accepts read 0.006–0.24 (bimodal seed 4 accepted at
-  0.244). So the operative discriminator is min-cut-normalized raw φ
-  against the borrowed 0.25 ceiling, with a thin null margin; the SI's
-  studentized floor is not what is deciding. Diagnosis in flight: why
-  every eigenvector / hop-geodesic cut is discarded (disconnected side,
-  agreement filter, isolated signal-labelled tissue nodes). Then either
-  restore a populated null and calibrate ρ's ceiling, or formally adopt
-  min-cut-normalized φ as the statistic with its own null-envelope
-  calibration (S14.3 protocol) and rewrite S2.6.2 accordingly.
-- **Calibrate whichever ceiling survives (acceptance path).** The 0.25
-  is borrowed and uncalibrated. Where ρ *is* available (small blobs) the
-  connected null makes it stricter: hierarchy fine pairs rejected at ρ
-  0.28 on seeds 0 and 2 (4–5 of 6 fine leaves; root K=3 unaffected).
-  Protocol: ρ (or φ) distribution of the coarsest C-D cut on the null
-  ensemble × seeds × N up to `n/k`; set the ceiling below the envelope;
-  report hierarchy fine-pair recovery.
+- **One-feature statistic: min-cut-normalized φ (landed 2026-09-09).**
+  The studentized ρ = φ/φ₀ floor was ill-posed — the candidate is a
+  disconnection of the superlevel set, so the signal-induced graph is
+  already the candidate's components and no connected disagreeing
+  bisection of it exists (pool empty 91/91 null reads) — and is
+  retired (`null_bottleneck_ratio`, `studentized_bottleneck`,
+  `one_feature_null` removed; walk stops on the `n/k` bound only). The
+  statistic is φ = cross-cut flow / min(intrinsic min cut of A, of B):
+  a valley must be weaker than any cut inside the pieces it separates.
+  `max_bottleneck_ratio = 0.25` is **calibrated** by the declared
+  null-ensemble protocol (six null scenes × seeds 0–19, root reads with
+  a candidate, `level_set_root_accept_probe.py --max-depth 1`): 359
+  reads, φ min 0.288 (swiss s17), p1 0.487, p5 0.63, median 1.30;
+  composite accepts 0.006–0.244. SI S2.6.2 / S14.3 rewritten;
+  `test_max_bottleneck_ratio_is_calibrated_null_envelope` pins the
+  value to the protocol. Remaining: the 13% margin (0.25 vs 0.288) is
+  thin — widen the ensemble (more null geometries, sample sizes, n/k
+  regimes) before calling the protocol final, and decide whether the
+  ceiling should be stated relative to the envelope rather than as a
+  fixed number.
+- **Graph-disconnection false accept (acceptance path, owns the DM
+  overconfidence item).** lone 2-D Gaussian seed 17 accepts at N=50,
+  τ=0.012: a 72-point clump in the shoulder (r ≈ 1.2–2σ, ~5 nodes)
+  has no Hebbian link outside itself, so cross flow is exactly 0
+  (φ = 0, no ceiling can catch it) and DM confirms with logBF 2162.
+  Absence of a link after ~20 hits/node is weak evidence and nothing
+  weighs it. 1 of 120 null scene-seeds. Fix belongs with the per-node
+  likelihood / DM shot-noise item: the separation evidence must be a
+  function of hit counts on the saddle nodes, not of link existence.
+  Repro: `level_set_root_accept_probe.py --seed 17 --scenes
+  lone_gauss2d_null --max-depth 1`.
 - **Connected-support valleys (bimodal circle 2/5, weak two-Gaussians
   2/5).** Root K=1 on the failing seeds; passes on weak have bg recall
   1.0 and ARI 0.16–0.24. Diagnostic scenes without frozen bars; dissect
@@ -807,12 +813,9 @@ Remaining (2026-09-09; ordered by severity):
   level-set-mode clamp in `run_recursive_discovery`; default-path
   change, needs its own review.
 - **DM log-BF is overconfident** (thousands on 200–500-sample regions
-  at 3–8 hits/node). Not acting as an evidence floor; calibrate or
-  derive its per-node likelihood in the shot-noise regime.
-- Studentization fails open (`ρ = None`) when the connected
-  disagreeing pool is empty (swiss seed 1: Fiedler cut *is* the
-  candidate, geodesic far sides disconnected); the raw φ guard carried
-  that case. Decide whether an empty pool should reject.
+  at 3–8 hits/node; 2162 on the φ = 0 Gaussian false accept above).
+  Not acting as an evidence floor; calibrate or derive its per-node
+  likelihood in the shot-noise regime.
 - `advance_scaffold_to_tau` is now on no path (unit-locked helper);
   delete or keep for diagnostics.
 - Do not flip `use_level_set_clustering`. Do not delete S2.6.1

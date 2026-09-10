@@ -33,9 +33,7 @@ from proteus.stage1.level_set import (
     build_level_set_dag,
     build_level_set_tree,
     mean_neighbor_radius,
-    null_bottleneck_ratio,
     select_level_set_partition,
-    studentized_bottleneck,
 )
 from proteus.stage1.recursion import RecursionConfig, RecursionTree, run_recursive_discovery
 from proteus.stage1.stabilization import StabilizationConfig
@@ -223,11 +221,6 @@ def _dissect(
     reject = None if rv is None else rv.reject_reason
 
     phi = selection.bottleneck_ratio
-    phi_null = selection.null_bottleneck_ratio
-    rho = selection.studentized_ratio
-    if phi is not None and (phi_null is None or rho is None) and cr is not None:
-        phi_null = null_bottleneck_ratio(scaffold, positions, cr.labels)
-        rho = studentized_bottleneck(float(phi), phi_null)
 
     print(
         f"scaffold N_nodes={n_nodes} max_nodes={max_nodes} tau*={tau_star:.6g} "
@@ -244,11 +237,9 @@ def _dissect(
         flush=True,
     )
     phi_s = "na" if phi is None else f"{float(phi):.6g}"
-    phi0_s = "na" if phi_null is None else f"{float(phi_null):.6g}"
-    rho_s = "na" if rho is None else f"{float(rho):.6g}"
     ceil_phi = float(ls_cfg.max_bottleneck_ratio)
     print(
-        f"phi={phi_s}  phi_0={phi0_s}  rho=phi/phi_0={rho_s}  "
+        f"phi={phi_s}  "
         f"ceiling={ceil_phi}  log_bf={float(selection.log_bf):.6g}  "
         f"verdict={verdict} reject_reason={reject}  select_t={select_s:.1f}s",
         flush=True,
@@ -256,8 +247,6 @@ def _dissect(
     if phi is not None:
         print(
             f"  phi_below_ceiling={float(phi) <= ceil_phi}  "
-            f"rho_below_ceiling="
-            f"{'na' if rho is None else bool(float(rho) <= ceil_phi)}  "
             f"logBF_positive={float(selection.log_bf) > 0.0}",
             flush=True,
         )
@@ -338,8 +327,6 @@ def _dissect(
         )
 
     helper_phi = None
-    helper_phi0 = None
-    helper_rho = None
     helper_labels = None
     if coarsest_balanced is not None:
         cand = ls_tree.levels[coarsest_balanced]
@@ -347,13 +334,9 @@ def _dissect(
             cand.labels, ls_cfg.min_cluster_size, ls_cfg.min_cluster_frac,
         )
         helper_phi = float(_flow_bottleneck_ratio(scaffold, helper_labels, positions))
-        helper_phi0 = null_bottleneck_ratio(scaffold, positions, helper_labels)
-        helper_rho = studentized_bottleneck(helper_phi, helper_phi0)
         print(
             f"helper coarsest mass-filtered K>=2 level={coarsest_balanced} "
-            f"phi={helper_phi:.6g} phi_0="
-            f"{'na' if helper_phi0 is None else f'{float(helper_phi0):.6g}'} "
-            f"rho={'na' if helper_rho is None else f'{float(helper_rho):.6g}'}",
+            f"phi={helper_phi:.6g}",
             flush=True,
         )
     else:
@@ -376,13 +359,10 @@ def _dissect(
         "candidate_level": selection.candidate_level,
         "selected_level": selection.selected_level,
         "phi": phi,
-        "phi_0": phi_null,
-        "rho": rho,
         "log_bf": float(selection.log_bf),
         "verdict": verdict,
         "reject_reason": reject,
         "phi_below_ceiling": None if phi is None else bool(float(phi) <= ceil_phi),
-        "rho_below_ceiling": None if rho is None else bool(float(rho) <= ceil_phi),
         "logBF_positive": bool(float(selection.log_bf) > 0.0),
         "ceiling": ceil_phi,
         "tree_n_levels": n_levels,
@@ -397,8 +377,6 @@ def _dissect(
         "coarsest_balanced_level": coarsest_balanced,
         "mass_rows": mass_rows,
         "helper_phi": helper_phi,
-        "helper_phi_0": helper_phi0,
-        "helper_rho": helper_rho,
         "search_s": search_s,
         "select_s": select_s,
         "empty_scaffold": False,
@@ -537,7 +515,7 @@ def main() -> int:
         acc = rec.get("accepted")
         print(
             f"{key:24s} accepted={acc} K={rec.get('n_clusters')} "
-            f"phi={rec.get('phi')} rho={rec.get('rho')} "
+            f"phi={rec.get('phi')} "
             f"logBF={rec.get('log_bf')} verdict={rec.get('verdict')} "
             f"reason={rec.get('reject_reason')}",
             flush=True,

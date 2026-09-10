@@ -2,7 +2,7 @@
 
 Monkeypatches ``proteus.stage1.recursion.select_level_set_partition`` and
 runs ``run_recursive_discovery`` at ``max_depth=1`` so only the root is
-processed.  Prints one line per selection call (tau, N, hits, r_k, φ/ρ/BF).
+processed.  Prints one line per selection call (tau, N, hits, r_k, φ/BF).
 
 Not a pytest test.
 
@@ -125,7 +125,6 @@ def run_scene(scene_name: str, args: argparse.Namespace) -> None:
             "verdict": verdict,
             "reason": reason,
             "phi": selection.bottleneck_ratio,
-            "rho": selection.studentized_ratio,
             "logBF": float(selection.log_bf),
         }
         records.append(rec)
@@ -142,7 +141,7 @@ def run_scene(scene_name: str, args: argparse.Namespace) -> None:
             f"node_rk={_fmt(node_rk)} sample_rk={_fmt(sample_rk)} "
             f"accepted={int(accepted)} K={k_val} "
             f"verdict={verdict} reason={reason} "
-            f"phi={_fmt(rec['phi'])} rho={_fmt(rec['rho'])} "
+            f"phi={_fmt(rec['phi'])} "
             f"logBF={_fmt(rec['logBF'])}{mark}",
             flush=True,
         )
@@ -175,7 +174,7 @@ def run_scene(scene_name: str, args: argparse.Namespace) -> None:
             f"accepted_N={accept['N']} n/N={_fmt(accept['mean_hits_nN'])} "
             f"hits_mean={_fmt(accept['hits_mean'])} "
             f"hits_min={_fmt(accept['hits_min'])} "
-            f"phi={_fmt(accept['phi'])} rho={_fmt(accept['rho'])} "
+            f"phi={_fmt(accept['phi'])} "
             f"logBF={_fmt(accept['logBF'])} "
             f"at_shot={int(accept['shot'])} "
             f"elapsed={elapsed:.1f}s",

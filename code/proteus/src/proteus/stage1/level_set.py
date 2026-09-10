@@ -60,8 +60,6 @@ __all__ = [
     "mean_neighbor_radius",
     "shot_noise_node_cap",
     "at_shot_noise_scale",
-    "null_bottleneck_ratio",
-    "studentized_bottleneck",
     "build_level_set_tree",
     "build_level_set_dag",
     "apply_geometric_screens",
@@ -93,30 +91,26 @@ class LevelSetConfig:
     tail (nested shells, linked tori) surface as balanced mid-tree cuts and
     are now visited.
 
-    ``max_bottleneck_ratio`` is the flow-bottleneck guard that makes the
-    mid-tree visit safe.  Sampling-gap arcs of a connected manifold pass
-    every position-only screen (persistence, excess mass, subsample and
-    ``k`` stability all measured inseparable on 2026-08-13), but the cut
-    boundary of an arc is not a *flow* bottleneck: the cross-cut max-flow
-    is comparable to either arc's own internal throughput (ratio 0.6-1.3
-    measured on fitted circles), while true valleys carry near-zero cross
-    flow relative to each side's internal bisection flow (0.0-0.07 on
-    fitted hierarchy / tori / nested shells).  All of these are operational
-    proposal-path defaults, not promoted acceptance constants.
+    ``max_bottleneck_ratio`` is the ceiling on min-cut-normalized ``φ``
+    (SI S2.6.2 / OPEN_ISSUES #48): worst pairwise cross-cut max-flow
+    over the minimum intrinsic internal cut of either side.  A valley
+    must be weaker than any cut inside the pieces it separates
+    (per-side one-feature null).  Calibrated on every root read with a
+    candidate cut on the six null scenes (circle, swiss roll, lone
+    torus, lone inner shell, lone 2-D and 4-D Gaussian) × seeds 0–19
+    under ``track_tau`` (359 reads; ``φ`` min 0.288, p1 0.487, p5
+    0.630, p10 0.760, median 1.30).  The value 0.25 sits 13% below that
+    null envelope and above every linked-tori / nested-shell accept.
+    Sampling-gap arcs of a connected manifold pass every position-only
+    screen (persistence, excess mass, subsample and ``k`` stability all
+    measured inseparable on 2026-08-13), but the cut boundary of an arc
+    is not a *flow* bottleneck.
 
     ``growth_policy="track_tau"`` is the landed finer-walk policy
     (SI S2.6.2 / OPEN_ISSUES #48): each finer ``τ`` re-seeds the mesh
     (``fit_scaffold_at_tau``) with ``N`` free up to the derived bound
     ``n/k``.  There is no node-budget gate, no ``no_cut`` trigger, and
-    no scale-match ratio.  Descent ends when the bound binds or on
-    ``one_feature_null``.
-
-    Raw ``φ`` is not an acceptance-path floor: the circle finer-walk
-    probe (2026-09-09) accepted a shot-noise cut at ``φ=0.052``, inside
-    the fitted true-split band.  The #48 studentized ratio
-    ``φ / φ_0`` compares the candidate to typical *disagreeing*
-    intrinsic connected cuts of the same flow graph (SI S2.6.2).  The
-    same ``max_bottleneck_ratio`` ceiling is applied to that ratio.
+    no scale-match ratio.  Descent ends when the bound binds.
     """
 
     k_neighbors: int = 8
@@ -210,7 +204,7 @@ class ValleyResolvability:
     """Node-growth classification for one level-set extraction.
 
     ``reject_reason`` is ``None`` on an accepted split, otherwise one of
-    ``"bottleneck"``, ``"one_feature_null"``, ``"dm"``, or ``"no_cut"``.
+    ``"bottleneck"``, ``"dm"``, or ``"no_cut"``.
     """
 
     verdict: ValleyVerdict
@@ -234,8 +228,6 @@ class LevelSetSelection:
     resolvability: ValleyResolvability | None = None
     candidate_level: int | None = None
     bottleneck_ratio: float | None = None
-    null_bottleneck_ratio: float | None = None
-    studentized_ratio: float | None = None
 
     @property
     def accepted(self) -> bool:
@@ -806,24 +798,6 @@ def _median_split_mask(values: np.ndarray) -> np.ndarray | None:
     return side
 
 
-def _component_count(adj: csr_matrix, local_ids: np.ndarray) -> int:
-    if local_ids.size == 0:
-        return 0
-    if local_ids.size == 1:
-        return 1
-    n_comp, _ = connected_components(
-        adj[local_ids][:, local_ids], directed=False,
-    )
-    return int(n_comp)
-
-
-def _both_sides_connected(adj: csr_matrix, mask: np.ndarray) -> bool:
-    return (
-        _component_count(adj, np.where(mask)[0]) == 1
-        and _component_count(adj, np.where(~mask)[0]) == 1
-    )
-
-
 def _largest_component(adj: csr_matrix, local_ids: np.ndarray) -> np.ndarray:
     if local_ids.size <= 1:
         return local_ids
@@ -853,32 +827,6 @@ def _intrinsic_split_mask(adj: csr_matrix) -> np.ndarray | None:
             return None
         mask = _median_split_mask(_hop_distances(adj, pair[0]))
     return mask
-
-
-def _hyperplane_bisection_flow(
-    graph: tuple[list[int], list[int], list[int]],
-    n: int,
-    members: np.ndarray,
-    positions: np.ndarray,
-) -> float:
-    """Legacy ambient-hyperplane internal throughput (#48 contrast).
-
-    Bisects ``members`` by the max-variance coordinate median.  Kept so
-    tests can show that a curled sheet inflates φ when a side is
-    disconnected in the flow graph.
-    """
-
-    points = positions[members]
-    axis = int(np.argmax(points.var(axis=0)))
-    median = float(np.median(points[:, axis]))
-    half_a = members[points[:, axis] <= median].tolist()
-    half_b = members[points[:, axis] > median].tolist()
-    if not half_a or not half_b:
-        order = np.argsort(points[:, axis])
-        mid = max(1, len(members) // 2)
-        half_a = members[order[:mid]].tolist()
-        half_b = members[order[mid:]].tolist()
-    return _set_maxflow(graph, n, half_a, half_b)
 
 
 def _bisection_flow(
@@ -920,13 +868,19 @@ def _flow_bottleneck_ratio(
     labels: np.ndarray,
     positions: np.ndarray,
 ) -> float:
-    """Worst pairwise cross-cut max-flow over internal bisection flow.
+    """Worst pairwise cross-cut max-flow over min intrinsic internal cut.
 
-    Dimensionless arc-vs-valley discriminant (SI S2.6.2): for a sampling-gap
-    arc cut of a connected manifold the cross-cut max-flow matches either
-    side's own internal throughput (ratio near 1), while a true density
-    valley carries near-zero cross flow.  Returns ``inf`` when a block has
-    no measurable internal throughput, which rejects the cut.
+    Dimensionless one-feature statistic (SI S2.6.2 / #48): ``φ`` is the
+    worst pairwise cross-cut max-flow over the minimum intrinsic
+    internal cut of either side (Fiedler median split, hop-geodesic
+    fallback, largest component per half).  A valley must be weaker
+    than any cut inside the pieces it separates.  Under ``H_0`` the
+    coarsest C-D cut is one shot-noise gap among others and ``φ`` is
+    ``O(1)``; a sampling-gap arc of a connected manifold matches
+    either side's internal throughput (ratio near 1), while a true
+    density valley carries near-zero cross flow.  Returns ``inf`` when
+    a block has no measurable internal throughput, which rejects the
+    cut.
     """
 
     n = int(labels.shape[0])
@@ -947,13 +901,6 @@ def _flow_bottleneck_ratio(
                 return float("inf")
             worst = max(worst, cross / denom)
     return worst
-
-
-_NULL_CUT_RANDOM = 16
-"""Random geodesic seed count for the one-feature null φ_0 estimator."""
-
-_NULL_CUT_EIGS = 3
-"""Non-trivial Laplacian modes used as intrinsic null bisections."""
 
 
 def mean_neighbor_radius(points: np.ndarray, k: int) -> float:
@@ -1001,186 +948,6 @@ def at_shot_noise_scale(
     return n_nodes >= shot_noise_node_cap(
         int(np.asarray(data).shape[0]), k, 1,
     )
-
-
-def _two_set_agreement(labels_a: np.ndarray, labels_b: np.ndarray) -> float:
-    """Max label-flip accuracy on indices that are signal in both cuts."""
-
-    a = np.asarray(labels_a)
-    b = np.asarray(labels_b)
-    mask = (a >= 0) & (b >= 0)
-    if int(np.sum(mask)) < 2:
-        return 1.0
-    a_s = a[mask]
-    b_s = b[mask]
-    ua = sorted(set(int(v) for v in a_s))
-    ub = sorted(set(int(v) for v in b_s))
-    if len(ua) < 2 or len(ub) < 2:
-        return 1.0
-    a2 = (a_s == ua[0]).astype(int)
-    b2 = (b_s == ub[0]).astype(int)
-    same = float(np.mean(a2 == b2))
-    return max(same, 1.0 - same)
-
-
-def _hyperplane_cut_labels(
-    positions: np.ndarray,
-    signal: np.ndarray,
-    direction: np.ndarray,
-) -> np.ndarray:
-    labels = np.full(int(positions.shape[0]), -1, dtype=int)
-    pts = positions[signal]
-    if pts.shape[0] < 2:
-        return labels
-    axis = np.asarray(direction, dtype=float)
-    norm = float(np.linalg.norm(axis))
-    if norm <= 0.0:
-        return labels
-    proj = pts @ (axis / norm)
-    median = float(np.median(proj))
-    side = (proj > median).astype(int)
-    if int(side.min()) == int(side.max()):
-        order = np.argsort(proj)
-        side = np.zeros(pts.shape[0], dtype=int)
-        side[order[pts.shape[0] // 2:]] = 1
-    labels[signal] = side
-    return labels
-
-
-def _null_cut_directions(
-    dim: int,
-    rng: np.random.Generator,
-    n_random: int = _NULL_CUT_RANDOM,
-) -> list[np.ndarray]:
-    """Legacy ambient directions (#48 contrast / tests)."""
-
-    directions: list[np.ndarray] = []
-    for i in range(max(int(dim), 1)):
-        axis = np.zeros(dim, dtype=float)
-        axis[i] = 1.0
-        directions.append(axis)
-    for _ in range(max(int(n_random), 0)):
-        vec = rng.normal(size=dim)
-        norm = float(np.linalg.norm(vec))
-        if norm > 0.0:
-            directions.append(vec / norm)
-    return directions
-
-
-def _labels_from_local_mask(
-    n: int,
-    members: np.ndarray,
-    local_mask: np.ndarray,
-) -> np.ndarray:
-    labels = np.full(int(n), -1, dtype=int)
-    side = np.zeros(int(members.shape[0]), dtype=int)
-    side[local_mask] = 1
-    labels[members] = side
-    return labels
-
-
-def _iter_intrinsic_null_cuts(
-    adj: csr_matrix,
-    n: int,
-    members: np.ndarray,
-    rng: np.random.Generator,
-) -> list[np.ndarray]:
-    """Connected intrinsic bisections of the signal-induced flow graph.
-
-    (a) median splits of the first ``_NULL_CUT_EIGS`` non-trivial
-    normalized-Laplacian eigenvectors; (b) hop-count geodesic median
-    splits from ``_NULL_CUT_RANDOM`` random seeds.  A cut is kept only
-    when both sides are connected in the induced subgraph.
-    """
-
-    cuts: list[np.ndarray] = []
-    m = int(adj.shape[0])
-    if m < 2:
-        return cuts
-    vecs = _normalized_laplacian_vectors(adj, _NULL_CUT_EIGS)
-    if vecs is not None:
-        for k in range(int(vecs.shape[1])):
-            mask = _median_split_mask(vecs[:, k])
-            if mask is None or not _both_sides_connected(adj, mask):
-                continue
-            cuts.append(_labels_from_local_mask(n, members, mask))
-    n_seeds = min(int(_NULL_CUT_RANDOM), m)
-    if n_seeds > 0:
-        seeds = rng.choice(m, size=n_seeds, replace=False)
-        for seed in seeds:
-            mask = _median_split_mask(_hop_distances(adj, int(seed)))
-            if mask is None or not _both_sides_connected(adj, mask):
-                continue
-            cuts.append(_labels_from_local_mask(n, members, mask))
-    return cuts
-
-
-def null_bottleneck_ratio(
-    scaffold: Any,
-    positions: np.ndarray,
-    candidate_labels: np.ndarray,
-    rng: np.random.Generator | None = None,
-) -> float | None:
-    """Typical one-feature ``φ``: median bottleneck of disagreeing cuts.
-
-    Null cuts are intrinsic bisections of the signal-induced flow graph:
-    median splits of the first ``_NULL_CUT_EIGS`` non-trivial
-    normalized-Laplacian eigenvectors, plus hop-count graph-geodesic
-    median splits from ``_NULL_CUT_RANDOM`` random seed nodes.
-
-    Hop count (not ``1/weight``) is the geodesic length so that ``φ_0``
-    estimates the typical ``φ`` of a *geometric* connected cut.  Density-
-    weighted lengths would systematically recover a true valley — the
-    Fiedler cut of the weighted graph already does that, and the
-    agreement filter drops it.  Cuts whose sides are not each connected
-    in the induced subgraph are discarded.  Cuts that recreate the
-    candidate (agreement ``≥ 0.5`` after a label flip) are dropped so a
-    true valley that coincides with the Fiedler cut does not contaminate
-    the null.  Returns ``None`` when the pool is empty.  SI S2.6.2 / #48.
-    """
-
-    rng = rng if rng is not None else np.random.default_rng(0)
-    labels = np.asarray(candidate_labels)
-    members = np.where(labels >= 0)[0]
-    if members.size < 4:
-        return None
-    n = int(labels.shape[0])
-    graph = _flow_graph(scaffold)
-    adj = _induced_adjacency(graph, members)
-    pool: list[float] = []
-    agreeing: list[tuple[float, float]] = []
-    for cut in _iter_intrinsic_null_cuts(adj, n, members, rng):
-        signal = cut[members]
-        if len(set(int(v) for v in signal)) < 2:
-            continue
-        phi = _flow_bottleneck_ratio(scaffold, cut, positions)
-        if not np.isfinite(phi) or phi < 0.0:
-            continue
-        agree = _two_set_agreement(labels, cut)
-        if agree <= 0.5:
-            pool.append(float(phi))
-        else:
-            agreeing.append((agree, float(phi)))
-    if not pool and agreeing:
-        agreeing.sort(reverse=True)
-        leftover = [phi for _, phi in agreeing[1:]]
-        pool = leftover
-    if not pool:
-        return None
-    return float(np.median(np.asarray(pool, dtype=float)))
-
-
-def studentized_bottleneck(
-    phi_candidate: float,
-    phi_null: float | None,
-) -> float | None:
-    """``φ / φ_0``; ``None`` when the null scale is unusable."""
-
-    if phi_null is None or (not np.isfinite(phi_null)) or float(phi_null) <= 0.0:
-        return None
-    if not np.isfinite(phi_candidate):
-        return float("inf")
-    return float(phi_candidate) / float(phi_null)
 
 
 def _label_sets(labels: np.ndarray) -> tuple[list[set[int]], set[int]]:
@@ -1325,8 +1092,8 @@ def select_level_set_partition(
     """Select the coarsest evidence-bearing split (SI S2.6.2).
 
     Pipeline: C-D tree → merge DAG (diagnostics + sibling collapse) →
-    coarsest *mass-filtered* ``K >= 2`` cut → flow-bottleneck guard →
-    studentized one-feature floor → background-aware DM.  Levels whose
+    coarsest *mass-filtered* ``K >= 2`` cut → min-cut-normalized ``φ``
+    ceiling → background-aware DM.  Levels whose
     cut collapses below ``K = 2`` after
     the relative-mass floor (satellite-only structure) are skipped, so a
     balanced mid-tree cut — nested shells or linked tori whose valley is
@@ -1374,8 +1141,6 @@ def select_level_set_partition(
     reject_reason: str | None = "no_cut"
     candidate_level: int | None = None
     bottleneck_ratio: float | None = None
-    phi_null: float | None = None
-    phi_rel: float | None = None
     for level_index in range(len(tree.levels) - 1, -1, -1):
         if tree.levels[level_index].n_clusters < 2:
             continue
@@ -1392,17 +1157,12 @@ def select_level_set_partition(
         saw_balanced_cut = True
         candidate_level = level_index
         # Coarse-anchor: this is the coarsest mass-filtered K>=2 cut and
-        # the only candidate.  Guard against sampling-gap arcs, studentize
-        # against the local one-feature null, then confirm with DM.
+        # the only candidate.  Guard against sampling-gap arcs with
+        # min-cut-normalized φ, then confirm with DM.
         ratio = _flow_bottleneck_ratio(scaffold, labels, positions)
         bottleneck_ratio = float(ratio)
-        phi_null = null_bottleneck_ratio(scaffold, positions, labels)
-        phi_rel = studentized_bottleneck(float(ratio), phi_null)
         if ratio > config.max_bottleneck_ratio:
             reject_reason = "bottleneck"
-            break
-        if phi_rel is not None and phi_rel > config.max_bottleneck_ratio:
-            reject_reason = "one_feature_null"
             break
         log_bf, accepted = dm_partition_background_verdict(
             scaffold, clusters, background, dm_config,
@@ -1425,8 +1185,6 @@ def select_level_set_partition(
                 ),
                 candidate_level=level_index,
                 bottleneck_ratio=float(ratio),
-                null_bottleneck_ratio=phi_null,
-                studentized_ratio=phi_rel,
             )
         reject_reason = "dm"
         break
@@ -1447,6 +1205,4 @@ def select_level_set_partition(
         ),
         candidate_level=candidate_level,
         bottleneck_ratio=bottleneck_ratio,
-        null_bottleneck_ratio=phi_null,
-        studentized_ratio=phi_rel,
     )

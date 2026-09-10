@@ -111,8 +111,28 @@ keeps conflicts bounded.
 
 ## Models
 
-Obey `.cursor/rules/subagent-models.mdc` temporary override: subagents only
-`composer-2.5-fast` or `cursor-grok-4.5-high`.
+Obey `.cursor/rules/subagent-models.mdc` temporary override: every swarm agent and every
+subagent uses `cursor-grok-4.6-high-fast`. Only A1 may occasionally spawn one
+`claude-fable-5-1-thinking-high` analysis subagent for guidance on issues / next steps /
+kill decisions (no implementation). Workers never spawn Claude.
+
+## Lessons from the 2026-08 burn (binding this burn)
+
+See `docs/Proteus/paper_1_foundational/reference/burn_2026-08_swarm_retrospective.md`.
+
+- **Every directive carries a kill criterion.** Each task in `SWARM_TASKS.json` names the
+ observation that would falsify its premise. When it fires, the worker reports `BLOCKED`
+ with the evidence and A1 abandons the family — no composition sweeps inside a dead one.
+- **Refill by expected information, not by available parameter grids.** Decisive oracle
+ / falsification experiments first; seed-fragile effect windows (works at seed 0, gone at
+ 1–2) are noise, not findings, and never justify a follow-up sweep.
+- **Honest metric only:** sample-level background-aware ARI plus background recall and
+ coverage on the shared normal-path sweep across seeds 0–4. Node-level component counts
+ ("majors K=2") are not recovery.
+- **Probes are disposable.** One-off diagnostic scripts stay under `/tmp` or are deleted
+ before `DONE`; only reusable harnesses land in `tests/scenarios/`.
+- **Acceptance-path constants** stay derived / calibrated by a declared protocol
+ (SI S14.3); a worker may propose a constant only with its protocol and null envelope.
 
 ## Testing integrity
 

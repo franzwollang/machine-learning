@@ -117,7 +117,6 @@ def _selection_fields(selection, scaffold, points: np.ndarray) -> dict[str, Any]
         "verdict": verdict,
         "reason": reason,
         "phi": selection.bottleneck_ratio,
-        "rho": selection.studentized_ratio,
         "logBF": float(selection.log_bf),
         "N": n_nodes,
         "tau": None if tau is None else float(tau),
@@ -132,13 +131,11 @@ def _fmt_sel(fields: dict[str, Any]) -> str:
     tau = fields["tau"]
     tau_s = "na" if tau is None else f"{tau:.6g}"
     phi = fields["phi"]
-    rho = fields["rho"]
     r_k = fields["r_k"]
     return (
         f"accepted={int(fields['accepted'])} K={fields['K']} "
         f"verdict={fields['verdict']} reason={fields['reason']} "
         f"phi={phi if phi is None else f'{float(phi):.6g}'} "
-        f"rho={rho if rho is None else f'{float(rho):.6g}'} "
         f"logBF={fields['logBF']:.6g} N={fields['N']} "
         f"tau={tau_s} "
         f"r_k={r_k if r_k is None else f'{float(r_k):.6g}'} "

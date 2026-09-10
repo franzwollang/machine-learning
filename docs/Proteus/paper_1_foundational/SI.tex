@@ -1693,13 +1693,14 @@ arc boundary) while a true valley carries near-zero cross flow. For each
 block pair $(A,B)$ of the candidate cut the guard computes
 $\phi = \mathrm{maxflow}(A,B) / \min(\beta_A,\beta_B)$, where
 $\mathrm{maxflow}$ routes the summed directed link counts through the
-full flow graph and $\beta_C$ is block $C$'s internal throughput --- the
-max-flow across a max-variance spatial bisection of $C$. The ratio is
-dimensionless and self-normalizing in block size and flow scale.
-Measured on fitted scaffolds: circle arc cuts $\phi=0.60$--$1.29$;
-hierarchy, linked tori, and nested shells $\phi=0.000$--$0.070$. The
-operational ceiling \texttt{max\_bottleneck\_ratio}${}=0.25$ sits in the
-$\sim 8\times$ gap. Cuts passing the guard are confirmed by the
+full flow graph and $\beta_C$ is block $C$'s intrinsic minimum
+internal cut (Fiedler median split of the induced flow subgraph,
+hop-geodesic fallback, largest component per half). The ratio is
+dimensionless and self-normalizing in block size and flow scale:
+a valley must be weaker than any cut inside the pieces it separates.
+The ceiling \texttt{max\_bottleneck\_ratio}${}=0.25$ is calibrated
+on the null-ensemble envelope (finer-walk evidence floor below).
+Cuts passing the guard are confirmed by the
 background-aware DM edit. Background is
 a fixed additional outcome: for signal blocks
 $C_1,\ldots,C_K$ and background $B$, form the $(K+1)$-outcome flow
@@ -1800,8 +1801,7 @@ A resolved null at coarse $L{=}1$ does \emph{not} by itself forbid a finer
 $\tau$ probe: a composite feature is unimodal after
 coarse smoothing and only separates below $\tau_{\mathrm{sep}}$ (S2.8).
 The finer walk is licensed at every level (a density child may itself
-be a composite). Descent ends when the $n/k$ bound binds or on
-\texttt{one\_feature\_null}. This is an operational
+be a composite). Descent ends when the $n/k$ bound binds. This is an operational
 stand-in for evidence-gated insertion (OPEN\_ISSUES \#47); it does not yet
 make equilibrium $N$ equal the minimum mesh that resolves a valley.
 
@@ -1815,43 +1815,51 @@ therefore shatters circle and swiss-roll nulls. The correct null is the
 Raw rank persistence and excess mass remain inseparable (measured
 2026-08-13) and are not this floor.
 
-Studentize the flow bottleneck, not a new ceiling on raw $\phi$.
-Let $\phi_{\mathrm{CD}}$ be the candidate's bottleneck. The one-feature
-null scale $\phi_0$ is the median $\phi$ over \emph{intrinsic connected}
-cuts of the same signal flow graph --- median splits of the first
-non-trivial normalized-Laplacian eigenvectors and hop-geodesic median
-splits from random seed nodes --- with any cut having a disconnected
-side discarded. Cuts that recreate the candidate (label-flip agreement
-$>1/2$) are dropped so a linearly separable true valley does not
-contaminate the null. When the remaining pool is empty, $\phi_0$ is
-\texttt{None} (fail-open to raw $\phi$). The internal-bisection
-denominator of $\phi$ itself is likewise an intrinsic connected
-bisection (Fiedler median, hop-geodesic fallback, largest component
-per half). Hyperplane bisections of a curled manifold have
-flow-graph-disconnected sides, their internal flow is $\approx 0$,
-$\phi_0$ inflated to $\approx 22$ on the continuous swiss-roll sheet
-(seed~1, $N{=}213$) and accepted an inner-turns/outer-turns arc cut at
-$\phi{=}0.245$, $\rho{=}0.011$; with connected cuts the same candidate
-reads $\phi{=}2.87$ and is rejected by the raw guard.
-The studentized ratio is
-\[
-  \rho=\phi_{\mathrm{CD}}/\phi_0.
-\]
-Under $H_0$ every balanced cut is a shot-noise valley, so
-$\phi_{\mathrm{CD}}\approx\phi_0$ and $\rho\sim 1$. Under $H_1$ the
-C--D cut is deeper than typical disagreeing cuts and $\rho\ll 1$.
-The same operational ceiling
-\texttt{max\_bottleneck\_ratio}${}=0.25$ is applied to $\rho$.
-That $0.25$ ceiling is borrowed and uncalibrated. With connected cuts
-$\phi_0$ is systematically smaller than before, so the borrowed
-ceiling is now stricter (hierarchy seed~0: a fine pair at
-$\phi{=}0.18$, $\rho{=}0.28$ is rejected as \texttt{one\_feature\_null};
-4 of 6 fine leaves). Calibrating the $\rho$ ceiling on the null
-ensemble is the remaining acceptance-path item.
-The circle probe's first accept ($\phi_{\mathrm{CD}}=0.052$) is
-inside the fitted true-split band; it fails once studentized
-($\rho\sim 1$). A tighter raw ceiling would also kill nested/tori
-splits in that band and is forbidden.
+The one-feature statistic is min-cut-normalized $\phi$: worst pairwise
+cross-cut max-flow over the minimum intrinsic internal cut of either
+side (Fiedler median split, hop-geodesic fallback, largest component
+per half). A valley must be weaker than any cut inside the pieces it
+separates. Under $H_0$ the coarsest C--D cut is one shot-noise gap
+among others and $\phi$ is $O(1)$; under $H_1$ a true valley carries
+near-zero cross flow relative to each side's internal throughput.
+
+A disagreeing-cuts null scale $\phi_0$ (median $\phi$ over connected
+bisections of the signal-induced flow graph that do not recreate the
+candidate) is ill-posed and is retired. The candidate is a
+disconnection of the superlevel set, so the signal-induced graph
+(\texttt{labels}${}\ge 0$) is already the candidate's components plus
+tissue isolates --- a connected disagreeing bisection of it cannot
+exist, and the $\phi_0$ pool is empty on essentially every root read
+(91/91 null root reads with a candidate; every tori / nested /
+two-Gaussians accept). The earlier hyperplane version of that
+estimator produced numbers only by ignoring connectivity
+($\phi_0\approx 22$ on the swiss sheet) and is not restored.
+Where $\phi_0$ was finite --- small tissue-free blobs whose cut did
+not disconnect the graph (hierarchy children $N\approx 20$--$25$) ---
+the studentized ratio rejected real fine Gaussian pairs at
+$\rho{=}0.28$. What has been discriminating is min-cut-normalized
+$\phi$ itself.
+
+The ceiling \texttt{max\_bottleneck\_ratio}${}=0.25$ is now
+\emph{calibrated} (acceptance path) by a declared null-ensemble
+envelope protocol: every root read with a candidate cut on the six
+null scenes (circle, swiss roll [continuous sheet], lone torus, lone
+inner shell, lone 2-D and 4-D Gaussian) $\times$ seeds $0$--$19$
+under the \texttt{track\_tau} walk, via
+\texttt{level\_set\_root\_accept\_probe.py --max-depth 1}. Result:
+$359$ reads; $\phi$ min $0.288$ (swiss seed~$17$, $N{=}123$),
+$p_1{=}0.487$, $p_5{=}0.630$, $p_{10}{=}0.760$, median $1.30$ ---
+excluding one read with $\phi{=}0$ exactly (lone 2-D Gaussian
+seed~$17$, $N{=}50$, $\tau{=}0.012$: a $72$-point clump in the
+shoulder whose nodes have no Hebbian link outside the clump; cross
+flow is literally zero, DM $\log\mathrm{BF}{=}2162$). That
+graph-disconnection false accept is not a $\phi$-ceiling failure; it
+belongs to the ``DM log-BF overconfident at few hits per node'' item.
+Composite accepts sit below the ceiling: linked tori
+$0.036$--$0.164$, nested shells $0.006$--$0.195$, two-Gaussians clear
+$0$--$0.086$, bimodal circle $0.099$ and $0.244$. The value $0.25$
+sits below the measured null envelope (margin $13\%$ to $0.288$) and
+above every tori/nested accept.
 
 The shot-noise floor is a \emph{resolution bound on the mesh}: a node's
 catchment must hold at least the $k$ samples that define the local
@@ -1863,11 +1871,11 @@ and the finer-walk node budget. (An earlier statement of this floor as
 ``mean node $r_k$ meets the sample $k$NN radius'' was a derivation
 error: that is equality of \emph{spacings}, reached only at $N\approx
 n$, and it never fired before \texttt{max\_nodes} did --- circle warm
-walk $N{=}750$ of $n{=}1500$, a 194-sample fragment read at $N{=}59$
-with $\rho{=}0.003$; seed-0 composites accept at $15.6$ and $11.8$
+walk $N{=}750$ of $n{=}1500$, a 194-sample fragment read at $N{=}59$;
+seed-0 composites accept at $15.6$ and $11.8$
 samples per node.) The bound clamps the scale-search budget
 (\texttt{min} of the controller default and $n/k$). Finer descent
-stops when the bound binds or on \texttt{one\_feature\_null}, not on
+stops when the bound binds, not on
 \texttt{bottleneck}: a bottleneck-rejected cut is manifold traffic at
 the current $\tau$, and composites show those arcs on the way down to
 $\tau_{\mathrm{sep}}$ (linked tori seed~0: $\phi{=}1.10$ at $\tau^\star$,
@@ -1880,10 +1888,10 @@ The previous warm continuation failed because inherited coarse nodes
 split in place and never rearranged into the hidden valley (linked
 tori seed~1: \texttt{no\_cut} at $\tau{=}0.98$ raised the budget
 $128\to 1000$ without adding a node, then the warm mesh reached
-$N{=}1000$ with every read \texttt{bottleneck}, $\rho$ $1.2$--$4.8$;
+$N{=}1000$ with every read \texttt{bottleneck};
 32 finer steps did not change it), whereas a fresh fit at the same
-$\tau$ finds it ($\rho{=}0.018$ at $N{=}512$).
-The studentized accept guard remains the floor that stops a shatter
+$\tau$ finds it ($\phi$ well below the ceiling at $N{=}512$).
+The min-cut-normalized $\phi$ ceiling is the floor that stops a shatter
 if a fine mesh is ever over-resolved.
 Do not promote \texttt{use\_level\_set\_clustering} until \#48
 recovers composites without densifying uniforms.
@@ -1912,7 +1920,8 @@ and nested shells at adequate budgets. Connected-support valley scenes
 coverage live in \texttt{tests/datasets/synthetic/density\_valleys.py}
 and \texttt{tests/scenarios/synthetic/level\_set\_suite.py}; do not
 retune those numbers to make a path pass. The path remains default-off.
-Under \texttt{track\_tau} plus the connected-cuts null, nulls hold ---
+Under \texttt{track\_tau} plus the min-cut-normalized $\phi$
+ceiling, nulls hold ---
 circle and swiss roll (continuous area-uniform sheet; the former
 $48\times 8$ kernel-anchor lattice was a comb of ridges $7$--$20\sigma$
 apart and was correctly split once resolvable) seeds 0--7, lone torus /
@@ -1923,8 +1932,8 @@ min warm), nested shells root $K{=}2$ on seeds 0--4; nested seeds 0 and
 $57\%$ of the outer shell's nodes fall below the C--D level into
 background and the tissue-dominated fragment shatters (this is \#45
 tissue semantics, not the growth policy); hierarchy root $K{=}3$ on
-every seed with $4$--$6$ of $6$ fine leaves under the now-stricter
-borrowed $\rho$ ceiling; bimodal circle $3/5$ and weak two-Gaussians
+every seed with $5$--$6$ of $6$ fine leaves (seeds $0$--$4$:
+$5,6,5,6,6$; fine pairs no longer $\rho$-rejected); bimodal circle $3/5$ and weak two-Gaussians
 $2/5$ unchanged (connected-support valleys, separate difficulty);
 clear two-Gaussians $5/5$.
 Promotion still
@@ -5326,10 +5335,9 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{LevelSetConfig.min\_persistence} & 0.05\ (\text{core-radius rank lifetime; runt screen; connected-null envelope overlaps true splits}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_excess\_mass} & 0.02\ (\text{normalized mass$\times$rank integral; runt screen}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_cluster\_frac} & 0.15\ (\text{fraction of region node budget; coarse satellite / partial-activation floor}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{LevelSetConfig.max\_bottleneck\_ratio} & 0.25\ (\text{cross-cut max-flow over internal bisection flow; arc-vs-valley guard; fitted gap } 0.07\text{--}0.60) & \text{S2.6.2} & \text{operational (proposal-path)}\\
+\texttt{LevelSetConfig.max\_bottleneck\_ratio} & 0.25\ (\text{ceiling on min-cut-normalized $\phi$; cross-cut max-flow over the weaker side's intrinsic min-cut}) & \text{S2.6.2} & \text{calibrated (null-ensemble envelope protocol, min $0.288$ over $359$ reads, seeds $0$--$19$; acceptance path; \#48)}\\
 \texttt{advance\_scaffold\_to\_tau} & \text{warm in-place $\tau$ continuation; no longer on any path (diagnostic helper, unit-locked)} & \text{S2.6.2} & \text{operational (proposal-path; retired from the finer walk, \#48)}\\
 \texttt{fit\_scaffold\_at\_tau} & \text{fresh fit at each finer $\tau$, $N\le n/k$ (track\_tau finer walk); derived bound, no free constant} & \text{S2.6.2} & \text{derived (\#48)}\\
-\text{finer-walk evidence floor }(\rho=\phi_{\mathrm{CD}}/\phi_0) & \text{$\phi_0=\mathrm{median}\,\phi$ of intrinsic connected cuts (Laplacian-eigenvector and hop-geodesic median splits, disconnected sides discarded); $0.25$ ceiling on $\rho$ still borrowed, uncalibrated, now stricter --- acceptance-path calibration pending (\#48)} & \text{S2.6.2} & \text{form derived; the $0.25$ ceiling on $\rho$ is borrowed, uncalibrated (acceptance-path; \#48; flag off)}\\
 \text{geometry/hollow prepass zoo} & \text{all default false; quarantined (falsified 2026-08; \#44)} & \text{S2.6.2} & \text{quarantined}\\
 \texttt{finer\_tau\_cap\_ratio} & 1/\sqrt{2} & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{max\_finer\_scale\_steps} & 8\ (\text{prefer }\le4\text{ with persist pairing}) & \text{S2.6.2} & \text{operational (proposal-path)}\\

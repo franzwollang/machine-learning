@@ -86,8 +86,8 @@ class RecursionConfig:
     single source for its Bayes-factor margin. When paired with
     ``allow_finer_research``, the finer walk re-seeds the mesh at each
     finer ``τ`` (``fit_scaffold_at_tau``) with ``N`` free up to the
-    derived bound ``n/k``. Descent ends when the bound binds or on
-    ``one_feature_null``. The #48 studentized floor is wired; do not
+    derived bound ``n/k``. Descent ends when the bound binds. The #48
+    min-cut-normalized ``φ`` ceiling is the one-feature guard; do not
     promote this flag until an awaiting-flip review and evidence-gated
     insertion (#47). The non-level-set finer walk keeps its fresh
     ``run_scale_search`` per finer step; ``advance_scaffold_to_tau`` is
@@ -1540,37 +1540,11 @@ def _level_set_should_finer_walk(
     over-split was the legacy Q-score/AP fallthrough (Bug 1: level-set
     mode must not call ``_cluster_scaffold``). Descent re-seeds via
     ``fit_scaffold_at_tau`` with ``N`` free up to ``n/k``; it stops
-    when the bound binds or on ``one_feature_null``.
+    when the bound binds.
     """
 
     del level  # walk is no longer root-only; signature kept for callers
     return not selection.accepted
-
-
-def _level_set_finer_walk_exhausted(
-    selection: LevelSetSelection,
-    scaffold: Any,
-    data: np.ndarray,
-    config: RecursionConfig,
-) -> bool:
-    """Stop finer descent on a resolved one-feature null (SI S2.6.2 / #48).
-
-    The ``n/k`` bound ends the ``track_tau`` walk when it binds
-    (``_track_tau_finer_step``). This helper only classifies the
-    one-feature null; ``bottleneck`` is not a stop.
-    """
-
-    del scaffold, data, config  # bound stop lives in _track_tau_finer_step
-    reason = (
-        selection.resolvability.reject_reason
-        if selection.resolvability is not None
-        else None
-    )
-    # Bottleneck is "this cut is manifold traffic", not "the region is
-    # one feature forever". Composites show bottleneck-rejected arcs at
-    # intermediate tau on the way down to tau_sep (linked tori seed 0:
-    # phi=1.10 at tau*, 0.75 at the first finer step).
-    return reason == "one_feature_null"
 
 
 _TRACK_TAU_CONTINUE = object()
@@ -1611,13 +1585,6 @@ def _track_tau_finer_step(
     if level_set.accepted:
         assert level_set.cluster_result is not None
         return None, scaffold, level_set.cluster_result
-    reason = (
-        level_set.resolvability.reject_reason
-        if level_set.resolvability is not None
-        else None
-    )
-    if reason == "one_feature_null":
-        return None
     if len(scaffold.nodes) >= bound - 1:
         return None
     return _TRACK_TAU_CONTINUE
@@ -1629,7 +1596,12 @@ def _research_finer_split_track_tau(
     config: RecursionConfig,
     parent_tau: float,
 ):
-    """Finer walk that refits at each τ with N free up to ``n/k`` (#48)."""
+    """Finer walk that refits at each τ with N free up to ``n/k`` (#48).
+
+    Descent stops when the ``n/k`` bound binds.  The min-cut-normalized
+    ``φ`` ceiling is the accept guard at each read; a bottleneck-rejected
+    cut is manifold traffic at the current ``τ`` and the walk continues.
+    """
 
     ratio = float(config.finer_tau_cap_ratio)
     if not (0.0 < ratio < 1.0):

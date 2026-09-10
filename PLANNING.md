@@ -13,7 +13,7 @@ bodies below stay static descriptions.
 | Milestone | Status |
 |---|---|
 | M0 — Spec/implementation sync pass | done |
-| M1 — Canonical clustering objective | in progress — #44 flag stays off. #48: `track_tau` walk + connected-cuts one-feature null landed; seeds 0–4 sweep 54/60 — nulls 30/30, hierarchy 5/5, tori 5/5, nested 5/5 (2 leaves); bimodal / weak two-Gaussians 2/5 each. Next: calibrate the ρ ceiling; #45 halo semantics |
+| M1 — Canonical clustering objective | in progress — #44 flag stays off. #48: `track_tau` walk + min-cut φ one-feature statistic landed (ρ retired); φ ceiling 0.25 calibrated on 359 null reads (min 0.288); seeds 0–4: nulls 30/30, hierarchy 5/5 (5–6 of 6 fine leaves), tori / nested root K=2; bimodal / weak two-Gaussians 2/5 each. Next: φ=0 graph-disconnection guard via DM/per-node evidence; #45 halo semantics |
 | M2 — Characteristic-scale selection rebuild | in progress (half×sArg mid-closer except seed2; LC straddle fine>coarse but LC≡0. Do not flip default.) |
 | M3 — Constant audit & calibration tier | done (c_{d,k} + C_Q(d) calibrated on the shared uniform-d-ball ensemble; S14.3 three-tier audit #37 complete; intrinsic-dim estimator #39 validated vs GT + Levina–Bickel cross-check shipped, SI S1.4.1. Operational estimator-wiring divergence surfaced as #40, deferred to the M5 junction-detection consumer.) |
 | M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 traj×fail_closed compose 177p flags off; do not close. #41: densify294/318 both hard-fail; mult3 dip@0.23; denser512 void-absent. Remaining: densify290/320 / #45) |

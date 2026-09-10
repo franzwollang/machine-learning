@@ -1,5 +1,6 @@
 {
-  "updated_at": "2026-08-09T11:42-05:00",
+  "updated_at": "2026-09-09T20:10-05:00",
+  "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
     "coord/A2",
@@ -8,183 +9,240 @@
     "coord/A5",
     "coord/A6"
   ],
+  "models": {
+    "everyone": "cursor-grok-4.6-high-fast",
+    "A1_analysis_only": "claude-fable-5-1-thinking-high"
+  },
+  "ground_rules": [
+    "Read .cursor/rules/swarm-coordination.mdc (incl. 'Lessons from the 2026-08 burn'), COORDINATION.md, and your OPEN_ISSUES entries before the first CLAIM.",
+    "Every task below has a kill criterion. When it fires: BLOCKED with the evidence, no further sweeps in that family; A1 reassigns.",
+    "Metric of record: tests/scenarios/synthetic/level_set_normal_path_sweep.py --seeds 0 1 2 3 4 (sample-level bg-aware ARI, bg recall, coverage, leaf counts). Baseline 2026-09-09: nulls 30/30, hierarchy 5/5 (5-6 of 6 fine leaves), linked_tori root K=2 5/5, nested root K=2 5/5 (2 leaves), bimodal_circle 2/5, two_gaussians_weak 2/5. Any change that lowers a null pass or a root K is a regression regardless of what else improves.",
+    "Acceptance-path code (level_set.py selection, recursion.py descent, controller.py scale search, evidence/*) changes land flag-gated with default off unless the task says otherwise; flipping a default needs the full 5-seed sweep in the DONE note.",
+    "Never weaken a test. @awaiting tests flip only on green evidence. One-off probes live in /tmp or are deleted before DONE.",
+    "Default pytest already deselects slow/real_data; tests/stage1 still takes ~50 min. Run the focused subset named in your task before DONE; A1 runs the broad suite on merge.",
+    "SI.tex is shared by section (see owns_files); edit only your sections, keep hunks local, and never restructure. paper.tex belongs to A6."
+  ],
   "agents": {
     "A1": {
       "branch": "coord/A1",
       "role": "tracker",
+      "owns_files": [
+        "OPEN_ISSUES.md",
+        "OPEN_ISSUES_LOG.jsonl",
+        "PLANNING.md",
+        "SCRATCHPAD.json",
+        "SCRATCHPAD_LOG.jsonl",
+        "SWARM_TASKS.json",
+        "COORDINATION.jsonl (own branch)"
+      ],
       "queue": [
         {
           "id": "A1-T1",
           "status": "ready",
-          "summary": "Seed HELLO; verify all worker HELLO lines; announce first TASK_ASSIGN snapshot"
+          "summary": "Seed HELLO; verify worker HELLOs; announce TASK_ASSIGN snapshot of this file. Confirm each worker's first CLAIM matches its owns_files."
         },
         {
           "id": "A1-T2",
           "status": "ready",
-          "summary": "After workers claim, merge current tips into coord/integration (best-effort snapshot), run tests, append MERGE_DONE with integration_sha, refill queues \u2014 no MERGE_START / no worker pause"
+          "summary": "Merge heartbeat (A2->A6 into coord/integration, best-effort snapshot). Run: pytest tests/stage1/test_level_set.py tests/stage1/test_scale_search.py tests/stage1/test_recursion.py -q -p no:cacheprovider --deselect tests/stage1/test_recursion.py::test_mst_critical_hollow_contrast_vs_h_and_conj (known pre-existing failure). Every ~3rd merge also run the 5-seed normal-path sweep and record it in PLANNING status board. Append MERGE_DONE with integration_sha; push integration + A1."
         },
         {
           "id": "A1-T3",
           "status": "ready",
-          "summary": "Apply REQUEST_TRACKER edits to OPEN_ISSUES/PLANNING/logs; keep queues 2\u20133 deep"
+          "summary": "Apply REQUEST_TRACKER edits (OPEN_ISSUES current-only convention, logs append-only, stable numbering; next issue number is in the OPEN_ISSUES header). Keep queues 2-3 deep with information-priced tasks, each with a kill criterion. Record every kill decision in OPEN_ISSUES_LOG."
+        },
+        {
+          "id": "A1-T4",
+          "status": "ready",
+          "summary": "Fable analysis cadence: after roughly every 5th MERGE_DONE, or immediately when any worker fires a kill criterion, spawn ONE claude-fable-5-1-thinking-high subagent with SCRATCHPAD.json, the relevant OPEN_ISSUES entries, the latest sweep lines, and the DONE/BLOCKED notes since the last analysis; ask for: which families to kill, which to escalate, what the next 2-3 tasks per worker should be, and any spec/code divergence it sees. Apply its guidance via TASK_ASSIGN/TASK_REFILL; log the analysis summary in SCRATCHPAD_LOG."
         }
       ]
     },
     "A2": {
       "branch": "coord/A2",
       "role": "worker",
-      "owns_issues": [
-        44
-      ],
+      "owns_issues": [48],
       "owns_files": [
-        "code/proteus/src/proteus/stage1/recursion.py"
+        "code/proteus/src/proteus/stage1/level_set.py",
+        "code/proteus/src/proteus/evidence/dm_score.py",
+        "code/proteus/tests/stage1/test_level_set.py",
+        "code/proteus/tests/stage1/test_dm_cluster.py",
+        "code/proteus/tests/properties/test_dm_invariants.py",
+        "code/proteus/tests/reductions/test_dm_consistency.py",
+        "docs/Proteus/paper_1_foundational/SI.tex :: S2.6.2 'Finer-walk evidence floor' paragraphs and S10 DM verdict text only"
       ],
       "queue": [
         {
           "id": "A2-T1",
           "status": "ready",
-          "issue": 44,
-          "summary": "Design spike: propose finer-than-parent-tau* re-search API + stop guarantee; write design note to COORDINATION (NOTE), no behavior change yet unless flag-gated"
+          "issue": 48,
+          "summary": "Reproduce the phi=0 graph-disconnection false accept (level_set_root_accept_probe.py --seed 17 --scenes lone_gauss2d_null --max-depth 1: N=50, tau=0.012, 72-pt shoulder clump, no Hebbian link outside it, DM logBF 2162). Dissect: hit counts of the clump nodes, of the background nodes between clump and core, and of the two_gaussians_clear phi=0 TRUE accepts (seeds 0-4) at their accept step. NOTE the contrast table: what quantity separates the false accept from the true ones (saddle-node hit deficit? clump node count? link-absence likelihood under Poisson hits?).",
+          "kill": "If no per-node hit-count statistic separates lone_gauss2d s17 from the two_gaussians_clear accepts by at least a factor of 3, report BLOCKED - the fix is not in the selection gate and belongs to #47 (insertion evidence)."
         },
         {
           "id": "A2-T2",
           "status": "ready",
-          "issue": 44,
-          "summary": "Prototype flag-gated descent into K=1 regions (default off); unit/recursion test sketch for nested_spheres cc=2 aspiration"
+          "issue": 48,
+          "summary": "Flag-gated separation-evidence guard in select_level_set_partition (default off, LevelSetConfig flag): when cross flow is 0 or below the ceiling, require that the absence of flow is supported by the hit counts on the boundary nodes (likelihood of observing zero cross transitions given the nodes' hit totals under a one-feature Poisson model), not by link existence alone. No new tuned constant: the threshold is a probability level tied to the existing DM margin or derived. Unit test on a synthetic 2-clump scaffold with controlled hit counts.",
+          "kill": "If the guard rejects any linked_tori / nested / two_gaussians_clear root accept on seeds 0-4, or accepts lone_gauss2d s17, it is wrong as designed; BLOCKED with the sweep lines."
         },
         {
           "id": "A2-T3",
           "status": "ready",
-          "issue": 44,
-          "summary": "Validate circle/swiss do not shatter under the flag; document results via REQUEST_TRACKER for #44"
+          "issue": 48,
+          "summary": "DM overconfidence in the shot-noise regime: dm_partition_background_verdict returns logBF in the thousands on 200-500-sample regions at 3-8 hits/node. Derive (or bound) the per-node likelihood at low hits and write the SI S10 note; propose the corrected verdict flag-gated; measure logBF on the 6 null scenes x seeds 0-4 root reads vs composite accepts and NOTE the two distributions.",
+          "kill": "If the corrected logBF distributions of nulls and composites still overlap by more than 20% of reads, the DM is not usable as the evidence floor - say so and stop; do not tune a margin."
         }
       ]
     },
     "A3": {
       "branch": "coord/A3",
       "role": "worker",
-      "owns_issues": [
-        42
-      ],
+      "owns_issues": [48],
       "owns_files": [
-        "code/proteus/src/proteus/evidence/star_matrix.py",
-        "docs/Proteus/paper_1_foundational/SI.tex"
+        "code/proteus/tests/scenarios/synthetic/level_set_null_envelope.py (new)",
+        "code/proteus/tests/scenarios/synthetic/level_set_root_accept_probe.py",
+        "code/proteus/tests/datasets/synthetic/level_set_suite.py",
+        "code/proteus/tests/datasets/synthetic/tissue.py",
+        "code/proteus/tests/datasets/synthetic/variable_density.py",
+        "docs/Proteus/paper_1_foundational/SI.tex :: S14.3 phi-ceiling row and the S2.6.2 calibration-protocol sentences only"
       ],
       "queue": [
         {
           "id": "A3-T1",
           "status": "ready",
-          "issue": 42,
-          "summary": "Audit S10.4 vs star_matrix.py; list gap (Jacobian vs incidence proxy) in COORDINATION NOTE"
+          "issue": 48,
+          "summary": "Make the phi-ceiling calibration reproducible: level_set_null_envelope.py runs the root walk (track_tau, --max-depth 1) over a declared null ensemble x seeds and writes one table (scene, seed, step, N, tau, phi, accepted, reason) plus the envelope summary (min, p1, p5, p10, median, count, any accepts). Start with the six existing nulls x seeds 0-19 and confirm it reproduces min 0.288 / p1 0.487 / p5 0.630 / 359 reads and the single phi=0 accept on lone_gauss2d s17.",
+          "kill": "n/a (harness). If it cannot reproduce the 2026-09-09 numbers within noise, report the discrepancy before adding scenes."
         },
         {
           "id": "A3-T2",
           "status": "ready",
-          "issue": 42,
-          "summary": "Draft SI S10.4 prose blessing incidence+rank guard OR specifying router Jacobian; keep proposed/operational labeling clear"
+          "issue": 48,
+          "summary": "Widen the null ensemble: add lone uniform disc, uniform cube (3-D), lone 3-D Gaussian, S-curve sheet, filled ball, and the existing nulls at n in {400, 800, 1600} and k in {reader default, 2x}. Run seeds 0-9. Report the envelope per geometry and per n/k, the worst-case min, and whether 0.25 stays below it with a >= 10% margin. Propose (do not apply) a ceiling rule if a relative form (fraction of the envelope p1) is more stable than a fixed number.",
+          "kill": "If any new null geometry produces phi < 0.25 on a root read with a candidate (excluding phi=0 graph-disconnection cases, which go to A2), STOP widening and NOTE the case with the full STEP line - that is a statistic failure, not a calibration failure."
         },
         {
           "id": "A3-T3",
           "status": "ready",
-          "issue": 42,
-          "summary": "Align module docstring with chosen SI wording; add/adjust a focused unit test if needed; REQUEST_TRACKER to trim #42"
+          "issue": 48,
+          "summary": "Composite margin study on the same harness: linked_tori, nested_spheres, two_gaussians_clear, bimodal_circle, two_gaussians_weak, hierarchy, seeds 0-9, root accept phi and step. Table of accept phi vs the null envelope; identify which composites sit within 20% of the envelope (bimodal 0.244 is the known one) and what geometric property (valley depth relative to component density) predicts it. NOTE only; no code."
         }
       ]
     },
     "A4": {
       "branch": "coord/A4",
       "role": "worker",
-      "owns_issues": [
-        41
-      ],
+      "owns_issues": [45],
       "owns_files": [
-        "code/proteus/tests/metrics/persistent_homology.py",
-        "code/proteus/tests/scenarios/synthetic/"
+        "code/proteus/tests/datasets/synthetic/faded_density.py",
+        "code/proteus/tests/datasets/synthetic/circles.py",
+        "code/proteus/tests/datasets/synthetic/swiss_roll.py",
+        "code/proteus/tests/datasets/synthetic/linked_tori.py",
+        "code/proteus/tests/datasets/synthetic/nested_spheres.py",
+        "code/proteus/tests/datasets/synthetic/density_valleys.py",
+        "code/proteus/tests/datasets/ground_truth.py",
+        "code/proteus/tests/scenarios/synthetic/level_set_root_tissue_probe.py",
+        "code/proteus/tests/scenarios/synthetic/test_circle.py",
+        "code/proteus/tests/scenarios/synthetic/test_swiss_roll.py",
+        "code/proteus/tests/scenarios/synthetic/test_linked_tori.py",
+        "code/proteus/tests/scenarios/synthetic/test_nested_spheres.py",
+        "docs/Proteus/paper_1_foundational/SI.tex :: S14 synthetic-benchmark / generator paragraphs only"
       ],
       "queue": [
         {
           "id": "A4-T1",
           "status": "ready",
-          "issue": 41,
-          "summary": "Inventory existing PH helpers + @awaiting topology tests; NOTE the filtration/reading options"
+          "issue": 45,
+          "summary": "FadedMixture samples ~46-49% tissue regardless of tissue_fraction (density = sum w_c [lambda f_c + (1-lambda) u], u uniform on the box; tissue_fraction only pads the box). Add an honest tissue MASS fraction parameter (e.g. tissue_mass) that sets the actual expected background mass, keep the current behaviour as the default so no benchmark changes silently, make metadata report requested vs actual mass, and fix the misleading name/docstring. Unit test: sampled tissue fraction within +-3% of the requested mass at n=4000.",
+          "kill": "n/a (generator correctness)."
         },
         {
           "id": "A4-T2",
           "status": "ready",
-          "issue": 41,
-          "summary": "Scaffold per-region PH harness (still @awaiting if deps missing); do not flip tests without green evidence"
+          "issue": 45,
+          "summary": "Re-run the normal-path sweep (seeds 0-4, level-set scenes) at tissue_mass in {0.05, 0.20, 0.46(current)} via a sweep flag, WITHOUT changing defaults. Report per scene: root K, leaves, bg-aware ARI, bg recall, coverage. The question: how much of the residual child over-splitting (nested 5 leaves on some seeds, bimodal 4) is tissue mass vs reader semantics.",
+          "kill": "If results at 0.05 tissue are no better than at 0.46 on nested/bimodal child counts, tissue mass is not the driver; NOTE that and stop - do not sweep more fractions."
         },
         {
           "id": "A4-T3",
           "status": "ready",
-          "issue": 41,
-          "summary": "Document tissue-pollution + persistence-lifetime threshold proposal; REQUEST_TRACKER for #41/#25 notes"
+          "issue": 45,
+          "summary": "Check the SI S14 calibration text that speaks of 'tissue fractions 0/0.05' as mass fractions: determine what those runs actually contained (box padding vs mass) and REQUEST_TRACKER the correction with exact numbers. Then re-baseline the @awaiting recovery expectations (#41, #26 scenario tests) on the repaired generators WITHOUT weakening topology criteria - only fix ground-truth counts that the generator repair changed; list every changed expectation in the DONE note."
         }
       ]
     },
     "A5": {
       "branch": "coord/A5",
       "role": "worker",
-      "owns_issues": [
-        43
-      ],
+      "owns_issues": [45, 44],
       "owns_files": [
-        "code/proteus/src/proteus/evidence/gate.py",
-        "code/proteus/tests/evidence/",
-        "code/proteus/tests/**/test*gate*"
+        "code/proteus/src/proteus/stage1/recursion.py",
+        "code/proteus/tests/stage1/test_recursion.py",
+        "code/proteus/tests/scenarios/synthetic/level_set_child_walk_probe.py",
+        "code/proteus/tests/scenarios/synthetic/level_set_gaussian_child_probe.py",
+        "code/proteus/tests/scenarios/synthetic/level_set_normal_path_sweep.py",
+        "docs/Proteus/paper_1_foundational/SI.tex :: S2.6.2 descent / background-partition paragraphs only"
       ],
       "queue": [
         {
           "id": "A5-T1",
           "status": "ready",
-          "issue": 43,
-          "summary": "Map score_edit dual_connected hook + call sites; NOTE what S6 dual graph must provide"
+          "issue": 45,
+          "summary": "Descent semantics option B, flag-gated (default off) in _descend_into_clusters / run_recursive_discovery: a child whose own level-set read sends more than half of its samples to background terminates as a leaf instead of accepting small shell+tissue chunks. Unit test with a synthetic child. Measure on seeds 0-4: nested, bimodal_circle, two_gaussians_weak, linked_tori (leaf counts, bg-aware ARI, coverage) with the flag on vs off.",
+          "kill": "If option B changes any root K or lowers any null pass, it is mis-scoped; BLOCKED. If it reduces nested/bimodal over-splits on fewer than 3 of 5 seeds, it is not the mechanism - NOTE and move to A5-T2 without iterating on the fraction."
         },
         {
           "id": "A5-T2",
           "status": "ready",
-          "issue": 43,
-          "summary": "Add pure-function stub for affected dual-subgraph connectivity (flag or clearly stubbed); property test that disconnect => reject when hook is false"
+          "issue": 45,
+          "summary": "Descent semantics option A (design spike then flag-gated prototype): descend on the branch CORE only - nodes below half-max density relative to the branch peak are halo and stay with the parent's background partition (same lambda=0.5 tier as the ground truth). Write the design NOTE first (what 'branch peak' is on the equalized scaffold, how the halo is scored), then prototype behind a flag. Same measurement as A5-T1.",
+          "kill": "If core-only descent drops coverage below 0.8 on linked_tori or nested (i.e., it throws away real signal), the half-max tier is wrong for the reader; BLOCKED with numbers, no tier tuning."
         },
         {
           "id": "A5-T3",
           "status": "ready",
-          "issue": 43,
-          "summary": "Keep Stage-1 untouched; REQUEST_TRACKER with remaining S6 dependency wording for #43"
+          "issue": 44,
+          "summary": "bimodal_circle 2/5 and two_gaussians_weak 2/5: use level_set_child_walk_probe.py to trace the failing seeds step by step (N, tau, phi, verdict, at the n/k bound). Classify each failure: (i) root read wrong, (ii) child walk hits n/k bound without a candidate, (iii) candidate rejected on phi ceiling (report phi vs 0.25), (iv) DM reject. NOTE the table; propose one experiment per class with a kill criterion. No code."
         }
       ]
     },
     "A6": {
       "branch": "coord/A6",
       "role": "worker",
-      "owns_issues": [
-        28
-      ],
+      "owns_issues": [46, 28],
       "owns_files": [
+        "code/proteus/tests/conftest.py",
+        "code/proteus/pytest.ini",
+        "code/proteus/src/proteus/stage1/controller.py",
+        "code/proteus/tests/stage1/test_scale_search.py",
+        "code/proteus/tests/stage1/test_scale_search_persistence.py",
         "docs/Proteus/paper_1_foundational/paper.tex",
-        "code/proteus/src/proteus/stage1/controller.py"
+        "docs/Proteus/paper_1_foundational/SI.tex :: S2.4 / S2.5 scale-search paragraphs only"
       ],
       "queue": [
         {
           "id": "A6-T1",
           "status": "ready",
-          "issue": 28,
-          "summary": "Locate legacy load-band / _detect_peak / _legacy_slope_selector; NOTE deletion checklist (do not delete yet without A1 merge plan)"
+          "issue": 46,
+          "summary": "tests/stage1 takes ~50 min with slow already deselected. Profile (pytest --durations=40), mark every test over ~60 s as slow (or move genuine simulations under tests/scenarios), and add the runtime guard from #46: a conftest hook that fails the default suite if any unmarked test exceeds a declared budget. Target: default tests/stage1 under ~5 min so swarm turns can run it. Do not delete or weaken any test; slow-marking is the only allowed change to a test's status.",
+          "kill": "n/a (hygiene). Report the before/after durations table."
         },
         {
           "id": "A6-T2",
           "status": "ready",
           "issue": 28,
-          "summary": "paper.tex one-line pointer to S2.6.2 persistence as cluster-count arbiter if still missing; do not edit SI.tex (A3 owns it) or recursion.py"
+          "summary": "Cleanup: advance_scaffold_to_tau is on no production path (retained only by a unit test) - delete it and its test, or move it to a clearly named diagnostics helper; docstring says which. Review the A6-T101 swiss 'densify doubles' assertion in test_scale_search_persistence.py that a previous subagent dropped: restore it if the property still holds, otherwise document exactly why it no longer does (REQUEST_TRACKER). Then sync paper.tex with SI S2.6.2: the finer-walk stop is the n/k resolution bound and the one-feature statistic is min-cut-normalized phi with a calibrated ceiling; remove any paper mention of a studentized ratio.",
+          "kill": "n/a."
         },
         {
           "id": "A6-T3",
           "status": "ready",
           "issue": 28,
-          "summary": "If safe behind flag only: mark load_band path deprecated in controller docstring; REQUEST_TRACKER for #28 bullets + any SI wording A1 should assign later"
+          "summary": "Scale search taking the N <= n/k resolution bound natively (run_scale_search max_nodes resolution) instead of the level-set-mode clamp in run_recursive_discovery. Default-path change: implement behind a ScaleSearchConfig flag (default off), unit test, and run the 5-seed normal-path sweep with the flag on to show no regression; do NOT flip the default. NOTE the diff in selected tau* per scene."
         }
       ]
     }
   },
-  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only: workers merge origin/coord/integration at turn start if behind; A1 publishes MERGE_DONE after merges (no mid-turn pause). A1 keeps queues 2\u20133 deep and may reassign owns_issues/owns_files over time."
+  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only: workers merge origin/coord/integration at turn start if behind; A1 publishes MERGE_DONE after merges (no mid-turn pause). A1 keeps queues 2-3 deep and may reassign owns_issues/owns_files over time. Known pre-existing failing test: tests/stage1/test_recursion.py::test_mst_critical_hollow_contrast_vs_h_and_conj (deselect it)."
 }

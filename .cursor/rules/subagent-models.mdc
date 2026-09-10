@@ -8,50 +8,51 @@ alwaysApply: true
 Model slugs in the table are agent-adjustable per the rule-governance rule (availability
 and pricing shift); the cross-family audit rule below is PROTECTED.
 
-## TEMPORARY OVERRIDE — credit burn (active)
+## TEMPORARY OVERRIDE — credit burn (active; user-approved 2026-09-09)
 
-**Until the user lifts this override, subagents may ONLY use these two model slugs:**
+**Until the user lifts this override, every agent in the swarm — cloud main agents on
+`coord/*` branches and every subagent they spawn — uses one slug:**
 
-| Allowed slug | Role under the override |
-|---|---|
-| `composer-2.5-fast` | Default for exploration, skims, summarization, general implementation, best-of-N, and other non-audit work |
-| `cursor-grok-4.5-high` | Hard features / math-heavy work, and all audits / red-teams / reviews |
+| Allowed slug                     | Who                                                                                                                                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cursor-grok-4.6-high-fast`      | All swarm main agents (A1–A6) and all their subagents, for all work: exploration, implementation, math, audits, reviews                                                                           |
+| `claude-fable-5-1-thinking-high` | **A1 (tracker) only**, occasionally: a single analysis subagent to review the swarm's state and provide guidance on issues / next steps / kill decisions. Not for implementation, not for workers |
 
-Do **not** select Claude, GPT, Gemini, or any other slug for subagents while this override
-is active — even if the historical defaults table below names them. If a Task tool call
-requires a `model` argument, pass one of the two allowed slugs above (or omit/`inherit`
-only when the parent is already one of those two).
+Do **not** select Composer, GPT, Gemini, or any other slug while this override is active
+— even if the historical defaults table below names them. If a Task tool call requires a
+`model` argument, pass `cursor-grok-4.6-high-fast` (or omit/`inherit` when the parent is
+already Grok). Workers never spawn Claude.
 
-Cross-family audits under this override: prefer `cursor-grok-4.5-high` to review work
-produced by Composer (or by a Claude/GPT parent). Do not use Composer to audit its own
-output. Dual independent reviewers are paused until non-Grok families are allowed again.
+Cross-family audits under this override: suspended by user decision (same-family Grok
+reviews are acceptable for the burn); A1's Fable analysis subagent is the only
+cross-family check. Dual independent reviewers are paused until the override is lifted.
 
 ## Historical defaults (superseded while override is active)
 
 Default choices balancing cost and capability. Start at the cheapest tier that fits the
 task; escalate only when a cheaper attempt fails or the task is acceptance-path critical
 (spec math, evidence gate, scale/cluster selection). **Ignored while the override above
-is active** — remap every row to `composer-2.5-fast` or `cursor-grok-4.5-high` per that
+is active** — remap every row to `cursor-grok-4.6-high-fast` per that
 section.
 
-| Task | Model | Why |
-|---|---|---|
-| Codebase exploration, file finding, "where is X" | `composer-2.5-fast` | Cheap, fast; exploration is retrieval, not reasoning |
-| Long-document skims (SI, transcripts), summarization | `gemini-3.5-flash` | Cheap with long context |
-| General implementation (well-specified module, tests exist) | `claude-sonnet-5-thinking-high` or `gpt-5.6-terra-medium` | Solid mid-cost coders; enough for spec-following work |
-| Parallel best-of-N implementation variants | `gpt-5.6-sol-medium` / `gpt-5.6-terra-medium` | Cheap enough to run several attempts |
-| Hard features, tricky refactors, math-heavy spec work (DM gate, dual flow, Q-score, tau* selection) | `claude-fable-5-thinking-high` or `claude-opus-4-8-thinking-high` | Frontier reasoning; acceptance-path code must be right the first time |
-| Auditing, red-teaming, reviewing math or proofs | `gpt-5.4-high` or `cursor-grok-4.5-high` | **Cross-family rule below** |
-| Whole-corpus consistency passes (paper vs SI vs code vs OPEN_ISSUES) | `gemini-3.1-pro` | Long-context deep analysis across many large files |
+| Task                                                                                                 | Model                                            | Why                                                                   |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------- |
+| Codebase exploration, file finding, "where is X"                                                     | `composer-2.5-fast`                              | Cheap, fast; exploration is retrieval, not reasoning                  |
+| Long-document skims (SI, transcripts), summarization                                                 | `gemini-3.6-flash`                               | Cheap with long context                                               |
+| General implementation (well-specified module, tests exist)                                          | `cursor-grok-4.6-high` or `gpt-5.6-terra-medium` | Solid mid-cost coders; enough for spec-following work                 |
+| Parallel best-of-N implementation variants                                                           | `gpt-5.6-sol-medium` / `gpt-5.6-terra-medium`    | Cheap enough to run several attempts                                  |
+| Hard features, tricky refactors, math-heavy spec work (DM gate, dual flow, Q-score, tau\* selection) | `claude-fable-5.1-thinking-high`                 | Frontier reasoning; acceptance-path code must be right the first time |
+| Auditing, red-teaming, reviewing math or proofs                                                      | `gpt-5.6-terra-medium` or `cursor-grok-4.6-high` | **Cross-family rule below**                                           |
+| Whole-corpus consistency passes (paper vs SI vs code vs OPEN_ISSUES)                                 | `gemini-3.1-pro`                                 | Long-context deep analysis across many large files                    |
 
 ## Cross-family audit rule
 
 Never audit an artifact with the same model family that produced it. The parent agent is
-Claude, so reviews of Claude-written code/math go to GPT (`gpt-5.4-high`) or Grok
-(`cursor-grok-4.5-high`); if a GPT subagent wrote it, review with Claude or Gemini.
+Claude, so reviews of Claude-written code/math go to GPT (`gpt-5.6-terra-medium`) or Grok
+(`cursor-grok-4.6-high`); if a GPT subagent wrote it, review with Claude or Gemini.
 For high-stakes derivations (SI lemmas, evidence-gate math), use two independent
 reviewers from different families and reconcile disagreements yourself.
-**(While the temporary override is active, only Grok is available for audits — see above.)**
+**(While the temporary override is active, cross-family audits are suspended except A1's Fable analysis subagent — see above.)**
 
 ## Delegation patterns for this repo
 

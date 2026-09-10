@@ -1,29 +1,30 @@
 {
-  "updated_at": "2026-09-09T19:10:00-05:00",
-  "turn": 91,
+  "updated_at": "2026-09-09T20:20:00-05:00",
+  "turn": 93,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "restore a populated one-feature null (pool empty on ~all reads) or adopt min-cut phi formally; then calibrate ceiling"
+    "goal": "checkpoint the min-cut phi landing, then re-base coord/* on main and launch the second swarm burn"
   },
   "recent": [
-    "Broad tests/stage1: 199 passed (51 min)",
-    "rho envelope: phi0=None on 91/91 null root reads and all composite accepts; nulls held by raw min-cut phi >= 0.35 vs composite accepts <= 0.244",
-    "Dispatched Grok diagnosis of the empty null pool (3079b79a)"
+    "rho retired; min-cut phi + calibrated 0.25 ceiling landed (3fe0973b); restored equal-weak-diameters test (passes on bottleneck)",
+    "Sweeps: nulls 30/30, hierarchy 5/5 (5-6 of 6 fine leaves), tori/nested root K=2; broad tests/stage1 running (~50 min)",
+    "Swarm prep: models override -> grok-4.6-high-fast for all, Fable only for A1 analysis; burn lessons added to swarm rule",
+    "SWARM_TASKS.json rewritten: A2 phi=0 guard + DM, A3 null-envelope harness, A4 tissue mass, A5 descent semantics B/A, A6 test runtime + cleanup",
+    "User authorized force-push of coord/* to current main (history dropped)"
   ],
   "discoveries": [
-    "Warm split-in-place nodes sit on the saddle between composites; fresh fit at fine tau finds the valley",
     "FadedMixture: ~50% tissue regardless of tissue_fraction (box padding only)",
     "First-accept tau is coarsest resolving; lower-density component barely above u there -> crude bg partition",
-    "Connected-cuts change made raw phi self-normalizing (min-cut denominator) and emptied the phi0 pool: studentization inert",
-    "Null-vs-composite margin on raw phi: swiss 0.353 vs bimodal accept 0.244"
+    "Min-cut phi IS the per-side one-feature null; a disagreeing-cuts null on the signal graph cannot exist",
+    "phi=0 from link-graph disconnection is uncatchable by any phi ceiling; evidence must weigh saddle-node hit counts (A2-T1/T2)",
+    "tests/stage1 ~50 min with slow deselected: swarm turns cannot run it (A6-T1)"
   ],
   "open_threads": [
-    "Running: empty-pool diagnosis subagent",
-    "Decision after diagnosis: populated rho vs formal min-cut phi statistic; SI S2.6.2 must match",
-    "A6-T101 swiss densify-doubles assertion dropped by subagent: flagged to user",
-    "#45 decisions pending user: descent semantics; tissue mass fraction; refine bg partition below first-accept tau"
+    "Broad tests/stage1 run in progress; checkpoint on green, then force-push main -> coord/integration, coord/A1..A6",
+    "#45 descent semantics: assigned as A5-T1 (B, flag-gated) then A5-T2 (A spike); user deferred the decision to the swarm measurement",
+    "phi ceiling margin thin (0.25 vs 0.288): A3-T2 widens the ensemble"
   ],
-  "next_step": "read diagnosis; decide statistic; run rho/phi envelope again; calibrate ceiling; SI",
+  "next_step": "when tests finish: checkpoint commit; git push --force main to all coord/* branches; tell user to launch from _SWARM_PROMPTS.tmp.txt",
   "blockers": []
 }

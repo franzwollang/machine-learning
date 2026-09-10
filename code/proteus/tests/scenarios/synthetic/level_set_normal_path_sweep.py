@@ -23,9 +23,9 @@ correctly split once resolvable) seeds 0–7, lone torus / inner shell /
 shell because at the first-accept τ 57% of the outer shell's nodes
 fall below the C-D level into background and the tissue-dominated
 fragment shatters (#45 tissue semantics, not the growth policy).
-Hierarchy root ``K=3`` on every seed with 4–6 of 6 fine leaves under
-the now-stricter borrowed ρ ceiling. Bimodal circle 3/5 and weak
-two-Gaussians 2/5 unchanged (connected-support valleys, separate
+Hierarchy root ``K=3`` on every seed with 5–6 of 6 fine leaves
+(seeds 0–4: 5, 6, 5, 6, 6; fine pairs no longer ρ-rejected).
+Bimodal circle 3/5 and weak two-Gaussians 2/5 unchanged (connected-support valleys, separate)
 difficulty); clear two-Gaussians 5/5. Valley-scene ARI bars are not
 frozen. Not a default-flag flip.
 

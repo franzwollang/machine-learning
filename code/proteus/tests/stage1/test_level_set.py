@@ -16,34 +16,19 @@ from proteus.stage1.level_set import (
     LevelSetTree,
     ValleyResolvability,
     ValleyVerdict,
-    _both_sides_connected,
-    _flow_graph,
-    _hyperplane_bisection_flow,
-    _hyperplane_cut_labels,
-    _induced_adjacency,
-    _iter_intrinsic_null_cuts,
-    _labels_from_local_mask,
-    _median_split_mask,
-    _normalized_laplacian_vectors,
-    _null_cut_directions,
-    _set_maxflow,
-    _two_set_agreement,
     apply_geometric_screens,
     assess_valley_resolvability,
     at_shot_noise_scale,
     build_level_set_dag,
     build_level_set_tree,
-    null_bottleneck_ratio,
     select_level_set_partition,
     shot_noise_node_cap,
-    studentized_bottleneck,
 )
 from proteus.stage1.recursion import (
     RecursionConfig,
     RecursionNode,
     RecursionTree,
     _descend_into_clusters,
-    _level_set_finer_walk_exhausted,
     _level_set_should_finer_walk,
     _research_finer_split,
     run_recursive_discovery,
@@ -155,6 +140,21 @@ def test_level_set_defaults_are_validated_reader() -> None:
     assert config.min_cluster_frac == 0.15
     assert config.max_bottleneck_ratio == 0.25
     assert config.growth_policy == "track_tau"
+
+
+def test_max_bottleneck_ratio_is_calibrated_null_envelope() -> None:
+    """Pin the #48 φ ceiling to the declared null-ensemble protocol.
+
+    Protocol: every root read with a candidate cut on the six null
+    scenes (circle, swiss roll, lone torus, lone inner shell, lone 2-D
+    and 4-D Gaussian) × seeds 0–19 under ``track_tau``, via
+    ``level_set_root_accept_probe.py --max-depth 1``.  Result: 359
+    reads; φ min 0.288 (swiss seed 17, N=123), p1 0.487, p5 0.630,
+    p10 0.760, median 1.30.  The value 0.25 sits 13% below that
+    envelope.  Changing the constant requires repeating the protocol.
+    """
+
+    assert LevelSetConfig().max_bottleneck_ratio == 0.25
 
 
 def test_inactive_and_runt_nodes_are_distinct() -> None:
@@ -490,8 +490,6 @@ def test_two_blob_split_is_resolved_split() -> None:
     assert selection.bottleneck_ratio is not None
     assert selection.bottleneck_ratio <= LevelSetConfig().max_bottleneck_ratio
     assert selection.candidate_level is not None
-    assert selection.studentized_ratio is not None
-    assert selection.studentized_ratio <= LevelSetConfig().max_bottleneck_ratio
 
 
 def test_arc_cut_at_node_cap_is_resolved_null() -> None:
@@ -524,6 +522,32 @@ def test_weak_bridge_is_resolved_split() -> None:
     assert selection.accepted
     assert selection.resolvability is not None
     assert selection.resolvability.verdict == ValleyVerdict.RESOLVED_SPLIT
+
+
+def test_equal_weak_diameters_are_rejected_by_min_cut_phi() -> None:
+    """A cut no weaker than the cuts inside its own sides is one feature.
+
+    Ring with four equally weak (0.05) edges: the candidate severs two of
+    them, but each side still contains one. The min-cut denominator of
+    phi (SI S2.6.2) then reads cross 0.10 over internal min cut 0.05, so
+    the candidate must be rejected on ``bottleneck`` — the per-side
+    one-feature null that replaced the studentized floor (#48).
+    """
+
+    base = _two_arcs(gap_flow=0.05)
+    positions = np.asarray([node.position for node in base.nodes])
+    edges = [(i, i + 1, 6.0) for i in range(11) if (i, i + 1) != (5, 6)]
+    edges += [(i, i + 1, 6.0) for i in range(12, 23) if (i, i + 1) != (17, 18)]
+    edges += [(11, 12, 0.05), (23, 0, 0.05), (5, 6, 0.05), (17, 18, 0.05)]
+    selection = select_level_set_partition(
+        _Scaffold(positions, edges),
+        LevelSetConfig(k_neighbors=4, min_cluster_size=4, n_levels=60),
+    )
+    assert not selection.accepted
+    assert selection.resolvability is not None
+    assert selection.resolvability.reject_reason == "bottleneck"
+    assert selection.bottleneck_ratio is not None
+    assert selection.bottleneck_ratio > LevelSetConfig().max_bottleneck_ratio
 
 
 def test_capped_scaffold_without_balanced_cut_is_under_resolved() -> None:
@@ -599,53 +623,19 @@ def test_finer_walk_licensed_at_every_level_when_not_accepted() -> None:
 def test_finer_walk_does_not_stop_on_bottleneck() -> None:
     """Composites show bottleneck-rejected arcs before tau_sep (#48).
 
-    Exhaustion is only ``one_feature_null``. The ``n/k`` bound ends the
-    ``track_tau`` walk when it binds; this helper does not.
+    The ``track_tau`` walk stops when the ``n/k`` bound binds, not on
+    a reject reason.  Bottleneck is manifold traffic at the current
+    ``τ``; ``_level_set_should_finer_walk`` stays true for it.
     """
 
-    from types import SimpleNamespace
-
-    scaffold = _two_arcs(gap_flow=6.0)
     rng = np.random.default_rng(0)
-    data = rng.normal(size=(400, 2))
-    cfg = RecursionConfig(use_level_set_clustering=True)
-    bottleneck = SimpleNamespace(
-        resolvability=SimpleNamespace(reject_reason="bottleneck"),
-    )
-    shot = SimpleNamespace(
-        resolvability=SimpleNamespace(reject_reason="one_feature_null"),
-    )
-    assert _level_set_finer_walk_exhausted(bottleneck, scaffold, data, cfg) is False
-    assert _level_set_finer_walk_exhausted(shot, scaffold, data, cfg) is True
-
-    # Bound constructions still exercise at_shot_noise_scale (12 nodes vs
-    # 40 points, k=4 → cap 10 → at bound; 8 nodes → below). Descent is
-    # not exhausted at the bound: no_cut / bottleneck keep walking.
     sample = rng.normal(size=(40, 2))
-    cfg_k4 = RecursionConfig(
-        use_level_set_clustering=True,
-        level_set=LevelSetConfig(k_neighbors=4),
-    )
+    # 12 nodes vs 40 points, k=4 → cap 10 → at bound; 8 nodes → below.
     at_bound = _Scaffold(sample[:12], _knn_edges(sample[:12]))
     below = _Scaffold(sample[:8], _knn_edges(sample[:8]))
-    no_cut = SimpleNamespace(
-        resolvability=SimpleNamespace(reject_reason="no_cut"),
-    )
     assert at_shot_noise_scale(at_bound, sample, 4) is True
     assert at_shot_noise_scale(below, sample, 4) is False
-    assert _level_set_finer_walk_exhausted(no_cut, at_bound, sample, cfg_k4) is False
-    assert _level_set_finer_walk_exhausted(bottleneck, at_bound, sample, cfg_k4) is False
-    assert _level_set_finer_walk_exhausted(no_cut, below, sample, cfg_k4) is False
-
-
-def test_studentized_bottleneck_rejects_circle_probe_first_accept() -> None:
-    """Circle f7: raw φ sits in the true-split band; φ/φ_0 does not (#48)."""
-
-    ceiling = LevelSetConfig().max_bottleneck_ratio
-    assert studentized_bottleneck(0.052, 0.05) > ceiling
-    assert studentized_bottleneck(0.05, 0.80) <= ceiling
-    assert studentized_bottleneck(0.05, None) is None
-    assert studentized_bottleneck(0.05, 0.0) is None
+    assert shot_noise_node_cap(40, 4) == 10
 
 
 def test_shot_noise_floor_is_samples_per_node_at_least_k() -> None:
@@ -763,192 +753,6 @@ def test_no_cut_at_cap_is_resolved_null_at_shot_floor() -> None:
     )
     assert resolvability.verdict == ValleyVerdict.RESOLVED_NULL
     assert resolvability.at_node_cap
-
-
-def test_equal_weak_diameters_are_one_feature_null() -> None:
-    """Linearly separable arcs with a matching orthogonal hole must not fail-open."""
-
-    base = _two_arcs(gap_flow=0.05)
-    positions = np.asarray([node.position for node in base.nodes])
-    edges = [(i, i + 1, 6.0) for i in range(11) if (i, i + 1) != (5, 6)]
-    edges += [(i, i + 1, 6.0) for i in range(12, 23) if (i, i + 1) != (17, 18)]
-    edges += [(11, 12, 0.05), (23, 0, 0.05), (5, 6, 0.05), (17, 18, 0.05)]
-    selection = select_level_set_partition(
-        _Scaffold(positions, edges),
-        LevelSetConfig(k_neighbors=4, min_cluster_size=4, n_levels=60),
-    )
-    assert not selection.accepted
-    assert selection.resolvability is not None
-    assert selection.resolvability.reject_reason in {
-        "one_feature_null", "bottleneck",
-    }
-
-
-def _spiral_positions(n: int = 96, turns: float = 1.5) -> np.ndarray:
-    """1.5-turn Archimedean spiral (curled uniform sheet, #48)."""
-
-    t = np.linspace(0.5 * np.pi, 0.5 * np.pi + turns * 2.0 * np.pi, n)
-    radius = 1.0 + t / (2.0 * np.pi)
-    return np.c_[radius * np.cos(t), radius * np.sin(t)]
-
-
-def _side_component_counts(scaffold: _Scaffold, labels: np.ndarray) -> list[int]:
-    from scipy.sparse.csgraph import connected_components
-
-    graph = _flow_graph(scaffold)
-    counts: list[int] = []
-    for key in sorted(set(int(v) for v in labels if v >= 0)):
-        members = np.where(labels == key)[0]
-        adj = _induced_adjacency(graph, members)
-        n_comp, _ = connected_components(adj, directed=False)
-        counts.append(int(n_comp))
-    return counts
-
-
-def _hyperplane_flow_bottleneck_ratio(
-    scaffold: _Scaffold,
-    labels: np.ndarray,
-    positions: np.ndarray,
-) -> float:
-    """Legacy φ: hyperplane internal bisection (#48 contrast)."""
-
-    n = int(labels.shape[0])
-    graph = _flow_graph(scaffold)
-    keys = sorted(set(int(v) for v in labels if v >= 0))
-    blocks = [np.where(labels == key)[0] for key in keys]
-    internal = [
-        _hyperplane_bisection_flow(graph, n, members, positions)
-        for members in blocks
-    ]
-    worst = 0.0
-    for a in range(len(blocks)):
-        for b in range(a + 1, len(blocks)):
-            cross = _set_maxflow(
-                graph, n, blocks[a].tolist(), blocks[b].tolist(),
-            )
-            denom = min(internal[a], internal[b])
-            if denom <= 0.0:
-                return float("inf")
-            worst = max(worst, cross / denom)
-    return worst
-
-
-def _hyperplane_null_bottleneck_ratio(
-    scaffold: _Scaffold,
-    positions: np.ndarray,
-    candidate_labels: np.ndarray,
-    rng: np.random.Generator,
-) -> float | None:
-    """Legacy ambient-hyperplane φ₀ (#48 contrast)."""
-
-    labels = np.asarray(candidate_labels)
-    signal = labels >= 0
-    if int(np.sum(signal)) < 4:
-        return None
-    pool: list[float] = []
-    for direction in _null_cut_directions(int(positions.shape[1]), rng):
-        cut = _hyperplane_cut_labels(positions, signal, direction)
-        if len(set(int(v) for v in cut[signal])) < 2:
-            continue
-        phi = _hyperplane_flow_bottleneck_ratio(scaffold, cut, positions)
-        if not np.isfinite(phi) or phi < 0.0:
-            continue
-        if _two_set_agreement(labels, cut) <= 0.5:
-            pool.append(float(phi))
-    if not pool:
-        return None
-    return float(np.median(np.asarray(pool, dtype=float)))
-
-
-def test_null_phi0_on_spiral_is_geometric_not_hyperplane_inflated() -> None:
-    """Curled-sheet hyperplanes disconnect sides; intrinsic φ₀ stays O(1)."""
-
-    positions = _spiral_positions()
-    edges = [(i, j, 8.0) for i, j, _ in _knn_edges(positions, k=6)]
-    scaffold = _Scaffold(positions, edges)
-    candidate = (np.arange(positions.shape[0]) >= positions.shape[0] // 2).astype(
-        int,
-    )
-
-    axis_cut = _hyperplane_cut_labels(
-        positions, candidate >= 0, np.array([1.0, 0.0]),
-    )
-    assert max(_side_component_counts(scaffold, axis_cut)) > 1
-
-    rng = np.random.default_rng(0)
-    graph = _flow_graph(scaffold)
-    members = np.where(candidate >= 0)[0]
-    adj = _induced_adjacency(graph, members)
-    cuts = _iter_intrinsic_null_cuts(adj, int(candidate.shape[0]), members, rng)
-    assert cuts
-    for cut in cuts:
-        local = cut[members]
-        mask = local == int(local[0])
-        assert _both_sides_connected(adj, mask)
-
-    phi0 = null_bottleneck_ratio(
-        scaffold, positions, candidate, np.random.default_rng(0),
-    )
-    # Exercise the legacy estimator so the contrast is computed, not imagined.
-    _hyperplane_null_bottleneck_ratio(
-        scaffold, positions, candidate, np.random.default_rng(0),
-    )
-    assert phi0 is not None
-    # Measured on this 96-node 1.5-turn kNN sheet: φ₀ = 2.0.  Bound is a
-    # factor 3 of a non-valley cut (docstring: φ ≈ 1).
-    assert 1.0 / 3.0 <= phi0 <= 3.0
-
-
-def test_null_phi0_on_two_blobs_from_disagreeing_cuts() -> None:
-    """A true valley still studentizes well below 1 after the #48 rewrite."""
-
-    positions, edges = _two_blobs_with_background()
-    scaffold = _Scaffold(positions, edges)
-    selection = select_level_set_partition(
-        scaffold,
-        LevelSetConfig(k_neighbors=4, min_cluster_size=4, n_levels=60),
-    )
-    assert selection.accepted
-    assert selection.cluster_result is not None
-    labels = selection.cluster_result.labels
-    phi = selection.bottleneck_ratio
-    phi0 = selection.null_bottleneck_ratio
-    rho = selection.studentized_ratio
-    assert phi is not None and phi0 is not None and rho is not None
-    assert rho < 1.0
-    assert rho <= LevelSetConfig().max_bottleneck_ratio
-
-    members = np.where(labels >= 0)[0]
-    adj = _induced_adjacency(_flow_graph(scaffold), members)
-    vecs = _normalized_laplacian_vectors(adj, 1)
-    assert vecs is not None
-    fiedler_mask = _median_split_mask(vecs[:, 0])
-    assert fiedler_mask is not None
-    fiedler_cut = _labels_from_local_mask(
-        int(labels.shape[0]), members, fiedler_mask,
-    )
-    # The density-weighted Fiedler *is* the valley; the agreement filter
-    # drops it.  φ₀ is then the typical geometric cut (here ≈ 1).
-    assert _two_set_agreement(labels, fiedler_cut) > 0.5
-    assert 1.0 / 3.0 <= phi0 <= 3.0
-    assert phi / phi0 < 1.0
-
-
-def test_true_valley_has_studentized_ratio_below_ceiling() -> None:
-    scaffold = _two_arcs(gap_flow=0.05)
-    selection = select_level_set_partition(
-        scaffold,
-        LevelSetConfig(k_neighbors=4, min_cluster_size=4, n_levels=60),
-    )
-    assert selection.accepted
-    assert selection.null_bottleneck_ratio is not None
-    assert selection.studentized_ratio is not None
-    assert selection.studentized_ratio <= LevelSetConfig().max_bottleneck_ratio
-    positions = np.asarray([node.position for node in scaffold.nodes])
-    labels = selection.cluster_result.labels
-    phi0 = null_bottleneck_ratio(scaffold, positions, labels)
-    assert phi0 is not None
-    assert phi0 > selection.bottleneck_ratio
 
 
 def test_level_set_mode_never_falls_back_to_legacy_clusterer(monkeypatch) -> None:
