@@ -39,10 +39,12 @@ from ..ground_truth import (
     SyntheticDataset,
     TopologyExpectation,
 )
+from .density_valleys import pairwise_leaf_valley_oracle
 from .faded_density import (
     FadedMixture,
     GaussianFadedComponent,
     SupportBall,
+    SupportBox,
     assign_labels_by_lambda,
 )
 
@@ -242,6 +244,38 @@ def make_hierarchical_gaussian(
     points = np.vstack(all_points)
     labels = np.concatenate(all_labels)
 
+    # Global signal mixture over all fine leaves for pairwise valley oracles.
+    flat_comps: list[GaussianFadedComponent] = []
+    n_fine = K * children_per_coarse
+    for group_comps in all_group_components:
+        for comp in group_comps:
+            flat_comps.append(GaussianFadedComponent(
+                center=comp.center,
+                sigma=comp.sigma,
+                transition_radius=comp.transition_radius,
+                weight=1.0 / n_fine,
+            ))
+    leaf_nodes = [c for c in clusters if c.is_leaf]
+    leaf_centers = np.vstack([c.center for c in leaf_nodes])
+    global_support = SupportBox.from_points(
+        leaf_centers,
+        padding_fraction=0.25,
+        min_padding=3.0 * float(child_spread),
+        extra_padding=3.0 * float(child_spread),
+    )
+    global_mixture = FadedMixture(
+        components=flat_comps, support=global_support, tissue_mass=0.0,
+    )
+    valley_meta = pairwise_leaf_valley_oracle(
+        global_mixture,
+        leaf_centers,
+        [int(c.cluster_id) for c in leaf_nodes],
+        [c.parent_id for c in leaf_nodes],
+        points,
+        n_samples=n_samples,
+        seed=seed,
+    )
+
     # Tau grid: the characteristic scale for detecting bumps above uniform.
     # sigma^2 * dim is the per-bump total variance — at this tau each bump
     # occupies ~1 scaffold resolution element.
@@ -277,5 +311,6 @@ def make_hierarchical_gaussian(
             "support_radius": float(support_radius),
             "acceptance_rate": float(acceptance_rate),
             "total_proposal_draws": int(total_drawn),
+            **valley_meta,
         },
     )

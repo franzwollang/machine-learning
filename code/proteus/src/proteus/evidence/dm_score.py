@@ -44,6 +44,7 @@ from proteus.types import EditProposal, EvidenceVerdict
 __all__ = [
     "NodeTransition",
     "bdeu_alpha",
+    "hit_normalized_counts",
     "node_log_marginal",
     "f_dm",
     "evaluate_edit",
@@ -58,6 +59,33 @@ def bdeu_alpha(d_final: int) -> float:
     """
 
     return 1.0 / (float(d_final) + 1.0)
+
+
+def hit_normalized_counts(
+    counts: Sequence[float] | np.ndarray,
+    hit_mass: float,
+) -> np.ndarray:
+    """Rescale outgoing counts so they sum to ``hit_mass`` (SI S10.2).
+
+    Converts Hebbian counters into multinomial trial counts at a chosen
+    effective sample size ``hit_mass`` while preserving empirical routing
+    rates:
+
+        n_{i→j}^{eff} = hit_mass · C(i→j) / Σ_{j'} C(i→j').
+
+    The Stage-1 shot-noise correction (``DMClusterConfig.sample_normalized_counts``)
+    sets ``hit_mass = n_samples · h_i / Σ h`` so the region's total trials
+    equal the sample count (epoch-equivalent), not the lifetime
+    Hebbian/hit totals that grow with training epochs.  When ``hit_mass``
+    or the raw total is non-positive, returns zeros (no informative trials).
+    """
+
+    counts_arr = np.asarray(counts, dtype=float).ravel()
+    total = float(counts_arr.sum())
+    h = float(hit_mass)
+    if total <= 0.0 or h <= 0.0:
+        return np.zeros_like(counts_arr)
+    return counts_arr * (h / total)
 
 
 @dataclass(frozen=True)

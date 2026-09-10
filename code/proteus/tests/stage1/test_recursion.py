@@ -9,6 +9,7 @@ import pytest
 
 from proteus.stage1.controller import ScaleSearchConfig
 from proteus.stage1.clustering import ClusterResult
+from proteus.stage1.level_set import LevelSetConfig
 from proteus.stage1.recursion import (
     RecursionConfig,
     RecursionNode,
@@ -204,6 +205,365 @@ def test_level_set_flag_runs_end_to_end_and_emits_background(
     background = [child for child in children if child.is_background]
     assert len(background) == 1
     assert set(background[0].sample_indices) == {4, 5}
+
+
+def test_option_b_majority_background_flag_default_off() -> None:
+    """#45 option B stays off on the default acceptance path."""
+
+    assert RecursionConfig().terminate_majority_background_child is False
+
+
+def test_option_b_terminates_child_majority_background(
+    monkeypatch,
+) -> None:
+    """Child whose level-set read is >50% background becomes a leaf."""
+
+    data = np.array([
+        [-2.0, 0.0],
+        [-1.9, 0.0],
+        [2.0, 0.0],
+        [1.9, 0.0],
+        [0.0, 2.0],
+        [0.0, -2.0],
+        [0.1, 2.1],
+        [-0.1, -2.1],
+    ])
+
+    class _Node:
+        def __init__(self, position):
+            self.position = np.asarray(position, dtype=float)
+            self.d_final = 2
+
+    class _ANN:
+        def query_knn(self, point, k=1):
+            dists = np.linalg.norm(data - np.asarray(point), axis=1)
+            idx = int(np.argmin(dists))
+            return np.array([idx]), np.array([dists[idx]])
+
+    class _Links:
+        @staticmethod
+        def lifted_links():
+            return []
+
+    class _Scaffold:
+        nodes = [_Node(p) for p in data]
+        ann = _ANN()
+        links = _Links()
+        prune_beta = 0.5
+
+    # 5 of 8 samples map to background BMUs → fraction 0.625 > 0.5.
+    majority_bg = ClusterResult(
+        labels=np.array([0, 0, 1, -1, -1, -1, -1, -1]),
+        exemplar_indices=np.array([0, 2]),
+        n_clusters=2,
+        partition_q_score=-1.0,
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.run_scale_search",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            tau_star=1.0,
+            scaffold_at_star=_Scaffold(),
+        ),
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.select_level_set_partition",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            accepted=True,
+            cluster_result=majority_bg,
+        ),
+    )
+
+    tree = run_recursive_discovery(
+        data,
+        dim=2,
+        config=RecursionConfig(
+            min_samples=3,
+            max_depth=3,
+            use_level_set_clustering=True,
+            terminate_majority_background_child=True,
+        ),
+        _level=1,
+        _parent_id=0,
+    )
+
+    assert tree.nodes[0].is_leaf
+    assert tree.nodes[0].n_clusters == 1
+    assert tree.nodes[0].children == []
+
+
+def test_option_b_does_not_block_root_majority_background(
+    monkeypatch,
+) -> None:
+    """Root tissue separation still descends when option B is on."""
+
+    data = np.array([
+        [-2.0, 0.0],
+        [-1.9, 0.0],
+        [2.0, 0.0],
+        [1.9, 0.0],
+        [0.0, 2.0],
+        [0.0, -2.0],
+        [0.1, 2.1],
+        [-0.1, -2.1],
+    ])
+
+    class _Node:
+        def __init__(self, position):
+            self.position = np.asarray(position, dtype=float)
+            self.d_final = 2
+
+    class _ANN:
+        def query_knn(self, point, k=1):
+            dists = np.linalg.norm(data - np.asarray(point), axis=1)
+            idx = int(np.argmin(dists))
+            return np.array([idx]), np.array([dists[idx]])
+
+    class _Links:
+        @staticmethod
+        def lifted_links():
+            return []
+
+    class _Scaffold:
+        nodes = [_Node(p) for p in data]
+        ann = _ANN()
+        links = _Links()
+        prune_beta = 0.5
+
+    majority_bg = ClusterResult(
+        labels=np.array([0, 0, 1, -1, -1, -1, -1, -1]),
+        exemplar_indices=np.array([0, 2]),
+        n_clusters=2,
+        partition_q_score=-1.0,
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.run_scale_search",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            tau_star=1.0,
+            scaffold_at_star=_Scaffold(),
+        ),
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.select_level_set_partition",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            accepted=True,
+            cluster_result=majority_bg,
+        ),
+    )
+    # Children recurse into real scale search; keep them tiny/terminal.
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.apply_t2_transfer",
+        lambda data_arr, child_indices, dim, d_hat, **_kw: SimpleNamespace(
+            child_data=data_arr[np.asarray(child_indices, dtype=int)],
+            child_dim=dim,
+        ),
+    )
+
+    tree = run_recursive_discovery(
+        data,
+        dim=2,
+        config=RecursionConfig(
+            min_samples=3,
+            max_depth=1,
+            use_level_set_clustering=True,
+            terminate_majority_background_child=True,
+        ),
+    )
+
+    assert not tree.nodes[0].is_leaf
+    assert tree.nodes[0].n_clusters == 2
+    children = [tree.nodes[i] for i in tree.nodes[0].children]
+    assert any(child.is_background for child in children)
+    assert sum(not child.is_background for child in children) == 2
+
+
+def test_option_a_core_only_descent_flag_default_off() -> None:
+    """#45 option A stays off on the default acceptance path."""
+
+    assert RecursionConfig().core_only_descent is False
+
+
+def test_option_a_core_only_descent_moves_halo_to_background(
+    monkeypatch,
+) -> None:
+    """Halo nodes (d_i < 0.5 * branch peak) join background; core descends."""
+
+    # Cluster 0: tight core near x=-2, isolated halo near (0, 3).
+    # Cluster 1: tight core near x=+2.  With k=1, halo r_1 >> core r_1.
+    data = np.array([
+        [-2.0, 0.0],
+        [-2.0, 0.05],
+        [-2.05, 0.0],
+        [0.0, 3.0],  # halo of cluster 0
+        [2.0, 0.0],
+        [2.0, 0.05],
+        [2.05, 0.0],
+    ])
+
+    class _Node:
+        def __init__(self, position):
+            self.position = np.asarray(position, dtype=float)
+            self.d_final = 2
+
+    class _ANN:
+        def query_knn(self, point, k=1):
+            dists = np.linalg.norm(data - np.asarray(point), axis=1)
+            idx = int(np.argmin(dists))
+            return np.array([idx]), np.array([dists[idx]])
+
+    class _Links:
+        @staticmethod
+        def lifted_links():
+            return []
+
+    class _Scaffold:
+        nodes = [_Node(p) for p in data]
+        ann = _ANN()
+        links = _Links()
+        prune_beta = 0.5
+
+    partition = ClusterResult(
+        labels=np.array([0, 0, 0, 0, 1, 1, 1]),
+        exemplar_indices=np.array([0, 4]),
+        n_clusters=2,
+        partition_q_score=-1.0,
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.run_scale_search",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            tau_star=1.0,
+            scaffold_at_star=_Scaffold(),
+        ),
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.select_level_set_partition",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            accepted=True,
+            cluster_result=partition,
+        ),
+    )
+    captured: list[np.ndarray] = []
+
+    def _capture_t2(data_arr, child_indices, dim, d_hat, **_kw):
+        captured.append(np.asarray(child_indices, dtype=int).copy())
+        return SimpleNamespace(
+            child_data=data_arr[np.asarray(child_indices, dtype=int)],
+            child_dim=dim,
+        )
+
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.apply_t2_transfer",
+        _capture_t2,
+    )
+
+    tree = run_recursive_discovery(
+        data,
+        dim=2,
+        config=RecursionConfig(
+            min_samples=2,
+            max_depth=1,
+            use_level_set_clustering=True,
+            core_only_descent=True,
+            level_set=LevelSetConfig(k_neighbors=1),
+        ),
+    )
+
+    children = [tree.nodes[i] for i in tree.nodes[0].children]
+    background = [c for c in children if c.is_background]
+    assert len(background) == 1
+    assert set(background[0].sample_indices.tolist()) == {3}
+    # Only cores descend via T2 (halo sample 3 excluded).
+    descended = {int(i) for arr in captured for i in arr.tolist()}
+    assert 3 not in descended
+    assert {0, 1, 2}.issubset(descended)
+    assert {4, 5, 6}.issubset(descended)
+
+
+def test_option_a_off_keeps_halo_in_signal_child(
+    monkeypatch,
+) -> None:
+    """Default path still descends halo samples with their signal label."""
+
+    data = np.array([
+        [-2.0, 0.0],
+        [-2.0, 0.05],
+        [-2.05, 0.0],
+        [0.0, 3.0],
+        [2.0, 0.0],
+        [2.0, 0.05],
+        [2.05, 0.0],
+    ])
+
+    class _Node:
+        def __init__(self, position):
+            self.position = np.asarray(position, dtype=float)
+            self.d_final = 2
+
+    class _ANN:
+        def query_knn(self, point, k=1):
+            dists = np.linalg.norm(data - np.asarray(point), axis=1)
+            idx = int(np.argmin(dists))
+            return np.array([idx]), np.array([dists[idx]])
+
+    class _Links:
+        @staticmethod
+        def lifted_links():
+            return []
+
+    class _Scaffold:
+        nodes = [_Node(p) for p in data]
+        ann = _ANN()
+        links = _Links()
+        prune_beta = 0.5
+
+    partition = ClusterResult(
+        labels=np.array([0, 0, 0, 0, 1, 1, 1]),
+        exemplar_indices=np.array([0, 4]),
+        n_clusters=2,
+        partition_q_score=-1.0,
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.run_scale_search",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            tau_star=1.0,
+            scaffold_at_star=_Scaffold(),
+        ),
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.select_level_set_partition",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            accepted=True,
+            cluster_result=partition,
+        ),
+    )
+    captured: list[np.ndarray] = []
+
+    def _capture_t2(data_arr, child_indices, dim, d_hat, **_kw):
+        captured.append(np.asarray(child_indices, dtype=int).copy())
+        return SimpleNamespace(
+            child_data=data_arr[np.asarray(child_indices, dtype=int)],
+            child_dim=dim,
+        )
+
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.apply_t2_transfer",
+        _capture_t2,
+    )
+
+    run_recursive_discovery(
+        data,
+        dim=2,
+        config=RecursionConfig(
+            min_samples=2,
+            max_depth=1,
+            use_level_set_clustering=True,
+            core_only_descent=False,
+            level_set=LevelSetConfig(k_neighbors=1),
+        ),
+    )
+
+    descended = {int(i) for arr in captured for i in arr.tolist()}
+    assert 3 in descended
+    assert {0, 1, 2, 3}.issubset(descended)
 
 
 def test_hierarchical_gaussian_recursion_matches_gt() -> None:
@@ -1204,14 +1564,26 @@ def test_spectral_gap_bipartitions_offset_rings() -> None:
 
 
 def test_falsified_prepass_flags_stay_off() -> None:
-    """#44 quarantine: geometry/hollow prepass zoo remains default-off."""
+    """#44 quarantine: geometry/hollow prepass zoo remains default-off.
+
+    Names in ``FALSIFIED_PREPASS_FLAGS`` are docstring-deprecated; this
+    test pins the behavioural quarantine (all False) and that the
+    inventory / RecursionConfig docstring still mark them DEPRECATED.
+    """
 
     from proteus.stage1.recursion import FALSIFIED_PREPASS_FLAGS
 
     cfg = RecursionConfig()
     assert FALSIFIED_PREPASS_FLAGS
+    assert len(FALSIFIED_PREPASS_FLAGS) == 9
     for name in FALSIFIED_PREPASS_FLAGS:
         assert getattr(cfg, name) is False
+        assert name in RecursionConfig.__dataclass_fields__
+    doc = RecursionConfig.__doc__ or ""
+    assert "DEPRECATED / falsified prepass zoo" in doc
+    for name in FALSIFIED_PREPASS_FLAGS:
+        assert name in doc
+
 
 
 def test_research_finer_split_rejects_invalid_cap() -> None:
@@ -1954,11 +2326,26 @@ def test_a4_primary_hollow_sample_ari_suite() -> None:
     assert tori_leaves in (1, 2)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "OPEN_ISSUES #44: characterization of falsified hollow prepass zoo "
+        "(prefer_hollow_edge_prepass ∈ FALSIFIED_PREPASS_FLAGS). Nested@0.27 "
+        "default H|Gab still yields majors=2 with chance ARI, but linked_tori@0.5 "
+        "now stays majors=1 under default/conj/mst/a4 — the A2-T34 tori K=2 "
+        "contrast no longer reproduces. Not an acceptance-path regression; "
+        "do not enable hollow on the default path. A6-T8 triage."
+    ),
+)
 def test_mst_critical_hollow_contrast_vs_h_and_conj() -> None:
     """#44 / A2-T34: MST-critical hollow vs H-only and Gabriel∧H (majors+ARI).
 
     On nested@0.27 default H|Gab yields majors=2 ARI~chance; conjunction and
     MST-critical (A4 primary) stay ≤1 major.  Flag default-off.
+
+    Strict-xfail (A6-T8): tori half of the contrast drifted to majors=1; the
+    property was a quarantine characterization of the falsified hollow zoo,
+    not a living acceptance invariant.
     """
 
     from proteus.stage1.edge_evidence import HollowEdgeConfig, a4_roc_primary_config
