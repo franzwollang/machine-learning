@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-10T06:04:52Z",
+  "updated_at": "2026-09-10T06:24:37Z",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -370,7 +370,7 @@
         },
         {
           "id": "A4-T11",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "Director D3 benchmark-card preparatory split: create the SI S14 per-scene card structure and fill only already-landed n, actual tissue mass, A4-T7 uniformity, A4-T8 root curve, and A3-T3 phi fields. Mark A4-T9/T10-dependent cells pending; do not invent values or change defaults.",
           "kill": "n/a (approved benchmark-card split; incomplete dependent cells remain explicit)"
