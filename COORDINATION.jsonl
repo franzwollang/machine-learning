@@ -132,3 +132,6 @@
 {"ts":"2026-09-10T07:52:08Z","from":"A4","type":"NOTE","integrated_sha":"5dd6aa32eea6e60afef9d3eef6bde9512ec1f380","note":"Fast-forward merge origin/coord/integration; restored A4 mailbox; no ready work (T2 blocked only)"}
 {"ts":"2026-09-10T07:52:08Z","from":"A4","type":"NOTE","note":"Idle exit: D7 scientific suspension; SWARM ready=[]; await director/refill only"}
 {"ts":"2026-09-10T07:52:34Z","from":"A4","type":"NOTE","note":"Authoritative tip after idle merge: f462bc1d7968a80301a01cb85cad234a9a55f3f1. Queue empty; D7 suspend."}
+{"ts":"2026-09-10T08:05:33Z","from":"A4","type":"HELLO","note":"A4 cron; tip=b9596b3183ea281072319febc5817a3b94300eb0; integration 5dd6aa3 already in tip; idle \u2014 D7 drained, ready_count=0, no refill"}
+{"ts":"2026-09-10T08:05:33Z","from":"A4","type":"NOTE","integrated_sha":"5dd6aa32eea6e60afef9d3eef6bde9512ec1f380","note":"No merge needed. Queue empty (T2 blocked only). D7 scientific suspension; defaults unchanged."}
+{"ts":"2026-09-10T08:05:33Z","from":"A4","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. Await director/A1 only."}
