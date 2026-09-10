@@ -198,3 +198,4 @@
 {"ts":"2026-09-10T09:40:39Z","from":"A3","type":"HELLO","note":"A3 cron; tip after merge=9dd61aba9336; restored mailbox post-FF; idle \u2014 D7 drained, ready_count=0, no refill"}
 {"ts":"2026-09-10T09:40:39Z","from":"A3","type":"NOTE","integrated_sha":"9dd61aba9336431d15860733d11488465d1c9a55","note":"Merged origin/coord/integration (FF). Restored A3 mailbox from pre-merge tip c39c02b. Queue empty; D7 scientific suspension; defaults unchanged."}
 {"ts":"2026-09-10T09:40:39Z","from":"A3","type":"NOTE","note":"Idle exit: ready_count=0 (9 completed / 5 blocked / 0 ready); D7 no refill. No CLAIM. No REQUEST_TRACKER. Await director/A1 only."}
+{"ts":"2026-09-10T09:40:39Z","from":"A3","type":"NOTE","note":"Authoritative tip after idle merge heartbeat: 4a537b8f56835dde01e325e44c2de62cb7c35fd8. Queue empty; D7 suspended; await director/A1 only."}
