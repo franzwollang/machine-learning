@@ -89,15 +89,14 @@ Remaining work:
   rejected as anti-SI. Paper §scale synced to L=1 + coarse-end; hierarchy hybrid≫expected
   regression locked. Do **not** flip the default; persistence stays structural arbiter
   with coarse-end resolution until a SI-justified within-interval signal exists.
-- **Hierarchy child resolution-cap interaction (A6-T10):** hierarchy recovers
-  6/6 fine leaves on seeds 1--4 and 5/6 on seed 0. The unsplit seed-0 child has
-  `n=200`, binds at `N=25=n/k`, and sees best `phi=0.617`; without the cap the
-  same region accepts at `phi=0.232`. A4-T10's analytic oracle has landed:
-  all 15 hierarchy fine-leaf pairs are reported and sibling valley depths are
-  about 0.9993 (seed-invariant), including the seed-0 unsplit pair. This is a
-  scale-resolution interaction, not grounds to lower the provisional ceiling.
-  A6-T14 will measure the smallest node cap above 25 that admits the child;
-  do not flip the cap or within-interval defaults.
+- **Hierarchy seed-0 5/6 residual:** A6-T16 confirms that the accepted split is
+  the true L0/L1 cut (ARI 1), but its `N` and `phi` are path-dependent: the
+  first accept shifted from 46 to 45 nodes, and `phi` changed from 0.197 to
+  0.061 between caps 46 and 64. A6-T17 is canceled. Do not propose a cap rule
+  or treat 45/46 or the observed `phi` values as thresholds. Remaining:
+  retract SI S2.5.1's stable `max_nodes=46` / `phi≈0.201` claim (A6-T19/T20).
+  Persistence, within-interval, and scale-search defaults stay unchanged; do
+  not open #47 from this residual.
 - **Landed (A3-T31 SI A+C):** SI S2.6.2 + S14.3 document
   `PersistenceConfig.resolve_within_interval` (`none` | `load_crossover`, default
   `none`; hybrid ≤ fine-leaf).
@@ -375,13 +374,14 @@ outer shell (cover ≥ 0.886) and give 2 leaves. Not a growth-policy
 defect: the accepted cut is right, its background partition of the
 lower-density component is crude at the first-accept scale.
 
-Remaining work: A5-T6 found nested+bimodal pure children clean, and A5-T7
-confirmed both weak components remain single leaves on all 10 exact child reads
-at `n=194`. The residual is therefore tissue/sibling context, not intrinsic
-#48 failure at small `n`; A3-T7 still adds all component-only child-sized nulls
-to the envelope. Keep signal-only ARI + background recall meanwhile. The explicit
-`tissue_mass` sweep and descent options A/B all fired their kill criteria,
-so do not tune those families or weaken topology expectations.
+Remaining work: weak two-Gaussian shatter is tissue-sufficient (A5-T11):
+one-signal+tissue splits 5/10, while both-signals/no-tissue and isolated
+`n=194` children stay clean. Bimodal seed-2 tissue shatter is not reproducible
+on the current tip (A5-T13); do not rerun its ablations or reopen descent A/B.
+A4-T13 is measuring the nested seed-0 tissue residual, and A5-T16 will census
+current-tip nested/bimodal leaf counts; A5-T15 runs only if nested still
+over-splits. Keep signal-only ARI + background recall. Do not resolve #45,
+tune `tissue_mass`, or tune descent fractions.
 
 Level-set consequence (2026-09-09, from #48): the root split assigns about
 half the tissue to signal children (nested seed-0 bg recall 0.51; nested
@@ -795,10 +795,12 @@ Remaining (ordered by severity):
   is not the driver and the dependent R=2/min-side follow-ons are killed.
   The component-only child envelope likewise breaches 0.25: 56 positive-phi
   reads, min 0.167 (plus two circle graph disconnections at phi=0).
-  D4 directs the next information-gathering oracles to cut-local density
-  contrast (A2-T10/T11) and cross-scale cut persistence (A3-T13), with no new
-  threshold yet. Any eventual gate must pass corrected S-curve 0/20 plus
-  every seed-0--4 composite root accept.
+  The cross-scale cut-persistence oracle is now killed: null and composite
+  accepted cuts overlap (minimum Jaccard 0.257 versus 0.251; both medians 1.0).
+  Do not implement a persistence gate or vary that protocol. Cut-local density
+  contrast (A2-T10/T11) is the only live floor candidate this burn; A3-T11 is
+  the final covariate check. Any eventual gate must pass corrected S-curve
+  0/20 plus every seed-0--4 composite root accept.
 - **Graph-disconnection false accept (acceptance path, owns the DM
   overconfidence item).** lone 2-D Gaussian seed 17 accepts at N=50,
   τ=0.012: a 72-point clump in the shoulder has no Hebbian link outside
@@ -863,6 +865,14 @@ Remaining (ordered by severity):
   SI S10.2 now records the negative result and limits DM to
   background-partition confirmation. Do not tune its margin or flip
   `sample_normalized_counts`.
+- **Paper sync and hierarchy cross-check (A6-T13/T14/T16):** the D4 paper update
+  has landed (the separation guard stays default off; no A2-T8 follow-up
+  sentence). The hierarchy seed-0 true L0/L1 accept has path-dependent `N`
+  and `phi` across cap probes (A6-T16), so the earlier `N=46`, `phi=0.201`
+  observation is not stable and is not grounds to lower 0.25 or raise the
+  cap. A5-T12 records the matched-tau `phi` instability without reviving an
+  n-indexed ceiling. Cut persistence is killed; cut-local density contrast
+  (A2-T10/T11) is the only live floor candidate this burn.
 - Do not flip `use_level_set_clustering` until the corrected S-curve
   null is 0/20 under the acceptance-path statistic. Do not delete S2.6.1
   stand-ins. Do not retune frozen suite numbers.
