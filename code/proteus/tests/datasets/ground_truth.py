@@ -197,9 +197,9 @@ def tissue_partition_report(metadata: dict) -> dict[str, float | int | str | Non
 def valley_resolvability_report(metadata: dict) -> dict[str, float | int | str | None]:
     """Expose analytic valley-depth / valley-band covariates (#45 A4-T5).
 
-    Connected-support generators (``bimodal_circle``, ``two_gaussians``) record
-    these via ``valley_resolvability_metadata``.  Missing keys raise
-    ``KeyError``.
+    Connected-support generators (``bimodal_circle``, ``two_gaussians``) and
+    the A4-T10 extensions (hierarchy / nested shells / linked tori) record
+    these via valley-oracle helpers.  Missing keys raise ``KeyError``.
     """
     return {
         "valley_depth": float(metadata["valley_depth"]),
@@ -211,6 +211,22 @@ def valley_resolvability_report(metadata: dict) -> dict[str, float | int | str |
         "valley_band_expected_count": float(metadata["valley_band_expected_count"]),
         "valley_band_count": int(metadata["valley_band_count"]),
         "valley_path": metadata.get("valley_path"),
+    }
+
+
+def multi_valley_resolvability_report(
+    metadata: dict,
+) -> dict[str, float | int | str | list | None]:
+    """Scalar shallowest-valley summary plus per-pair records (#28 A4-T10)."""
+    base = valley_resolvability_report(metadata)
+    pairs = metadata.get("valley_pairs")
+    if pairs is None:
+        raise KeyError("valley_pairs")
+    return {
+        **base,
+        "valley_pair_count": int(metadata.get("valley_pair_count", len(pairs))),
+        "valley_sibling_pair_count": metadata.get("valley_sibling_pair_count"),
+        "valley_pairs": list(pairs),
     }
 
 
@@ -229,3 +245,9 @@ class SyntheticDataset:
     def valley_resolvability(self) -> dict[str, float | int | str | None]:
         """Analytic valley depth and valley-band counts (#45 A4-T5)."""
         return valley_resolvability_report(self.metadata)
+
+    def multi_valley_resolvability(
+        self,
+    ) -> dict[str, float | int | str | list | None]:
+        """Pairwise fine-leaf / shell / gap valleys (#28 A4-T10)."""
+        return multi_valley_resolvability_report(self.metadata)

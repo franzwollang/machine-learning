@@ -466,6 +466,8 @@ def test_weak_bridge_split_passes_bottleneck_guard() -> None:
 
 
 def test_require_separation_evidence_defaults_off() -> None:
+    """Default stays off until director confirms A2-T8 (D3: no premature flip)."""
+
     assert LevelSetConfig().require_separation_evidence is False
 
 

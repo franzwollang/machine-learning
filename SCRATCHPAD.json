@@ -1,32 +1,32 @@
 {
-  "updated_at": "2026-09-10T05:56:07Z",
-  "turn": 102,
+  "updated_at": "2026-09-10T06:13:55Z",
+  "turn": 105,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "publish heartbeat after integrating report-only worker tips"
+    "goal": "publish D4-refilled worker snapshot"
   },
   "recent": [
-    "Merged current A3-A6 tips; pre-tracker implementation tree was unchanged",
-    "Green: gate 69+x1, foundation 194+x8, evidence 242, scenarios 40+x17",
-    "Cadence sweep hit 2400s after nulls30/30, hierarchy5/5, tori5/5, nested5/5 all matched baseline",
-    "A5-T7 exact n=194 weak components are clean on 10/10 isolated-child reads",
-    "Queues restored to 2-3 ready tasks via approved D3 task splits"
+    "Merged current A2-A6 tips in order; resolved SI overlap by retaining both A2 guard and A3 null-envelope findings",
+    "A2-T7 ON equals both A6 OFF references on all 60 lines; A2-T8 default flip remains held",
+    "A3 flat-strip and child-envelope controls breach phi=0.25; dependent curvature/min-side tasks killed",
+    "A4 child power and hierarchy valley oracle landed; A5 descent C SI and A6 paper/OFF reference landed",
+    "D4 declined the zero-cross default flip and refilled all workers with density, persistence, context, and cap oracles"
   ],
   "discoveries": [
-    "Corrected area-uniform S-curve accepts 4/20; min phi=0.096 overlaps composite accepts through 0.244",
-    "A4-T8 K=2 rate rises monotonically 2/5→3/5→5/5 across increasing two-Gaussian valley depth",
-    "Weak isolated children are clean at exact n=194; #45 residual is tissue/sibling context",
-    "Hierarchy seed0 binds at N=25 with phi=0.617 but accepts uncapped at phi=0.232",
-    "No fixed phi ceiling can separate corrected S-curve nulls from current true composites"
+    "Flat strip also accepts below phi=0.25, excluding extrinsic curvature as the corrected S-curve failure mechanism",
+    "Component-only child envelope has min positive phi=0.167 plus two circle phi=0 graph disconnections",
+    "Clear two-Gaussian is 5/5 at n=300/600; nested and tori are 0/5 there but 5/5 at full suite size",
+    "Hierarchy sibling valley depth is about 0.9993 despite seed0 binding at N=25 with phi=0.617",
+    "D4 closed n-indexed ceilings; n-instability is evidence against phi, not a calibration family"
   ],
   "open_threads": [
-    "A2 T7-T9: guard-on sweep, director-gated flip, negative-result SI",
-    "A3 T9/T8/T7: curvature mechanism, negative-result SI, child envelope",
-    "A4 T9-T11: child power, analytic valley oracle, benchmark-card split",
-    "A5 T8-T10: weak non-monotonicity, descent verdict SI, tracker closeout",
-    "A6 T11-T12: dependency-gated paper sync and OFF reference"
+    "A2 T10-T12: density-contrast oracle, conditional default-off gate, D4 SI record",
+    "A3 T13/T11/T12: cut-persistence oracle, covariate table, D4 SI record",
+    "A4 T11-T13: benchmark cards and tissue residual table",
+    "A5 T11-T13: weak/bimodal context ablations and n-instability SI",
+    "A6 T14/T15/T13: cap threshold probe and SI/paper D4 sync"
   ],
-  "next_step": "commit tracker snapshot, append MERGE_DONE, and push integration plus A1",
+  "next_step": "finish four fast chunks, append D4 coordination events, commit, and push integration plus A1",
   "blockers": []
 }
