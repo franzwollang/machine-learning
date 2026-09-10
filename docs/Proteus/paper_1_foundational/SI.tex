@@ -1709,7 +1709,9 @@ hop-geodesic fallback, largest component per half). The ratio is
 dimensionless and self-normalizing in block size and flow scale:
 a valley must be weaker than any cut inside the pieces it separates.
 The ceiling \texttt{max\_bottleneck\_ratio}${}=0.25$ is calibrated
-on the null-ensemble envelope (finer-walk evidence floor below).
+on the six-scene null-ensemble envelope (provisional; finer-walk
+evidence floor below --- corrected S-curve falsifies it as a
+sufficient floor).
 Cuts passing the guard are confirmed by the
 background-aware DM edit. Background is
 a fixed additional outcome: for signal blocks
@@ -1862,13 +1864,15 @@ the studentized ratio rejected real fine Gaussian pairs at
 $\rho{=}0.28$. What has been discriminating is min-cut-normalized
 $\phi$ itself.
 
-The ceiling \texttt{max\_bottleneck\_ratio}${}=0.25$ is now
-\emph{calibrated} (acceptance path) by a declared null-ensemble
-envelope protocol: every root read with a candidate cut on the six
-null scenes (circle, swiss roll [continuous sheet], lone torus, lone
-inner shell, lone 2-D and 4-D Gaussian) $\times$ seeds $0$--$19$
-under the \texttt{track\_tau} walk, via
-\texttt{level\_set\_root\_accept\_probe.py --max-depth 1}. Result:
+The ceiling \texttt{max\_bottleneck\_ratio}${}=0.25$ is
+\emph{calibrated} (acceptance path; provisional) by a declared
+null-ensemble envelope protocol: every root read with a candidate cut
+on the six null scenes (circle, swiss roll [continuous sheet], lone
+torus, lone inner shell, lone 2-D and 4-D Gaussian) $\times$ seeds
+$0$--$19$ under the \texttt{track\_tau} walk, via
+\texttt{level\_set\_root\_accept\_probe.py --max-depth 1}
+(reproducible harness
+\texttt{level\_set\_null\_envelope.py}). Result:
 $359$ reads; $\phi$ min $0.288$ (swiss seed~$17$, $N{=}123$),
 $p_1{=}0.487$, $p_5{=}0.630$, $p_{10}{=}0.760$, median $1.30$ ---
 excluding one read with $\phi{=}0$ exactly (lone 2-D Gaussian
@@ -1917,11 +1921,25 @@ breaches. Do not tune $\alpha$; do not land a general flow-likelihood
 gate; keep $\phi$ plus the zero-cross guard above. A rewrite of this
 section as a cross-flow likelihood rule is abandoned with A2-T5.
 
-Composite accepts sit below the ceiling: linked tori
-$0.036$--$0.164$, nested shells $0.006$--$0.195$, two-Gaussians clear
-$0$--$0.086$, bimodal circle $0.099$ and $0.244$. The value $0.25$
-sits below the measured null envelope (margin $13\%$ to $0.288$) and
-above every tori/nested accept.
+Widening the null ensemble at default $n{=}800$ (lone uniform disc,
+uniform cube, lone 3-D Gaussian, filled ball) gave per-geometry
+envelope mins $\phi\approx 0.840$ / $0.631$ / $2.779$ / $0.536$ ---
+all above $0.25$. An early S-curve-sheet seed~$8$ read at
+$\phi\approx 0.249$ is \emph{withdrawn}: that generator double-covered
+a half-arc and was not area-uniform (D2). After correcting
+\texttt{make\_scurve\_sheet} to the true area-uniform S
+($\theta\in[-1.5\pi,1.5\pi]$,
+$z=\mathrm{sign}(\theta)(\cos\theta-1)$), the same protocol on seeds
+$0$--$19$ yields min $\phi\approx 0.096$ with $4/20$ false accepts
+(seeds $1,16,17,18$). Composite accepts sit below the six-scene
+ceiling: linked tori $0.036$--$0.164$, nested shells
+$0.006$--$0.195$, two-Gaussians clear $0$--$0.086$, bimodal circle
+$0.099$ and $0.244$. The value $0.25$ sits below the six-scene null
+envelope (margin $13\%$ to $0.288$) and above every tori/nested
+accept, but the corrected S-curve false accepts overlap that composite
+band, so fixed-ceiling calibration is \emph{falsified as a sufficient
+one-feature floor}; $0.25$ remains unchanged and provisional --- no
+replacement number is proposed here (\#48).
 
 The shot-noise floor is a \emph{resolution bound on the mesh}: a node's
 catchment must hold at least the $k$ samples that define the local
@@ -2002,6 +2020,32 @@ Promotion still
 requires an awaiting-flip review and evidence-gated insertion (\#47).
 Direct fine-$\tau$ diagnostics
 alone must not silently change default behavior.
+
+\paragraph{Descent / background-partition semantics (OPEN\_ISSUES \#45).}
+Root accepts can leak tissue into signal children; the child's own
+level-set read then parks most samples in background and the residual
+shell{+}tissue fragment may shatter. Three descent options were tested
+on the equalized scaffold (same $\lambda{=}0.5$ tier as the faded GT):
+\begin{itemize}[leftmargin=1.5em]
+  \item \emph{Option~A} (\texttt{core\_only\_descent}, default off):
+    relabel per-cluster density-halo nodes
+    ($d_i{<}0.5\cdot\max_C d$) as background before recurse. Kill fired
+    --- coverage dropped on linked tori / nested when the half-max tier
+    discarded real signal.
+  \item \emph{Option~B}
+    (\texttt{terminate\_majority\_background\_child}, default off): keep
+    Hartigan assignment but stop descending when a non-root child's own
+    read sends ${>}1/2$ of its samples to background. Did not reduce
+    residual over-splits (no leaf-count effect on the failing seeds).
+  \item \emph{Option~C}: keep the Hartigan child assignment and score
+    signal-only (background-aware ARI / recall). \emph{Adopted.}
+\end{itemize}
+Pure-child oracles without tissue or siblings --- nested-shell GT
+subsets, bimodal connected-valley components, and the 194-sample weak
+two-Gaussian \texttt{component\_only} child --- stay single-leaf on
+seeds~$0$--$4$. Residual \#45 over-split therefore needs tissue or
+sibling context, not an intrinsic child-geometry fix. Do not flip
+either option-A/B flag default.
 
 \paragraph{Landed proposal-path wiring and protocol.}
 Module \texttt{proteus.stage1.edge\_evidence} exposes
@@ -5417,7 +5461,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{LevelSetConfig.min\_persistence} & 0.05\ (\text{core-radius rank lifetime; runt screen; connected-null envelope overlaps true splits}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_excess\_mass} & 0.02\ (\text{normalized mass$\times$rank integral; runt screen}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_cluster\_frac} & 0.15\ (\text{fraction of region node budget; coarse satellite / partial-activation floor}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{LevelSetConfig.max\_bottleneck\_ratio} & 0.25\ (\text{ceiling on min-cut-normalized $\phi$; cross-cut max-flow over the weaker side's intrinsic min-cut}) & \text{S2.6.2} & \text{calibrated (null-ensemble envelope protocol, min $0.288$ over $359$ reads, seeds $0$--$19$; acceptance path; \#48)}\\
+\texttt{LevelSetConfig.max\_bottleneck\_ratio} & 0.25\ (\text{ceiling on min-cut-normalized $\phi$; cross-cut max-flow over the weaker side's intrinsic min-cut; provisional}) & \text{S2.6.2} & \text{calibrated (six-scene null-ensemble envelope, min $0.288$ / $359$ reads, seeds $0$--$19$; corrected S-curve min $\phi\approx 0.096$ with $4/20$ accepts falsifies as sufficient floor --- value unchanged; \#48)}\\
 \texttt{LevelSetConfig.require\_separation\_evidence} & \text{false}\ (\text{zero-cross hit-mass guard $\lambda=k\cdot 2p(1-p)>\log\tau_{\mathrm{bf}}$; A2-T7 ON$\equiv$OFF on normal-path seeds $0$--$4$ and null false accepts $0$ over $0$--$19$; default flip held for director A2-T8; general cross-flow Poisson killed A2-T5}) & \text{S2.6.2} & \text{operational (proposal-path; \#48)}\\
 \texttt{advance\_scaffold\_to\_tau} & \text{warm in-place $\tau$ continuation; no longer on any path (diagnostic helper, unit-locked)} & \text{S2.6.2} & \text{operational (proposal-path; retired from the finer walk, \#48)}\\
 \texttt{fit\_scaffold\_at\_tau} & \text{fresh fit at each finer $\tau$, $N\le n/k$ (track\_tau finer walk); derived bound, no free constant} & \text{S2.6.2} & \text{derived (\#48)}\\

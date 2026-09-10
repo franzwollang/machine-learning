@@ -16,6 +16,7 @@ from ..ground_truth import (
     expected_tau_for_surface,
     ideal_nodes_for_surface,
 )
+from .density_valleys import segment_valley_oracle, summarize_valley_pairs
 from .faded_density import (
     FadedMixture,
     SphereShellFadedComponent,
@@ -28,6 +29,56 @@ from .tissue import (
     expected_tau_for_uniform_tissue_box,
     ideal_nodes_for_uniform_tissue_box,
 )
+
+
+def nested_spheres_valley_oracle(
+    mixture: FadedMixture,
+    radii: tuple[float, ...] | list[float],
+    points: np.ndarray,
+    *,
+    n_samples: int,
+    ambient_dim: int,
+    seed: int = 0,
+) -> dict:
+    """All pairwise radial-shell valleys along a shared axis (#28 A4-T10)."""
+    rs = [float(r) for r in radii]
+    if len(rs) < 2:
+        raise ValueError("need at least two shells for a valley oracle")
+    dim = int(mixture.components[0].dim)
+    pairs: list[dict] = []
+    for i in range(len(rs)):
+        for j in range(i + 1, len(rs)):
+            c0 = np.zeros(dim, dtype=float)
+            c1 = np.zeros(dim, dtype=float)
+            c0[0] = rs[i]
+            c1[0] = rs[j]
+            rec = segment_valley_oracle(
+                mixture,
+                c0,
+                c1,
+                points,
+                n_samples=n_samples,
+                seed=seed + 31 * i + j,
+                # Shell gap is radial; keep a modest tube in ambient space.
+                tube_scale=0.35,
+                valley_path="radial_segment",
+            )
+            pairs.append({
+                **rec,
+                "leaf_id_a": int(i + 1),
+                "leaf_id_b": int(j + 1),
+                "parent_id_a": 0,
+                "parent_id_b": 0,
+                "same_parent": True,
+                "radius_a": rs[i],
+                "radius_b": rs[j],
+            })
+    out = summarize_valley_pairs(pairs)
+    out["valley_path"] = "radial_segment_pairs"
+    out["valley_sibling_pair_count"] = len(pairs)
+    out["shell_radii"] = list(rs)
+    out["oracle_ambient_dim"] = int(ambient_dim)
+    return out
 
 
 def _sample_sphere(
@@ -251,6 +302,15 @@ def make_nested_spheres(
         ),
     )))
 
+    n_total = int(n_per_sphere * len(radii))
+    valley_meta = nested_spheres_valley_oracle(
+        mixture,
+        radii,
+        points,
+        n_samples=n_total,
+        ambient_dim=total_ambient_dim,
+        seed=seed,
+    )
     gt = GroundTruthManifold(
         name="nested_spheres",
         ambient_dim=total_ambient_dim,
@@ -289,5 +349,6 @@ def make_nested_spheres(
                 tissue_mass=tissue_mass,
                 labels=labels,
             ),
+            **valley_meta,
         },
     )

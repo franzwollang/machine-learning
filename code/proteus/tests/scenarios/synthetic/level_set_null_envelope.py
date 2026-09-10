@@ -16,6 +16,10 @@ A3-T2 widen mode adds five geometries and an n×k grid over the six
 existing nulls (seeds 0–9).  Kill: any new-geometry candidate with
 ``0 < φ < 0.25`` stops widening.
 
+A3-T7 ``--mode component-only`` wires A4-T6 lone-component scenes
+(circle / nested shell / two-Gaussians, no tissue) at ``n∈{200,500}``
+× seeds 0–19 and reports the child-sized envelope.
+
 Not a default pytest test.  Pure helpers below are unit-tested.
 
 Usage::
@@ -48,6 +52,7 @@ from proteus.stage1.level_set import LevelSetConfig
 from proteus.stage1.recursion import RecursionConfig, run_recursive_discovery
 from proteus.stage1.stabilization import StabilizationConfig
 from tests.datasets.synthetic.circles import make_circle
+from tests.datasets.synthetic.density_valleys import make_two_gaussians
 from tests.datasets.synthetic.linked_tori import make_linked_tori
 from tests.datasets.synthetic.nested_spheres import make_nested_spheres
 from tests.datasets.synthetic.swiss_roll import make_swiss_roll
@@ -102,6 +107,19 @@ WIDEN_NEW_SCENES: tuple[str, ...] = (
     "scurve_sheet_null",
     "filled_ball_null",
 )
+
+# Mechanism-control nulls (A3-T9): same arc/width as scurve, R=∞ flat strip.
+MECHANISM_CONTROL_SCENES: tuple[str, ...] = (
+    "flat_strip_null",
+)
+
+# A4-T6 / A3-T7: lone-component child-sized nulls (no tissue, no sibling).
+COMPONENT_ONLY_SCENES: tuple[str, ...] = (
+    "circle_component_only",
+    "nested_shell_component_only",
+    "two_gaussians_component_only",
+)
+CHILD_N_GRID: tuple[int, ...] = (200, 500)
 
 # Envelope on candidate reads with φ > 0 (excludes the lone_gauss2d s17 φ=0).
 # REFERENCE_* is the 2026-09-09 published protocol (SI S2.6.2 / S14.3).
@@ -386,6 +404,10 @@ def default_n_for_scene(scene_name: str) -> int:
         "lone_gauss3d_null": WIDEN_NULL_N,
         "scurve_sheet_null": WIDEN_NULL_N,
         "filled_ball_null": WIDEN_NULL_N,
+        "flat_strip_null": WIDEN_NULL_N,
+        "circle_component_only": CHILD_N_GRID[-1],
+        "nested_shell_component_only": CHILD_N_GRID[-1],
+        "two_gaussians_component_only": CHILD_N_GRID[-1],
     }[scene_name]
 
 
@@ -415,9 +437,26 @@ def build_dataset(scene_name: str, seed: int, n_samples: int) -> SyntheticDatase
         return make_lone_gauss3d(n_samples=n, sigma=LONE_GAUSS3D_SIGMA, seed=seed)
     if scene_name == "scurve_sheet_null":
         return make_scurve_sheet(n_samples=n, noise=SCURVE_SHEET_NOISE, seed=seed)
+    if scene_name == "flat_strip_null":
+        return make_scurve_sheet(
+            n_samples=n,
+            noise=SCURVE_SHEET_NOISE,
+            seed=seed,
+            curvature_radius=float("inf"),
+        )
     if scene_name == "filled_ball_null":
         return make_filled_ball(
             n_samples=n, radius=FILLED_BALL_RADIUS, dim=3, seed=seed,
+        )
+    if scene_name == "circle_component_only":
+        return make_circle(n_samples=n, seed=seed, component_only=True)
+    if scene_name == "nested_shell_component_only":
+        return make_nested_spheres(
+            n_per_sphere=n, seed=seed, component_only=True, component_index=0,
+        )
+    if scene_name == "two_gaussians_component_only":
+        return make_two_gaussians(
+            n_samples=n, seed=seed, component_only=True, component_index=0,
         )
     raise ValueError(f"unknown null scene {scene_name!r}")
 
@@ -463,7 +502,12 @@ def _recursion_config(
 
 
 def known_null_scenes() -> tuple[str, ...]:
-    return DEFAULT_NULL_SCENES + WIDEN_NEW_SCENES
+    return (
+        DEFAULT_NULL_SCENES
+        + WIDEN_NEW_SCENES
+        + MECHANISM_CONTROL_SCENES
+        + COMPONENT_ONLY_SCENES
+    )
 
 
 def collect_root_candidate_reads(
@@ -795,16 +839,52 @@ def _widen_payloads(
     return payloads
 
 
+def _component_only_payloads(
+    seeds: Sequence[int],
+    *,
+    max_depth: int,
+    max_epochs: int,
+    max_grid_points: int,
+    max_finer_steps: int,
+    growth_policy: str,
+    n_grid: Sequence[int] = CHILD_N_GRID,
+    k: int = WIDEN_K_DEFAULT,
+) -> list[dict[str, Any]]:
+    """A3-T7: A4-T6 component_only scenes × child-sized n × seeds."""
+
+    base = {
+        "max_depth": int(max_depth),
+        "max_epochs": int(max_epochs),
+        "max_grid_points": int(max_grid_points),
+        "max_finer_steps": int(max_finer_steps),
+        "growth_policy": str(growth_policy),
+        "k": int(k),
+    }
+    payloads: list[dict[str, Any]] = []
+    for scene in COMPONENT_ONLY_SCENES:
+        for n in n_grid:
+            for seed in seeds:
+                payloads.append(
+                    {
+                        **base,
+                        "scene": scene,
+                        "seed": int(seed),
+                        "n_samples": int(n),
+                    }
+                )
+    return payloads
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Null-ensemble φ envelope for LevelSetConfig.max_bottleneck_ratio",
     )
     parser.add_argument(
         "--mode",
-        choices=("protocol", "widen", "widen-new"),
+        choices=("protocol", "widen", "widen-new", "component-only"),
         default="protocol",
         help="protocol=six nulls; widen-new=new geometries only; "
-        "widen=new + existing n×k grid.",
+        "widen=new + existing n×k grid; component-only=A4-T6 child-sized nulls.",
     )
     parser.add_argument(
         "--seeds",
@@ -844,7 +924,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     if args.seeds is None:
-        args.seeds = ["0-9"] if args.mode.startswith("widen") else ["0-19"]
+        if args.mode.startswith("widen"):
+            args.seeds = ["0-9"]
+        elif args.mode == "component-only":
+            args.seeds = ["0-19"]
+        else:
+            args.seeds = ["0-19"]
     seeds = parse_seed_spec(args.seeds)
 
     payloads: list[dict[str, Any]] | None = None
@@ -859,6 +944,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             include_grid=(args.mode == "widen"),
         )
         scenes = sorted({p["scene"] for p in payloads})
+    elif args.mode == "component-only":
+        payloads = _component_only_payloads(
+            seeds,
+            max_depth=int(args.max_depth),
+            max_epochs=int(args.max_epochs),
+            max_grid_points=int(args.max_grid_points),
+            max_finer_steps=int(args.max_finer_steps),
+            growth_policy=str(args.growth_policy),
+            k=int(args.k),
+        )
+        scenes = list(COMPONENT_ONLY_SCENES)
     else:
         scenes = list(args.scenes) if args.scenes else list(DEFAULT_NULL_SCENES)
         unknown = [s for s in scenes if s not in known_null_scenes()]
@@ -927,6 +1023,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 2
         print(propose_ceiling_rule(per_geo, summary), flush=True)
 
+    if args.mode == "component-only":
+        print("ENVELOPE_PER_GEOMETRY:", flush=True)
+        per_geo = group_envelopes(rows, lambda r: r.scene)
+        for key, env in per_geo:
+            print(format_envelope(env, title=f"  {key}"), flush=True)
+        print("ENVELOPE_PER_N:", flush=True)
+        per_n = group_envelopes(rows, lambda r: r.n_samples)
+        for key, env in per_n:
+            print(format_envelope(env, title=f"  n={key}"), flush=True)
+        print("ENVELOPE_PER_SCENE_N:", flush=True)
+        per_sn = group_envelopes(rows, lambda r: (r.scene, r.n_samples))
+        for key, env in per_sn:
+            print(format_envelope(env, title=f"  {key}"), flush=True)
+
     print(f"TOTAL_ELAPSED={elapsed:.1f}s n_rows={len(rows)}", flush=True)
 
     if args.check_reference and scenes == list(DEFAULT_NULL_SCENES) and seeds == list(
@@ -984,6 +1094,29 @@ def test_widen_new_scenes_build() -> None:
         assert data.points.ndim == 2
 
 
+def test_component_only_scenes_build() -> None:
+    """A3-T7: A4-T6 component_only nulls materialize at child-sized n."""
+
+    for scene in COMPONENT_ONLY_SCENES:
+        for n in CHILD_N_GRID:
+            data = build_dataset(scene, seed=0, n_samples=n)
+            assert data.points.shape[0] == n
+            assert data.points.ndim == 2
+            assert data.metadata.get("component_only") is True
+            assert data.metadata.get("null_scene") is True
+    assert set(COMPONENT_ONLY_SCENES) <= set(known_null_scenes())
+    payloads = _component_only_payloads(
+        [0, 1],
+        max_depth=1,
+        max_epochs=12,
+        max_grid_points=8,
+        max_finer_steps=16,
+        growth_policy="track_tau",
+    )
+    assert len(payloads) == len(COMPONENT_ONLY_SCENES) * len(CHILD_N_GRID) * 2
+    assert {p["n_samples"] for p in payloads} == set(CHILD_N_GRID)
+
+
 def test_scurve_sheet_half_occupancy_and_injectivity() -> None:
     """Corrected S-curve: 50/50 lobe occupancy; no half-arc double-cover (A3-T6)."""
 
@@ -1008,6 +1141,54 @@ def test_scurve_sheet_half_occupancy_and_injectivity() -> None:
     lo, hi = data.metadata["theta_range"]
     assert np.isclose(lo, -1.5 * np.pi)
     assert np.isclose(hi, 1.5 * np.pi)
+    assert float(data.metadata["curvature_radius"]) == 1.0
+    arc = np.asarray(data.metadata["arc"], dtype=float)
+    assert arc.shape == (20_000,)
+    assert float(arc.min()) >= -1e-9
+    assert float(arc.max()) <= 3.0 * np.pi + 1e-9
+
+
+def test_scurve_sheet_curvature_radius_controls() -> None:
+    """A3-T9: R=1 byte-identical; R=2 scaled S; R=∞ flat strip (arc 3π, width 2)."""
+
+    n = 4_000
+    r1 = make_scurve_sheet(n_samples=n, noise=0.0, seed=7, curvature_radius=1.0)
+    r1_default = make_scurve_sheet(n_samples=n, noise=0.0, seed=7)
+    assert np.array_equal(r1.points, r1_default.points)
+
+    r2 = make_scurve_sheet(n_samples=n, noise=0.0, seed=7, curvature_radius=2.0)
+    assert float(r2.metadata["curvature_radius"]) == 2.0
+    assert np.isclose(r2.metadata["arc_length"], 3.0 * np.pi)
+    assert np.isclose(r2.metadata["width"], 2.0)
+    # Half-angle span is L/(2R) = 0.75π; centerline injectivity on (x,z).
+    th = np.linspace(-0.75 * np.pi, 0.75 * np.pi, 2001)
+    xz = np.column_stack(
+        [2.0 * np.sin(th), 2.0 * np.sign(th) * (np.cos(th) - 1.0)],
+    )
+    assert np.unique(np.round(xz, decimals=6), axis=0).shape[0] == th.shape[0]
+    # Same seed ⇒ same (u,s); R=2 is a radial scale of the R=1 embedding
+    # only when θ_R1 = 2·θ_R2, which holds because θ ∝ 1/R for fixed u.
+    assert np.allclose(r2.points[:, 1], r1.points[:, 1], atol=1e-12)
+    assert float(np.max(np.abs(r2.points[:, 2]))) > float(
+        np.max(np.abs(r1.points[:, 2]))
+    )
+
+    flat = make_scurve_sheet(
+        n_samples=n, noise=0.0, seed=7, curvature_radius=float("inf"),
+    )
+    assert np.isinf(float(flat.metadata["curvature_radius"]))
+    assert flat.ground_truth.name == "flat_strip"
+    assert flat.metadata["sampling"] == "area_uniform_flat_strip"
+    pts = np.asarray(flat.points, dtype=float)
+    assert float(np.max(np.abs(pts[:, 2]))) < 1e-12
+    assert abs(float(np.ptp(pts[:, 0])) - 3.0 * np.pi) < 0.05
+    assert abs(float(np.ptp(pts[:, 1])) - 2.0) < 0.05
+    arc = np.asarray(flat.metadata["arc"], dtype=float)
+    assert abs(float(np.ptp(arc)) - 3.0 * np.pi) < 0.05
+    # Flat strip builds via the envelope scene name.
+    built = build_dataset("flat_strip_null", seed=0, n_samples=WIDEN_NULL_N)
+    assert built.points.shape == (WIDEN_NULL_N, 3)
+    assert built.ground_truth.name == "flat_strip"
 
 
 def test_parse_seed_spec_ranges() -> None:
