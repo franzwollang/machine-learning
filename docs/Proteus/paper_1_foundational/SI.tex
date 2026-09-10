@@ -558,15 +558,18 @@ A4-T10) and stays unsplit under the default $N\le n/k{=}25$ clamp: L$=$1 and the
 finer walk both reject with $\phi$ above the provisional $0.25$ ceiling (best
 capped $\phi\approx0.43$; A6-T10 previously reported capped best $\phi\approx0.617$).
 Raising only the mesh cap (no default flip) can accept the true L0/L1 cut
-(sample ARI$\,{=}\,1$) once $N$ clears the default clamp, but the first-accept
-$(N,\phi)$ pair is \emph{path-dependent across caps} (A6-T16 discovery-faithful
-reconcile on the same child): adjacent listed caps give e.g.\
-$\texttt{max\_nodes}{=}45$ finer $\phi\approx0.183$, $46$ finer $\phi\approx0.197$,
-then $64$ L$=$1 $\phi\approx0.061$ at $N{=}58$ ($\lvert\Delta\phi\rvert>0.1$ vs $46$),
-so neither $46$ nor $\phi\approx0.201$ (A6-T14) is a threshold.  Historical
-uncapped / cap-$64$ $\phi$ tips also disagree across probes.  The miss remains a
+(sample ARI$\,{=}\,1$) once $N$ clears the default clamp, but there is
+\emph{no stable first-accept} $(N,\phi)$ (A6-T16 discovery-faithful reconcile
+on the same child; A6-T19 retracts any reading of
+$\texttt{max\_nodes}{=}46$ / $\phi\approx0.201$ as a threshold).  First-accept
+$N$ itself flips between $45$ and $46$ across adjacent listed caps (finer
+$\phi\approx0.183$ at $45$, $\phi\approx0.197$ at $46$), while accepted $\phi$
+then drops from $\approx0.197$ (cap~$46$) to $\approx0.061$ (cap~$64$, L$=$1 at
+$N{=}58$; $\lvert\Delta\phi\rvert>0.1$).  Historical uncapped / cap-$64$ $\phi$
+tips also disagree across probes.  The miss remains a
 \emph{resolution-cap $\times$ provisional-ceiling} interaction, not a missing
-valley: do not raise the node cap or lower $0.25$ from these observations.
+valley and not a usable cap rule: do not raise the node cap or lower $0.25$
+from these observations.
 
 \emph{Support/response traces are diagnostics, not the selector.} The Lindeberg
 response $\Phi_C(\tau)$ and the compensated node-count / support trace
