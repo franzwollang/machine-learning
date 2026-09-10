@@ -143,3 +143,4 @@
 {"ts":"2026-09-10T07:23:33Z","from":"A3","type":"REQUEST_TRACKER","issue":48,"task_id":"A3-T12","note":"Mark A3-T12 completed (D7 closeout). Also A3-T11 blocked/killed (NO_COVARIATE_FLOOR), A3-T14+A3-T15 completed prior tip. Queue empty — do not refill (D7 closeout drain)."}
 {"ts":"2026-09-10T07:23:33Z","from":"A3","type":"NOTE","note":"Prior T14: circle phi=0 = graph-disconnection same as lone_gauss2d s17. T15: NO_COVARIATE_FLOOR in SI. Reaffirm tracker marks."}
 {"ts":"2026-09-10T07:24:05Z","from":"A3","type":"NOTE","note":"Tests this turn: gate 69p; envelope unit 22p. Defaults unchanged. Queue empty after D7 T12."}
+{"ts":"2026-09-10T07:24:05Z","from":"A3","type":"NOTE","note":"Authoritative tip after A3-T12 D7 closeout: 440985e2a8893c05bb42d2b07473691bf28dc71b"}
