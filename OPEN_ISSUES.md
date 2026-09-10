@@ -401,17 +401,6 @@ root background child at the selected level (coverage 0.76): the outer
 shell is only fully connected at radii where it also connects to the inner
 shell through tissue.
 
-## 46. Pytest runtime hygiene: simulations are misclassified as tests
-
-Default `pytest` now skips `slow` and `real_data` (`pytest.ini` addopts;
-`test_recursion.py` name-parts auto-marked `slow` in `conftest.py`).
-Remaining:
-- Runtime guard so a newly misclassified multi-minute simulation fails
-  the default suite instead of silently expanding it.
-- Keep the unmarked Stage-1 unit/integration slice within roughly two
-  minutes; profile any leftover accidental regressions.
-
-
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
 Flag-complex *construction* has landed (`stage2/flag_complex.py`, SI S4.1/S4.2). Recovery
