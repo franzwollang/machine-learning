@@ -2009,6 +2009,31 @@ band, so fixed-ceiling calibration is \emph{falsified as a sufficient
 one-feature floor}; $0.25$ remains unchanged and provisional --- no
 replacement number is proposed here (\#48).
 
+\paragraph{Director D7 $\phi$-ceiling closeout (A3-T7/T9/T11/T12/T13; \#48).}
+\label{par:si-phi-ceiling-d7}
+Mechanism controls and child-sized envelopes deepen the same
+conclusion without proposing a new number. A flat-strip null with the
+same arc length and width as the corrected S-curve but
+$R{=}\infty$ (A3-T9) still false-accepts below $0.25$ (seeds
+$5,18,19$; min $\phi\approx 0.123$), so extrinsic curvature is not the
+driver. The A4-T6 / A3-T7 component-only child envelope (circle /
+nested shell / two-Gaussians, no tissue; $n\in\{200,500\}$; seeds
+$0$--$19$) has positive-$\phi$ min $\approx 0.167$ and also breaches
+$0.25$, plus two circle $\phi{=}0$ graph-disconnection accepts owned
+by the zero-cross guard family. Cut-persistence (A3-T13) --- matched
+Jaccard of accepted A/B labels against adjacent finer/coarser C--D
+levels --- does not separate null accepts from composite accepts
+(median persist $1.0$ on both sides), so no persistence gate.
+Cut covariates (A3-T11; $N$, $\tau$, at-bound, min-side node/sample
+mass, boundary vs interior median $r_k$) likewise show every
+null-accept band overlapping the composite-accept band
+(\texttt{NO\_COVARIATE\_FLOOR}). Cut-local density contrast is also
+killed (A2-T10; null and composite ranges overlap, gap ${<}2\times$).
+Director D7 keeps $0.25$ unchanged and provisional / not sufficient;
+there is \emph{no live \#48 floor candidate this burn}. Do not invent
+min-side, bound, curvature, persistence, density-contrast, or
+$n$-indexed ceiling rules from these controls.
+
 The shot-noise floor is a \emph{resolution bound on the mesh}: a node's
 catchment must hold at least the $k$ samples that define the local
 density scale everywhere else in the reader, so $n/N\ge k$, i.e.
@@ -5733,7 +5758,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{LevelSetConfig.min\_persistence} & 0.05\ (\text{core-radius rank lifetime; runt screen; connected-null envelope overlaps true splits}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_excess\_mass} & 0.02\ (\text{normalized mass$\times$rank integral; runt screen}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_cluster\_frac} & 0.15\ (\text{fraction of region node budget; coarse satellite / partial-activation floor}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{LevelSetConfig.max\_bottleneck\_ratio} & 0.25\ (\text{ceiling on min-cut-normalized $\phi$; cross-cut max-flow over the weaker side's intrinsic min-cut; provisional}) & \text{S2.6.2} & \text{calibrated (six-scene null-ensemble envelope, min $0.288$ / $359$ reads, seeds $0$--$19$; corrected S-curve min $\phi\approx 0.096$ with $4/20$ accepts falsifies as sufficient floor --- value unchanged; \#48)}\\
+\texttt{LevelSetConfig.max\_bottleneck\_ratio} & 0.25\ (\text{ceiling on min-cut-normalized $\phi$; cross-cut max-flow over the weaker side's intrinsic min-cut; provisional / not sufficient}) & \text{S2.6.2} & \text{calibrated (six-scene null-ensemble envelope, min $0.288$ / $359$ reads, seeds $0$--$19$; corrected S-curve min $\phi\approx 0.096$ with $4/20$ accepts; flat-strip min $\phi\approx 0.123$ kills curvature; child envelope min $\phi\approx 0.167$ plus two circle $\phi{=}0$; cut-persistence, covariate, and density-contrast floors killed A3-T11/T13/A2-T10 --- value unchanged; no live \#48 floor this burn; \#48)}\\
 \texttt{LevelSetConfig.require\_separation\_evidence} & \text{false}\ (\text{zero-cross hit-mass guard $\lambda=k\cdot 2p(1-p)>\log\tau_{\mathrm{bf}}$; A2-T7 ON$\equiv$OFF on normal-path seeds $0$--$4$ and null false accepts $0$ over $0$--$19$; D4 killed standalone flip --- clean but no-op on positive-$\phi$ sheet/strip; density-contrast oracle overlaps, A2-T10; cross-flow Poisson killed A2-T5}) & \text{S2.6.2} & \text{operational (proposal-path; \#48)}\\
 \texttt{advance\_scaffold\_to\_tau} & \text{warm in-place $\tau$ continuation; no longer on any path (diagnostic helper, unit-locked)} & \text{S2.6.2} & \text{operational (proposal-path; retired from the finer walk, \#48)}\\
 \texttt{fit\_scaffold\_at\_tau} & \text{fresh fit at each finer $\tau$, $N\le n/k$ (track\_tau finer walk); derived bound, no free constant} & \text{S2.6.2} & \text{derived (\#48)}\\
