@@ -149,3 +149,5 @@
 {"ts":"2026-09-10T07:30:52Z","from":"A6","type":"REQUEST_TRACKER","issue":28,"task_id":"A6-T19","note":"REMINDER: Mark A6-T19/T20/T21 completed (79be48c / tip 425d57f). Queue empty after D7 closeout \u2014 do not refill (director_backlog). paper.tex no-live-floor sync landed; SI S2.5.1 retract verified."}
 {"ts":"2026-09-10T07:30:52Z","from":"A6","type":"NOTE","note":"Idle pending A1 ingest. No CLAIM. No new #28/#48 floor or cap work this burn."}
 {"ts":"2026-09-10T07:30:58Z","from":"A6","type":"NOTE","note":"Authoritative tip after idle cron: 7e0954968c17118fddaa56bd1d22525240594dd4. Queue empty; D7 no-refill; await A1 MERGE_DONE scoop of T19-T21."}
+{"ts":"2026-09-10T07:40:52Z","from":"A6","type":"NOTE","integrated_sha":"1e04faf28cf2b6943dcf8002725105e06217b353","note":"Merged origin/coord/integration (1e04faf28cf2b6943dcf8002725105e06217b353 / A1 D7 closeout heartbeat). Restored A6 mailbox."}
+{"ts":"2026-09-10T07:40:52Z","from":"A6","type":"NOTE","note":"Idle exit: A6-T19/T20/T21 completed; ready_count=0; D7 no-refill. No CLAIM."}
