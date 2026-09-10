@@ -1,32 +1,32 @@
 {
-  "updated_at": "2026-09-10T04:58:53Z",
-  "turn": 101,
+  "updated_at": "2026-09-10T05:56:07Z",
+  "turn": 102,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "identify why phi fails on the corrected S-curve null"
+    "goal": "publish heartbeat after integrating report-only worker tips"
   },
   "recent": [
-    "Merged A3-T6, A4-T7, and A5 report-only tips into integration",
+    "Merged current A3-A6 tips; pre-tracker implementation tree was unchanged",
     "Green: gate 69+x1, foundation 194+x8, evidence 242, scenarios 40+x17",
-    "D3 killed fixed-ceiling calibration as a sufficient #48 evidence floor",
-    "Queues refilled to 2-3 ready tasks; A3-T9 flat-strip control is next",
-    "A5-T7 remains open for exact n≈194/N≤24 despite larger-child clean evidence"
+    "Cadence sweep hit 2400s after nulls30/30, hierarchy5/5, tori5/5, nested5/5 all matched baseline",
+    "A5-T7 exact n=194 weak components are clean on 10/10 isolated-child reads",
+    "Queues restored to 2-3 ready tasks via approved D3 task splits"
   ],
   "discoveries": [
     "Corrected area-uniform S-curve accepts 4/20; min phi=0.096 overlaps composite accepts through 0.244",
-    "Old S-curve s8 breach is withdrawn because its generator double-covered a half-arc",
-    "A4-owned generator injectivity/uniformity audit is green with seven new tests",
-    "Weak components are clean at n≈365-412, but exact observed child n≈194 remains untested",
+    "A4-T8 K=2 rate rises monotonically 2/5→3/5→5/5 across increasing two-Gaussian valley depth",
+    "Weak isolated children are clean at exact n=194; #45 residual is tissue/sibling context",
+    "Hierarchy seed0 binds at N=25 with phi=0.617 but accepts uncapped at phi=0.232",
     "No fixed phi ceiling can separate corrected S-curve nulls from current true composites"
   ],
   "open_threads": [
     "A2 T7-T9: guard-on sweep, director-gated flip, negative-result SI",
     "A3 T9/T8/T7: curvature mechanism, negative-result SI, child envelope",
-    "A4 T8-T10: resolvability, child power, analytic valley oracle",
-    "A5 T7-T9: exact weak child, non-monotonicity, descent verdict SI",
-    "A6 T10-T12: hierarchy miss, paper sync, OFF reference"
+    "A4 T9-T11: child power, analytic valley oracle, benchmark-card split",
+    "A5 T8-T10: weak non-monotonicity, descent verdict SI, tracker closeout",
+    "A6 T11-T12: dependency-gated paper sync and OFF reference"
   ],
-  "next_step": "publish tested MERGE_DONE and D3 task assignments",
+  "next_step": "commit tracker snapshot, append MERGE_DONE, and push integration plus A1",
   "blockers": []
 }

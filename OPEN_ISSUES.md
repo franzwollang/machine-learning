@@ -89,6 +89,12 @@ Remaining work:
   rejected as anti-SI. Paper §scale synced to L=1 + coarse-end; hierarchy hybrid≫expected
   regression locked. Do **not** flip the default; persistence stays structural arbiter
   with coarse-end resolution until a SI-justified within-interval signal exists.
+- **Hierarchy child resolution-cap interaction (A6-T10):** hierarchy recovers
+  6/6 fine leaves on seeds 1--4 and 5/6 on seed 0. The unsplit seed-0 child has
+  `n=200`, binds at `N=25=n/k`, and sees best `phi=0.617`; without the cap the
+  same region accepts at `phi=0.232`. A4-T10 owns the analytic valley-depth
+  handoff. This is a scale-resolution interaction, not grounds to lower the
+  provisional ceiling.
 - **Landed (A3-T31 SI A+C):** SI S2.6.2 + S14.3 document
   `PersistenceConfig.resolve_within_interval` (`none` | `load_crossover`, default
   `none`; hybrid ≤ fine-leaf).
@@ -366,13 +372,11 @@ outer shell (cover ≥ 0.886) and give 2 leaves. Not a growth-policy
 defect: the accepted cut is right, its background partition of the
 lower-density component is crude at the first-accept scale.
 
-Remaining work: A5-T6 found nested+bimodal pure children clean on 20/20
-seed/component reads; an off-scope A5-T7 run also found weak components clean
-at `n≈365--412` per component. The exact weak-child failure regime
-(`n≈194`, `N≤24`) remains pending before deciding whether the residual is
-tissue/sibling context or #48-at-small-`n`; A3-T7 adds all component-only
-child-sized nulls to the envelope. Keep signal-only ARI + background recall
-meanwhile. The explicit
+Remaining work: A5-T6 found nested+bimodal pure children clean, and A5-T7
+confirmed both weak components remain single leaves on all 10 exact child reads
+at `n=194`. The residual is therefore tissue/sibling context, not intrinsic
+#48 failure at small `n`; A3-T7 still adds all component-only child-sized nulls
+to the envelope. Keep signal-only ARI + background recall meanwhile. The explicit
 `tissue_mass` sweep and descent options A/B all fired their kill criteria,
 so do not tune those families or weaken topology expectations.
 
@@ -814,21 +818,21 @@ Remaining (ordered by severity):
   cases: all three failing bimodal seeds recover by `4x` (sample-conditioned),
   while weak two-Gaussians stays `K=1` on at least half the failures even at
   `10x` (statistic-limited). Further scene scaling is stopped; do not change
-  expectations or lower the ceiling.
+  expectations or lower the ceiling. A4-T8's root-only separation curve is
+  monotone in analytic valley depth: `K=2` rates rise 2/5, 3/5, 5/5, 5/5,
+  5/5 across separations 2.5, 3, 3.5, 4, 6; no ceiling change is justified.
 - **Tissue-heavy children (→ #45).** Root splits leak tissue into
   signal children (bimodal child 37% tissue); the reader then marks
   most of the child background and accepts shell+tissue chunks. Nested
   no longer over-splits under the connected null (2 leaves on all
   seeds). A4's component-only child-sized null generators have landed;
-  A5-T6 found nested+bimodal pure children clean on 20/20 seed/component
-  reads, and an off-scope A5-T7 run found weak components clean at
-  `n≈365--412` per component. The exact weak-child regime
-  (`n≈194`, `N≤24`) and A3-T7 child-sized null envelope remain pending;
-  do not yet move the residual from tissue/sibling context to
-  #48-at-small-`n`.
-- Weak two-Gaussians (sep 2.5σ) child of 194 samples still splits at
-  the bound (N ≤ 24) on the seeds where the root splits. Revisit after
-  #45.
+  A5-T6 found nested+bimodal pure children clean, and A5-T7 found both
+  weak components clean on all 10 exact `n=194` reads. This rules out an
+  intrinsic small-`n` null failure for the isolated children; the residual is
+  tissue/sibling context. A3-T7's broader child-sized null envelope remains.
+- Weak two-Gaussians (sep 2.5σ) children in the full tissue/sibling context
+  can still split at the `N≤24` bound; isolated `n=194` components do not.
+  Revisit with #45 semantics rather than lowering the #48 ceiling.
 - **DM log-BF is not a valley-existence floor.** The default-off
   sample-normalized correction reduces the Gaussian false accept from
   `2162` to `128`, but corrected null/composite distributions overlap
