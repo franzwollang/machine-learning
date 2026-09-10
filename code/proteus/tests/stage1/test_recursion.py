@@ -9,6 +9,7 @@ import pytest
 
 from proteus.stage1.controller import ScaleSearchConfig
 from proteus.stage1.clustering import ClusterResult
+from proteus.stage1.level_set import LevelSetConfig
 from proteus.stage1.recursion import (
     RecursionConfig,
     RecursionNode,
@@ -373,6 +374,196 @@ def test_option_b_does_not_block_root_majority_background(
     children = [tree.nodes[i] for i in tree.nodes[0].children]
     assert any(child.is_background for child in children)
     assert sum(not child.is_background for child in children) == 2
+
+
+def test_option_a_core_only_descent_flag_default_off() -> None:
+    """#45 option A stays off on the default acceptance path."""
+
+    assert RecursionConfig().core_only_descent is False
+
+
+def test_option_a_core_only_descent_moves_halo_to_background(
+    monkeypatch,
+) -> None:
+    """Halo nodes (d_i < 0.5 * branch peak) join background; core descends."""
+
+    # Cluster 0: tight core near x=-2, isolated halo near (0, 3).
+    # Cluster 1: tight core near x=+2.  With k=1, halo r_1 >> core r_1.
+    data = np.array([
+        [-2.0, 0.0],
+        [-2.0, 0.05],
+        [-2.05, 0.0],
+        [0.0, 3.0],  # halo of cluster 0
+        [2.0, 0.0],
+        [2.0, 0.05],
+        [2.05, 0.0],
+    ])
+
+    class _Node:
+        def __init__(self, position):
+            self.position = np.asarray(position, dtype=float)
+            self.d_final = 2
+
+    class _ANN:
+        def query_knn(self, point, k=1):
+            dists = np.linalg.norm(data - np.asarray(point), axis=1)
+            idx = int(np.argmin(dists))
+            return np.array([idx]), np.array([dists[idx]])
+
+    class _Links:
+        @staticmethod
+        def lifted_links():
+            return []
+
+    class _Scaffold:
+        nodes = [_Node(p) for p in data]
+        ann = _ANN()
+        links = _Links()
+        prune_beta = 0.5
+
+    partition = ClusterResult(
+        labels=np.array([0, 0, 0, 0, 1, 1, 1]),
+        exemplar_indices=np.array([0, 4]),
+        n_clusters=2,
+        partition_q_score=-1.0,
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.run_scale_search",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            tau_star=1.0,
+            scaffold_at_star=_Scaffold(),
+        ),
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.select_level_set_partition",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            accepted=True,
+            cluster_result=partition,
+        ),
+    )
+    captured: list[np.ndarray] = []
+
+    def _capture_t2(data_arr, child_indices, dim, d_hat, **_kw):
+        captured.append(np.asarray(child_indices, dtype=int).copy())
+        return SimpleNamespace(
+            child_data=data_arr[np.asarray(child_indices, dtype=int)],
+            child_dim=dim,
+        )
+
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.apply_t2_transfer",
+        _capture_t2,
+    )
+
+    tree = run_recursive_discovery(
+        data,
+        dim=2,
+        config=RecursionConfig(
+            min_samples=2,
+            max_depth=1,
+            use_level_set_clustering=True,
+            core_only_descent=True,
+            level_set=LevelSetConfig(k_neighbors=1),
+        ),
+    )
+
+    children = [tree.nodes[i] for i in tree.nodes[0].children]
+    background = [c for c in children if c.is_background]
+    assert len(background) == 1
+    assert set(background[0].sample_indices.tolist()) == {3}
+    # Only cores descend via T2 (halo sample 3 excluded).
+    descended = {int(i) for arr in captured for i in arr.tolist()}
+    assert 3 not in descended
+    assert {0, 1, 2}.issubset(descended)
+    assert {4, 5, 6}.issubset(descended)
+
+
+def test_option_a_off_keeps_halo_in_signal_child(
+    monkeypatch,
+) -> None:
+    """Default path still descends halo samples with their signal label."""
+
+    data = np.array([
+        [-2.0, 0.0],
+        [-2.0, 0.05],
+        [-2.05, 0.0],
+        [0.0, 3.0],
+        [2.0, 0.0],
+        [2.0, 0.05],
+        [2.05, 0.0],
+    ])
+
+    class _Node:
+        def __init__(self, position):
+            self.position = np.asarray(position, dtype=float)
+            self.d_final = 2
+
+    class _ANN:
+        def query_knn(self, point, k=1):
+            dists = np.linalg.norm(data - np.asarray(point), axis=1)
+            idx = int(np.argmin(dists))
+            return np.array([idx]), np.array([dists[idx]])
+
+    class _Links:
+        @staticmethod
+        def lifted_links():
+            return []
+
+    class _Scaffold:
+        nodes = [_Node(p) for p in data]
+        ann = _ANN()
+        links = _Links()
+        prune_beta = 0.5
+
+    partition = ClusterResult(
+        labels=np.array([0, 0, 0, 0, 1, 1, 1]),
+        exemplar_indices=np.array([0, 4]),
+        n_clusters=2,
+        partition_q_score=-1.0,
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.run_scale_search",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            tau_star=1.0,
+            scaffold_at_star=_Scaffold(),
+        ),
+    )
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.select_level_set_partition",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            accepted=True,
+            cluster_result=partition,
+        ),
+    )
+    captured: list[np.ndarray] = []
+
+    def _capture_t2(data_arr, child_indices, dim, d_hat, **_kw):
+        captured.append(np.asarray(child_indices, dtype=int).copy())
+        return SimpleNamespace(
+            child_data=data_arr[np.asarray(child_indices, dtype=int)],
+            child_dim=dim,
+        )
+
+    monkeypatch.setattr(
+        "proteus.stage1.recursion.apply_t2_transfer",
+        _capture_t2,
+    )
+
+    run_recursive_discovery(
+        data,
+        dim=2,
+        config=RecursionConfig(
+            min_samples=2,
+            max_depth=1,
+            use_level_set_clustering=True,
+            core_only_descent=False,
+            level_set=LevelSetConfig(k_neighbors=1),
+        ),
+    )
+
+    descended = {int(i) for arr in captured for i in arr.tolist()}
+    assert 3 in descended
+    assert {0, 1, 2, 3}.issubset(descended)
 
 
 def test_hierarchical_gaussian_recursion_matches_gt() -> None:
