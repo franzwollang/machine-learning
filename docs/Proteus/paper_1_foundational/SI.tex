@@ -4796,6 +4796,147 @@ The deterministic term decays with half-life $k$. Azuma--Hoeffding gives the dis
 \subsection*{S14.1 Datasets and Splits}
 Synthetic benchmarks should include known topological and geometric ground truth: nested manifolds, variable-density curves/surfaces, linked components, dimensionality junctions, and high-curvature patches. Real benchmarks should be chosen for local structure and query relevance rather than only classification accuracy. Use fixed train/test splits or repeated random splits with logged seeds.
 
+\paragraph{Level-set suite benchmark cards (preparatory; A4-T11 / \#48).}
+\label{sec:si-s14-level-set-benchmark-cards}
+Per-scene cards for the frozen normal-path suite in
+\texttt{tests/scenarios/synthetic/level\_set\_suite.py}
+(and factories in
+\texttt{level\_set\_normal\_path\_sweep.py}).
+Fields filled here are already-landed measurements only:
+suite $n$, seed-$0$ actual tissue mass under the legacy fade-balanced
+default (\texttt{tissue\_mass\_requested}${}={}$\texttt{None}),
+A4-T7 injectivity / area-uniformity audit, A4-T8 two-Gaussian root
+resolvability curve, and A3-T3 composite root-read $\phi$ on seeds
+$0$--$9$.
+Cells that depend on A4-T9 (child-sized power) or A4-T10 (pairwise
+valley oracle on hierarchy / nested / tori) are marked
+\emph{pending} --- do not invent values and do not change defaults.
+Tissue masses below are sample fractions at seed~$0$; legacy mode still
+yields $\approx 46$--$49\%$ $\lambda{<}0.5$ tissue on faded manifolds
+(honest mass uses \texttt{tissue\_mass}; see S2.6.2).
+
+\begin{itemize}[leftmargin=1.2em]
+  \item \textbf{\texttt{circle\_null}}.
+  $n{=}1500$.
+  Actual tissue mass $\approx 0.477$ (legacy fade-balanced).
+  Uniformity (A4-T7): pass (uniform angle; injective).
+  Root-accept / $\phi$ (null): not in A3-T3 composite table.
+  Child power (A4-T9): \emph{pending}.
+  Analytic valley (A4-T10): n/a (one-feature null).
+
+  \item \textbf{\texttt{swiss\_roll\_null}}.
+  $n{=}2000$.
+  Actual tissue mass $\approx 0.455$ (legacy).
+  Uniformity (A4-T7): pass (arc-length CDF $\times$ uniform height;
+  injective spiral).
+  Root-accept / $\phi$: not in A3-T3 composite table.
+  Child power (A4-T9): \emph{pending}.
+  Analytic valley (A4-T10): n/a.
+
+  \item \textbf{\texttt{lone\_torus\_null}}.
+  Parent \texttt{make\_linked\_tori} at $n_{\mathrm{per}}{=}4000$
+  ($n{=}8000$), then keep signal label~$0$ plus nearby tissue
+  ($r{=}1$); seed~$0$ kept $n{\approx}3539$.
+  Parent actual tissue mass $\approx 0.493$ (legacy); subset mass
+  varies by seed.
+  Uniformity (A4-T7): parent torus surface continuous area-uniform
+  (pass).
+  Root-accept / $\phi$: not in A3-T3 composite table.
+  Child power (A4-T9): \emph{pending}.
+  Analytic valley (A4-T10): n/a (null).
+
+  \item \textbf{\texttt{lone\_shell\_inner\_null}}.
+  Parent \texttt{make\_nested\_spheres} at $n_{\mathrm{per}}{=}3000$
+  ($n{=}6000$), keep inner shell label~$1$ plus nearby tissue;
+  seed~$0$ kept $n{\approx}2542$.
+  Parent actual tissue mass $\approx 0.466$ (legacy).
+  Uniformity (A4-T7): parent shell surface-uniform (pass).
+  Root-accept / $\phi$: not in A3-T3 composite table.
+  Child power (A4-T9): \emph{pending}.
+  Analytic valley (A4-T10): n/a (null).
+
+  \item \textbf{\texttt{lone\_gauss2d\_null} / \texttt{lone\_gauss4d\_null}}.
+  $n{=}800$ each; no faded tissue (isotropic Gaussian draws).
+  Uniformity (A4-T7): n/a (not a manifold area sampler).
+  Root-accept / $\phi$: not in A3-T3 composite table
+  (null-envelope / \#48 gate separate).
+  Child power (A4-T9): \emph{pending}.
+  Analytic valley (A4-T10): n/a.
+
+  \item \textbf{\texttt{hierarchy}}.
+  $n{=}600$; no faded tissue metadata.
+  Uniformity (A4-T7): n/a (hierarchical isotropic Gaussians).
+  Root-accept seeds~$0$--$9$ (A3-T3): $10/10$, $\phi{=}0$, root $K{=}3$.
+  Child power (A4-T9): \emph{pending}.
+  Pairwise fine-leaf valley depths (A4-T10): \emph{pending}.
+
+  \item \textbf{\texttt{linked\_tori}}.
+  $n{=}8000$ ($4000$ per torus).
+  Actual tissue mass $\approx 0.493$ (legacy).
+  Uniformity (A4-T7): pass (continuous area-uniform torus surface).
+  Root-accept seeds~$0$--$9$ (A3-T3): $10/10$,
+  accepted $\phi\in[0.036,0.236]$.
+  Child power (A4-T9): \emph{pending}.
+  Analytic valley depth (A4-T10): \emph{pending}.
+
+  \item \textbf{\texttt{nested\_spheres}}.
+  $n{=}6000$ ($3000$ per shell).
+  Actual tissue mass $\approx 0.466$ (legacy).
+  Uniformity (A4-T7): pass (surface-uniform shells).
+  Root-accept seeds~$0$--$9$ (A3-T3): $10/10$,
+  accepted $\phi\in[0.014,0.174]$.
+  Child power (A4-T9): \emph{pending}.
+  Analytic valley depth (A4-T10): \emph{pending}.
+
+  \item \textbf{\texttt{bimodal\_circle}}.
+  $n{=}1500$, $\kappa{=}3$.
+  Actual tissue mass $\approx 0.485$ (legacy).
+  Uniformity (A4-T7): intentional angular non-uniformity; equal modes
+  (pass as declared).
+  Analytic valley depth (A4-T5): $\approx 0.901$ (identical across seeds;
+  PASS/FAIL band-count overlap --- sampling noise at fixed $n$).
+  Root-accept seeds~$0$--$9$ (A3-T3): $6/10$;
+  accepted $\phi\in[0.097,0.207]$;
+  miss best-candidate $\phi\in[0.334,0.781]$ (bottleneck reject).
+  Child power (A4-T9): \emph{pending}.
+
+  \item \textbf{\texttt{two\_gaussians\_weak}}.
+  $n{=}800$, $\sigma{=}0.25$, separation ${=}2.5$.
+  Actual tissue mass $\approx 0.018$ (legacy; low tissue draw).
+  Uniformity (A4-T7): pass (equal weights; injective centers).
+  Analytic valley depth (A4-T5): $\approx 0.130$ (identical across seeds;
+  band-count overlaps PASS/FAIL).
+  Root-accept seeds~$0$--$9$ (A3-T3): $3/10$;
+  accepted $\phi\approx 0.098$--$0.100$;
+  miss best-candidate $\phi\in[0.334,1.003]$ (two seeds with $0$
+  candidates).
+  A4-T8 root curve (same geometry family, seeds~$0$--$4$, root-only):
+  separation $2.5\to$ depth $0.130\to$ $K{=}2$ accept $2/5$
+  (accepted-$\phi$ mean $\approx 0.099$).
+  Child power (A4-T9): \emph{pending}.
+
+  \item \textbf{\texttt{two\_gaussians\_clear}}.
+  $n{=}800$, $\sigma{=}0.25$, separation ${=}6$.
+  Actual tissue mass $\approx 0.021$ (legacy).
+  Uniformity (A4-T7): pass.
+  Analytic valley depth (A4-T5 metadata): $\approx 0.978$.
+  Root-accept seeds~$0$--$9$ (A3-T3): $10/10$,
+  accepted $\phi\in[0.0,0.244]$.
+  A4-T8 root curve (seeds~$0$--$4$):
+  sep$\to$depth$\to$accept:
+  $2.5{\to}0.130{\to}2/5$;
+  $3.0{\to}0.358{\to}3/5$;
+  $3.5{\to}0.568{\to}5/5$;
+  $4.0{\to}0.729{\to}5/5$;
+  $6.0{\to}0.978{\to}5/5$
+  (monotone; kill not fired; accepted-$\phi$ means
+  $\approx 0.099/0.102/0/0.107/0.017$).
+  Child power (A4-T9): \emph{pending}.
+\end{itemize}
+Closing this card set: fill A4-T9 / A4-T10 pending cells after those
+tasks are tracker-complete; do not retune $\phi$ ceiling or suite $n$
+from these figures alone.
+
 \subsection*{S14.2 Metrics}
 Metrics include persistent-homology distances or topology summaries where ground truth exists, reconstruction/projection error, held-out log-likelihood under the reconstructed density, sample quality (e.g.\ MMD or nearest-neighbor two-sample tests), membership-trajectory stability, accepted-edit counts, and diagnostic residuals. Each metric should map to a named architectural claim.
 
