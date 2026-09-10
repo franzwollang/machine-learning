@@ -124,7 +124,8 @@ class LevelSetConfig:
     A zero-cross accept requires ``λ > log(tau_bf)`` (same margin as the
     DM verdict; no new constant).  When any cross flow is present the
     min-cut-normalized ``φ`` ceiling already scores the valley and this
-    guard is not applied.
+    guard is not applied.  A2-T7 measured ON≡OFF on normal-path seeds
+    0--4; default stays off until director confirms A2-T8 (D3).
     """
 
     k_neighbors: int = 8
