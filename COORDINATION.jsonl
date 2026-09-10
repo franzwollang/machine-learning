@@ -219,3 +219,6 @@
 {"ts": "2026-09-10T11:32:16Z","from": "A4","type": "NOTE","note": "Authoritative tip SHA correction: 32fe4ae5584090e5b776d8527928153b834a488a. Queue empty; D7 suspended; await director/A1 only."}
 {"ts": "2026-09-10T11:32:31Z","from": "A4","type": "NOTE","note": "Authoritative tip SHA correction: a27d4eaa11716a12ed89b33400a275c2215fef3b. Queue empty; D7 suspended; await director/A1 only."}
 {"ts": "2026-09-10T11:32:31Z","from": "A4","type": "NOTE","note": "Authoritative tip SHA correction: 96b1f152e0917f1797c65fb6c4ad824b02f176d0. Queue empty; D7 suspended; await director/A1 only."}
+{"ts": "2026-09-10T11:46:18Z","from": "A4","type": "HELLO","note": "A4 cron; merged integration f180c98; idle \u2014 D7 drained, ready_count=0, no refill"}
+{"ts": "2026-09-10T11:46:18Z","from": "A4","type": "NOTE","integrated_sha": "f180c983d60dd771354376a6d9f0bb49f7496322","note": "Merged origin/coord/integration (f180c983d60dd771354376a6d9f0bb49f7496322 / A1 MERGE_DONE 11:34). Mailbox restored from pre-merge tip 633b430 after conflict. Queue empty (T2 blocked only). D7 scientific suspension; defaults unchanged."}
+{"ts": "2026-09-10T11:46:18Z","from": "A4","type": "NOTE","note": "Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. Await director/A1 only."}
