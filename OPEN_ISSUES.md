@@ -93,10 +93,10 @@ Remaining work:
   the true L0/L1 cut (ARI 1), but its `N` and `phi` are path-dependent: the
   first accept shifted from 46 to 45 nodes, and `phi` changed from 0.197 to
   0.061 between caps 46 and 64. A6-T17 is canceled. Do not propose a cap rule
-  or treat 45/46 or the observed `phi` values as thresholds. Remaining:
-  retract SI S2.5.1's stable `max_nodes=46` / `phi≈0.201` claim (A6-T19/T20).
-  Persistence, within-interval, and scale-search defaults stay unchanged; do
-  not open #47 from this residual.
+  or treat 45/46 or the observed `phi` values as thresholds. A6-T19/T20/T21
+  landed the SI S2.5.1 retraction and paper audit: the first accept is not
+  stable, density is not a remaining floor, and no usable cap number follows.
+  Persistence, within-interval, and scale-search defaults stay unchanged.
 - **Landed (A3-T31 SI A+C):** SI S2.6.2 + S14.3 document
   `PersistenceConfig.resolve_within_interval` (`none` | `load_crossover`, default
   `none`; hybrid ≤ fine-leaf).
@@ -376,14 +376,14 @@ lower-density component is crude at the first-accept scale.
 
 Remaining work: weak two-Gaussian shatter is tissue-sufficient (A5-T11):
 one-signal+tissue splits 5/10, while both-signals/no-tissue and isolated
-`n=194` children stay clean. Bimodal seed-2 tissue shatter is not reproducible
-on the current tip (A5-T13). Tissue mass in the over-splitting child is not the
-residual (A4-T13: bimodal ratio 0.91, nested ratio 0.97; nested seed 0 currently
-has two leaves). A5-T16 will census current-tip nested/bimodal leaf counts;
-A5-T15 runs only if nested still over-splits. If the census is clean, only the
-benchmark-semantics documentation remains. Keep signal-only ARI + background
-recall. Do not resolve #45, tune `tissue_mass`, reopen descent A/B/D, or resume
-tissue-fraction sweeps.
+`n=194` children stay clean. Tissue mass in the over-splitting child is not the
+residual (A4-T13: bimodal ratio 0.91, nested ratio 0.97). The current-tip
+census (A5-T16) found nested clean on all five seeds (`sigLeaves=rootK=2`) but
+bimodal seed 2 again over-split (`sigLeaves=3>rootK=2`); the effect is
+tip-sensitive rather than a standing nested-child failure. A5-T15 therefore
+skipped the nested ablation. Only benchmark-semantics documentation remains
+this burn. Keep signal-only ARI + background recall. Do not resolve #45, tune
+`tissue_mass`, reopen descent A/B/D, or resume tissue-fraction sweeps.
 
 Level-set consequence (2026-09-09, from #48): the root split assigns about
 half the tissue to signal children (nested seed-0 bg recall 0.51; nested
@@ -802,11 +802,13 @@ Remaining (ordered by severity):
   Cut-local density contrast is also killed (A2-T10): null
   `[0.999,1.520]`, median 1.095, overlaps composite accepts
   `[0.913,1.286]`, median 1.114, for a 0.60 gap rather than the required 2x.
-  A3-T11 is the final record-only covariate check and A3-T14 only classifies
-  the two child-envelope phi=0 cases. No #48 floor candidate remains this burn;
-  closeout must not call a killed family live. Any future statistic must use a
-  declared protocol and null envelope, pass corrected S-curve 0/20, and retain
-  every seed-0--4 composite root accept.
+  The final record-only A3-T11 covariate check and A3-T14 classification of
+  the two child-envelope phi=0 cases are now complete:
+  every measured covariate overlaps the composite-accept band, and both circle
+  cases are ordinary graph disconnections in the same class as lone-Gaussian
+  seed 17. No #48 floor candidate remains this burn. Any future statistic must
+  use a declared protocol and null envelope, pass corrected S-curve 0/20, and
+  retain every seed-0--4 composite root accept.
 - **Graph-disconnection false accept (acceptance path, owns the DM
   overconfidence item).** lone 2-D Gaussian seed 17 accepts at N=50,
   τ=0.012: a 72-point clump in the shoulder has no Hebbian link outside

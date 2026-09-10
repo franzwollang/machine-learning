@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-10T07:17:17Z",
+  "updated_at": "2026-09-10T07:30:18Z",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -171,21 +171,21 @@
         },
         {
           "id": "A2-T13",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "SI S2.6.2 one paragraph: persistence oracle dead (A3-T13 null/composite minima 0.257/0.251, medians both 1.0) and density contrast dead (A2-T10 overlapping ranges, gap 0.60). No live #48 floor candidate this burn. Keep 0.25 provisional/not sufficient and the zero-cross guard default off. No new number.",
           "kill": "n/a (documentation-only). If the paragraph would introduce a new floor or flip a default, stop."
         },
         {
           "id": "A2-T14",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "Audit owned S2.6.2 floor and S10 text for leftover claims that density is the only live floor or that density/persistence are next. Correct leftovers and stop.",
           "kill": "If a leftover needs a new experiment or number, leave a pending sentence and stop."
         },
         {
           "id": "A2-T15",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "Compact S2.6.2 killed-family inventory: fixed/relative/n-indexed ceiling, curvature, DM-as-floor, cross-flow, zero-cross-as-flip, persistence, and density. Record only; do not touch S14.3 or name a successor.",
           "kill": "n/a (documentation-only). Do not add a successor candidate."
@@ -282,28 +282,28 @@
         },
         {
           "id": "A3-T11",
-          "status": "in_progress",
+          "status": "blocked",
           "issue": 48,
           "summary": "Extend level_set_null_envelope.py with a covariate table only: N, tau, at_bound, min-side node fraction/sample mass, boundary vs interior median r_k. Run corrected S-curve and flat strip s0-19, six nulls s0-4, clear/tori/nested s0-4. Propose no floor.",
           "kill": "If every covariate overlaps the composite-accept band, NOTE no covariate floor and stop; do not propose min-side or bound rules."
         },
         {
           "id": "A3-T12",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "SI S14.3/S2.6.2 D7 closeout: flat-strip kill, child envelope min phi=0.167 plus two circle phi=0 disconnections, 0.25 provisional/not sufficient, persistence killed, and density killed. No live floor this burn and no new number.",
           "kill": "n/a"
         },
         {
           "id": "A3-T14",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "Report-only /tmp classification of the two child-envelope circle phi=0 disconnections versus lone_gauss2d s17. Table scene/seed/N/tau/phi/cross-flow; no gate.",
           "kill": "If they are not phi=0 graph disconnections, NOTE and stop; do not invent a third class or change the guard."
         },
         {
           "id": "A3-T15",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "depends_on": ["A3-T11"],
           "summary": "After T11, add one SI S14.3 sentence recording the covariate result. If all overlap, record no covariate floor; if one separates across seeds, REQUEST_TRACKER and do not implement. Any gap remains record-only this burn.",
@@ -450,14 +450,14 @@
         },
         {
           "id": "A4-T17",
-          "status": "ready",
+          "status": "completed",
           "issue": 45,
           "summary": "S14 leftover-language audit: retract any claim that T13 is measuring, the tissue residual is pending, or a floor is live. Record the tissue-in-child kill (ratios 0.91/0.97; nested s0 two leaves). No option D or generator change.",
           "kill": "If a cell needs a new run, leave it pending and stop."
         },
         {
           "id": "A4-T18",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "S14 benchmark-card honesty pass: retain T14-T16 numbers, keep unswept T9 scenes pending, and do not list density or persistence as live.",
           "kill": "n/a (documentation-only). Do not invent values."
@@ -574,14 +574,14 @@
         },
         {
           "id": "A5-T14",
-          "status": "ready",
+          "status": "completed",
           "issue": 45,
           "summary": "SI S2.6.2 descent paragraph: bimodal s2 shatter is not reproducible on the current tip; A/B stay dead; weak remains tissue-sufficient. No option D.",
           "kill": "n/a (documentation-only)"
         },
         {
           "id": "A5-T16",
-          "status": "ready",
+          "status": "completed",
           "priority": "next",
           "issue": 45,
           "summary": "Report-only /tmp current-tip normal-path signal leaf counts for nested and bimodal seeds 0-4 versus root K. No flag.",
@@ -589,7 +589,7 @@
         },
         {
           "id": "A5-T15",
-          "status": "ready",
+          "status": "completed",
           "issue": 45,
           "depends_on": ["A5-T16"],
           "summary": "Only if T16 finds nested over-split on at least one seed: context ablation (both/no-tissue versus one+tissue/no-sibling versus isolated). If T16 kills, add only the SI closeout sentence and stop.",
@@ -747,7 +747,7 @@
         },
         {
           "id": "A6-T19",
-          "status": "ready",
+          "status": "completed",
           "priority": "next",
           "issue": 28,
           "summary": "Verify SI S2.5.1 retracts stable first-accept max_nodes=46/phi about 0.201 and records T16 path-dependence. A6-T18 already landed the correction; if complete, mark DONE with no further edit. No threshold or default change.",
@@ -755,14 +755,14 @@
         },
         {
           "id": "A6-T20",
-          "status": "ready",
+          "status": "completed",
           "issue": 28,
           "summary": "paper.tex D7 sync: persistence and density are killed; no #48 floor candidate remains this burn. Hierarchy seed0 residual is path-dependent phi under the cap, not a cap rule. Do not add 45/46 as usable numbers or touch SI S2.6.2.",
           "kill": "n/a (documentation-only)"
         },
         {
           "id": "A6-T21",
-          "status": "ready",
+          "status": "completed",
           "issue": 28,
           "depends_on": ["A6-T19", "A6-T20"],
           "summary": "Audit paper.tex and SI S2.5.1 for max_nodes=46, phi about 0.201, first accept presented as stable, or density presented as the remaining floor. Fix leftovers only in owned sections and stop.",
@@ -772,7 +772,7 @@
       "tests_before_done": "gate + foundation chunks; persistence chunk only inside A6-T1 with --durations"
     }
   },
-  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only. D7 killed density contrast (gap 0.60), the last live #48 floor candidate. The burn narrows to bounded negative-result documentation, then suspends refill. A3-T11 is the final record-only covariate check. All defaults remain unchanged.",
+  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only. D7 closeout is drained: density contrast, persistence, and the final covariate-floor family are killed. A5-T16 found nested clean on 5/5 but a tip-sensitive bimodal s2 over-split. Worker queues are intentionally suspended with no refill. All defaults remain unchanged.",
   "director_backlog": {
     "note": "Director session D7 (2026-09-10). Approved closeout tasks are assigned directly in worker queues. After they drain, do not refill; scientific suspension replaces low-information work.",
     "items": [

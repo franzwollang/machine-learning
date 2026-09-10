@@ -558,15 +558,18 @@ A4-T10) and stays unsplit under the default $N\le n/k{=}25$ clamp: L$=$1 and the
 finer walk both reject with $\phi$ above the provisional $0.25$ ceiling (best
 capped $\phi\approx0.43$; A6-T10 previously reported capped best $\phi\approx0.617$).
 Raising only the mesh cap (no default flip) can accept the true L0/L1 cut
-(sample ARI$\,{=}\,1$) once $N$ clears the default clamp, but the first-accept
-$(N,\phi)$ pair is \emph{path-dependent across caps} (A6-T16 discovery-faithful
-reconcile on the same child): adjacent listed caps give e.g.\
-$\texttt{max\_nodes}{=}45$ finer $\phi\approx0.183$, $46$ finer $\phi\approx0.197$,
-then $64$ L$=$1 $\phi\approx0.061$ at $N{=}58$ ($\lvert\Delta\phi\rvert>0.1$ vs $46$),
-so neither $46$ nor $\phi\approx0.201$ (A6-T14) is a threshold.  Historical
-uncapped / cap-$64$ $\phi$ tips also disagree across probes.  The miss remains a
+(sample ARI$\,{=}\,1$) once $N$ clears the default clamp, but there is
+\emph{no stable first-accept} $(N,\phi)$ (A6-T16 discovery-faithful reconcile
+on the same child; A6-T19 retracts any reading of
+$\texttt{max\_nodes}{=}46$ / $\phi\approx0.201$ as a threshold).  First-accept
+$N$ itself flips between $45$ and $46$ across adjacent listed caps (finer
+$\phi\approx0.183$ at $45$, $\phi\approx0.197$ at $46$), while accepted $\phi$
+then drops from $\approx0.197$ (cap~$46$) to $\approx0.061$ (cap~$64$, L$=$1 at
+$N{=}58$; $\lvert\Delta\phi\rvert>0.1$).  Historical uncapped / cap-$64$ $\phi$
+tips also disagree across probes.  The miss remains a
 \emph{resolution-cap $\times$ provisional-ceiling} interaction, not a missing
-valley: do not raise the node cap or lower $0.25$ from these observations.
+valley and not a usable cap rule: do not raise the node cap or lower $0.25$
+from these observations.
 
 \emph{Support/response traces are diagnostics, not the selector.} The Lindeberg
 response $\Phi_C(\tau)$ and the compensated node-count / support trace
@@ -1919,10 +1922,11 @@ $30/30$, hierarchy $5/5$ with \texttt{sigLeaves}${}=[5,6,6,6,6]$,
 remainder (nested $5/5$, bimodal $2/5$, weak $2/5$, clear $5/5$).
 Corrected S-curve envelope count $60$ has $\phi_{\min}{=}0.096$ (no
 zero-cross read), so the guard is a no-op there by construction.
-Director D4 declined the standalone default flip (A2-T8 killed): the
-guard is metric-identical and null-clean, but cannot see the live
-positive-$\phi$ sheet/strip/child family, so
-\texttt{require\_separation\_evidence} remains default \texttt{false}.
+Directors D4 and D6 declined the standalone default flip (A2-T8
+killed): the guard is metric-identical and null-clean, but cannot see
+the live positive-$\phi$ sheet/strip/child family, so
+\texttt{require\_separation\_evidence} remains default \texttt{false}
+(D6: no flip; record only).
 
 \paragraph{Negative result: cut-local density contrast (A2-T10).}
 \label{par:si-density-contrast-kill}
@@ -1935,10 +1939,42 @@ cluster) versus interiors, with contrast
 $\mathrm{med}_{\partial}/\min(\mathrm{med}_A,\mathrm{med}_B)$.
 Null contrasts sit in $[0.999,1.520]$ (median $1.095$); composite
 accepts in $[0.913,1.286]$ (median $1.114$). Ranges overlap and the
-gap is $<2\times$ on every tabulated definition (C--D
-valley-interface, Hebbian interface, mutual $k$NN, near-other).
-Density contrast is not the next floor --- do not invent a margin;
-do not land \texttt{require\_density\_valley} (A2-T11 not started).
+composite/null gap is $0.60$ rather than the required $2\times$ on every
+tabulated definition (C--D valley-interface, Hebbian interface, mutual
+$k$NN, near-other). Density contrast is killed as a floor candidate ---
+do not invent a margin; do not land \texttt{require\_density\_valley}
+(A2-T11 skipped). D6 had briefly treated this oracle as the last open
+\#48 candidate; the overlap above closes that candidacy (D7).
+
+\paragraph{Negative result: cut persistence (A3-T13).}
+\label{par:si-cut-persistence-kill}
+Adjacent-$\tau$ C--D label Jaccard on the same accept set does not
+separate null accepts from composites (A3-T13): null-accept minima
+$0.257$ versus composite minima $0.251$, with both medians $1.0$
+($|\mathrm{med}_{\mathrm{null}}-\mathrm{med}_{\mathrm{comp}}|{=}0$).
+Do not invent a cut-persistence gate.
+
+\paragraph{D7 closeout: no live \#48 floor candidate (A2-T13).}
+\label{par:si-d7-no-live-floor}
+Cut persistence is dead (A3-T13: null/composite minima $0.257$/$0.251$,
+medians both $1.0$) and cut-local density contrast is dead (A2-T10:
+overlapping ranges, gap $0.60$ vs required $2\times$). No live \#48
+floor candidate remains this burn. Keep
+\texttt{max\_bottleneck\_ratio}${}=0.25$ provisional / not sufficient
+and \texttt{require\_separation\_evidence} default \texttt{false}. No
+new number.
+
+\paragraph{Killed \#48 floor-family inventory (A2-T15).}
+\label{par:si-48-killed-inventory}
+Record only (do not name a successor; do not touch S14.3): fixed
+ceiling as a sufficient one-feature floor (corrected S-curve overlap);
+relative / disagreeing-cuts and $R{=}2$/min-side ceiling follow-ons
+(retired $\phi_0$; flat-strip-dependent); $n$-indexed ceiling (A5-T8
+$\phi$ regime flips); extrinsic curvature (A3-T9 flat-strip still
+accepts below $0.25$); DM-as-floor (S10.2 overlap); cross-flow Poisson
+likelihood (A2-T5/T9); zero-cross guard as a standalone default flip
+(A2-T8; clean but no-op on positive-$\phi$ sheets); cut persistence
+(A3-T13); cut-local density contrast (A2-T10).
 
 \paragraph{Negative result: cross-flow Poisson likelihood (A2-T5/T9).}
 \label{par:si-cross-flow-poisson-kill}
@@ -1975,6 +2011,31 @@ accept, but the corrected S-curve false accepts overlap that composite
 band, so fixed-ceiling calibration is \emph{falsified as a sufficient
 one-feature floor}; $0.25$ remains unchanged and provisional --- no
 replacement number is proposed here (\#48).
+
+\paragraph{Director D7 $\phi$-ceiling closeout (A3-T7/T9/T11/T12/T13; \#48).}
+\label{par:si-phi-ceiling-d7}
+Mechanism controls and child-sized envelopes deepen the same
+conclusion without proposing a new number. A flat-strip null with the
+same arc length and width as the corrected S-curve but
+$R{=}\infty$ (A3-T9) still false-accepts below $0.25$ (seeds
+$5,18,19$; min $\phi\approx 0.123$), so extrinsic curvature is not the
+driver. The A4-T6 / A3-T7 component-only child envelope (circle /
+nested shell / two-Gaussians, no tissue; $n\in\{200,500\}$; seeds
+$0$--$19$) has positive-$\phi$ min $\approx 0.167$ and also breaches
+$0.25$, plus two circle $\phi{=}0$ graph-disconnection accepts owned
+by the zero-cross guard family. Cut-persistence (A3-T13) --- matched
+Jaccard of accepted A/B labels against adjacent finer/coarser C--D
+levels --- does not separate null accepts from composite accepts
+(median persist $1.0$ on both sides), so no persistence gate.
+Cut covariates (A3-T11; $N$, $\tau$, at-bound, min-side node/sample
+mass, boundary vs interior median $r_k$) likewise show every
+null-accept band overlapping the composite-accept band
+(\texttt{NO\_COVARIATE\_FLOOR}). Cut-local density contrast is also
+killed (A2-T10; null and composite ranges overlap, gap ${<}2\times$).
+Director D7 keeps $0.25$ unchanged and provisional / not sufficient;
+there is \emph{no live \#48 floor candidate this burn}. Do not invent
+min-side, bound, curvature, persistence, density-contrast, or
+$n$-indexed ceiling rules from these controls.
 
 The shot-noise floor is a \emph{resolution bound on the mesh}: a node's
 catchment must hold at least the $k$ samples that define the local
@@ -4443,7 +4504,7 @@ Each node's contribution to $F_{\mathrm{DM}}$ is then bounded by $O(n_i^{\mathrm
 
 \paragraph{Verdict: DM is not the valley-existence floor.}
 \label{par:si-dm-not-valley-floor}
-Background-aware DM confirms that a candidate partition of an already-accepted cut is not a fade/tissue homogeneity (S2.6.3 / \#45). It is \emph{not} the one-feature valley-existence evidence floor of S2.6.2. Measured on the declared null ensemble $\times$ seeds $0$--$4$ root reads versus composite root accepts (OPEN\_ISSUES~\#48 / A2-T3): sample-normalized $\log\mathrm{BF}$ still overlaps on $69\%$ of reads (null median $659$ on $n{=}92$ balanced cuts; composite-accept median $3477$ on $n{=}15$, but \texttt{two\_gaussians\_clear} accepts sit at $508$--$548$ inside the null band). The false $\phi{=}0$ accept \texttt{lone\_gauss2d\_null} seed~17 drops from raw $\log\mathrm{BF}{=}2162$ to $128$ under the correction yet remains in the null bulk. Overlap exceeds the $20\%$ stop criterion, so DM is abandoned as a valley floor --- do not tune a margin and do not flip \texttt{sample\_normalized\_counts}. Valley existence remains the calibrated $\phi$ ceiling (and the proposed-path zero-cross separation-evidence guard, default off; D4 killed the standalone flip because it is a no-op on the live positive-$\phi$ sheet/strip family; cut-local density contrast likewise fails to separate, A2-T10); DM stays a background-partition confirmation only.
+Background-aware DM confirms that a candidate partition of an already-accepted cut is not a fade/tissue homogeneity (S2.6.3 / \#45). It is \emph{not} the one-feature valley-existence evidence floor of S2.6.2. Measured on the declared null ensemble $\times$ seeds $0$--$4$ root reads versus composite root accepts (OPEN\_ISSUES~\#48 / A2-T3): sample-normalized $\log\mathrm{BF}$ still overlaps on $69\%$ of reads (null median $659$ on $n{=}92$ balanced cuts; composite-accept median $3477$ on $n{=}15$, but \texttt{two\_gaussians\_clear} accepts sit at $508$--$548$ inside the null band). The false $\phi{=}0$ accept \texttt{lone\_gauss2d\_null} seed~17 drops from raw $\log\mathrm{BF}{=}2162$ to $128$ under the correction yet remains in the null bulk. Overlap exceeds the $20\%$ stop criterion, so DM is abandoned as a valley floor --- do not tune a margin and do not flip \texttt{sample\_normalized\_counts}. Valley existence remains the calibrated $\phi$ ceiling (and the proposed-path zero-cross separation-evidence guard, default off; D4/D6 killed the standalone flip because it is a no-op on the live positive-$\phi$ sheet/strip/child family). Cut-local density contrast and cut persistence are killed as floor candidates (A2-T10 / A3-T13; D7: no live \#48 floor remains this burn) --- they are not ``next'' oracles. DM stays a background-partition confirmation only.
 
 \paragraph{MaxEnt/MAP connection.}
 With a flat prior on $m$, maximizing the joint log-likelihood gives the MaxEnt/MLE estimator
@@ -4854,7 +4915,7 @@ The deterministic term decays with half-life $k$. Azuma--Hoeffding gives the dis
 \subsection*{S14.1 Datasets and Splits}
 Synthetic benchmarks should include known topological and geometric ground truth: nested manifolds, variable-density curves/surfaces, linked components, dimensionality junctions, and high-curvature patches. Real benchmarks should be chosen for local structure and query relevance rather than only classification accuracy. Use fixed train/test splits or repeated random splits with logged seeds.
 
-\paragraph{Level-set suite benchmark cards (A4-T11/T12/T14--T16 / \#45/\#48).}
+\paragraph{Level-set suite benchmark cards (A4-T11/T12/T14--T18 / \#45/\#48).}
 \label{sec:si-s14-level-set-benchmark-cards}
 Per-scene cards for the frozen normal-path suite in
 \texttt{tests/scenarios/synthetic/level\_set\_suite.py}
@@ -4870,6 +4931,14 @@ A4-T10 pairwise / shell / torus valley depths, and residual-semantics
 cells from A5-T11/T13 and A4-T13 where present.
 Scenes never run under A4-T9 keep child-power cells
 \emph{pending} --- do not invent values and do not change defaults.
+These cards do \emph{not} list cut-local density contrast or
+cut-persistence as live \#48 floor candidates (both killed; D6/D7).
+\textbf{D7 leftover-language closeout (A4-T17 / \#45).}
+A4-T13 is complete --- not measuring. The tissue-in-child residual
+family is \emph{killed}, not pending: nested seed~$0$ yields $2$
+signal leaves with child tissue-mass ratio $\approx 0.97$ vs clean;
+where an over-splitting bimodal child was observed, ratio
+$\approx 0.91{<}2$. Do not invent option~D or change generators.
 Tissue masses below are sample fractions at seed~$0$; legacy mode still
 yields $\approx 46$--$49\%$ $\lambda{<}0.5$ tissue on faded manifolds
 (honest mass uses \texttt{tissue\_mass}; see S2.6.2).
@@ -4948,8 +5017,9 @@ from this note alone.
   (step med~$9$, $N$ med~$768$, $\phi$ mean $\approx 0.087$).
   Analytic valley depth (A4-T10): $\approx 1.0$ (gap-segment path;
   seed-$0$ metadata).
-  Residual semantics (\#45): \emph{pending} (not in A4-T13 / A5-T11
-  residual table).
+  Residual semantics (\#45): n/a for this scene (not in A4-T13 /
+  A5-T11 table); tissue-in-child residual family already killed
+  (A4-T17) --- not an open pending measurement.
 
   \item \textbf{\texttt{nested\_spheres}}.
   $n{=}6000$ ($3000$ per shell).
@@ -5041,6 +5111,11 @@ $n{\in}\{300,600\}$ versus $5/5$ at full suite $n$) is a
 \emph{power boundary} at child budgets --- not grounds to lower
 \texttt{max\_bottleneck\_ratio}${=}0.25$. Do not invent unswept T9
 scene accepts; leave those cells \emph{pending}.
+\textbf{Honesty pass (A4-T18 / \#48).}
+Retain the T14--T16 landed numbers above; keep unswept T9 scenes
+\emph{pending}; do not list density contrast or cut-persistence as
+live floors on these cards (no live \#48 floor candidate remains this
+burn after D7).
 
 \subsection*{S14.2 Metrics}
 Metrics include persistent-homology distances or topology summaries where ground truth exists, reconstruction/projection error, held-out log-likelihood under the reconstructed density, sample quality (e.g.\ MMD or nearest-neighbor two-sample tests), membership-trajectory stability, accepted-edit counts, and diagnostic residuals. Each metric should map to a named architectural claim.
@@ -5707,7 +5782,7 @@ P_{\mathrm{persist}} & 2\text{ adjacent grid points} & \text{S2.6.2} & \text{ope
 \texttt{LevelSetConfig.min\_persistence} & 0.05\ (\text{core-radius rank lifetime; runt screen; connected-null envelope overlaps true splits}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_excess\_mass} & 0.02\ (\text{normalized mass$\times$rank integral; runt screen}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
 \texttt{LevelSetConfig.min\_cluster\_frac} & 0.15\ (\text{fraction of region node budget; coarse satellite / partial-activation floor}) & \text{S2.6.2} & \text{operational (proposal-path)}\\
-\texttt{LevelSetConfig.max\_bottleneck\_ratio} & 0.25\ (\text{ceiling on min-cut-normalized $\phi$; cross-cut max-flow over the weaker side's intrinsic min-cut; provisional}) & \text{S2.6.2} & \text{calibrated (six-scene null-ensemble envelope, min $0.288$ / $359$ reads, seeds $0$--$19$; corrected S-curve min $\phi\approx 0.096$ with $4/20$ accepts falsifies as sufficient floor --- value unchanged; \#48)}\\
+\texttt{LevelSetConfig.max\_bottleneck\_ratio} & 0.25\ (\text{ceiling on min-cut-normalized $\phi$; cross-cut max-flow over the weaker side's intrinsic min-cut; provisional / not sufficient}) & \text{S2.6.2} & \text{calibrated (six-scene null-ensemble envelope, min $0.288$ / $359$ reads, seeds $0$--$19$; corrected S-curve min $\phi\approx 0.096$ with $4/20$ accepts; flat-strip min $\phi\approx 0.123$ kills curvature; child envelope min $\phi\approx 0.167$ plus two circle $\phi{=}0$; cut-persistence, covariate, and density-contrast floors killed A3-T11/T13/A2-T10 --- value unchanged; no live \#48 floor this burn; \#48)}\\
 \texttt{LevelSetConfig.require\_separation\_evidence} & \text{false}\ (\text{zero-cross hit-mass guard $\lambda=k\cdot 2p(1-p)>\log\tau_{\mathrm{bf}}$; A2-T7 ON$\equiv$OFF on normal-path seeds $0$--$4$ and null false accepts $0$ over $0$--$19$; D4 killed standalone flip --- clean but no-op on positive-$\phi$ sheet/strip; density-contrast oracle overlaps, A2-T10; cross-flow Poisson killed A2-T5}) & \text{S2.6.2} & \text{operational (proposal-path; \#48)}\\
 \texttt{advance\_scaffold\_to\_tau} & \text{warm in-place $\tau$ continuation; no longer on any path (diagnostic helper, unit-locked)} & \text{S2.6.2} & \text{operational (proposal-path; retired from the finer walk, \#48)}\\
 \texttt{fit\_scaffold\_at\_tau} & \text{fresh fit at each finer $\tau$, $N\le n/k$ (track\_tau finer walk); derived bound, no free constant} & \text{S2.6.2} & \text{derived (\#48)}\\
