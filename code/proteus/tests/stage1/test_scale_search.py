@@ -144,3 +144,55 @@ def test_fit_scaffold_at_tau_reseeds_at_target() -> None:
     assert len(fitted.nodes) >= 4
     assert fitted.max_nodes == 32
 
+
+def test_apply_shot_noise_node_cap_clamps_max_nodes_default_off() -> None:
+    """Native N≤n/k bound in run_scale_search is flag-gated (SI S2.6.2 / #28)."""
+
+    from proteus.stage1.level_set import shot_noise_node_cap
+
+    rng = np.random.default_rng(0)
+    # n=80, k=8 → n/k=10; default max_nodes resolves to max(4*16,64)=64 then
+    # min(64, n//2=40)=40, so the shot-noise flag must tighten 40 → 10.
+    theta = rng.uniform(0.0, 2.0 * np.pi, size=80)
+    points = np.stack([np.cos(theta), np.sin(theta)], axis=1)
+    lean = StabilizationConfig(min_equilibrium_epochs=1, max_epochs=3)
+    assert ScaleSearchConfig().apply_shot_noise_node_cap is False
+
+    off = run_scale_search(
+        points,
+        dim=2,
+        config=ScaleSearchConfig(
+            k=8,
+            min_nodes=4,
+            n_seeds=8,
+            max_nodes=None,
+            tau_min=1e-3,
+            tau_max=1.0,
+            max_grid_points=4,
+            stabilization=lean,
+            seed=0,
+            apply_shot_noise_node_cap=False,
+        ),
+    )
+    on = run_scale_search(
+        points,
+        dim=2,
+        config=ScaleSearchConfig(
+            k=8,
+            min_nodes=4,
+            n_seeds=8,
+            max_nodes=None,
+            tau_min=1e-3,
+            tau_max=1.0,
+            max_grid_points=4,
+            stabilization=lean,
+            seed=0,
+            apply_shot_noise_node_cap=True,
+        ),
+    )
+    expected_cap = shot_noise_node_cap(80, 8, 4)
+    assert expected_cap == 10
+    assert off.scaffold_at_star.max_nodes == 40
+    assert on.scaffold_at_star.max_nodes == expected_cap
+    assert on.scaffold_at_star.max_nodes < off.scaffold_at_star.max_nodes
+

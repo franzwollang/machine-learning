@@ -192,11 +192,6 @@ def make_linked_tori(
             "extrusion_sigma": tube_sigma if extrusion_dim > 0 else 0.0,
             "signal_expected_tau": float(signal_tau),
             "tissue_expected_tau": float(tissue_tau),
-            **tissue_mass_metadata(
-                tissue_fraction=tissue_fraction,
-                tissue_mass=tissue_mass,
-                tissue_mass_actual=float(np.mean(labels < 0)),
-            ),
             "support_bounds_lo": tissue_bounds[0].tolist(),
             "support_bounds_hi": tissue_bounds[1].tolist(),
             "sampling": "continuous_area_uniform",
@@ -210,5 +205,10 @@ def make_linked_tori(
                 and expected_knn_radius_k8 < lambda_half_gap
             ),
             **sampler_meta,
+            **tissue_mass_metadata(
+                tissue_fraction=tissue_fraction,
+                tissue_mass=tissue_mass,
+                labels=labels,
+            ),
         },
     )

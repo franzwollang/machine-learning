@@ -366,13 +366,12 @@ outer shell (cover ≥ 0.886) and give 2 leaves. Not a growth-policy
 defect: the accepted cut is right, its background partition of the
 lower-density component is crude at the first-accept scale.
 
-Remaining work: use the explicit `tissue_mass` path to compare mass
-fractions 0.05/0.20 against the legacy 0.46--0.49 regime; correct the SI
-S14 calibration text where box-padding `tissue_fraction` was described as
-a mass fraction; evaluate core-only descent (A) after majority-background
-termination (B) changed no leaf counts on seeds 0--4; retain signal-only
-ARI + background recall until then; re-baseline the `@awaiting` recovery
-expectations (#41, #26) without weakening topology criteria.
+Remaining work: use the landed component-only generators and A5-T6/T7
+pure-child oracle to decide whether child over-splitting belongs to
+#48-at-small-`n`; A3 then adds these child-sized nulls to the envelope.
+Keep signal-only ARI + background recall meanwhile. The explicit
+`tissue_mass` sweep and descent options A/B all fired their kill criteria,
+so do not tune those families or weaken topology expectations.
 
 Level-set consequence (2026-09-09, from #48): the root split assigns about
 half the tissue to signal children (nested seed-0 bg recall 0.51; nested
@@ -729,10 +728,11 @@ multimodal at a fine enough bandwidth. The stop must be an
 budget (SI S2.6.2).
 
 Null: this region is one Hartigan cluster. Accept only when the
-studentized discriminating statistic (flow bottleneck `φ`, or
-background-aware `log BF`) exceeds the deepest shot-noise valley
-expected at the current `(n, τ, k, N, geometry)`. Fade/tissue
-background is a separate floor (DM + #45). Raw persistence / excess
+min-cut-normalized flow bottleneck `φ`, augmented by hit-conditioned
+cross-flow evidence, clears the deepest shot-noise valley expected at
+the current `(n, τ, k, N, geometry)`. Background-aware DM confirms a
+background partition but does not supply this valley-existence floor.
+Fade/tissue semantics remain separate (#45). Raw persistence / excess
 mass are already measured inseparable.
 
 **LANDED (level-set mode; `use_level_set_clustering` still default
@@ -751,7 +751,7 @@ root K=2 5/5 (ARI ≥ 0.999), nested shells root K=2 5/5 with exactly 2
 signal leaves; bimodal circle 2/5 and weak two-Gaussians 2/5 are the
 only failures. SI S2.6.2 / S14.3 updated.
 
-Remaining (2026-09-09; ordered by severity):
+Remaining (ordered by severity):
 - **One-feature statistic: min-cut-normalized φ (landed 2026-09-09).**
   The studentized ρ = φ/φ₀ floor was ill-posed — the candidate is a
   disconnection of the superlevel set, so the signal-induced graph is
@@ -772,10 +772,10 @@ Remaining (2026-09-09; ordered by severity):
   accept reproduce, but the count and percentiles drift slightly from the
   published table. Widening falsified the fixed ceiling: an S-curve sheet
   null accepted at seed 8, step 6 (`N=100`, `tau=0.03413`,
-  `phi=0.249435`). A director decision must classify the folded sheet as
-  null/non-null and choose whether to abandon the fixed ceiling, use a
-  relative envelope rule, or replace the statistic; no further calibration
-  sweep or SI update should proceed first.
+  `phi=0.249435`). Director D1 keeps the sheet in the null family and
+  retains `0.25` only as calibrated-provisional; A3-T3--T5 now measure
+  composite misses, dissect this read, and stratify the envelope before
+  any acceptance-path change.
 - **Graph-disconnection false accept (acceptance path, owns the DM
   overconfidence item).** lone 2-D Gaussian seed 17 accepts at N=50,
   τ=0.012: a 72-point clump in the shoulder has no Hebbian link outside
@@ -787,29 +787,34 @@ Remaining (2026-09-09; ordered by severity):
   clear the derived hit-mass mixing expectation
   `λ = k·2p(1-p) > log(tau_bf)`. It blocks the seed-17 false accept while
   preserving two-Gaussian, linked-tori, and nested-sphere root accepts
-  on seeds 0--4. Keep the flag off pending director review; the DM
-  shot-noise task and seeds 5--19 extension remain. Repro:
+  on seeds 0--4. On the six nulls over seeds 5--19, the unguarded path
+  accepted only lone-Gaussian seed 17 (1/266 candidate reads), while the
+  guard accepted none; all 15 composite roots still accept. Keep the flag
+  off pending review of the generalized cross-flow likelihood gate. Repro:
   `level_set_root_accept_probe.py --seed 17 --scenes
   lone_gauss2d_null --max-depth 1`.
 - **Connected-support valleys (bimodal circle 2/5, weak two-Gaussians
-  2/5).** Root K=1 on the failing seeds; passes on weak have bg recall
-  1.0 and ARI 0.16–0.24. Diagnostic scenes without frozen bars; dissect
-  the root read (φ, ρ, DM) on a failing seed before touching anything;
-  likely bound up with the ρ ceiling and #45.
+  2/5).** Failures terminate at the root with no accepted candidate,
+  usually at the `n/k` bound; neither child recursion nor DM rejection is
+  implicated. Analytic valley depth is seed-invariant and valley-band
+  sample counts overlap PASS/FAIL seeds, so the residual is sampling
+  variability at fixed `n`. A5-T5 is the active `4x/10x` sample-size
+  oracle; do not change expectations.
 - **Tissue-heavy children (→ #45).** Root splits leak tissue into
   signal children (bimodal child 37% tissue); the reader then marks
   most of the child background and accepts shell+tissue chunks. Nested
   no longer over-splits under the connected null (2 leaves on all
-  seeds). Fix belongs at root halo assignment (#45).
+  seeds). A4's component-only child-sized null generators have landed;
+  A5-T6/T7 and the A3 null-envelope backlog determine whether the residual
+  belongs to #48-at-small-`n`.
 - Weak two-Gaussians (sep 2.5σ) child of 194 samples still splits at
   the bound (N ≤ 24) on the seeds where the root splits. Revisit after
   #45.
-- Scale search could take the `n/k` bound natively instead of the
-  level-set-mode clamp in `run_recursive_discovery`; default-path
-  change, needs its own review.
-- **DM log-BF is overconfident** (thousands on 200–500-sample regions
-  at 3–8 hits/node; 2162 on the φ = 0 Gaussian false accept above).
-  Not acting as an evidence floor; calibrate or derive its per-node
-  likelihood in the shot-noise regime.
+- **DM log-BF is not a valley-existence floor.** The default-off
+  sample-normalized correction reduces the Gaussian false accept from
+  `2162` to `128`, but corrected null/composite distributions overlap
+  on 69% of reads and true two-Gaussian accepts sit inside the null band.
+  Do not tune its margin; A2-T6 only needs to finish the S10 wording that
+  limits DM to background-partition confirmation.
 - Do not flip `use_level_set_clustering`. Do not delete S2.6.1
   stand-ins. Do not retune frozen suite numbers.

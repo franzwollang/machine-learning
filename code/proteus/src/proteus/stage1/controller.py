@@ -8,6 +8,7 @@ from typing import Optional
 
 import numpy as np
 
+from proteus.stage1.level_set import shot_noise_node_cap
 from proteus.stage1.persistence import (
     PartitionSnapshot,
     PersistenceConfig,
@@ -49,6 +50,13 @@ class ScaleSearchConfig:
     contain more candidate ``tau`` values under mid/two-thirds/three-quarter
     probes (OPEN_ISSUES #28).  Not an acceptance-path default.
 
+    ``apply_shot_noise_node_cap`` (default ``False``) applies the derived
+    mesh resolution bound ``N ≤ n/k`` (SI S2.6.2 / #48) inside
+    :func:`run_scale_search` when resolving ``max_nodes``.  Today the
+    level-set path clamps the same bound in ``run_recursive_discovery``;
+    this flag is the proposed native home for that clamp (OPEN_ISSUES
+    #28).  Do not flip the default without a review / normal-path check.
+
     The legacy ``load_band`` selector (OPEN_ISSUES #28) is **deprecated**:
     passing it emits :class:`DeprecationWarning` and redirects to
     ``load_crossover``.  Unknown selector values raise ``ValueError``.
@@ -72,6 +80,8 @@ class ScaleSearchConfig:
     seed: int = 42
     # Experimental denser geometric grid (half log-step); default off (#28).
     halve_grid_steps: bool = False
+    # Native N ≤ n/k max_nodes clamp in run_scale_search; default off (#28).
+    apply_shot_noise_node_cap: bool = False
 
 
 # Deprecated ScaleSearchConfig.selector aliases (OPEN_ISSUES #28). Kept only so
@@ -224,10 +234,18 @@ def run_scale_search(
     stabilized = [False] * len(tau_grid)
 
     rng = np.random.default_rng(config.seed)
+    n_samples = int(data_arr.shape[0])
     if config.max_nodes is not None:
-        max_nodes = min(int(config.max_nodes), data_arr.shape[0] // 2)
+        max_nodes = min(int(config.max_nodes), n_samples // 2)
     else:
-        max_nodes = min(max(config.min_nodes * 16, 64), data_arr.shape[0] // 2)
+        max_nodes = min(max(config.min_nodes * 16, 64), n_samples // 2)
+    if config.apply_shot_noise_node_cap:
+        # SI S2.6.2 / #48: N ≤ n/k (shot-noise floor). Flag-gated; default
+        # off — level-set mode still clamps in run_recursive_discovery (#28).
+        max_nodes = min(
+            int(max_nodes),
+            shot_noise_node_cap(n_samples, config.k, config.min_nodes),
+        )
 
     scaffold = Stage1Scaffold(
         dim=dim,
