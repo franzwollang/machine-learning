@@ -80,40 +80,48 @@ def _mc_valley_band_mass(
     return float(np.sum(weights[band]) / denom)
 
 
-def two_gaussians_valley_oracle(
+def segment_valley_oracle(
     mixture: FadedMixture,
-    centers: np.ndarray,
+    c0: np.ndarray,
+    c1: np.ndarray,
     points: np.ndarray,
     *,
     n_samples: int,
     band_rel: float = _DEFAULT_VALLEY_BAND_REL,
     path_n: int = 256,
     seed: int = 0,
+    tube_scale: float = 0.5,
+    valley_path: str = "segment",
 ) -> dict[str, float | int | str]:
-    """Analytic valley depth + valley-band counts for two equal Gaussians."""
-    c0 = np.asarray(centers[0], dtype=float)
-    c1 = np.asarray(centers[1], dtype=float)
+    """Analytic valley depth + valley-band counts on a straight segment.
+
+    Path density uses ``mixture.signal_density`` (no tissue floor).  The
+    valley band is the tube around the segment where density sits within
+    ``band_rel`` of the (peak − valley) gap above the path minimum.
+    """
+    a = np.asarray(c0, dtype=float).reshape(-1)
+    b = np.asarray(c1, dtype=float).reshape(-1)
+    if a.shape != b.shape:
+        raise ValueError("segment endpoints must share shape")
     t = np.linspace(0.0, 1.0, num=int(path_n))
-    path = c0[None, :] * (1.0 - t[:, None]) + c1[None, :] * t[:, None]
+    path = a[None, :] * (1.0 - t[:, None]) + b[None, :] * t[:, None]
     dens = mixture.signal_density(path)
     peak, valley, depth, min_over_peak = _path_valley_stats(path, dens)
     thresh = valley + float(band_rel) * max(peak - valley, 0.0)
 
-    axis = c1 - c0
+    axis = b - a
     length = float(np.linalg.norm(axis))
     if length <= _EPS:
-        raise ValueError("centers must be distinct")
+        raise ValueError("segment endpoints must be distinct")
     u = axis / length
 
     def in_band(x: np.ndarray) -> np.ndarray:
         arr = np.asarray(x, dtype=float)
-        proj = (arr - c0[None, :]) @ u
+        proj = (arr - a[None, :]) @ u
         between = (proj >= 0.0) & (proj <= length)
-        # Lateral distance: stay near the connecting segment (1σ tube).
-        closest = c0[None, :] + proj[:, None] * u[None, :]
+        closest = a[None, :] + proj[:, None] * u[None, :]
         lateral = np.linalg.norm(arr - closest, axis=1)
-        # Use half the center separation as a soft tube (operational).
-        tube = 0.5 * length
+        tube = float(tube_scale) * length
         dens_x = mixture.signal_density(arr)
         return between & (lateral <= tube) & (dens_x <= thresh + _EPS)
 
@@ -128,8 +136,114 @@ def two_gaussians_valley_oracle(
         "valley_band_mass": mass,
         "valley_band_expected_count": float(n_samples) * mass,
         "valley_band_count": realized,
-        "valley_path": "segment",
+        "valley_path": str(valley_path),
     }
+
+
+def summarize_valley_pairs(
+    pairs: list[dict[str, float | int | str | bool | None]],
+) -> dict[str, float | int | str | list]:
+    """Collapse pairwise valley records into scalar A4-T5 keys + ``valley_pairs``.
+
+    Scalar depth / band covariates come from the *shallowest* pair (smallest
+    ``valley_depth``) — the hardest split for a fixed-ceiling gate.
+    """
+    if not pairs:
+        raise ValueError("pairs must be non-empty")
+    shallow = min(pairs, key=lambda p: float(p["valley_depth"]))
+    return {
+        "valley_depth": float(shallow["valley_depth"]),
+        "valley_min_over_peak": float(shallow["valley_min_over_peak"]),
+        "valley_peak_density": float(shallow["valley_peak_density"]),
+        "valley_min_density": float(shallow["valley_min_density"]),
+        "valley_band_rel": float(shallow["valley_band_rel"]),
+        "valley_band_mass": float(shallow["valley_band_mass"]),
+        "valley_band_expected_count": float(shallow["valley_band_expected_count"]),
+        "valley_band_count": int(shallow["valley_band_count"]),
+        "valley_path": str(shallow.get("valley_path", "segment_pairs")),
+        "valley_pair_count": len(pairs),
+        "valley_pairs": pairs,
+    }
+
+
+def pairwise_leaf_valley_oracle(
+    mixture: FadedMixture,
+    leaf_centers: np.ndarray,
+    leaf_ids: list[int],
+    leaf_parent_ids: list[int | None],
+    points: np.ndarray,
+    *,
+    n_samples: int,
+    band_rel: float = _DEFAULT_VALLEY_BAND_REL,
+    path_n: int = 256,
+    seed: int = 0,
+) -> dict[str, float | int | str | list]:
+    """All pairwise fine-leaf segment valleys (#28 A4-T10 hierarchy)."""
+    centers = np.asarray(leaf_centers, dtype=float)
+    if centers.ndim != 2:
+        raise ValueError("leaf_centers must be (K, D)")
+    k = centers.shape[0]
+    if k < 2:
+        raise ValueError("need at least two fine leaves")
+    if not (len(leaf_ids) == len(leaf_parent_ids) == k):
+        raise ValueError("leaf id / parent id length mismatch")
+
+    pairs: list[dict[str, float | int | str | bool | None]] = []
+    for i in range(k):
+        for j in range(i + 1, k):
+            rec = segment_valley_oracle(
+                mixture,
+                centers[i],
+                centers[j],
+                points,
+                n_samples=n_samples,
+                band_rel=band_rel,
+                path_n=path_n,
+                seed=seed + 17 * i + j,
+                valley_path="segment",
+            )
+            same_parent = (
+                leaf_parent_ids[i] is not None
+                and leaf_parent_ids[i] == leaf_parent_ids[j]
+            )
+            pairs.append({
+                **rec,
+                "leaf_id_a": int(leaf_ids[i]),
+                "leaf_id_b": int(leaf_ids[j]),
+                "parent_id_a": leaf_parent_ids[i],
+                "parent_id_b": leaf_parent_ids[j],
+                "same_parent": bool(same_parent),
+            })
+    out = summarize_valley_pairs(pairs)
+    out["valley_path"] = "segment_pairs"
+    out["valley_sibling_pair_count"] = int(
+        sum(1 for p in pairs if p.get("same_parent"))
+    )
+    return out
+
+
+def two_gaussians_valley_oracle(
+    mixture: FadedMixture,
+    centers: np.ndarray,
+    points: np.ndarray,
+    *,
+    n_samples: int,
+    band_rel: float = _DEFAULT_VALLEY_BAND_REL,
+    path_n: int = 256,
+    seed: int = 0,
+) -> dict[str, float | int | str]:
+    """Analytic valley depth + valley-band counts for two equal Gaussians."""
+    return segment_valley_oracle(
+        mixture,
+        centers[0],
+        centers[1],
+        points,
+        n_samples=n_samples,
+        band_rel=band_rel,
+        path_n=path_n,
+        seed=seed,
+        valley_path="segment",
+    )
 
 
 def bimodal_circle_valley_oracle(
