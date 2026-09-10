@@ -21,6 +21,7 @@ from .faded_density import (
     TorusSurfaceFadedComponent,
     assign_labels_by_lambda,
     sample_faded_mixture,
+    tissue_mass_metadata,
 )
 from .tissue import (
     expected_tau_for_uniform_tissue_box,
@@ -36,6 +37,7 @@ def make_linked_tori(
     extrusion_dim: int = 1,
     extrusion_sigma: float | None = None,
     tissue_fraction: float = 0.03,
+    tissue_mass: float | None = None,
     seed: int = 0,
 ) -> SyntheticDataset:
     """Generate two separated Hopf-linked tori as exact faded densities.
@@ -46,6 +48,10 @@ def make_linked_tori(
     condition and welded the two labelled tori together.  Sampling is
     continuous and area-uniform on each torus rather than drawn from a
     sparse kernel-anchor lattice.
+
+    ``tissue_fraction`` only pads the support box (historical name).
+    Pass ``tissue_mass`` for an honest expected λ<0.5 background fraction;
+    ``None`` keeps the legacy fade-balanced floor (~46–49% tissue).
     """
     if extrusion_dim < 0:
         raise ValueError("extrusion_dim must be non-negative")
@@ -104,7 +110,9 @@ def make_linked_tori(
         min_padding=0.05,
         extra_padding=3.0 * tube_sigma,
     )
-    mixture = FadedMixture([component1, component2], support)
+    mixture = FadedMixture(
+        [component1, component2], support, tissue_mass=tissue_mass,
+    )
     points, sampler_meta = sample_faded_mixture(mixture, 2 * n_per_torus, rng)
     labels = assign_labels_by_lambda(points, [component1, component2], label_offsets=[0, 1])
 
@@ -184,8 +192,11 @@ def make_linked_tori(
             "extrusion_sigma": tube_sigma if extrusion_dim > 0 else 0.0,
             "signal_expected_tau": float(signal_tau),
             "tissue_expected_tau": float(tissue_tau),
-            "tissue_fraction_actual": float(np.mean(labels < 0)),
-            "tissue_fraction_requested": tissue_fraction,
+            **tissue_mass_metadata(
+                tissue_fraction=tissue_fraction,
+                tissue_mass=tissue_mass,
+                tissue_mass_actual=float(np.mean(labels < 0)),
+            ),
             "support_bounds_lo": tissue_bounds[0].tolist(),
             "support_bounds_hi": tissue_bounds[1].tolist(),
             "sampling": "continuous_area_uniform",
