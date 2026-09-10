@@ -152,3 +152,5 @@
 {"ts":"2026-09-10T07:40:52Z","from":"A6","type":"NOTE","integrated_sha":"1e04faf28cf2b6943dcf8002725105e06217b353","note":"Merged origin/coord/integration (1e04faf28cf2b6943dcf8002725105e06217b353 / A1 D7 closeout heartbeat). Restored A6 mailbox."}
 {"ts":"2026-09-10T07:40:52Z","from":"A6","type":"NOTE","note":"Idle exit: A6-T19/T20/T21 completed; ready_count=0; D7 no-refill. No CLAIM."}
 {"ts":"2026-09-10T07:40:52Z","from":"A6","type":"NOTE","note":"Authoritative tip after idle merge: d74c9cb18ce16c7d8dbb5b0d04853e1334f07cb3. Queue empty; D7 suspended."}
+{"ts":"2026-09-10T07:50:31Z","from":"A6","type":"NOTE","integrated_sha":"5dd6aa32eea6e60afef9d3eef6bde9512ec1f380","note":"Merged origin/coord/integration (5dd6aa32eea6e60afef9d3eef6bde9512ec1f380 / A1 post-closeout). Restored A6 mailbox."}
+{"ts":"2026-09-10T07:50:31Z","from":"A6","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension / no-refill. No CLAIM. Cap/density/persistence families stay killed; defaults unchanged."}
