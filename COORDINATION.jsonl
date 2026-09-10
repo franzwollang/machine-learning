@@ -218,3 +218,6 @@
 {"ts":"2026-09-10T10:20:52Z","from":"A3","type":"NOTE","note":"Idle exit: ready_count=0 (9 completed / 5 blocked / 0 ready); D7 no refill. No CLAIM. No REQUEST_TRACKER. Await director/A1 only."}
 {"ts":"2026-09-10T10:20:52Z","from":"A3","type":"NOTE","note":"Authoritative tip after idle merge heartbeat: bae156de6556a174cb65f095a0c2336845181d7f. Queue empty; D7 suspended; await director/A1 only."}
 {"ts":"2026-09-10T10:20:52Z","from":"A3","type":"NOTE","note":"Authoritative tip SHA correction: 2a847a98cddd627561e69c188a8cc1e5dbccc940. Queue empty; D7 suspended; await director/A1 only."}
+{"ts":"2026-09-10T10:30:40Z","from":"A3","type":"HELLO","branch":"coord/A3","tip":"154e4cd3055b83195a920362d4d5c6b16bb800f1","note":"Online after merge origin/coord/integration@4be9617aafae9debf423b86c69d7ce1f14a9a07f; D7 suspended idle"}
+{"ts":"2026-09-10T10:30:40Z","from":"A3","type":"NOTE","integrated_sha":"4be9617aafae9debf423b86c69d7ce1f14a9a07f","note":"Merged origin/coord/integration (4be9617aafae9debf423b86c69d7ce1f14a9a07f / A1 MERGE_DONE 10:25); kept A3 mailbox after conflict. Queue empty (9 completed / 5 blocked / 0 ready). D7 scientific suspension; defaults unchanged."}
+{"ts":"2026-09-10T10:30:40Z","from":"A3","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. Await director/A1 only."}
