@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-10T05:56:07Z",
+  "updated_at": "2026-09-10T06:04:52Z",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -127,23 +127,46 @@
         },
         {
           "id": "A2-T7",
-          "status": "in_progress",
+          "status": "completed",
           "issue": 48,
           "summary": "Flip-readiness sweep: add only a --require-separation-evidence passthrough to level_set_normal_path_sweep.py and run all scenes seeds 0-4 with the guard on, including hierarchy.",
           "kill": "Any regression versus the OFF baseline in null pass, root K, leaves, hierarchy recovery, ARI by >0.01, or coverage keeps the guard default off."
         },
         {
           "id": "A2-T8",
-          "status": "ready",
+          "status": "killed",
           "issue": 48,
           "summary": "Conditionally flip require_separation_evidence default true and update its test plus SI S2.6.2 only after director review confirms A2-T7 is identical to the A6-T9/T12 OFF references on every metric and the six-scene null envelope remains clean over seeds 0-19. The guard must be a no-op on all 60 corrected S-curve reads.",
           "kill": "Any metric deviation, any six-scene null accept, or any non-no-op S-curve read marks this BLOCKED; do not change the default."
         },
         {
           "id": "A2-T9",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "SI S2.6.2 negative result: cross-flow Poisson likelihood separates by only 1.74 orders and N-scaling inverts; phi plus the zero-cross guard remain.",
+          "kill": "n/a"
+        },
+        {
+          "id": "A2-T10",
+          "status": "ready",
+          "priority": "next",
+          "issue": 48,
+          "summary": "Report-only /tmp cut-local density-contrast oracle. On corrected S-curve accepts s1/16/17/18, flat-strip accepts s5/18/19, and clear/tori/nested root accepts s0-4, table median node spacing/r_k on boundary nodes and interiors A/B plus boundary/min(interior). No threshold or src edit.",
+          "kill": "If null and composite contrast ratios overlap (no >=2x gap), density contrast is not the next floor: BLOCKED, do not invent a margin."
+        },
+        {
+          "id": "A2-T11",
+          "status": "ready",
+          "issue": 48,
+          "depends_on": ["A2-T10"],
+          "summary": "Only if T10 separates: implement flag-gated require_density_valley default off in level_set.py. Require boundary median r_k > max(interior A, interior B) using the existing C-D radius, with no new constant; unit-test a 2-clump scaffold.",
+          "kill": "If T10 blocks, do not start. If the gate rejects any clear/tori/nested root accept s0-4 or still accepts any corrected S-curve accept, BLOCKED; do not tune a margin."
+        },
+        {
+          "id": "A2-T12",
+          "status": "ready",
+          "issue": 48,
+          "summary": "SI S2.6.2/S10 record D4: zero-cross guard is metric-identical and null-clean but remains default off because it is a no-op on the live positive-phi sheet/strip/child family. Include T10 result if available; do not flip.",
           "kill": "n/a"
         }
       ],
@@ -208,25 +231,47 @@
         },
         {
           "id": "A3-T7",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "Wire A4-T6 component_only scenes into the null-envelope harness at n in {200,500}, seeds 0-19; report the child-sized envelope.",
           "kill": "n/a (report)"
         },
         {
           "id": "A3-T8",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "Record the negative result in SI S14.3/S2.6.2 now: existing six-scene and widened per-geometry envelope values, corrected S-curve formula and min phi=0.096 with 4/20 accepts; withdraw the old generator-confounded s8 read. State that 0.25 is calibrated on the six-scene protocol but falsified as a sufficient floor; no new number or final wording.",
           "kill": "n/a"
         },
         {
           "id": "A3-T9",
-          "status": "ready",
+          "status": "blocked",
           "priority": "next",
           "issue": 48,
           "summary": "Mechanism control: add curvature_radius (default 1, byte-identical) to make_scurve_sheet with arc length 3pi and width 2; support R=inf flat strip; expose per-sample arc coordinate. Unit-test R in {1,2,inf}. Run flat_strip_null seeds 0-19 and dissect the four R=1 accepts with step/N/tau/bound/min-side mass and arc range/cross and internal flows. Report only; no acceptance-path code.",
           "kill": "If the flat strip accepts below 0.25 on any seed 0-19, extrinsic curvature is not the driver; NOTE and stop without adding geometries. If clean, curvature is implicated and A3-T10 may be promoted."
+        },
+        {
+          "id": "A3-T13",
+          "status": "ready",
+          "priority": "next",
+          "issue": 48,
+          "summary": "Report-only cut-persistence oracle. For corrected S-curve accepts s1/16/17/18, flat-strip s5/18/19, and clear/tori/nested s0-4, measure Jaccard of accepted or best A/B labels at adjacent finer/coarser tau. No gate.",
+          "kill": "If null-accept persistence is within 0.2 Jaccard of composite accepts, NOTE and stop; do not implement a gate."
+        },
+        {
+          "id": "A3-T11",
+          "status": "ready",
+          "issue": 48,
+          "summary": "Extend level_set_null_envelope.py with a covariate table only: N, tau, at_bound, min-side node fraction/sample mass, boundary vs interior median r_k. Run corrected S-curve and flat strip s0-19, six nulls s0-4, clear/tori/nested s0-4. Propose no floor.",
+          "kill": "If every covariate overlaps the composite-accept band, NOTE no covariate floor and stop; do not propose min-side or bound rules."
+        },
+        {
+          "id": "A3-T12",
+          "status": "ready",
+          "issue": 48,
+          "summary": "SI S14.3/S2.6.2 record D4: flat-strip kill, child envelope min phi=0.167 plus two circle phi=0 disconnections, 0.25 still provisional/not sufficient, and next density-contrast/cut-persistence oracles. No new number.",
+          "kill": "n/a"
         }
       ],
       "tests_before_done": "gate chunk + `pytest tests/scenarios/synthetic/level_set_null_envelope.py`-adjacent unit tests you add"
@@ -311,14 +356,14 @@
         },
         {
           "id": "A4-T9",
-          "status": "in_progress",
+          "status": "completed",
           "issue": 48,
           "summary": "Child-sized power oracle: clear two-Gaussian, nested, and linked-tori at total n in {300,600}, seeds 0-4, root-only; report K, accept step/N, and phi versus full n.",
           "kill": "If clear two-Gaussian at n=600 accepts <=2/5, REQUEST_TRACKER that the child regime is under-powered; do not lower the ceiling."
         },
         {
           "id": "A4-T10",
-          "status": "ready",
+          "status": "completed",
           "issue": 28,
           "summary": "Extend the A4-T5 analytic valley-depth oracle to hierarchy (all pairwise fine-leaf valleys), nested shells, and linked tori; expose it in metadata/ground_truth.py with one unit test per scene. Include A6-T10's hierarchy seed-0 unsplit L0/L1 child (n=200, cap=25, best phi=0.617; uncapped phi=0.232) in the NOTE handoff.",
           "kill": "n/a (oracle). Do not change any test expectation."
@@ -329,6 +374,21 @@
           "issue": 48,
           "summary": "Director D3 benchmark-card preparatory split: create the SI S14 per-scene card structure and fill only already-landed n, actual tissue mass, A4-T7 uniformity, A4-T8 root curve, and A3-T3 phi fields. Mark A4-T9/T10-dependent cells pending; do not invent values or change defaults.",
           "kill": "n/a (approved benchmark-card split; incomplete dependent cells remain explicit)"
+        },
+        {
+          "id": "A4-T12",
+          "status": "ready",
+          "issue": 48,
+          "depends_on": ["A4-T11"],
+          "summary": "Fill S14 benchmark-card T9/T10 cells: clear 5/5 at n=300/600; nested/tori 0/5 at child n vs 5/5 full; hierarchy pairwise sibling depth about 0.9993 including seed0. Leave missing values explicitly pending.",
+          "kill": "n/a"
+        },
+        {
+          "id": "A4-T13",
+          "status": "ready",
+          "issue": 45,
+          "summary": "Report-only tissue residual table on nested s0 and bimodal s2: per accepted child, tissue mass fraction, sibling-label contamination, and leaf count versus clean pure-child reads. No descent fraction.",
+          "kill": "If over-splitting children's tissue fraction is not >=2x clean-seed children, NOTE that tissue mass in child is not the residual and stop; do not invent option D."
         }
       ],
       "tests_before_done": "gate + scenarios chunks + `pytest tests/foundation/test_linked_tori_generator.py tests/foundation/test_dataset_scales.py`"
@@ -399,23 +459,45 @@
         },
         {
           "id": "A5-T8",
-          "status": "in_progress",
+          "status": "completed",
           "issue": 48,
           "summary": "Dissect weak seed-2 non-monotonicity at 4x versus 10x n at matched tau: compare best phi, reject reason, and resolution-bound timing; report only.",
           "kill": "If matched-tau phi differs by >0.1, raise a director item for n-stratification; propose no ceiling number."
         },
         {
           "id": "A5-T9",
-          "status": "ready",
+          "status": "completed",
           "issue": 45,
           "summary": "SI S2.6.2 descent/background paragraph: record A/B falsified, option C adopted, and the exact n=194 pure-child oracle clean.",
           "kill": "n/a"
         },
         {
           "id": "A5-T10",
-          "status": "ready",
+          "status": "completed",
           "issue": 45,
           "summary": "Tracker closeout split from A5-T9: after the SI paragraph lands, REQUEST_TRACKER to trim #45 to the tissue/sibling-context residual confirmed by the exact n=194 clean oracle; do not change benchmark expectations.",
+          "kill": "n/a"
+        },
+        {
+          "id": "A5-T11",
+          "status": "ready",
+          "priority": "next",
+          "issue": 45,
+          "summary": "Weak two-Gaussian context ablation in /tmp: compare both signals/no tissue versus one signal+tissue/no sibling against isolated n=194 clean reads. Report leaves and phi; no new descent flag.",
+          "kill": "If neither ablation restores over-split, NOTE full three-way interaction and request director; no option D. Otherwise classify sibling- or tissue-sufficient."
+        },
+        {
+          "id": "A5-T13",
+          "status": "ready",
+          "issue": 45,
+          "summary": "Bimodal s2 context ablation: identify the over-splitting child, then compare both signals/no tissue and one signal+tissue/no sibling. Report only.",
+          "kill": "If neither ablation restores over-split, NOTE full three-way interaction and request director; do not reopen descent A/B."
+        },
+        {
+          "id": "A5-T12",
+          "status": "ready",
+          "issue": 48,
+          "summary": "SI S2.6.2 record A5-T8: matched-tau reject regime flips with n (4x bottleneck phi about 0.36/1.14 vs 10x no_cut/inf). State n-instability of phi, not an n-indexed ceiling; no number or scene-scaling revival.",
           "kill": "n/a"
         }
       ],
@@ -510,7 +592,7 @@
         },
         {
           "id": "A6-T11",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "paper.tex sync for landed results: corrected S-curve statistic failure; 0.25 calibrated-provisional but not sufficient; DM as background-partition confirmation only; require_separation_evidence remains default off. Create a one-sentence follow-up only if A2-T8 later flips.",
           "kill": "n/a",
@@ -518,44 +600,41 @@
         },
         {
           "id": "A6-T12",
-          "status": "ready",
+          "status": "completed",
           "issue": 48,
           "summary": "OFF metric-of-record on the integration tip containing A3-T6/A4-T7/A5: six nulls seeds 0-4, hierarchy, and linked_tori under timeout 2400; report exact lines as the second OFF reference for A2-T7.",
           "kill": "Any null pass below 30/30, root-K change, or hierarchy recovery below the 2026-09-09 baseline is BLOCKED for A1 merge bisection."
+        },
+        {
+          "id": "A6-T14",
+          "status": "ready",
+          "priority": "next",
+          "issue": 28,
+          "summary": "Report-only hierarchy s0 unsplit L0/L1 child probe: find the smallest max_nodes >25 at which it accepts and phi at that N. Valley depth is about 0.9993; uncapped accept phi=0.232. Do not flip the node cap or lower 0.25.",
+          "kill": "If the child never accepts for max_nodes <= n/2, NOTE that the residual is not cap-N and stop; do not propose a new cap rule."
+        },
+        {
+          "id": "A6-T15",
+          "status": "ready",
+          "issue": 28,
+          "summary": "SI S2.4/S2.5 record hierarchy s0 as a resolution-cap times provisional-ceiling interaction using A6-T10/A4-T10. Do not flip any ScaleSearchConfig or PersistenceConfig default.",
+          "kill": "n/a"
+        },
+        {
+          "id": "A6-T13",
+          "status": "ready",
+          "issue": 48,
+          "summary": "paper.tex D4 sync: zero-cross guard remains default off; standalone flip killed; curvature killed; 0.25 provisional/not sufficient; next oracles are density contrast and cut persistence. No A2-T8 follow-up sentence.",
+          "kill": "n/a"
         }
       ],
       "tests_before_done": "gate + foundation chunks; persistence chunk only inside A6-T1 with --durations"
     }
   },
-  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only. Director D3 killed fixed-ceiling calibration as a sufficient #48 floor after the corrected S-curve reached phi=0.096; 0.25 remains unchanged and provisional while curvature controls identify mechanism. The retired hollow-prepass regression is strict-xfail with #44.",
+  "notes": "Branches coord/A1..A6 are durable identities. Integration is turn-boundary only. D4 declined the standalone zero-cross default flip: it is clean but cannot see the live positive-phi failures. Fixed-ceiling, curvature, and n-indexed-ceiling families are killed; next oracles are density contrast and cut persistence. The retired hollow-prepass regression is strict-xfail with #44.",
   "director_backlog": {
-    "note": "Director session D3 (2026-09-10). A1 may promote only these dependency-gated items. Reconvene on A2-T7 DONE, A3-T9 DONE, A6-T10 phi trigger, or any new BLOCKED.",
+    "note": "Director session D4 (2026-09-10). Approved tasks are assigned directly in worker queues. Do not promote killed D3 follow-ons or invent beyond the D4 package.",
     "items": [
-      {
-        "for": "A4",
-        "promoted_as": "A4-T11",
-        "summary": "SI S14 benchmark card per scene: n, actual tissue mass, analytic valley depth, root-accept rate seeds0-9 and phi range, plus uniformity audit result.",
-        "kill": "n/a",
-        "depends_on": ["A4-T7", "A4-T8", "A4-T9", "A3-T3"]
-      },
-      {
-        "for": "A3",
-        "summary": "Add min-side node-fraction and sample-mass columns to the envelope harness; compare nulls phi<0.5 with composite accepts seeds0-4.",
-        "kill": "If any composite accept has min-side fraction <= the maximum null-breach fraction, propose no floor.",
-        "depends_on": ["A3-T9"]
-      },
-      {
-        "for": "A3",
-        "summary": "A3-T10: run corrected scurve_sheet_null at curvature_radius=2 (arc 3pi, width 2, n=800), seeds 0-19; compare envelope and accept count with R=1 and flat strip.",
-        "kill": "If R=2 accepts at least as often as R=1 (>=4/20), curvature-to-tau scale is not the driver; stop and propose no ceiling.",
-        "depends_on": ["A3-T9"]
-      },
-      {
-        "for": "A6",
-        "summary": "One-sentence paper follow-up if A2-T8 ever flips require_separation_evidence.",
-        "kill": "n/a",
-        "depends_on": ["A2-T8"]
-      },
       {
         "for": "any",
         "summary": "Prepass-flag deletion remains forbidden this burn; revisit only after use_level_set_clustering flips.",
@@ -564,17 +643,22 @@
     ]
   },
   "director_session": {
-    "id": "D3",
-    "ts": "2026-09-10T04:58:53Z",
-    "model": "claude-fable-5-1-thinking-high",
-    "summary": "Corrected area-uniform S-curve accepts 4/20 with min phi=0.096, overlapping true composites: fixed-ceiling calibration is killed as a sufficient floor. Keep 0.25 unchanged/provisional, run flat/R=2 curvature controls, and require director review before any guard default flip."
+    "id": "D4",
+    "ts": "2026-09-10T06:06:00Z",
+    "model": "cursor-grok-4.6-high-fast",
+    "summary": "Session model override. Do not flip require_separation_evidence; A2-T8 killed. Curvature/fixed-ceiling/n-indexed-ceiling families stay dead. Next: density-contrast and cut-persistence oracles; ownership unchanged."
+  },
+  "director_pending": {
+    "triggered_at": "2026-09-10T06:04:52Z",
+    "status": "answered by D4 at 2026-09-10T06:06:00Z"
   },
   "a1_must_not": [
-    "Do not flip use_level_set_clustering or apply_shot_noise_node_cap. Do not flip require_separation_evidence yourself; only A2-T8 may do so after every stated A2-T7 condition passes.",
+    "Do not flip use_level_set_clustering, apply_shot_noise_node_cap, or require_separation_evidence. A2-T8 is killed; keep the zero-cross guard and passthrough default off.",
     "Do not write 0.25 into SI S14.3 as final; do not change it to 0.35 or 0.20; do not adopt a relative ceiling; do not remove S-curve from the null family.",
     "Do not tune or remove the DM margin/verdict; do not revive cross-flow likelihood, descent-tier, tissue-fraction, or scene-scaling families.",
     "Bimodal is n-conditioned but weak is statistic-limited; do not change metric-of-record expectations or weaken a test.",
     "Do not resolve #45 or #48; do not delete prepass code this burn; do not run the persistence chunk.",
-    "Do not refill beyond this list and director_backlog without a new director session."
+    "Do not refill beyond this list and director_backlog without a new director session.",
+    "Do not promote A3-T10, a min-side floor, an n-indexed phi ceiling, or the A6 paper sentence formerly gated on A2-T8."
   ]
 }
