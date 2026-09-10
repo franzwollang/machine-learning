@@ -86,3 +86,4 @@
 {"ts":"2026-09-09T19:10-05:00","summary":"#48: inert studentized floor (empty connected null pool) recorded as top remaining item; calibration item reworded","added":[],"edited":[48],"resolved":[]}
 {"ts":"2026-09-09T19:55-05:00","summary":"#48: recorded empty-pool diagnosis and decision (min-cut phi statistic, retire rho); phi ceiling calibration protocol + envelope numbers; new graph-disconnection false accept (lone_gauss2d s17) filed under DM overconfidence","added":[],"edited":[48],"resolved":[]}
 {"ts":"2026-09-09T20:20-05:00","summary":"#48 LANDED paragraph rewritten to min-cut phi (rho removed); remaining items trimmed to calibration margin + phi=0 disconnection guard","added":[],"edited":[48],"resolved":[]}
+{"ts":"2026-09-09T22:25-05:00","summary":"D1: #48 ceiling stays 0.25 provisional (scurve s8 breach documented, not dropped); DM demoted from floor; #45 descent A/B and tissue-fraction families closed","added":[],"edited":[44,45,48],"resolved":[]}
