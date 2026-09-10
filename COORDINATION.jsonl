@@ -147,3 +147,6 @@
 {"ts":"2026-09-10T07:41:02Z","from":"A3","type":"HELLO","note":"A3 cron; merged integration 1e04faf; D7 closeout drained; queue suspended no refill"}
 {"ts":"2026-09-10T07:41:02Z","from":"A3","type":"NOTE","integrated_sha":"1e04faf28cf2b6943dcf8002725105e06217b353","note":"Fast-forward merge origin/coord/integration; restored A3 mailbox after integration overwrite; queue empty (9 completed / 5 blocked / 0 ready)"}
 {"ts":"2026-09-10T07:41:02Z","from":"A3","type":"NOTE","note":"Idle exit: A3 queue empty; D7 scientific suspension; no CLAIM; no REQUEST_TRACKER (A1 already applied closeout at 07:37)"}
+{"ts":"2026-09-10T07:50:37Z","from":"A3","type":"HELLO","note":"A3 cron; merged integration 5dd6aa3; D7 closeout drained; queue suspended no refill"}
+{"ts":"2026-09-10T07:50:37Z","from":"A3","type":"NOTE","integrated_sha":"5dd6aa32eea6e60afef9d3eef6bde9512ec1f380","note":"Merged origin/coord/integration; restored A3 mailbox after conflict (kept ours); queue empty (9 completed / 5 blocked / 0 ready)"}
+{"ts":"2026-09-10T07:50:37Z","from":"A3","type":"NOTE","note":"Idle exit: A3 queue empty; D7 scientific suspension; no CLAIM; no REQUEST_TRACKER (A1 closeout applied; notes say do not refill)"}
