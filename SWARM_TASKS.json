@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-09T21:05-05:00",
+  "updated_at": "2026-09-10T01:11:05+00:00",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -39,7 +39,7 @@
       "queue": [
         {
           "id": "A1-T1",
-          "status": "ready",
+          "status": "completed",
           "summary": "Seed HELLO; verify worker HELLOs; announce TASK_ASSIGN snapshot of this file. Confirm each worker's first CLAIM matches its owns_files."
         },
         {

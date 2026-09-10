@@ -1,17 +1,17 @@
 {
-  "updated_at": "2026-09-09T21:05:00-05:00",
-  "turn": 95,
+  "updated_at": "2026-09-10T01:11:05+00:00",
+  "turn": 96,
   "focus": {
     "milestone": "M1",
     "issue": 48,
-    "goal": "second swarm burn launched from main @ 3ac67c7; orchestrator idle until user resumes"
+    "goal": "coordinate second swarm burn; await first worker claims"
   },
   "recent": [
-    "Swarm prep: models override -> grok-4.6-high-fast for all, Fable only for A1 analysis; burn lessons added to swarm rule",
     "SWARM_TASKS.json rewritten: A2 phi=0 guard + DM, A3 null-envelope harness, A4 tissue mass, A5 descent semantics B/A, A6 test runtime + cleanup",
     "User authorized force-push of coord/* to current main (history dropped)",
     "Broad tests/stage1 cancelled by user (time); checkpoint 3ac67c7 committed",
-    "coord/integration + coord/A1..A6 force-pushed to main (user-authorized)"
+    "coord/integration + coord/A1..A6 force-pushed to main (user-authorized)",
+    "A1-T1 completed: HELLO and TASK_ASSIGN published; no worker HELLO/CLAIM yet; all queues remain 3-deep"
   ],
   "discoveries": [
     "FadedMixture: ~50% tissue regardless of tissue_fraction (box padding only)",
@@ -25,6 +25,6 @@
     "phi ceiling margin thin (0.25 vs 0.288): A3-T2 widens the ensemble",
     "Only tests/stage1/test_scale_search_persistence.py is slow (~45 min); other chunks <2 min and green on 6a66225 (A6-T1 owns the split)"
   ],
-  "next_step": "user launches 6 cloud agents from _SWARM_PROMPTS.tmp.txt; orchestrator reviews A1 MERGE_DONE lines when asked",
+  "next_step": "fetch worker tips; validate first CLAIM ownership; merge heartbeat when progress lands",
   "blockers": []
 }
