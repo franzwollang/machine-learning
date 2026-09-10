@@ -984,6 +984,32 @@ def test_widen_new_scenes_build() -> None:
         assert data.points.ndim == 2
 
 
+def test_scurve_sheet_half_occupancy_and_injectivity() -> None:
+    """Corrected S-curve: 50/50 lobe occupancy; no half-arc double-cover (A3-T6)."""
+
+    data = make_scurve_sheet(n_samples=20_000, noise=0.0, seed=0)
+    points = np.asarray(data.points, dtype=float)
+    z = points[:, 2]
+    # Classic S: upper lobe z>0 and lower lobe z<0 each get ~half the mass.
+    upper = float(np.mean(z > 1e-6))
+    lower = float(np.mean(z < -1e-6))
+    assert abs(upper - 0.5) < 0.02
+    assert abs(lower - 0.5) < 0.02
+    assert abs(upper - lower) < 0.03
+
+    # Dense θ-grid injectivity on the (x, z) centerline (no double-cover).
+    theta = np.linspace(-1.5 * np.pi, 1.5 * np.pi, 3001)
+    xz = np.column_stack(
+        [np.sin(theta), np.sign(theta) * (np.cos(theta) - 1.0)],
+    )
+    uniq = np.unique(np.round(xz, decimals=6), axis=0)
+    assert uniq.shape[0] == theta.shape[0]
+
+    lo, hi = data.metadata["theta_range"]
+    assert np.isclose(lo, -1.5 * np.pi)
+    assert np.isclose(hi, 1.5 * np.pi)
+
+
 def test_parse_seed_spec_ranges() -> None:
     assert parse_seed_spec("0-19") == list(range(20))
     assert parse_seed_spec(["0-2", "5"]) == [0, 1, 2, 5]

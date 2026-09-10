@@ -367,10 +367,12 @@ defect: the accepted cut is right, its background partition of the
 lower-density component is crude at the first-accept scale.
 
 Remaining work: A5-T6 found nested+bimodal pure children clean on 20/20
-seed/component reads, so their residual over-splitting requires tissue or
-sibling context rather than an intrinsic child-geometry fix. A5-T7 checks the
-194-sample weak child, and A3-T7 adds all component-only child-sized nulls to
-the envelope. Keep signal-only ARI + background recall meanwhile. The explicit
+seed/component reads; an off-scope A5-T7 run also found weak components clean
+at `n≈365--412` per component. The exact weak-child failure regime
+(`n≈194`, `N≤24`) remains pending before deciding whether the residual is
+tissue/sibling context or #48-at-small-`n`; A3-T7 adds all component-only
+child-sized nulls to the envelope. Keep signal-only ARI + background recall
+meanwhile. The explicit
 `tissue_mass` sweep and descent options A/B all fired their kill criteria,
 so do not tune those families or weaken topology expectations.
 
@@ -771,12 +773,18 @@ Remaining (ordered by severity):
   value to the protocol. The reproducible harness rerun found 357 reads,
   min 0.2876, p1 0.521, p5 0.642, and median 1.365: the minimum and false
   accept reproduce, but the count and percentiles drift slightly from the
-  published table. Widening falsified the fixed ceiling: an S-curve sheet
-  null accepted at seed 8, step 6 (`N=100`, `tau=0.03413`,
-  `phi=0.249435`). Director D1 keeps the sheet in the null family and
-  retains `0.25` only as calibrated-provisional; A3-T3--T5 now measure
-  composite misses, dissect this read, and stratify the envelope before
-  any acceptance-path change.
+  published table. The old S-curve generator double-covered a half-arc,
+  so its seed-8 read is withdrawn. The corrected injective, area-uniform
+  sheet (`θ ∈ [-1.5π, 1.5π]`,
+  `z = sign(θ)(cos(θ) - 1)`, width 2, `n=800`) accepts on seeds
+  1/16/17/18 of 0--19 at φ 0.190/0.242/0.202/0.096 (60 reads).
+  Its null minimum 0.096 overlaps the composite-accept band 0.006--0.244,
+  so no fixed ceiling separates them: the defect is statistic-level, not
+  calibration (director D3). Keep 0.25 unchanged as the
+  calibrated-provisional operational ceiling of the default-off mode.
+  Next: curvature controls (A3-T9/T10), min-side features, then a
+  statistic proposal whose acceptance test is corrected S-curve 0/20
+  with every seed-0--4 composite root accept intact.
 - **Graph-disconnection false accept (acceptance path, owns the DM
   overconfidence item).** lone 2-D Gaussian seed 17 accepts at N=50,
   τ=0.012: a 72-point clump in the shoulder has no Hebbian link outside
@@ -813,9 +821,11 @@ Remaining (ordered by severity):
   no longer over-splits under the connected null (2 leaves on all
   seeds). A4's component-only child-sized null generators have landed;
   A5-T6 found nested+bimodal pure children clean on 20/20 seed/component
-  reads, so their residual needs tissue or sibling context rather than an
-  intrinsic child-geometry fix. A5-T7 (weak child) and A3-T7 (child-sized
-  null envelope) determine the remaining small-`n` scope.
+  reads, and an off-scope A5-T7 run found weak components clean at
+  `n≈365--412` per component. The exact weak-child regime
+  (`n≈194`, `N≤24`) and A3-T7 child-sized null envelope remain pending;
+  do not yet move the residual from tissue/sibling context to
+  #48-at-small-`n`.
 - Weak two-Gaussians (sep 2.5σ) child of 194 samples still splits at
   the bound (N ≤ 24) on the seeds where the root splits. Revisit after
   #45.
@@ -826,5 +836,6 @@ Remaining (ordered by severity):
   SI S10.2 now records the negative result and limits DM to
   background-partition confirmation. Do not tune its margin or flip
   `sample_normalized_counts`.
-- Do not flip `use_level_set_clustering`. Do not delete S2.6.1
+- Do not flip `use_level_set_clustering` until the corrected S-curve
+  null is 0/20 under the acceptance-path statistic. Do not delete S2.6.1
   stand-ins. Do not retune frozen suite numbers.
