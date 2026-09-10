@@ -66,12 +66,15 @@ _SLOW_NAME_PARTS = (
     "multi_tau_hollow",
 )
 
-# OPEN_ISSUES #46: whole-module simulations that blow the default Stage-1
-# slice (~45 min). Director backlog may later split these into slow-marked
-# submodules with a small unmarked smoke set.
+# OPEN_ISSUES #46 / A6-T4: persistence pins live under tests/stage1/persistence/.
+# Auto-slow every module there except the unmarked A6-T5 smoke slice
+# (test_core_smoke.py). The former monolithic test_scale_search_persistence.py
+# is now an empty pointer shim (no collected tests).
 _SLOW_STAGE1_MODULES = frozenset(
     {
-        "test_scale_search_persistence.py",
+        "test_within_interval_modes.py",
+        "test_multiseed_densify.py",
+        "test_phi_half_life.py",
     }
 )
 

@@ -154,7 +154,7 @@ alone takes ~50 min with `slow` deselected. Run named chunks, each wrapped in
 | `foundation` | `pytest tests/foundation tests/properties tests/reductions tests/contracts -q -p no:cacheprovider` (~10 s) | A1 on every merge |
 | `evidence` | `pytest tests/evidence tests/stage1/test_dm_cluster.py tests/stage1/test_edge_evidence.py -q -p no:cacheprovider` (~3 s) | A1 on every merge; A2 before `DONE` |
 | `scenarios` | `pytest tests/scenarios tests/inference tests/diagnostics tests/stage2 -q -p no:cacheprovider` (~60 s) | A1 on every merge; A4/A5 before `DONE` |
-| `persistence` | `pytest tests/stage1/test_scale_search_persistence.py -q -p no:cacheprovider --durations=40` (~45 min — the whole problem) | **A6 only** (#46 task) until it is slow-marked into a sub-10-minute default slice; A1 skips it |
+| `persistence` | `pytest tests/stage1/persistence -q -p no:cacheprovider --durations=40` (~45 min full; default smoke is `persistence/test_core_smoke.py` only) | **A6 only** (#46 / A6-T4–T5); A1 skips the full slow tree |
 
 Measured 2026-09-09 on `main` @ `6a66225`: the four non-persistence chunks total under
 2 minutes and are all green (163 + 240 + 40 passed, 56 in `gate`). Plus each worker's
