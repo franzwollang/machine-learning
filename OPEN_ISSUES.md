@@ -92,9 +92,12 @@ Remaining work:
 - **Hierarchy child resolution-cap interaction (A6-T10):** hierarchy recovers
   6/6 fine leaves on seeds 1--4 and 5/6 on seed 0. The unsplit seed-0 child has
   `n=200`, binds at `N=25=n/k`, and sees best `phi=0.617`; without the cap the
-  same region accepts at `phi=0.232`. A4-T10 owns the analytic valley-depth
-  handoff. This is a scale-resolution interaction, not grounds to lower the
-  provisional ceiling.
+  same region accepts at `phi=0.232`. A4-T10's analytic oracle has landed:
+  all 15 hierarchy fine-leaf pairs are reported and sibling valley depths are
+  about 0.9993 (seed-invariant), including the seed-0 unsplit pair. This is a
+  scale-resolution interaction, not grounds to lower the provisional ceiling.
+  A6-T14 will measure the smallest node cap above 25 that admits the child;
+  do not flip the cap or within-interval defaults.
 - **Landed (A3-T31 SI A+C):** SI S2.6.2 + S14.3 document
   `PersistenceConfig.resolve_within_interval` (`none` | `load_crossover`, default
   `none`; hybrid ≤ fine-leaf).
@@ -397,15 +400,17 @@ signal-labelled nodes have ≥50% tissue catchments, at ~0.64× the hit count
 of ≥90%-signal nodes (2528 vs 3959; 619 vs 972). Samples follow BMU Voronoi
 (`assign_samples_to_clusters`), so 0% of leaked tissue is nearer a
 background node. The reader is Hartigan-faithful: halo belongs to the
-coarse cluster. The generator's λ=0.5 fade defines it as background. The
-open decision is descent semantics: (A) descend on the branch *core* only
-(nodes below a half-max density relative to the branch peak → halo, the
-same λ=0.5 tier as the GT); (B) keep Hartigan assignment and terminate a
-child whose own read sends most of its samples to background; (C) keep as
-is and score signal-only. Nested also loses 755 outer-shell points to the
-root background child at the selected level (coverage 0.76): the outer
-shell is only fully connected at radii where it also connects to the inner
-shell through tissue.
+coarse cluster. The generator's λ=0.5 fade defines it as background.
+The descent decision is now recorded in SI S2.6.2: (A) branch-core descent
+failed its linked-tori/nested coverage gate; (B) majority-background
+termination did not improve leaf counts; (C) retain Hartigan assignment
+and score signal-only is the adopted interim semantics. Nested also loses
+755 outer-shell points to the root background child at the selected level
+(coverage 0.76): the outer shell is only fully connected at radii where it
+also connects to the inner shell through tissue. Remaining work is the
+tissue/sibling-context residual only: A5-T11/T13 and A4-T13 isolate sibling
+versus tissue sufficiency. Do not reopen A/B, tune a descent fraction, or
+resume tissue-mass sweeps.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
@@ -786,9 +791,14 @@ Remaining (ordered by severity):
   so no fixed ceiling separates them: the defect is statistic-level, not
   calibration (director D3). Keep 0.25 unchanged as the
   calibrated-provisional operational ceiling of the default-off mode.
-  Next: curvature controls (A3-T9/T10), min-side features, then a
-  statistic proposal whose acceptance test is corrected S-curve 0/20
-  with every seed-0--4 composite root accept intact.
+  A3-T9's flat-strip control also accepts below 0.25, so extrinsic curvature
+  is not the driver and the dependent R=2/min-side follow-ons are killed.
+  The component-only child envelope likewise breaches 0.25: 56 positive-phi
+  reads, min 0.167 (plus two circle graph disconnections at phi=0).
+  D4 directs the next information-gathering oracles to cut-local density
+  contrast (A2-T10/T11) and cross-scale cut persistence (A3-T13), with no new
+  threshold yet. Any eventual gate must pass corrected S-curve 0/20 plus
+  every seed-0--4 composite root accept.
 - **Graph-disconnection false accept (acceptance path, owns the DM
   overconfidence item).** lone 2-D Gaussian seed 17 accepts at N=50,
   τ=0.012: a 72-point clump in the shoulder has no Hebbian link outside
@@ -810,6 +820,12 @@ Remaining (ordered by severity):
   remains clean. Repro:
   `level_set_root_accept_probe.py --seed 17 --scenes
   lone_gauss2d_null --max-depth 1`.
+  A2-T7 is now metric-identical to both A6 OFF references on all 60 lines,
+  and the guard is a no-op on all corrected S-curve reads because none has
+  zero cross flow. D4 killed the standalone A2-T8 flip: the guard remains
+  default off because it cannot see the live positive-phi sheet/strip/child
+  false accepts. Keep the guard and passthrough; review only as part of a
+  later complete acceptance package.
 - **Connected-support valleys (bimodal circle 2/5, weak two-Gaussians
   2/5).** Failures terminate at the root with no accepted candidate,
   usually at the `n/k` bound; neither child recursion nor DM rejection is
@@ -820,7 +836,12 @@ Remaining (ordered by severity):
   `10x` (statistic-limited). Further scene scaling is stopped; do not change
   expectations or lower the ceiling. A4-T8's root-only separation curve is
   monotone in analytic valley depth: `K=2` rates rise 2/5, 3/5, 5/5, 5/5,
-  5/5 across separations 2.5, 3, 3.5, 4, 6; no ceiling change is justified.
+  5/5 across separations 2.5, 3, 3.5, 4, 6. At child-sized total
+  `n in {300,600}`, clear two-Gaussian remains 5/5 but nested/tori are 0/5
+  versus 5/5 at full suite size, confirming a power boundary rather than
+  grounds to lower the ceiling. Weak seed-2 matched-tau reads change
+  bottleneck/no-cut regime with `n`; n-stratification is a director item,
+  not permission to resume the killed scene-scaling family.
 - **Tissue-heavy children (→ #45).** Root splits leak tissue into
   signal children (bimodal child 37% tissue); the reader then marks
   most of the child background and accepts shell+tissue chunks. Nested
@@ -829,7 +850,9 @@ Remaining (ordered by severity):
   A5-T6 found nested+bimodal pure children clean, and A5-T7 found both
   weak components clean on all 10 exact `n=194` reads. This rules out an
   intrinsic small-`n` null failure for the isolated children; the residual is
-  tissue/sibling context. A3-T7's broader child-sized null envelope remains.
+  tissue/sibling context. A3-T7's broader child-sized envelope has landed
+  and itself breaches the provisional ceiling, but that statistic-level
+  result does not change the tissue/sibling diagnosis for the exact children.
 - Weak two-Gaussians (sep 2.5σ) children in the full tissue/sibling context
   can still split at the `N≤24` bound; isolated `n=194` components do not.
   Revisit with #45 semantics rather than lowering the #48 ceiling.
