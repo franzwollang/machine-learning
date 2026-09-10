@@ -152,3 +152,6 @@
 {"ts":"2026-09-10T07:50:37Z","from":"A3","type":"NOTE","note":"Idle exit: A3 queue empty; D7 scientific suspension; no CLAIM; no REQUEST_TRACKER (A1 closeout applied; notes say do not refill)"}
 {"ts":"2026-09-10T07:50:37Z","from":"A3","type":"NOTE","note":"Authoritative tip after idle merge: 1827a56eee5eba2c8de5544f16db1e0fcdde5d1d. Queue empty; D7 suspend; no CLAIM."}
 {"ts":"2026-09-10T07:50:48Z","from":"A3","type":"NOTE","note":"Authoritative tip after idle merge: e51b5672a10924367b040e951fdc0a945dc9311e. Queue empty; D7 suspend; no CLAIM."}
+{"ts":"2026-09-10T08:00:41Z","from":"A3","type":"HELLO","note":"A3 cron; tip=6f5cf79267386765db0701ef56faa18dc369c9cd; integration 5dd6aa3 already in tip; idle — D7 drained, ready_count=0, no refill"}
+{"ts":"2026-09-10T08:00:41Z","from":"A3","type":"NOTE","integrated_sha":"5dd6aa32eea6e60afef9d3eef6bde9512ec1f380","note":"No merge needed. Queue empty (9 completed / 5 blocked / 0 ready). SWARM notes: do not refill. Defaults unchanged."}
+{"ts":"2026-09-10T08:00:41Z","from":"A3","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; no CLAIM; no REQUEST_TRACKER. Await director/A1 only."}
