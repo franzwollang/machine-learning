@@ -6,6 +6,10 @@ These isolate Hartigan valleys from support disconnection:
   still one connected component; a superlevel set disconnects into two arcs.
 * ``make_two_gaussians`` — two isotropic bumps whose valley depth is
   controlled by center separation in units of ``sigma``.
+
+A4-T5 (#45) also exposes an analytic resolvability oracle: valley depth
+(min/peak of the known mixture density on the mode-connecting path) and
+the expected / realized sample count in a density valley band.
 """
 
 from __future__ import annotations
@@ -26,8 +30,279 @@ from .faded_density import (
     SupportBox,
     assign_labels_by_lambda,
     sample_faded_mixture,
+    tissue_mass_metadata,
 )
 from .tissue import expected_tau_for_uniform_tissue_box
+
+# Operational: valley band is densities within this fraction of the
+# (peak - valley) gap above the path minimum (proposal-path covariate).
+_DEFAULT_VALLEY_BAND_REL = 0.25
+_EPS = 1e-12
+
+
+def _path_valley_stats(
+    path_points: np.ndarray,
+    density: np.ndarray,
+) -> tuple[float, float, float, float]:
+    """Return peak, valley, depth=(peak-valley)/peak, min/peak on a path."""
+    dens = np.asarray(density, dtype=float)
+    peak = float(np.max(dens))
+    valley = float(np.min(dens))
+    if peak <= _EPS:
+        return peak, valley, 0.0, 1.0
+    depth = float((peak - valley) / peak)
+    return peak, valley, depth, float(valley / peak)
+
+
+def _mc_valley_band_mass(
+    mixture: FadedMixture,
+    in_band,
+    *,
+    n_mc: int = 20000,
+    seed: int = 0,
+) -> float:
+    """Importance-sample ∫ 1_band(x) p_mix(x) via mixture proposals."""
+    rng = np.random.default_rng(int(seed) + 911)
+    # Proposal ≈ component mixture (+ tissue floor when tissue_mass set).
+    props = mixture.draw_proposals(n_mc, rng, proposal_signal_fraction=0.85)
+    in_support = mixture.support.contains(props)
+    props = props[in_support]
+    if props.shape[0] == 0:
+        return 0.0
+    target = mixture.density(props)
+    proposal = mixture.proposal_density(props, proposal_signal_fraction=0.85)
+    weights = target / np.maximum(proposal, _EPS)
+    band = in_band(props)
+    # Self-normalized importance weight for the band indicator.
+    denom = float(np.sum(weights))
+    if denom <= _EPS:
+        return 0.0
+    return float(np.sum(weights[band]) / denom)
+
+
+def segment_valley_oracle(
+    mixture: FadedMixture,
+    c0: np.ndarray,
+    c1: np.ndarray,
+    points: np.ndarray,
+    *,
+    n_samples: int,
+    band_rel: float = _DEFAULT_VALLEY_BAND_REL,
+    path_n: int = 256,
+    seed: int = 0,
+    tube_scale: float = 0.5,
+    valley_path: str = "segment",
+) -> dict[str, float | int | str]:
+    """Analytic valley depth + valley-band counts on a straight segment.
+
+    Path density uses ``mixture.signal_density`` (no tissue floor).  The
+    valley band is the tube around the segment where density sits within
+    ``band_rel`` of the (peak − valley) gap above the path minimum.
+    """
+    a = np.asarray(c0, dtype=float).reshape(-1)
+    b = np.asarray(c1, dtype=float).reshape(-1)
+    if a.shape != b.shape:
+        raise ValueError("segment endpoints must share shape")
+    t = np.linspace(0.0, 1.0, num=int(path_n))
+    path = a[None, :] * (1.0 - t[:, None]) + b[None, :] * t[:, None]
+    dens = mixture.signal_density(path)
+    peak, valley, depth, min_over_peak = _path_valley_stats(path, dens)
+    thresh = valley + float(band_rel) * max(peak - valley, 0.0)
+
+    axis = b - a
+    length = float(np.linalg.norm(axis))
+    if length <= _EPS:
+        raise ValueError("segment endpoints must be distinct")
+    u = axis / length
+
+    def in_band(x: np.ndarray) -> np.ndarray:
+        arr = np.asarray(x, dtype=float)
+        proj = (arr - a[None, :]) @ u
+        between = (proj >= 0.0) & (proj <= length)
+        closest = a[None, :] + proj[:, None] * u[None, :]
+        lateral = np.linalg.norm(arr - closest, axis=1)
+        tube = float(tube_scale) * length
+        dens_x = mixture.signal_density(arr)
+        return between & (lateral <= tube) & (dens_x <= thresh + _EPS)
+
+    mass = _mc_valley_band_mass(mixture, in_band, seed=seed)
+    realized = int(np.sum(in_band(points)))
+    return {
+        "valley_depth": depth,
+        "valley_min_over_peak": min_over_peak,
+        "valley_peak_density": peak,
+        "valley_min_density": valley,
+        "valley_band_rel": float(band_rel),
+        "valley_band_mass": mass,
+        "valley_band_expected_count": float(n_samples) * mass,
+        "valley_band_count": realized,
+        "valley_path": str(valley_path),
+    }
+
+
+def summarize_valley_pairs(
+    pairs: list[dict[str, float | int | str | bool | None]],
+) -> dict[str, float | int | str | list]:
+    """Collapse pairwise valley records into scalar A4-T5 keys + ``valley_pairs``.
+
+    Scalar depth / band covariates come from the *shallowest* pair (smallest
+    ``valley_depth``) — the hardest split for a fixed-ceiling gate.
+    """
+    if not pairs:
+        raise ValueError("pairs must be non-empty")
+    shallow = min(pairs, key=lambda p: float(p["valley_depth"]))
+    return {
+        "valley_depth": float(shallow["valley_depth"]),
+        "valley_min_over_peak": float(shallow["valley_min_over_peak"]),
+        "valley_peak_density": float(shallow["valley_peak_density"]),
+        "valley_min_density": float(shallow["valley_min_density"]),
+        "valley_band_rel": float(shallow["valley_band_rel"]),
+        "valley_band_mass": float(shallow["valley_band_mass"]),
+        "valley_band_expected_count": float(shallow["valley_band_expected_count"]),
+        "valley_band_count": int(shallow["valley_band_count"]),
+        "valley_path": str(shallow.get("valley_path", "segment_pairs")),
+        "valley_pair_count": len(pairs),
+        "valley_pairs": pairs,
+    }
+
+
+def pairwise_leaf_valley_oracle(
+    mixture: FadedMixture,
+    leaf_centers: np.ndarray,
+    leaf_ids: list[int],
+    leaf_parent_ids: list[int | None],
+    points: np.ndarray,
+    *,
+    n_samples: int,
+    band_rel: float = _DEFAULT_VALLEY_BAND_REL,
+    path_n: int = 256,
+    seed: int = 0,
+) -> dict[str, float | int | str | list]:
+    """All pairwise fine-leaf segment valleys (#28 A4-T10 hierarchy)."""
+    centers = np.asarray(leaf_centers, dtype=float)
+    if centers.ndim != 2:
+        raise ValueError("leaf_centers must be (K, D)")
+    k = centers.shape[0]
+    if k < 2:
+        raise ValueError("need at least two fine leaves")
+    if not (len(leaf_ids) == len(leaf_parent_ids) == k):
+        raise ValueError("leaf id / parent id length mismatch")
+
+    pairs: list[dict[str, float | int | str | bool | None]] = []
+    for i in range(k):
+        for j in range(i + 1, k):
+            rec = segment_valley_oracle(
+                mixture,
+                centers[i],
+                centers[j],
+                points,
+                n_samples=n_samples,
+                band_rel=band_rel,
+                path_n=path_n,
+                seed=seed + 17 * i + j,
+                valley_path="segment",
+            )
+            same_parent = (
+                leaf_parent_ids[i] is not None
+                and leaf_parent_ids[i] == leaf_parent_ids[j]
+            )
+            pairs.append({
+                **rec,
+                "leaf_id_a": int(leaf_ids[i]),
+                "leaf_id_b": int(leaf_ids[j]),
+                "parent_id_a": leaf_parent_ids[i],
+                "parent_id_b": leaf_parent_ids[j],
+                "same_parent": bool(same_parent),
+            })
+    out = summarize_valley_pairs(pairs)
+    out["valley_path"] = "segment_pairs"
+    out["valley_sibling_pair_count"] = int(
+        sum(1 for p in pairs if p.get("same_parent"))
+    )
+    return out
+
+
+def two_gaussians_valley_oracle(
+    mixture: FadedMixture,
+    centers: np.ndarray,
+    points: np.ndarray,
+    *,
+    n_samples: int,
+    band_rel: float = _DEFAULT_VALLEY_BAND_REL,
+    path_n: int = 256,
+    seed: int = 0,
+) -> dict[str, float | int | str]:
+    """Analytic valley depth + valley-band counts for two equal Gaussians."""
+    return segment_valley_oracle(
+        mixture,
+        centers[0],
+        centers[1],
+        points,
+        n_samples=n_samples,
+        band_rel=band_rel,
+        path_n=path_n,
+        seed=seed,
+        valley_path="segment",
+    )
+
+
+def bimodal_circle_valley_oracle(
+    mixture: FadedMixture,
+    component: BimodalCircleFadedComponent,
+    points: np.ndarray,
+    *,
+    n_samples: int,
+    band_rel: float = _DEFAULT_VALLEY_BAND_REL,
+    path_n: int = 512,
+    seed: int = 0,
+) -> dict[str, float | int | str]:
+    """Analytic valley depth + valley-band counts for the bimodal circle."""
+    angles = np.linspace(0.0, 2.0 * np.pi, num=int(path_n), endpoint=False)
+    path = np.zeros((path_n, component.dim), dtype=float)
+    path[:, 0] = component.radius * np.cos(angles)
+    path[:, 1] = component.radius * np.sin(angles)
+    path += component.center[None, :]
+    dens = mixture.signal_density(path)
+    peak, valley, depth, min_over_peak = _path_valley_stats(path, dens)
+    thresh = valley + float(band_rel) * max(peak - valley, 0.0)
+
+    mode_a, mode_b = component.mode_angles
+    # Valleys sit at angular midpoints between the two modes.
+    mid_plus = 0.5 * (mode_a + mode_b)
+    mid_minus = mid_plus + np.pi
+    valley_angles = (float(mid_plus), float(mid_minus))
+    # Half-width of each valley arc: quarter of the mode gap.
+    half_gap = 0.25 * abs(float(mode_b - mode_a))
+    if half_gap <= _EPS:
+        half_gap = 0.25 * np.pi
+
+    def _ang_dist(a: np.ndarray, b: float) -> np.ndarray:
+        return np.abs(np.arctan2(np.sin(a - b), np.cos(a - b)))
+
+    def in_band(x: np.ndarray) -> np.ndarray:
+        arr = np.asarray(x, dtype=float)
+        theta = component._theta(arr)
+        near_valley = np.zeros(arr.shape[0], dtype=bool)
+        for mu in valley_angles:
+            near_valley |= _ang_dist(theta, mu) <= half_gap
+        # Stay near the circle tube.
+        near_tube = component.distance(arr) <= 2.0 * component.sigma
+        dens_x = mixture.signal_density(arr)
+        return near_valley & near_tube & (dens_x <= thresh + _EPS)
+
+    mass = _mc_valley_band_mass(mixture, in_band, seed=seed)
+    realized = int(np.sum(in_band(points)))
+    return {
+        "valley_depth": depth,
+        "valley_min_over_peak": min_over_peak,
+        "valley_peak_density": peak,
+        "valley_min_density": valley,
+        "valley_band_rel": float(band_rel),
+        "valley_band_mass": mass,
+        "valley_band_expected_count": float(n_samples) * mass,
+        "valley_band_count": realized,
+        "valley_path": "circle",
+    }
 
 
 def make_bimodal_circle(
@@ -38,10 +313,16 @@ def make_bimodal_circle(
     target_n_nodes: int = 32,
     extrusion_dim: int = 2,
     tissue_fraction: float = 0.03,
+    tissue_mass: float | None = None,
     seed: int = 0,
     transition_radius: float = 3.0,
 ) -> SyntheticDataset:
-    """Connected circle with a von Mises angular valley (should split)."""
+    """Connected circle with a von Mises angular valley (should split).
+
+    ``tissue_fraction`` only pads the support box (historical name).
+    Pass ``tissue_mass`` for an honest expected λ<0.5 background fraction;
+    ``None`` keeps the legacy fade-balanced floor (~46–49% tissue).
+    """
 
     if extrusion_dim < 0:
         raise ValueError("extrusion_dim must be non-negative")
@@ -65,7 +346,9 @@ def make_bimodal_circle(
         min_padding=0.05,
         extra_padding=3.0 * tube_sigma,
     )
-    mixture = FadedMixture(components=[component], support=support)
+    mixture = FadedMixture(
+        components=[component], support=support, tissue_mass=tissue_mass,
+    )
     points, sampler_meta = sample_faded_mixture(mixture, n_samples, rng)
     fade = component.fade_weight(points)
     labels = component.mode_labels(points)
@@ -86,6 +369,9 @@ def make_bimodal_circle(
         noise_variance=effective_noise_variance,
     )
     expected_tau = max(signal_tau, tissue_tau)
+    valley_meta = bimodal_circle_valley_oracle(
+        mixture, component, points, n_samples=n_samples, seed=seed,
+    )
     gt = GroundTruthManifold(
         name="bimodal_circle",
         ambient_dim=ambient_dim,
@@ -128,8 +414,13 @@ def make_bimodal_circle(
             "mode_angles": list(component.mode_angles),
             "connected_support": True,
             "expected_k": 2,
-            "tissue_fraction_actual": float(np.mean(labels < 0)),
             **sampler_meta,
+            **tissue_mass_metadata(
+                tissue_fraction=tissue_fraction,
+                tissue_mass=tissue_mass,
+                labels=labels,
+            ),
+            **valley_meta,
         },
     )
 
@@ -140,22 +431,93 @@ def make_two_gaussians(
     separation: float = 2.5,
     ambient_dim: int = 2,
     tissue_fraction: float = 0.03,
+    tissue_mass: float | None = None,
     seed: int = 0,
     transition_radius: float = 3.0,
+    component_only: bool = False,
+    component_index: int = 0,
 ) -> SyntheticDataset:
     """Two isotropic Gaussians. ``separation`` is center distance / sigma.
 
     ``separation=2.5`` is a weak-valley control (heavy overlap).
     ``separation=6.0`` is a clear Hartigan split.
+
+    ``tissue_fraction`` only pads the support box (historical name).
+    Pass ``tissue_mass`` for an honest expected λ<0.5 background fraction;
+    ``None`` keeps the legacy fade-balanced floor (~46–49% tissue).
+
+    ``component_only=True`` (#45 A4-T6) emits pure samples from one bump
+    (``component_index`` in ``{0,1}``) with no tissue and no sibling —
+    a child-sized null (``n_samples`` typically 200–500).
     """
 
     if separation <= 0.0:
         raise ValueError("separation must be positive")
+    if component_only and tissue_mass not in (None, 0.0):
+        raise ValueError("component_only forbids nonzero tissue_mass")
+    if component_only and int(component_index) not in (0, 1):
+        raise ValueError("component_index must be 0 or 1")
     rng = np.random.default_rng(seed)
     half = 0.5 * float(separation) * float(sigma)
     centers = np.zeros((2, ambient_dim), dtype=float)
     centers[0, 0] = -half
     centers[1, 0] = half
+    cov = np.eye(ambient_dim) * (sigma ** 2)
+
+    if component_only:
+        idx = int(component_index)
+        component = GaussianFadedComponent(
+            center=centers[idx],
+            sigma=float(sigma),
+            transition_radius=transition_radius,
+            weight=1.0,
+        )
+        points = component.sample(int(n_samples), rng)
+        labels = np.zeros(int(n_samples), dtype=int)
+        gt = GroundTruthManifold(
+            name="two_gaussians_component_only",
+            ambient_dim=ambient_dim,
+            intrinsic_dim=ambient_dim,
+            expected_scale_levels=1,
+            cluster_hierarchy=[
+                ClusterNode(
+                    cluster_id=0, level=0, parent_id=None, weight=1.0,
+                    center=centers[idx], covariance=cov,
+                    is_leaf=True, intrinsic_dim=ambient_dim,
+                ),
+            ],
+            topology=TopologyExpectation(
+                connected_components=1,
+                betti_numbers=(1,),
+                intrinsic_dim=ambient_dim,
+            ),
+            expected_tau=float(sigma ** 2 * ambient_dim),
+            expected_node_count=32,
+            noise_variance=0.0,
+            tau_grid_hint=(0.05 * sigma ** 2, 8.0 * sigma ** 2 * ambient_dim),
+        )
+        return SyntheticDataset(
+            points=points,
+            labels=labels,
+            ground_truth=gt,
+            metadata={
+                "sigma": float(sigma),
+                "separation": float(separation),
+                "center_distance": float(separation * sigma),
+                "expected_k": 1,
+                "valley": "none",
+                "component_only": True,
+                "null_scene": True,
+                "component_index": idx,
+                "parent_scene": "two_gaussians",
+                **tissue_mass_metadata(
+                    tissue_fraction=0.0,
+                    tissue_mass=0.0,
+                    labels=labels,
+                ),
+            },
+        )
+
     components = [
         GaussianFadedComponent(
             center=centers[i],
@@ -171,12 +533,16 @@ def make_two_gaussians(
         min_padding=3.0 * float(sigma),
         extra_padding=3.0 * float(sigma),
     )
-    mixture = FadedMixture(components=components, support=support)
+    mixture = FadedMixture(
+        components=components, support=support, tissue_mass=tissue_mass,
+    )
     points, sampler_meta = sample_faded_mixture(mixture, n_samples, rng)
     labels = assign_labels_by_lambda(points, components, label_offsets=[0, 1])
     signal = labels >= 0
     signal_points = points[signal] if signal.any() else points
-    cov = np.eye(ambient_dim) * (sigma ** 2)
+    valley_meta = two_gaussians_valley_oracle(
+        mixture, centers, points, n_samples=n_samples, seed=seed,
+    )
     gt = GroundTruthManifold(
         name="two_gaussians",
         ambient_dim=ambient_dim,
@@ -220,7 +586,14 @@ def make_two_gaussians(
             "center_distance": float(separation * sigma),
             "expected_k": 2,
             "valley": "weak" if separation < 4.0 else "clear",
-            "tissue_fraction_actual": float(np.mean(labels < 0)),
+            "component_only": False,
+            "null_scene": False,
             **sampler_meta,
+            **tissue_mass_metadata(
+                tissue_fraction=tissue_fraction,
+                tissue_mass=tissue_mass,
+                labels=labels,
+            ),
+            **valley_meta,
         },
     )

@@ -89,6 +89,14 @@ Remaining work:
   rejected as anti-SI. Paper §scale synced to L=1 + coarse-end; hierarchy hybrid≫expected
   regression locked. Do **not** flip the default; persistence stays structural arbiter
   with coarse-end resolution until a SI-justified within-interval signal exists.
+- **Hierarchy seed-0 5/6 residual:** A6-T16 confirms that the accepted split is
+  the true L0/L1 cut (ARI 1), but its `N` and `phi` are path-dependent: the
+  first accept shifted from 46 to 45 nodes, and `phi` changed from 0.197 to
+  0.061 between caps 46 and 64. A6-T17 is canceled. Do not propose a cap rule
+  or treat 45/46 or the observed `phi` values as thresholds. A6-T19/T20/T21
+  landed the SI S2.5.1 retraction and paper audit: the first accept is not
+  stable, density is not a remaining floor, and no usable cap number follows.
+  Persistence, within-interval, and scale-search defaults stay unchanged.
 - **Landed (A3-T31 SI A+C):** SI S2.6.2 + S14.3 document
   `PersistenceConfig.resolve_within_interval` (`none` | `load_crossover`, default
   `none`; hybrid ≤ fine-leaf).
@@ -366,15 +374,16 @@ outer shell (cover ≥ 0.886) and give 2 leaves. Not a growth-policy
 defect: the accepted cut is right, its background partition of the
 lower-density component is crude at the first-accept scale.
 
-Remaining work: define benchmark-wide halo/background semantics
-(descent options recorded in `SCRATCHPAD_LOG`: A core-only descent, B
-interim guard, C as-is — C in effect); decide whether the sampler
-should honour a true tissue *mass* fraction and rename/fix
-`tissue_fraction`; decide whether the reader should refine the
-background partition below the first-accept τ before descending;
-retain signal-only ARI + background recall until then; re-baseline the
-`@awaiting` recovery expectations (#41, #26) on repaired scenes without
-weakening their topology criteria.
+Remaining work: weak two-Gaussian shatter is tissue-sufficient (A5-T11):
+one-signal+tissue splits 5/10, while both-signals/no-tissue and isolated
+`n=194` children stay clean. Tissue mass in the over-splitting child is not the
+residual (A4-T13: bimodal ratio 0.91, nested ratio 0.97). The current-tip
+census (A5-T16) found nested clean on all five seeds (`sigLeaves=rootK=2`) but
+bimodal seed 2 again over-split (`sigLeaves=3>rootK=2`); the effect is
+tip-sensitive rather than a standing nested-child failure. A5-T15 therefore
+skipped the nested ablation. Only benchmark-semantics documentation remains
+this burn. Keep signal-only ARI + background recall. Do not resolve #45, tune
+`tissue_mass`, reopen descent A/B/D, or resume tissue-fraction sweeps.
 
 Level-set consequence (2026-09-09, from #48): the root split assigns about
 half the tissue to signal children (nested seed-0 bg recall 0.51; nested
@@ -393,26 +402,17 @@ signal-labelled nodes have ≥50% tissue catchments, at ~0.64× the hit count
 of ≥90%-signal nodes (2528 vs 3959; 619 vs 972). Samples follow BMU Voronoi
 (`assign_samples_to_clusters`), so 0% of leaked tissue is nearer a
 background node. The reader is Hartigan-faithful: halo belongs to the
-coarse cluster. The generator's λ=0.5 fade defines it as background. The
-open decision is descent semantics: (A) descend on the branch *core* only
-(nodes below a half-max density relative to the branch peak → halo, the
-same λ=0.5 tier as the GT); (B) keep Hartigan assignment and terminate a
-child whose own read sends most of its samples to background; (C) keep as
-is and score signal-only. Nested also loses 755 outer-shell points to the
-root background child at the selected level (coverage 0.76): the outer
-shell is only fully connected at radii where it also connects to the inner
-shell through tissue.
-
-## 46. Pytest runtime hygiene: simulations are misclassified as tests
-
-Default `pytest` now skips `slow` and `real_data` (`pytest.ini` addopts;
-`test_recursion.py` name-parts auto-marked `slow` in `conftest.py`).
-Remaining:
-- Runtime guard so a newly misclassified multi-minute simulation fails
-  the default suite instead of silently expanding it.
-- Keep the unmarked Stage-1 unit/integration slice within roughly two
-  minutes; profile any leftover accidental regressions.
-
+coarse cluster. The generator's λ=0.5 fade defines it as background.
+The descent decision is now recorded in SI S2.6.2: (A) branch-core descent
+failed its linked-tori/nested coverage gate; (B) majority-background
+termination did not improve leaf counts; (C) retain Hartigan assignment
+and score signal-only is the adopted interim semantics. Nested also loses
+755 outer-shell points to the root background child at the selected level
+(coverage 0.76): the outer shell is only fully connected at radii where it
+also connects to the inner shell through tissue. Remaining work is the
+tissue/sibling-context residual only: A5-T11/T13 and A4-T13 isolate sibling
+versus tissue sufficiency. Do not reopen A/B, tune a descent fraction, or
+resume tissue-mass sweeps.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
@@ -742,10 +742,11 @@ multimodal at a fine enough bandwidth. The stop must be an
 budget (SI S2.6.2).
 
 Null: this region is one Hartigan cluster. Accept only when the
-studentized discriminating statistic (flow bottleneck `φ`, or
-background-aware `log BF`) exceeds the deepest shot-noise valley
-expected at the current `(n, τ, k, N, geometry)`. Fade/tissue
-background is a separate floor (DM + #45). Raw persistence / excess
+min-cut-normalized flow bottleneck `φ`, augmented by hit-conditioned
+cross-flow evidence, clears the deepest shot-noise valley expected at
+the current `(n, τ, k, N, geometry)`. Background-aware DM confirms a
+background partition but does not supply this valley-existence floor.
+Fade/tissue semantics remain separate (#45). Raw persistence / excess
 mass are already measured inseparable.
 
 **LANDED (level-set mode; `use_level_set_clustering` still default
@@ -764,7 +765,7 @@ root K=2 5/5 (ARI ≥ 0.999), nested shells root K=2 5/5 with exactly 2
 signal leaves; bimodal circle 2/5 and weak two-Gaussians 2/5 are the
 only failures. SI S2.6.2 / S14.3 updated.
 
-Remaining (2026-09-09; ordered by severity):
+Remaining (ordered by severity):
 - **One-feature statistic: min-cut-normalized φ (landed 2026-09-09).**
   The studentized ρ = φ/φ₀ floor was ill-posed — the candidate is a
   disconnection of the superlevel set, so the signal-induced graph is
@@ -780,43 +781,119 @@ Remaining (2026-09-09; ordered by severity):
   reads, φ min 0.288 (swiss s17), p1 0.487, p5 0.63, median 1.30;
   composite accepts 0.006–0.244. SI S2.6.2 / S14.3 rewritten;
   `test_max_bottleneck_ratio_is_calibrated_null_envelope` pins the
-  value to the protocol. Remaining: the 13% margin (0.25 vs 0.288) is
-  thin — widen the ensemble (more null geometries, sample sizes, n/k
-  regimes) before calling the protocol final, and decide whether the
-  ceiling should be stated relative to the envelope rather than as a
-  fixed number.
+  value to the protocol. The reproducible harness rerun found 357 reads,
+  min 0.2876, p1 0.521, p5 0.642, and median 1.365: the minimum and false
+  accept reproduce, but the count and percentiles drift slightly from the
+  published table. The old S-curve generator double-covered a half-arc,
+  so its seed-8 read is withdrawn. The corrected injective, area-uniform
+  sheet (`θ ∈ [-1.5π, 1.5π]`,
+  `z = sign(θ)(cos(θ) - 1)`, width 2, `n=800`) accepts on seeds
+  1/16/17/18 of 0--19 at φ 0.190/0.242/0.202/0.096 (60 reads).
+  Its null minimum 0.096 overlaps the composite-accept band 0.006--0.244,
+  so no fixed ceiling separates them: the defect is statistic-level, not
+  calibration (director D3). Keep 0.25 unchanged as the
+  calibrated-provisional operational ceiling of the default-off mode.
+  A3-T9's flat-strip control also accepts below 0.25, so extrinsic curvature
+  is not the driver and the dependent R=2/min-side follow-ons are killed.
+  The component-only child envelope likewise breaches 0.25: 56 positive-phi
+  reads, min 0.167 (plus two circle graph disconnections at phi=0).
+  The cross-scale cut-persistence oracle is killed: null and composite
+  accepted cuts overlap (minimum Jaccard 0.257 versus 0.251; both medians 1.0).
+  Cut-local density contrast is also killed (A2-T10): null
+  `[0.999,1.520]`, median 1.095, overlaps composite accepts
+  `[0.913,1.286]`, median 1.114, for a 0.60 gap rather than the required 2x.
+  The final record-only A3-T11 covariate check and A3-T14 classification of
+  the two child-envelope phi=0 cases are now complete:
+  every measured covariate overlaps the composite-accept band, and both circle
+  cases are ordinary graph disconnections in the same class as lone-Gaussian
+  seed 17. No additive floor candidate remains. D8 (Fable) reopens the
+  statistic's definition, not the ceiling: phi compares the coarsest C--D cut
+  (the region's deepest sampling gap, hence an extreme) against a single
+  typical Fiedler bisection. Under the one-feature null, phi may therefore sit
+  systematically below one. A3-T16 killed the stronger scan-length prediction:
+  fixed-area flat strips at aspect 1/2/4.71/9.42 accepted 0/0/3/1 of 20 seeds,
+  with minimum phi 0.645/0.281/0.123/0.163; the final 0.040 rise violates the
+  preregistered monotonicity bound. Do not extend or tune that seed-fragile
+  family. The independent matched-scan denominator falsifier (A2-T16) remains
+  in flight. The 0.25 ceiling,
+  `require_separation_evidence`, and `use_level_set_clustering` remain
+  unchanged pending D10. Any accepted successor must use a declared protocol
+  and null envelope, pass the corrected S-curve and every flat-strip aspect at
+  0/20, the six nulls at 0/120, and the child envelope at 0/N, while retaining
+  every seed-0--4 composite root accept.
 - **Graph-disconnection false accept (acceptance path, owns the DM
   overconfidence item).** lone 2-D Gaussian seed 17 accepts at N=50,
-  τ=0.012: a 72-point clump in the shoulder (r ≈ 1.2–2σ, ~5 nodes)
-  has no Hebbian link outside itself, so cross flow is exactly 0
-  (φ = 0, no ceiling can catch it) and DM confirms with logBF 2162.
-  Absence of a link after ~20 hits/node is weak evidence and nothing
-  weighs it. 1 of 120 null scene-seeds. Fix belongs with the per-node
-  likelihood / DM shot-noise item: the separation evidence must be a
-  function of hit counts on the saddle nodes, not of link existence.
-  Repro: `level_set_root_accept_probe.py --seed 17 --scenes
+  τ=0.012: a 72-point clump in the shoulder has no Hebbian link outside
+  itself, so cross flow is exactly 0 (φ = 0) and DM confirms with logBF
+  2162. A2-T1 found that nearest-saddle/Poisson support is stronger on
+  this false accept than on true two-Gaussian accepts, so a cut-local
+  link-absence guard is not valid. A default-off
+  `require_separation_evidence` guard now requires zero-cross cuts to
+  clear the derived hit-mass mixing expectation
+  `λ = k·2p(1-p) > log(tau_bf)`. It blocks the seed-17 false accept while
+  preserving two-Gaussian, linked-tori, and nested-sphere root accepts
+  on seeds 0--4. On the six nulls over seeds 5--19, the unguarded path
+  accepted only lone-Gaussian seed 17 (1/266 candidate reads), while the
+  guard accepted none; all 15 composite roots still accept. The generalized
+  cross-flow Poisson gate is falsified: it separates by only 1.74 orders while
+  rejecting true composites, and its $N$-scaled form inverts the decision.
+  Keep the zero-cross guard off unless the A2-T7 flip-readiness sweep is
+  metric-identical to the default path and the conditional A2-T8 null check
+  remains clean. Repro:
+  `level_set_root_accept_probe.py --seed 17 --scenes
   lone_gauss2d_null --max-depth 1`.
+  A2-T7 is now metric-identical to both A6 OFF references on all 60 lines,
+  and the guard is a no-op on all corrected S-curve reads because none has
+  zero cross flow. D4 killed the standalone A2-T8 flip: the guard remains
+  default off because it cannot see the live positive-phi sheet/strip/child
+  false accepts. Keep the guard and passthrough; review only as part of a
+  later complete acceptance package.
 - **Connected-support valleys (bimodal circle 2/5, weak two-Gaussians
-  2/5).** Root K=1 on the failing seeds; passes on weak have bg recall
-  1.0 and ARI 0.16–0.24. Diagnostic scenes without frozen bars; dissect
-  the root read (φ, ρ, DM) on a failing seed before touching anything;
-  likely bound up with the ρ ceiling and #45.
+  2/5).** Failures terminate at the root with no accepted candidate,
+  usually at the `n/k` bound; neither child recursion nor DM rejection is
+  implicated. Analytic valley depth is seed-invariant and valley-band
+  sample counts overlap PASS/FAIL seeds. The `4x/10x` oracle separates the
+  cases: all three failing bimodal seeds recover by `4x` (sample-conditioned),
+  while weak two-Gaussians stays `K=1` on at least half the failures even at
+  `10x` (statistic-limited). Further scene scaling is stopped; do not change
+  expectations or lower the ceiling. A4-T8's root-only separation curve is
+  monotone in analytic valley depth: `K=2` rates rise 2/5, 3/5, 5/5, 5/5,
+  5/5 across separations 2.5, 3, 3.5, 4, 6. At child-sized total
+  `n in {300,600}`, clear two-Gaussian remains 5/5 but nested/tori are 0/5
+  versus 5/5 at full suite size, confirming a power boundary rather than
+  grounds to lower the ceiling. Weak seed-2 matched-tau reads change
+  bottleneck/no-cut regime with `n`; n-stratification is a director item,
+  not permission to resume the killed scene-scaling family.
 - **Tissue-heavy children (→ #45).** Root splits leak tissue into
   signal children (bimodal child 37% tissue); the reader then marks
   most of the child background and accepts shell+tissue chunks. Nested
   no longer over-splits under the connected null (2 leaves on all
-  seeds). Fix belongs at root halo assignment (#45).
-- Weak two-Gaussians (sep 2.5σ) child of 194 samples still splits at
-  the bound (N ≤ 24) on the seeds where the root splits. Revisit after
-  #45.
-- Scale search could take the `n/k` bound natively instead of the
-  level-set-mode clamp in `run_recursive_discovery`; default-path
-  change, needs its own review.
-- **DM log-BF is overconfident** (thousands on 200–500-sample regions
-  at 3–8 hits/node; 2162 on the φ = 0 Gaussian false accept above).
-  Not acting as an evidence floor; calibrate or derive its per-node
-  likelihood in the shot-noise regime.
-- `advance_scaffold_to_tau` is now on no path (unit-locked helper);
-  delete or keep for diagnostics.
-- Do not flip `use_level_set_clustering`. Do not delete S2.6.1
-  stand-ins. Do not retune frozen suite numbers.
+  seeds). A4's component-only child-sized null generators have landed;
+  A5-T6 found nested+bimodal pure children clean, and A5-T7 found both
+  weak components clean on all 10 exact `n=194` reads. This rules out an
+  intrinsic small-`n` null failure for the isolated children; the residual is
+  tissue/sibling context. A3-T7's broader child-sized envelope has landed
+  and itself breaches the provisional ceiling, but that statistic-level
+  result does not change the tissue/sibling diagnosis for the exact children.
+- Weak two-Gaussians (sep 2.5σ) children in the full tissue/sibling context
+  can still split at the `N≤24` bound; isolated `n=194` components do not.
+  Revisit with #45 semantics rather than lowering the #48 ceiling.
+- **DM log-BF is not a valley-existence floor.** The default-off
+  sample-normalized correction reduces the Gaussian false accept from
+  `2162` to `128`, but corrected null/composite distributions overlap
+  on 69% of reads and true two-Gaussian accepts sit inside the null band.
+  SI S10.2 now records the negative result and limits DM to
+  background-partition confirmation. Do not tune its margin or flip
+  `sample_normalized_counts`.
+- **Paper sync and hierarchy cross-check (A6-T13/T14/T16):** the D4 paper update
+  has landed (the separation guard stays default off; no A2-T8 follow-up
+  sentence). The hierarchy seed-0 true L0/L1 accept has path-dependent `N`
+  and `phi` across cap probes (A6-T16), so the earlier `N=46`, `phi=0.201`
+  observation is not stable and is not grounds to lower 0.25 or raise the
+  cap. A5-T12 records the matched-tau `phi` instability without reviving an
+  n-indexed ceiling. Cut persistence and cut-local density contrast are killed;
+  no evidence-floor candidate remains this burn.
+- Do not flip `use_level_set_clustering` until the corrected S-curve
+  null is 0/20 under a new acceptance-path statistic with a declared protocol
+  and null envelope. Keep 0.25 unchanged, do not open #47 this burn, do not
+  delete S2.6.1 stand-ins, and do not retune frozen suite numbers.
