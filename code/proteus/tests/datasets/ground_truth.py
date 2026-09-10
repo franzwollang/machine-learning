@@ -177,6 +177,43 @@ class GroundTruthManifold:
         return max(c.level for c in self.cluster_hierarchy) + 1
 
 
+def tissue_partition_report(metadata: dict) -> dict[str, float | int | str | None]:
+    """Expose requested vs actual tissue mass and signal counts from metadata.
+
+    Faded generators (#45) record these via ``tissue_mass_metadata``.  Missing
+    keys raise ``KeyError`` so incomplete generators fail loudly in tests.
+    """
+    return {
+        "tissue_mass_requested": metadata.get("tissue_mass_requested"),
+        "tissue_mass_actual": float(metadata["tissue_mass_actual"]),
+        "signal_count_requested": metadata.get("signal_count_requested"),
+        "signal_count_actual": int(metadata["signal_count_actual"]),
+        "tissue_count_requested": metadata.get("tissue_count_requested"),
+        "tissue_count_actual": int(metadata["tissue_count_actual"]),
+        "tissue_mass_mode": metadata.get("tissue_mass_mode"),
+    }
+
+
+def valley_resolvability_report(metadata: dict) -> dict[str, float | int | str | None]:
+    """Expose analytic valley-depth / valley-band covariates (#45 A4-T5).
+
+    Connected-support generators (``bimodal_circle``, ``two_gaussians``) record
+    these via ``valley_resolvability_metadata``.  Missing keys raise
+    ``KeyError``.
+    """
+    return {
+        "valley_depth": float(metadata["valley_depth"]),
+        "valley_min_over_peak": float(metadata["valley_min_over_peak"]),
+        "valley_peak_density": float(metadata["valley_peak_density"]),
+        "valley_min_density": float(metadata["valley_min_density"]),
+        "valley_band_rel": float(metadata["valley_band_rel"]),
+        "valley_band_mass": float(metadata["valley_band_mass"]),
+        "valley_band_expected_count": float(metadata["valley_band_expected_count"]),
+        "valley_band_count": int(metadata["valley_band_count"]),
+        "valley_path": metadata.get("valley_path"),
+    }
+
+
 @dataclass
 class SyntheticDataset:
     """A generated synthetic dataset paired with its ground truth."""
@@ -184,3 +221,11 @@ class SyntheticDataset:
     labels: np.ndarray                        # (N,) integer cluster labels
     ground_truth: GroundTruthManifold
     metadata: dict = field(default_factory=dict)
+
+    def tissue_partition(self) -> dict[str, float | int | str | None]:
+        """Requested vs actual tissue mass and signal/tissue counts (#45)."""
+        return tissue_partition_report(self.metadata)
+
+    def valley_resolvability(self) -> dict[str, float | int | str | None]:
+        """Analytic valley depth and valley-band counts (#45 A4-T5)."""
+        return valley_resolvability_report(self.metadata)
