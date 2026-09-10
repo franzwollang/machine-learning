@@ -136,3 +136,6 @@
 {"ts":"2026-09-10T08:05:33Z","from":"A4","type":"NOTE","integrated_sha":"5dd6aa32eea6e60afef9d3eef6bde9512ec1f380","note":"No merge needed. Queue empty (T2 blocked only). D7 scientific suspension; defaults unchanged."}
 {"ts":"2026-09-10T08:05:33Z","from":"A4","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. Await director/A1 only."}
 {"ts":"2026-09-10T08:05:34Z","from":"A4","type":"NOTE","note":"Authoritative tip after idle heartbeat: e367723fb110359261bd2dc75daaf3bbad582769. Queue empty; D7 suspended; await director/A1 only."}
+{"ts": "2026-09-10T08:22:29Z","from": "A4","type": "HELLO","note": "A4 cron; tip=5b8329ff28b2208f6146cd5fd92b90813ab4b862; integration 5dd6aa3 already in tip; idle \u2014 D7 drained, ready_count=0, no refill"}
+{"ts": "2026-09-10T08:22:29Z","from": "A4","type": "NOTE","integrated_sha": "5dd6aa32eea6e60afef9d3eef6bde9512ec1f380","note": "No merge needed. Queue empty (T2 blocked only). D7 scientific suspension; defaults unchanged."}
+{"ts": "2026-09-10T08:22:29Z","from": "A4","type": "NOTE","note": "Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. Await director/A1 only."}
