@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-09T22:25-05:00",
+  "updated_at": "2026-09-10T04:40:00+00:00",
   "burn": "2026-09 (second burn). Branches re-based on main 2026-09-09; the 2026-08 burn history is gone from coord/* by user decision.",
   "integration_branch": "coord/integration",
   "merge_order": [
@@ -23,7 +23,8 @@
     "Never weaken a test. @awaiting tests flip only on green evidence. One-off probes live in /tmp or are deleted before DONE.",
     "Never run the whole suite in a cloud turn. Named chunks in swarm-coordination.mdc. Wrap pytest in timeout 600. Persistence is A6-only.",
     "SI.tex is shared by section (see owns_files); edit only your sections, keep hunks local, and never restructure. paper.tex belongs to A6.",
-    "Leadership split: A1 manages. Director slug is claude-fable-5-thinking-high (fallback claude-fable-5-1-thinking-high). Everyone else: cursor-grok-4.5-high (fallback cursor-grok-4.6-high-fast). A missing slug does NOT block merges or REQUEST_TRACKER. Session D1 already assigned the queues below; do not invent beyond them."
+    "Leadership split: A1 manages. Director slug is claude-fable-5-thinking-high (fallback claude-fable-5-1-thinking-high). Everyone else: cursor-grok-4.5-high (fallback cursor-grok-4.6-high-fast). A missing slug does NOT block merges or REQUEST_TRACKER. Do not invent beyond director_backlog / the last director session.",
+    "A1 NEVER idles: merge, refill, or convene director — else EXIT the turn with no mailbox spam and no no-op commit. A1-T2/T3/T4 stay ready (standing). Marking them completed is what froze A1 after D1."
   ],
   "agents": {
     "A1": {
@@ -38,6 +39,7 @@
         "SWARM_TASKS.json",
         "COORDINATION.jsonl (own branch)"
       ],
+      "turn_protocol": "1 merge if any worker tip not in integration. 2 refill if any worker has <2 ready. 3 convene director if a trigger is unanswered. 4 else EXIT — no idle HELLO/NOTE/commit.",
       "queue": [
         {
           "id": "A1-T1",
@@ -46,18 +48,21 @@
         },
         {
           "id": "A1-T2",
-          "status": "completed",
-          "summary": "Merge heartbeat (A2->A6 into coord/integration, best-effort snapshot). Run the four fast chunks per the swarm rule on EVERY merge: `gate` (~15 s), `foundation` (~10 s), `evidence` (~3 s), `scenarios` (~60 s) - each under `timeout 600`; never `persistence` (A6 owns it, ~45 min) and never a bare `pytest tests`. A timeout is BLOCKED on #46, not a retry. Every ~3rd merge run the 5-seed normal-path sweep (`timeout 2400`; if it times out, run seeds 0 1 2 only and say so) and record it on the PLANNING M1 board line. Append MERGE_DONE with integration_sha; push integration + A1."
+          "status": "ready",
+          "standing": true,
+          "summary": "STANDING merge heartbeat. Never mark completed. If any origin/coord/A2..A6 tip is not in origin/coord/integration, merge A2->A6 this turn, run gate+foundation+evidence+scenarios (timeout 600 each), apply REQUEST_TRACKER, MERGE_DONE, push. Every ~3rd merge also run the 5-seed normal-path sweep (timeout 2400). If every worker tip is already in integration, skip — do not commit a no-op."
         },
         {
           "id": "A1-T3",
-          "status": "completed",
-          "summary": "Apply REQUEST_TRACKER edits (OPEN_ISSUES current-only convention, logs append-only, stable numbering; next issue number is in the OPEN_ISSUES header). Keep queues 2-3 deep ONLY from director-approved tasks (director_backlog) or by splitting approved tasks; record every kill decision in OPEN_ISSUES_LOG."
+          "status": "ready",
+          "standing": true,
+          "summary": "STANDING tracker. Never mark completed. Apply REQUEST_TRACKER (OPEN_ISSUES current-only, logs append-only). Keep each worker at 2-3 ready from director_backlog only. If there are no new DONE/BLOCKED/REQUEST_TRACKER lines since last ingest, skip."
         },
         {
           "id": "A1-T4",
-          "status": "completed",
-          "summary": "Convene the Fable director: primary slug claude-fable-5-thinking-high, fallback claude-fable-5-1-thinking-high, same turn. Never mark this blocked on a slug miss. Session D1 already landed 2026-09-09; next convene on A2-T5 or A3-T4 kill, or ~5 MERGE_DONEs."
+          "status": "ready",
+          "standing": true,
+          "summary": "STANDING director gate. Convene Fable (claude-fable-5-thinking-high, fallback claude-fable-5-1-thinking-high) only when a trigger is live and unanswered (kill/BLOCKED, flip-default, ~5th MERGE_DONE, refill beyond backlog). Never mark blocked on a slug miss. If no trigger, skip — do not spawn Fable for a heartbeat."
         }
       ]
     },
