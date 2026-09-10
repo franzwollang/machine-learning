@@ -1018,6 +1018,8 @@ def apply_dm_sibling_collapse(
     branches: tuple[LevelSetBranch, ...],
     scaffold: Any,
     dm_config: DMClusterConfig,
+    *,
+    n_samples: int | None = None,
 ) -> tuple[LevelSetBranch, ...]:
     """Collapse geometrically surviving siblings that fail the DM split test."""
 
@@ -1064,7 +1066,7 @@ def apply_dm_sibling_collapse(
             assigned |= cluster
         background = set(range(int(tree.levels[level].labels.shape[0]))) - assigned
         _log_bf, accepted = dm_partition_background_verdict(
-            scaffold, clusters, background, dm_config,
+            scaffold, clusters, background, dm_config, n_samples=n_samples,
         )
         if accepted:
             continue
@@ -1212,6 +1214,7 @@ def select_level_set_partition(
 
     config = config or LevelSetConfig()
     dm_config = dm_config or DMClusterConfig()
+    n_samp = int(np.asarray(data).shape[0]) if data is not None else None
     positions = np.asarray(
         [node.position for node in scaffold.nodes],
         dtype=float,
@@ -1238,7 +1241,7 @@ def select_level_set_partition(
     dag = build_level_set_dag(tree)
     screened = apply_geometric_screens(dag.branches, config)
     screened = apply_dm_sibling_collapse(
-        tree, dag, screened, scaffold, dm_config,
+        tree, dag, screened, scaffold, dm_config, n_samples=n_samp,
     )
 
     best_rejected_bf = float("-inf")
@@ -1281,7 +1284,7 @@ def select_level_set_partition(
             reject_reason = "separation_evidence"
             break
         log_bf, accepted = dm_partition_background_verdict(
-            scaffold, clusters, background, dm_config,
+            scaffold, clusters, background, dm_config, n_samples=n_samp,
         )
         best_rejected_bf = max(best_rejected_bf, float(log_bf))
         if accepted:
