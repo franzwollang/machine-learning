@@ -320,6 +320,8 @@ def make_two_gaussians(
     tissue_mass: float | None = None,
     seed: int = 0,
     transition_radius: float = 3.0,
+    component_only: bool = False,
+    component_index: int = 0,
 ) -> SyntheticDataset:
     """Two isotropic Gaussians. ``separation`` is center distance / sigma.
 
@@ -329,15 +331,79 @@ def make_two_gaussians(
     ``tissue_fraction`` only pads the support box (historical name).
     Pass ``tissue_mass`` for an honest expected λ<0.5 background fraction;
     ``None`` keeps the legacy fade-balanced floor (~46–49% tissue).
+
+    ``component_only=True`` (#45 A4-T6) emits pure samples from one bump
+    (``component_index`` in ``{0,1}``) with no tissue and no sibling —
+    a child-sized null (``n_samples`` typically 200–500).
     """
 
     if separation <= 0.0:
         raise ValueError("separation must be positive")
+    if component_only and tissue_mass not in (None, 0.0):
+        raise ValueError("component_only forbids nonzero tissue_mass")
+    if component_only and int(component_index) not in (0, 1):
+        raise ValueError("component_index must be 0 or 1")
     rng = np.random.default_rng(seed)
     half = 0.5 * float(separation) * float(sigma)
     centers = np.zeros((2, ambient_dim), dtype=float)
     centers[0, 0] = -half
     centers[1, 0] = half
+    cov = np.eye(ambient_dim) * (sigma ** 2)
+
+    if component_only:
+        idx = int(component_index)
+        component = GaussianFadedComponent(
+            center=centers[idx],
+            sigma=float(sigma),
+            transition_radius=transition_radius,
+            weight=1.0,
+        )
+        points = component.sample(int(n_samples), rng)
+        labels = np.zeros(int(n_samples), dtype=int)
+        gt = GroundTruthManifold(
+            name="two_gaussians_component_only",
+            ambient_dim=ambient_dim,
+            intrinsic_dim=ambient_dim,
+            expected_scale_levels=1,
+            cluster_hierarchy=[
+                ClusterNode(
+                    cluster_id=0, level=0, parent_id=None, weight=1.0,
+                    center=centers[idx], covariance=cov,
+                    is_leaf=True, intrinsic_dim=ambient_dim,
+                ),
+            ],
+            topology=TopologyExpectation(
+                connected_components=1,
+                betti_numbers=(1,),
+                intrinsic_dim=ambient_dim,
+            ),
+            expected_tau=float(sigma ** 2 * ambient_dim),
+            expected_node_count=32,
+            noise_variance=0.0,
+            tau_grid_hint=(0.05 * sigma ** 2, 8.0 * sigma ** 2 * ambient_dim),
+        )
+        return SyntheticDataset(
+            points=points,
+            labels=labels,
+            ground_truth=gt,
+            metadata={
+                "sigma": float(sigma),
+                "separation": float(separation),
+                "center_distance": float(separation * sigma),
+                "expected_k": 1,
+                "valley": "none",
+                "component_only": True,
+                "null_scene": True,
+                "component_index": idx,
+                "parent_scene": "two_gaussians",
+                **tissue_mass_metadata(
+                    tissue_fraction=0.0,
+                    tissue_mass=0.0,
+                    labels=labels,
+                ),
+            },
+        )
+
     components = [
         GaussianFadedComponent(
             center=centers[i],
@@ -360,7 +426,6 @@ def make_two_gaussians(
     labels = assign_labels_by_lambda(points, components, label_offsets=[0, 1])
     signal = labels >= 0
     signal_points = points[signal] if signal.any() else points
-    cov = np.eye(ambient_dim) * (sigma ** 2)
     valley_meta = two_gaussians_valley_oracle(
         mixture, centers, points, n_samples=n_samples, seed=seed,
     )
@@ -407,6 +472,8 @@ def make_two_gaussians(
             "center_distance": float(separation * sigma),
             "expected_k": 2,
             "valley": "weak" if separation < 4.0 else "clear",
+            "component_only": False,
+            "null_scene": False,
             **sampler_meta,
             **tissue_mass_metadata(
                 tissue_fraction=tissue_fraction,
