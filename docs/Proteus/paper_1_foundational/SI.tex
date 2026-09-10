@@ -1994,6 +1994,19 @@ keeps its fresh \texttt{run\_scale\_search} per finer step; the warm
 in-place continuation \texttt{advance\_scaffold\_to\_tau} is no longer
 on either path (retained, unit-locked, for diagnostics).
 
+\paragraph{$n$-instability of $\phi$ (weak two-Gaussians; A5-T8).}
+Matched-$\tau$ reads on weak two-Gaussians seed~2 at $4\times$ vs
+$10\times$ scene $n$ flip the reject regime without a recoverable
+root split: at $\tau\!\approx\!0.079$, the $4\times$ mesh reports
+\texttt{bottleneck} with $\phi\!\approx\!0.36$ while the $10\times$
+mesh reports \texttt{no\_cut}; at $\tau\!\approx\!0.056$ both report
+\texttt{bottleneck} but $\phi\!\approx\!1.14$ vs $\phi{=}\infty$.
+This is $n$-instability of the bottleneck statistic under denser
+sampling of the same weak valley --- \emph{not} a warrant for an
+$n$-indexed $\phi$ ceiling, scene-scaling revival, or a new calibrated
+number. Keep the existing min-cut-normalized ceiling; treat residual
+weak misses as connected-valley difficulty (\#48), not sample poverty.
+
 \paragraph{Quarantine of the geometry / hollow prepass zoo.}
 The 2026-08 swarm falsified radial / PCA / tube / spectral / hollow-edge
 prepasses as Stage-1 structural proposals (connected support under
@@ -2056,9 +2069,12 @@ on the equalized scaffold (same $\lambda{=}0.5$ tier as the faded GT):
 Pure-child oracles without tissue or siblings --- nested-shell GT
 subsets, bimodal connected-valley components, and the 194-sample weak
 two-Gaussian \texttt{component\_only} child --- stay single-leaf on
-seeds~$0$--$4$. Residual \#45 over-split therefore needs tissue or
-sibling context, not an intrinsic child-geometry fix. Do not flip
-either option-A/B flag default.
+seeds~$0$--$4$. Weak context ablation (A5-T11; honest
+\texttt{tissue\_mass}${}{=}0.46$): both-signals/no-tissue never
+over-splits ($0/5$), while one-signal$+$tissue/no-sibling restores
+shatter on $5/10$ child reads ($\phi_{\mathrm{acc}}{=}0$) ---
+\emph{tissue-sufficient} for weak; not sibling-alone and not option~D.
+Do not flip either option-A/B flag default.
 
 \paragraph{Landed proposal-path wiring and protocol.}
 Module \texttt{proteus.stage1.edge\_evidence} exposes
