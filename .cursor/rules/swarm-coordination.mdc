@@ -108,6 +108,25 @@ keeps conflicts bounded.
 - A1 keeps each worker’s queue at **2–3 ready tasks** in `SWARM_TASKS.json` so planning
   lag never idles the swarm. When an issue closes, A1 reassigns via `TASK_ASSIGN` /
   queue refill — branches stay `coord/A*`.
+- **A1-T2 and A1-T3 are standing.** Never mark them `completed`. An empty A1 queue is a
+  bug: it made the 2026-09-10 idle freeze.
+
+## A1 turn protocol (no idle loops)
+
+Every A1 turn, in this order, then **stop**:
+
+1. `git fetch origin`. If any `origin/coord/A2`…`A6` tip is not already in
+   `origin/coord/integration`, **merge this turn** (A2→A6), run the four fast chunks,
+   apply `REQUEST_TRACKER`, append `MERGE_DONE`, push. Do not skip because a director
+   session is in flight or because A1-T2 was once marked completed.
+2. Else if any worker queue has fewer than 2 `ready` tasks: refill from
+   `director_backlog` or convene the director if a trigger is live (kill/`BLOCKED` /
+   flip-default / ~5th merge). Push `TASK_REFILL` / `TASK_ASSIGN`.
+3. Else if a director trigger is live and has not been answered this session: convene
+   Fable (primary `claude-fable-5-thinking-high`, fallback `claude-fable-5-1-thinking-high`).
+4. **Else EXIT.** Close the turn immediately. Do not append HELLO/NOTE/REQUEST_TRACKER
+   that only say "idle / holding / awaiting". Do not create a no-op commit. A quiet
+   exit is the correct signal that the swarm is fed.
 
 ## Leadership split: A1 manages, the Fable director decides
 
