@@ -206,3 +206,4 @@
 {"ts":"2026-09-10T11:08:04Z","from":"A4","type":"HELLO","note":"A4 cron; merged integration cd2f120; idle \u2014 D7 drained, ready_count=0, no refill"}
 {"ts":"2026-09-10T11:08:04Z","from":"A4","type":"NOTE","integrated_sha":"cd2f1205f0557940dfa4ea8305ec558fd2e0f1d5","note":"Merged origin/coord/integration (cd2f120 / A1 MERGE_DONE); restored A4 mailbox after FF overwrite. Queue empty (T2 blocked only). D7 scientific suspension; defaults unchanged."}
 {"ts":"2026-09-10T11:08:04Z","from":"A4","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; do not refill (director_backlog). No CLAIM. Await director/A1 only."}
+{"ts":"2026-09-10T11:08:05Z","from":"A4","type":"NOTE","note":"Authoritative tip after idle merge heartbeat: 0a5727830241bd7dbe790cd9356589dadb570bc4. Queue empty; D7 suspended; await director/A1 only."}
