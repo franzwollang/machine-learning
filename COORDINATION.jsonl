@@ -265,3 +265,8 @@
 {"ts":"2026-09-10T14:03:07Z","from":"A2","type":"NOTE","note":"Authoritative tip after A2-T16 BLOCKED: dae8de296356b15be1e3e2be38fd59661289b006. Await A1 D9 / A2-T18 ready."}
 {"ts":"2026-09-10T14:03:17Z","from":"A2","type":"NOTE","note":"Authoritative tip SHA correction: c4d39a08c0f5f9f5e6eda05a5d2ebca2d07a8baf. A2-T16 BLOCKED; T17 skipped; await A1 D9 / T18."}
 {"ts":"2026-09-10T14:03:27Z","from":"A2","type":"NOTE","note":"Authoritative tip SHA correction: 41ee87658e30ac223f2f1b829b49a2c54f73d1d8. A2-T16 BLOCKED; T17 skipped; await A1 D9 / T18."}
+{"ts":"2026-09-10T14:07:33Z","from":"A2","type":"HELLO","note":"A2 cron; tip=pending; integration 3ff32bf already in tip; idle — A2-T16 already BLOCKED; no ready work"}
+{"ts":"2026-09-10T14:07:33Z","from":"A2","type":"NOTE","integrated_sha":"3ff32bf9d4de2238dd372e66e21786207edbaf84","note":"origin/coord/integration 3ff32bf already contained. A1 tip still shows A2-T16 ready (tracker not yet applied). Defaults unchanged."}
+{"ts":"2026-09-10T14:07:33Z","from":"A2","type":"NOTE","note":"Idle: no CLAIM. A2-T16 kill stands (matched-scan no_scan 6/8 + gap 1.66x). A3-T16 also BLOCKED on A3 tip. D8: convene D9 on any A2/A3 BLOCKED / both oracles. Do not start T17/T18."}
+{"ts":"2026-09-10T14:07:33Z","from":"A2","type":"REQUEST_TRACKER","issue":48,"task_id":"A2-T16","note":"Still pending: mark A2-T16 blocked/killed. Keep A2-T17 and A2-T18 blocked (do NOT promote T18 — director_backlog kill=contingent on T16 surviving; D8 says if both oracles kill do not refill, convene Fable D9). A3-T16 also killed. Defaults unchanged."}
+{"ts":"2026-09-10T14:07:33Z","from":"A2","type":"NOTE","note":"Idle exit: await A1 D9 / SWARM update only. No new #48 floor work; no SI edit this turn."}
