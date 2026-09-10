@@ -377,11 +377,13 @@ lower-density component is crude at the first-accept scale.
 Remaining work: weak two-Gaussian shatter is tissue-sufficient (A5-T11):
 one-signal+tissue splits 5/10, while both-signals/no-tissue and isolated
 `n=194` children stay clean. Bimodal seed-2 tissue shatter is not reproducible
-on the current tip (A5-T13); do not rerun its ablations or reopen descent A/B.
-A4-T13 is measuring the nested seed-0 tissue residual, and A5-T16 will census
-current-tip nested/bimodal leaf counts; A5-T15 runs only if nested still
-over-splits. Keep signal-only ARI + background recall. Do not resolve #45,
-tune `tissue_mass`, or tune descent fractions.
+on the current tip (A5-T13). Tissue mass in the over-splitting child is not the
+residual (A4-T13: bimodal ratio 0.91, nested ratio 0.97; nested seed 0 currently
+has two leaves). A5-T16 will census current-tip nested/bimodal leaf counts;
+A5-T15 runs only if nested still over-splits. If the census is clean, only the
+benchmark-semantics documentation remains. Keep signal-only ARI + background
+recall. Do not resolve #45, tune `tissue_mass`, reopen descent A/B/D, or resume
+tissue-fraction sweeps.
 
 Level-set consequence (2026-09-09, from #48): the root split assigns about
 half the tissue to signal children (nested seed-0 bg recall 0.51; nested
@@ -795,12 +797,16 @@ Remaining (ordered by severity):
   is not the driver and the dependent R=2/min-side follow-ons are killed.
   The component-only child envelope likewise breaches 0.25: 56 positive-phi
   reads, min 0.167 (plus two circle graph disconnections at phi=0).
-  The cross-scale cut-persistence oracle is now killed: null and composite
+  The cross-scale cut-persistence oracle is killed: null and composite
   accepted cuts overlap (minimum Jaccard 0.257 versus 0.251; both medians 1.0).
-  Do not implement a persistence gate or vary that protocol. Cut-local density
-  contrast (A2-T10/T11) is the only live floor candidate this burn; A3-T11 is
-  the final covariate check. Any eventual gate must pass corrected S-curve
-  0/20 plus every seed-0--4 composite root accept.
+  Cut-local density contrast is also killed (A2-T10): null
+  `[0.999,1.520]`, median 1.095, overlaps composite accepts
+  `[0.913,1.286]`, median 1.114, for a 0.60 gap rather than the required 2x.
+  A3-T11 is the final record-only covariate check and A3-T14 only classifies
+  the two child-envelope phi=0 cases. No #48 floor candidate remains this burn;
+  closeout must not call a killed family live. Any future statistic must use a
+  declared protocol and null envelope, pass corrected S-curve 0/20, and retain
+  every seed-0--4 composite root accept.
 - **Graph-disconnection false accept (acceptance path, owns the DM
   overconfidence item).** lone 2-D Gaussian seed 17 accepts at N=50,
   τ=0.012: a 72-point clump in the shoulder has no Hebbian link outside
@@ -871,8 +877,9 @@ Remaining (ordered by severity):
   and `phi` across cap probes (A6-T16), so the earlier `N=46`, `phi=0.201`
   observation is not stable and is not grounds to lower 0.25 or raise the
   cap. A5-T12 records the matched-tau `phi` instability without reviving an
-  n-indexed ceiling. Cut persistence is killed; cut-local density contrast
-  (A2-T10/T11) is the only live floor candidate this burn.
+  n-indexed ceiling. Cut persistence and cut-local density contrast are killed;
+  no evidence-floor candidate remains this burn.
 - Do not flip `use_level_set_clustering` until the corrected S-curve
-  null is 0/20 under the acceptance-path statistic. Do not delete S2.6.1
-  stand-ins. Do not retune frozen suite numbers.
+  null is 0/20 under a new acceptance-path statistic with a declared protocol
+  and null envelope. Keep 0.25 unchanged, do not open #47 this burn, do not
+  delete S2.6.1 stand-ins, and do not retune frozen suite numbers.
