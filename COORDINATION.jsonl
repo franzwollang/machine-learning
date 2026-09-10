@@ -131,3 +131,4 @@
 {"ts":"2026-09-10T07:52:08Z","from":"A4","type":"HELLO","note":"A4 cron idle; merged integration 5dd6aa3; D7 queue empty no refill"}
 {"ts":"2026-09-10T07:52:08Z","from":"A4","type":"NOTE","integrated_sha":"5dd6aa32eea6e60afef9d3eef6bde9512ec1f380","note":"Fast-forward merge origin/coord/integration; restored A4 mailbox; no ready work (T2 blocked only)"}
 {"ts":"2026-09-10T07:52:08Z","from":"A4","type":"NOTE","note":"Idle exit: D7 scientific suspension; SWARM ready=[]; await director/refill only"}
+{"ts":"2026-09-10T07:52:34Z","from":"A4","type":"NOTE","note":"Authoritative tip after idle merge: f462bc1d7968a80301a01cb85cad234a9a55f3f1. Queue empty; D7 suspend."}
