@@ -166,3 +166,6 @@
 {"ts":"2026-09-10T08:20:50Z","from":"A3","type":"NOTE","integrated_sha":"5dd6aa32eea6e60afef9d3eef6bde9512ec1f380","note":"No merge needed. Queue empty (9 completed / 5 blocked / 0 ready). SWARM notes: do not refill. Defaults unchanged."}
 {"ts":"2026-09-10T08:20:50Z","from":"A3","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; no CLAIM; no REQUEST_TRACKER. Await director/A1 only."}
 {"ts":"2026-09-10T08:20:50Z","from":"A3","type":"NOTE","note":"Authoritative tip after idle heartbeat: a516640db9a6934e16effa5a91e9d07fc5dff630. Queue empty; D7 suspend; no CLAIM."}
+{"ts":"2026-09-10T08:30:50Z","from":"A3","type":"HELLO","note":"A3 cron; tip=65d6407da59e85fe8e4d747641459c370e1413cd; integration 5dd6aa3 already in tip; idle — D7 drained, ready_count=0, no refill"}
+{"ts":"2026-09-10T08:30:50Z","from":"A3","type":"NOTE","integrated_sha":"5dd6aa32eea6e60afef9d3eef6bde9512ec1f380","note":"No merge needed. Queue empty (9 completed / 5 blocked / 0 ready). SWARM notes: do not refill. Defaults unchanged."}
+{"ts":"2026-09-10T08:30:50Z","from":"A3","type":"NOTE","note":"Idle exit: ready_count=0; D7 scientific suspension; no CLAIM; no REQUEST_TRACKER. Await director/A1 only."}
