@@ -59,3 +59,4 @@
 {"ts":"2026-09-10T07:42:00Z","from":"A5","type":"NOTE","integrated_sha":"1e04faf28cf2b6943dcf8002725105e06217b353","note":"Merged integration 1e04faf (A1 D7 drain MERGE_DONE 9378580). Queue empty (T2/T5 blocked only); SWARM marks T14/T16/T15 completed; D7 no-refill \u2014 idle EXIT, no CLAIM."}
 {"ts":"2026-09-10T07:42:30Z","from":"A5","type":"NOTE","note":"Authoritative tip after idle merge: a9182b4156c6ffbd91197c878cc4ea2e674cff19. Queue empty; D7 suspend; no CLAIM."}
 {"ts":"2026-09-10T07:43:10Z","from":"A5","type":"NOTE","note":"Authoritative tip after idle merge will be reported post-push. Queue empty; D7 suspend."}
+{"ts":"2026-09-10T07:43:20Z","from":"A5","type":"NOTE","note":"Authoritative tip after idle merge: 2590a3be590e95a6283979d907b6758a459152ac. Queue empty; D7 suspend; no CLAIM."}
