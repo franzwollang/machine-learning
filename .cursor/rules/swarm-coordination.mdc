@@ -47,8 +47,8 @@ push to `main`, or amending commits you did not create this session.
   `/tmp/coord_<id>.jsonl` dumps — do not checkout other branches over a dirty tree.
 - Also read `origin/coord/integration:SWARM_TASKS.json` and (workers)
   `origin/coord/A1:COORDINATION.jsonl` for planner directives.
-- Every line is one JSON object; required fields: `ts` (ISO 8601), `from` (`A1`…`A6`),
-  `type`. See `COORDINATION.md` for the schema.
+- Every line is one JSON object; required fields: `ts` (ISO 8601), `from` (`A1`…`A6`,
+  or `ORCH` / `user` on `USER_DIRECTIVE`), `type`. See `COORDINATION.md` for the schema.
 
 ### Event types
 
@@ -63,6 +63,7 @@ push to `main`, or amending commits you did not create this session.
 | `TASK_ASSIGN` | A1 | New/updated tasks in `SWARM_TASKS.json` (summarize in line) |
 | `MERGE_DONE` | A1 | Integration advanced; include `integration_sha`. Workers pick this up **next turn** |
 | `TASK_REFILL` | A1 | Queues topped up for next turns |
+| `USER_DIRECTIVE` | orchestrator / user | Binding order on A1 (or a named worker). Honored before merge/refill/EXIT |
 
 Do **not** use a mid-turn pause signal. Agents run on a long turn interval (~20 min);
 they cannot react to A1 merging *during* their turn. Coordination is turn-boundary only.
@@ -85,14 +86,18 @@ that already completed **since their last turn**.
 
 ### Workers (every turn start — before new work)
 
-1. `git fetch origin`.
-2. If `origin/coord/integration` is not already contained in your branch tip (or A1’s
-   latest **`MERGE_DONE`** `integration_sha` is newer than what you last merged):
+1. `git fetch origin`. Read `origin/coord/A1:SWARM_TASKS.json` and the last 20 lines of
+   `origin/coord/A1:COORDINATION.jsonl` **before** merging anything.
+2. If you have zero `ready` tasks and no live `CLAIM`: **EXIT with no commit** — do not
+   merge integration, do not append a mailbox `NOTE`. Idle heartbeats are what A1 was
+   merging every ~10 min on 2026-09-10.
+3. Else if `origin/coord/integration` is not already contained in your branch tip (or
+   A1’s latest **`MERGE_DONE`** `integration_sha` is newer than what you last merged):
    `git merge origin/coord/integration` into your branch; resolve if needed; commit the
-   merge.
-3. Optionally append a short `NOTE` with `integrated_sha=<sha>`.
-4. Then read mailboxes / `SWARM_TASKS.json`, `CLAIM`, work, push as usual — **no pause**,
-   even if A1 happens to be merging concurrently. Missed tips land in A1’s next cycle.
+   merge. Optionally append a short `NOTE` with `integrated_sha=<sha>` **only if you
+   then CLAIM or DONE**.
+4. Then `CLAIM`, work, push as usual — **no pause**, even if A1 happens to be merging
+   concurrently. Missed tips land in A1’s next cycle.
 
 One turn of divergence is expected and acceptable; file ownership in `SWARM_TASKS.json`
 keeps conflicts bounded.
@@ -108,6 +113,34 @@ keeps conflicts bounded.
 - A1 keeps each worker’s queue at **2–3 ready tasks** in `SWARM_TASKS.json` so planning
   lag never idles the swarm. When an issue closes, A1 reassigns via `TASK_ASSIGN` /
   queue refill — branches stay `coord/A*`.
+- **A1-T2 and A1-T3 are standing.** Never mark them `completed`. An empty A1 queue is a
+  bug: it made the 2026-09-10 idle freeze.
+
+## A1 turn protocol (no idle loops)
+
+Every A1 turn, in this order, then **stop**. A Grok self-session is **not** a director
+session and does **not** answer A1-T4.
+
+**Merge-worthy tip:** `git diff --name-only origin/coord/integration...origin/coord/A*`
+lists any path other than `COORDINATION.jsonl`. Mailbox-only commits, idle
+`NOTE`/`HELLO` heartbeats, and merge-of-integration commits are **not** merge-worthy.
+
+0. Read `orchestrator_directive` / the latest `USER_DIRECTIVE` on this branch. If it
+   says convene Fable this turn, that trigger is live and unanswered.
+1. If a **Fable** director trigger is live and unanswered: convene
+   `claude-fable-5-thinking-high` (fallback `claude-fable-5-1-thinking-high`) **this
+   turn**, record D* with that Fable slug, apply the decision, then stop. Do **not**
+   answer the trigger by spawning Grok. Do **not** merge idle tips first.
+2. Else if any **merge-worthy** `origin/coord/A2`…`A6` tip exists: merge those only
+   (A2→A6), run the four fast chunks, apply `REQUEST_TRACKER`, append `MERGE_DONE`,
+   push. Skip every non-merge-worthy tip — no chunks, no `MERGE_DONE`.
+3. Else if any worker queue has fewer than 2 `ready` tasks **and** `director_backlog`
+   still has assignable work the last **Fable** session approved: refill and push
+   `TASK_REFILL`. If the last recorded `director_session.model` is not a Fable slug,
+   go to step 1 instead of treating a Grok “do not refill” as binding.
+4. **Else EXIT.** Close the turn immediately. Do not append HELLO/NOTE/MERGE_DONE
+   that only say "idle / holding / D7 suspension / awaiting". Do not create a no-op
+   commit. Two no-op merges is already a protocol violation — never a third.
 
 ## Leadership split: A1 manages, the Fable director decides
 
@@ -127,14 +160,19 @@ spawns (one at a time; fallback `claude-fable-5-1-thinking-high`) and that is
 
 A1 must convene the director: (a) before the first `TASK_REFILL` that goes beyond the
 seeded queues in `SWARM_TASKS.json`; (b) whenever any worker fires a kill criterion or
-reports `BLOCKED`; (c) after roughly every 5th `MERGE_DONE`; (d) whenever a worker asks
-to flip a default or change an acceptance-path constant. Between director sessions A1
-may only refill from tasks the director already approved (the `director_backlog` in
-`SWARM_TASKS.json`) or split an approved task into smaller steps. A1 hands the director:
-`SCRATCHPAD.json`, the relevant `OPEN_ISSUES.md` entries, the latest sweep lines, and all
-`DONE` / `BLOCKED` / `REQUEST_TRACKER` notes since the previous session; it records the
-director's decisions verbatim (summarized) in `SCRATCHPAD_LOG.jsonl` and applies them via
-`TASK_ASSIGN` / `TASK_REFILL`.
+reports `BLOCKED`; (c) after roughly every 5th **merge-worthy** `MERGE_DONE`; (d)
+whenever a worker asks to flip a default or change an acceptance-path constant; (e)
+when the last `director_session.model` is not a Fable slug (Grok D4–D7 do not count);
+(f) when `orchestrator_directive` or a `USER_DIRECTIVE` says convene; (g) when every
+worker `ready` queue is empty and the last “do not refill” came from Grok, not Fable.
+Mailbox-only merge cycles do **not** count toward (c) and must not delay (e)–(g).
+Between **Fable** director sessions A1 may only refill from tasks that Fable already
+approved (the `director_backlog` in `SWARM_TASKS.json`) or split an approved task into
+smaller steps. A1 hands the director: `SCRATCHPAD.json`, the relevant `OPEN_ISSUES.md`
+entries, the latest sweep lines, and all `DONE` / `BLOCKED` / `REQUEST_TRACKER` notes
+since the previous **Fable** session; it records the director's decisions verbatim
+(summarized) in `SCRATCHPAD_LOG.jsonl` and applies them via `TASK_ASSIGN` /
+`TASK_REFILL`.
 
 A1 never marks `A1-T4` blocked because a slug failed. Try primary then fallback the same
 turn. Merges, test chunks, `REQUEST_TRACKER` (mark DONE/BLOCKED, abandon killed families),
@@ -155,11 +193,11 @@ alone takes ~50 min with `slow` deselected. Run named chunks, each wrapped in
 
 | Chunk | Command (from `code/proteus`, `PYTHONPATH="src:$PWD" pipenv run …`) | Who runs it |
 |---|---|---|
-| `gate` | `pytest tests/stage1/test_level_set.py tests/stage1/test_scale_search.py tests/stage1/test_recursion.py -q -p no:cacheprovider --deselect tests/stage1/test_recursion.py::test_mst_critical_hollow_contrast_vs_h_and_conj` (~15 s) | every worker before `DONE`; A1 on every merge |
+| `gate` | `pytest tests/stage1/test_level_set.py tests/stage1/test_scale_search.py tests/stage1/test_recursion.py -q -p no:cacheprovider` (~15 s; `test_mst_critical_hollow_contrast_vs_h_and_conj` is strict-xfail #44 / A6-T8) | every worker before `DONE`; A1 on every merge |
 | `foundation` | `pytest tests/foundation tests/properties tests/reductions tests/contracts -q -p no:cacheprovider` (~10 s) | A1 on every merge |
 | `evidence` | `pytest tests/evidence tests/stage1/test_dm_cluster.py tests/stage1/test_edge_evidence.py -q -p no:cacheprovider` (~3 s) | A1 on every merge; A2 before `DONE` |
 | `scenarios` | `pytest tests/scenarios tests/inference tests/diagnostics tests/stage2 -q -p no:cacheprovider` (~60 s) | A1 on every merge; A4/A5 before `DONE` |
-| `persistence` | `pytest tests/stage1/test_scale_search_persistence.py -q -p no:cacheprovider --durations=40` (~45 min — the whole problem) | **A6 only** (#46 task) until it is slow-marked into a sub-10-minute default slice; A1 skips it |
+| `persistence` | `pytest tests/stage1/persistence -q -p no:cacheprovider --durations=40` (~45 min full; default smoke is `persistence/test_core_smoke.py` only) | **A6 only** (#46 / A6-T4–T5); A1 skips the full slow tree |
 
 Measured 2026-09-09 on `main` @ `6a66225`: the four non-persistence chunks total under
 2 minutes and are all green (163 + 240 + 40 passed, 56 in `gate`). Plus each worker's

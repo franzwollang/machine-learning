@@ -47,3 +47,15 @@ LONE_GAUSS2D_N = 800
 LONE_GAUSS2D_SIGMA = 0.25
 LONE_GAUSS4D_N = 800
 LONE_TISSUE_RADIUS = 1.0
+
+# Widened null geometries for φ-ceiling envelope (A3-T2 / #48)
+WIDEN_NULL_N = 800
+UNIFORM_DISC_RADIUS = 1.0
+UNIFORM_CUBE_HALF = 1.0
+LONE_GAUSS3D_SIGMA = 0.25
+SCURVE_SHEET_NOISE = 0.0
+FILLED_BALL_RADIUS = 1.0
+# Existing-null n×k grid for the widen protocol
+WIDEN_N_GRID: tuple[int, ...] = (400, 800, 1600)
+WIDEN_K_DEFAULT = 8
+WIDEN_K_GRID: tuple[int, ...] = (8, 16)

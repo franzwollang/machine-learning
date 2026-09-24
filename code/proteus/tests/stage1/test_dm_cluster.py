@@ -14,6 +14,7 @@ import pytest
 
 from proteus.evidence import NodeTransition, evaluate_edit
 from proteus.evidence.dm_score import bdeu_alpha
+from proteus.evidence.dm_score import hit_normalized_counts
 from proteus.evidence.dm_score import node_log_marginal as _m
 from proteus.links import LinkCounters
 from proteus.stage1.dm_cluster import (
@@ -163,6 +164,81 @@ def test_dm_empty_background_equals_classic_partition_logbf() -> None:
         scaffold, clusters, set(),
     )
     assert with_empty_background == pytest.approx(classic, rel=1e-12)
+
+
+def test_hit_normalized_counts_rescale_to_hit_mass() -> None:
+    """Effective outgoing counts sum to hit mass (SI S10.2 helper)."""
+
+    out = hit_normalized_counts([30.0, 10.0, 0.0], hit_mass=8.0)
+    assert float(out.sum()) == pytest.approx(8.0)
+    assert out.tolist() == pytest.approx([6.0, 2.0, 0.0])
+    assert hit_normalized_counts([0.0, 0.0], 5.0).tolist() == [0.0, 0.0]
+
+
+def test_sample_normalized_background_verdict_bounds_shot_noise_logbf() -> None:
+    """Sample-normalization caps epoch-inflated counters; flag default is off.
+
+    Synthetic 2-block scaffold with huge Hebbian weights and huge lifetime
+    hits (epoch-accumulated) but only ``n_samples=50``.  Raw log-BF is huge;
+    sample-normalized log-BF is O(n) and still separates modular from
+    homogeneous routing.
+    """
+
+    modular = _Scaffold(
+        4,
+        [
+            (0, 1, 400.0),
+            (1, 0, 400.0),
+            (2, 3, 400.0),
+            (3, 2, 400.0),
+            (1, 2, 1.0),
+        ],
+    )
+    for node in modular.nodes:
+        node.hit_count = 400.0  # lifetime hits >> samples
+
+    raw_bf, raw_ok = dm_partition_background_verdict(
+        modular, [{0, 1}, {2, 3}], set(),
+    )
+    corr_bf, corr_ok = dm_partition_background_verdict(
+        modular,
+        [{0, 1}, {2, 3}],
+        set(),
+        DMClusterConfig(sample_normalized_counts=True),
+        n_samples=50,
+    )
+    assert raw_ok and raw_bf > 100.0  # epoch-inflated overconfidence
+    assert corr_ok and corr_bf < raw_bf
+    assert corr_bf < 80.0  # O(n_samples), not O(lifetime counters)
+
+    N_corr = block_flow_matrix(
+        modular,
+        [{0, 1}, {2, 3}],
+        sample_normalized=True,
+        n_samples=50,
+    )
+    assert float(N_corr.sum()) == pytest.approx(50.0)
+
+    homogeneous = _Scaffold(
+        4,
+        [
+            (0, 1, 200.0),
+            (0, 2, 200.0),
+            (2, 3, 200.0),
+            (2, 0, 200.0),
+        ],
+    )
+    for node in homogeneous.nodes:
+        node.hit_count = 400.0
+    h_bf, h_ok = dm_partition_background_verdict(
+        homogeneous,
+        [{0, 1}, {2, 3}],
+        set(),
+        DMClusterConfig(sample_normalized_counts=True),
+        n_samples=50,
+    )
+    assert not h_ok and h_bf < log(3.0)
+    assert corr_bf > h_bf
 
 
 def test_dm_gated_merge_collapses_homogeneous_keeps_modular() -> None:

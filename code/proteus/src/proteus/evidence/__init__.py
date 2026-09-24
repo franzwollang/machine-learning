@@ -5,6 +5,7 @@ from proteus.evidence.dm_score import (
     bdeu_alpha,
     evaluate_edit,
     f_dm,
+    hit_normalized_counts,
     node_log_marginal,
 )
 from proteus.evidence.gate import (
@@ -41,6 +42,7 @@ from proteus.evidence.star_matrix import (
 __all__ = [
     "NodeTransition",
     "bdeu_alpha",
+    "hit_normalized_counts",
     "node_log_marginal",
     "f_dm",
     "evaluate_edit",

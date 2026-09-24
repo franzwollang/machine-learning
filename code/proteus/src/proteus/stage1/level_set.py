@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
-from math import ceil
+from math import ceil, log
 from typing import Any
 
 import numpy as np
@@ -64,6 +64,9 @@ __all__ = [
     "build_level_set_dag",
     "apply_geometric_screens",
     "apply_dm_sibling_collapse",
+    "pair_hit_masses",
+    "separation_evidence_lambda",
+    "separation_evidence_supported",
     "select_level_set_partition",
 ]
 
@@ -111,6 +114,18 @@ class LevelSetConfig:
     (``fit_scaffold_at_tau``) with ``N`` free up to the derived bound
     ``n/k``.  There is no node-budget gate, no ``no_cut`` trigger, and
     no scale-match ratio.  Descent ends when the bound binds.
+
+    ``require_separation_evidence`` (default off; OPEN_ISSUES #48) is a
+    flag-gated guard for pure graph disconnections (``φ = 0`` / zero
+    cross flow).  Link absence alone is not evidence: under the
+    one-feature null each of the reader's ``k`` neighbour stubs mixes
+    to either side in proportion to hit mass, so the expected number of
+    cross stubs is ``λ = k · 2 p (1-p)`` with ``p = H_a / (H_a+H_b)``.
+    A zero-cross accept requires ``λ > log(tau_bf)`` (same margin as the
+    DM verdict; no new constant).  When any cross flow is present the
+    min-cut-normalized ``φ`` ceiling already scores the valley and this
+    guard is not applied.  A2-T7 measured ON≡OFF on normal-path seeds
+    0--4; default stays off until director confirms A2-T8 (D3).
     """
 
     k_neighbors: int = 8
@@ -122,6 +137,7 @@ class LevelSetConfig:
     min_cluster_frac: float = 0.15
     max_bottleneck_ratio: float = 0.25
     growth_policy: str = "track_tau"
+    require_separation_evidence: bool = False
 
     def __post_init__(self) -> None:
         if self.growth_policy not in {"track_tau"}:
@@ -204,7 +220,7 @@ class ValleyResolvability:
     """Node-growth classification for one level-set extraction.
 
     ``reject_reason`` is ``None`` on an accepted split, otherwise one of
-    ``"bottleneck"``, ``"dm"``, or ``"no_cut"``.
+    ``"bottleneck"``, ``"separation_evidence"``, ``"dm"``, or ``"no_cut"``.
     """
 
     verdict: ValleyVerdict
@@ -1003,6 +1019,8 @@ def apply_dm_sibling_collapse(
     branches: tuple[LevelSetBranch, ...],
     scaffold: Any,
     dm_config: DMClusterConfig,
+    *,
+    n_samples: int | None = None,
 ) -> tuple[LevelSetBranch, ...]:
     """Collapse geometrically surviving siblings that fail the DM split test."""
 
@@ -1049,7 +1067,7 @@ def apply_dm_sibling_collapse(
             assigned |= cluster
         background = set(range(int(tree.levels[level].labels.shape[0]))) - assigned
         _log_bf, accepted = dm_partition_background_verdict(
-            scaffold, clusters, background, dm_config,
+            scaffold, clusters, background, dm_config, n_samples=n_samples,
         )
         if accepted:
             continue
@@ -1083,6 +1101,95 @@ def _cluster_result_from_labels(
     )
 
 
+def _pairwise_cross_flow(
+    scaffold: Any,
+    labels: np.ndarray,
+) -> float:
+    """Total undirected Hebbian max-flow across all signal-cluster pairs."""
+
+    n = int(labels.shape[0])
+    graph = _flow_graph(scaffold)
+    keys = sorted({int(v) for v in labels if v >= 0})
+    blocks = [np.where(labels == key)[0] for key in keys]
+    total = 0.0
+    for a in range(len(blocks)):
+        for b in range(a + 1, len(blocks)):
+            total += _set_maxflow(
+                graph, n, blocks[a].tolist(), blocks[b].tolist(),
+            )
+    return float(total)
+
+
+def pair_hit_masses(
+    scaffold: Any,
+    labels: np.ndarray,
+) -> tuple[tuple[float, float], ...]:
+    """Hit totals ``(H_a, H_b)`` for every unordered pair of signal clusters."""
+
+    hits = np.asarray(
+        [float(node.hit_count) for node in scaffold.nodes],
+        dtype=float,
+    )
+    clusters, _background = _label_sets(labels)
+    if len(clusters) < 2:
+        return ()
+    masses = [float(hits[list(members)].sum()) for members in clusters]
+    pairs: list[tuple[float, float]] = []
+    for i in range(len(masses)):
+        for j in range(i + 1, len(masses)):
+            pairs.append((masses[i], masses[j]))
+    return tuple(pairs)
+
+
+def separation_evidence_lambda(
+    hit_mass_a: float,
+    hit_mass_b: float,
+    k_neighbors: int,
+) -> float:
+    """Expected cross neighbour-stubs under one-feature hit-mass mixing.
+
+    Under ``H_0`` each of the reader's ``k`` neighbour stubs lands on
+    either side in proportion to hit mass.  With ``p = H_a / (H_a+H_b)``
+    the expected number of cross stubs is ``k · 2 p (1-p)`` (SI S2.6.2 /
+    OPEN_ISSUES #48).  Observing zero Hebbian cross flow is surprising
+    only when this ``λ`` exceeds the DM margin ``log(tau_bf)``.
+    """
+
+    ha = max(float(hit_mass_a), 0.0)
+    hb = max(float(hit_mass_b), 0.0)
+    total = ha + hb
+    if total <= 0.0 or int(k_neighbors) <= 0:
+        return 0.0
+    return float(k_neighbors) * 2.0 * ha * hb / (total * total)
+
+
+def separation_evidence_supported(
+    scaffold: Any,
+    labels: np.ndarray,
+    *,
+    k_neighbors: int,
+    tau_bf: float,
+) -> bool:
+    """True when zero-cross absence is hit-supported at the DM margin.
+
+    Applies only to pure disconnections (total cross flow ``== 0``).
+    Every signal-cluster pair must clear ``λ > log(tau_bf)``; if any
+    cross flow is present the caller should skip this guard and rely on
+    the ``φ`` ceiling.
+    """
+
+    if _pairwise_cross_flow(scaffold, labels) > 0.0:
+        return True
+    margin = float(log(max(float(tau_bf), 1.0)))
+    pairs = pair_hit_masses(scaffold, labels)
+    if not pairs:
+        return False
+    return all(
+        separation_evidence_lambda(ha, hb, k_neighbors) > margin
+        for ha, hb in pairs
+    )
+
+
 def select_level_set_partition(
     scaffold: Any,
     config: LevelSetConfig | None = None,
@@ -1093,7 +1200,8 @@ def select_level_set_partition(
 
     Pipeline: C-D tree → merge DAG (diagnostics + sibling collapse) →
     coarsest *mass-filtered* ``K >= 2`` cut → min-cut-normalized ``φ``
-    ceiling → background-aware DM.  Levels whose
+    ceiling → optional zero-cross separation-evidence guard →
+    background-aware DM.  Levels whose
     cut collapses below ``K = 2`` after
     the relative-mass floor (satellite-only structure) are skipped, so a
     balanced mid-tree cut — nested shells or linked tori whose valley is
@@ -1107,6 +1215,7 @@ def select_level_set_partition(
 
     config = config or LevelSetConfig()
     dm_config = dm_config or DMClusterConfig()
+    n_samp = int(np.asarray(data).shape[0]) if data is not None else None
     positions = np.asarray(
         [node.position for node in scaffold.nodes],
         dtype=float,
@@ -1133,7 +1242,7 @@ def select_level_set_partition(
     dag = build_level_set_dag(tree)
     screened = apply_geometric_screens(dag.branches, config)
     screened = apply_dm_sibling_collapse(
-        tree, dag, screened, scaffold, dm_config,
+        tree, dag, screened, scaffold, dm_config, n_samples=n_samp,
     )
 
     best_rejected_bf = float("-inf")
@@ -1164,8 +1273,19 @@ def select_level_set_partition(
         if ratio > config.max_bottleneck_ratio:
             reject_reason = "bottleneck"
             break
+        if (
+            config.require_separation_evidence
+            and not separation_evidence_supported(
+                scaffold,
+                labels,
+                k_neighbors=config.k_neighbors,
+                tau_bf=dm_config.tau_bf,
+            )
+        ):
+            reject_reason = "separation_evidence"
+            break
         log_bf, accepted = dm_partition_background_verdict(
-            scaffold, clusters, background, dm_config,
+            scaffold, clusters, background, dm_config, n_samples=n_samp,
         )
         best_rejected_bf = max(best_rejected_bf, float(log_bf))
         if accepted:

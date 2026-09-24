@@ -37,6 +37,7 @@ from proteus.stage1.level_set import (
 )
 from proteus.stage1.pruning import demote_lifted_by_cluster
 from proteus.stage1.transfer import apply_t2_transfer
+from scipy.spatial import cKDTree
 
 
 @dataclass
@@ -142,8 +143,20 @@ class RecursionConfig:
     evidence: ~80x).  Default ``8`` is an operational budget; the flag remains
     off so the default acceptance path is unchanged.
 
-    ``prefer_disconnected_prepass`` (OPEN_ISSUES #44c, **proposed /
-    operational, default off**) short-circuits the finer re-search walk when
+    **DEPRECATED / falsified prepass zoo** (OPEN_ISSUES #44, 2026-08 burn):
+    every flag listed in ``FALSIFIED_PREPASS_FLAGS``
+    (``prefer_disconnected_prepass``, ``prefer_radial_gap_prepass``,
+    ``prefer_radial_band_prepass``, ``prefer_noncentroid_radial_band_prepass``,
+    ``prefer_signal_density_band_prepass``, ``prefer_pca_axis_gap_prepass``,
+    ``prefer_tube_major_radius_prepass``, ``prefer_spectral_gap_prepass``,
+    ``prefer_hollow_edge_prepass``) is **deprecated**. Kept default-off for
+    ROC / adversarial-null calibration only; do not enable on the acceptance
+    path; do not delete until the director confirms the list. Level-set
+    (SI S2.6.2) is the Stage-1 structural proposal. Historical notes below
+    retain measurement context only.
+
+    ``prefer_disconnected_prepass`` (OPEN_ISSUES #44c, **DEPRECATED /
+    falsified, default off**) short-circuits the finer re-search walk when
     the lifted Hebbian graph at a capped scale has **≥2 major connected
     components** (each at least ``finer_prepass_min_frac`` of the scaffold
     nodes, and at least 3 nodes).  Tiny components are absorbed into the
@@ -369,6 +382,27 @@ class RecursionConfig:
       cue) or ``prefer_tube_major_radius_prepass`` (interlock cue) —
       e2e recovery not claimed.  Hollow-edge is the intended general
       replacement (flag off until calibrated).
+
+    ``terminate_majority_background_child`` (OPEN_ISSUES #45 option B,
+    **proposed / operational, default off**) applies only on non-root
+    regions under ``use_level_set_clustering``.  After a child's own
+    level-set read accepts a partition, map samples to BMU labels; if
+    more than half land on background (label ``< 0``), treat the region
+    as a terminal leaf instead of descending into the residual
+    shell+tissue chunks.  Root reads are unchanged (half-cloud tissue
+    at the first accept is expected).  Threshold is fixed at one half —
+    the same λ=0.5 tier as the faded GT — not a free tuned constant.
+
+    ``core_only_descent`` (OPEN_ISSUES #45 option A, **proposed /
+    operational, default off**) applies under ``use_level_set_clustering``
+    at every accepted descend.  On the parent-accepted node labels, for
+    each signal cluster ``C`` define density proxy ``d_i = 1/r_k(i)``
+    (C–D ``k``-NN radius on the equalized scaffold, ``k`` from
+    ``level_set.k_neighbors`` — same monotone spacing the level-set tree
+    uses, not ``hit_count``).  Branch peak is ``max_{i in C} d_i``; nodes
+    with ``d_i < 0.5 * peak`` are halo and are relabeled background
+    before T2/recurse, so only the branch core descends.  Threshold is
+    the faded-GT λ=0.5 tier, not a free tuned constant.
     """
 
     scale_search: ScaleSearchConfig = field(default_factory=ScaleSearchConfig)
@@ -384,21 +418,30 @@ class RecursionConfig:
     allow_finer_research: bool = False
     finer_tau_cap_ratio: float = 1.0 / np.sqrt(2.0)
     max_finer_scale_steps: int = 8
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_disconnected_prepass: bool = False
     finer_prepass_min_frac: float = 0.2
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_radial_gap_prepass: bool = False
     finer_radial_min_gap_ratio: float = 0.25
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_radial_band_prepass: bool = False
     finer_radial_hist_bins: int = 16
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_noncentroid_radial_band_prepass: bool = False
     finer_radial_min_trough_rel: float = 0.0
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_signal_density_band_prepass: bool = False
     finer_signal_density_keep_frac: float = 0.55
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_pca_axis_gap_prepass: bool = False
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_tube_major_radius_prepass: bool = False
     finer_tube_min_residual_ratio: float = 0.15
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_spectral_gap_prepass: bool = False
     finer_spectral_knn: int = 8
+    # DEPRECATED / falsified 2026-08 (see FALSIFIED_PREPASS_FLAGS); default off.
     prefer_hollow_edge_prepass: bool = False
     hollow_mid_radius_frac: float = 0.35
     hollow_h0: float = 0.35
@@ -412,12 +455,17 @@ class RecursionConfig:
     hollow_soft_capacity_only: bool = False
     hollow_soft_capacity_frac: float = 0.25
     hollow_soft_capacity_method: str = "betweenness"
+    terminate_majority_background_child: bool = False
+    core_only_descent: bool = False
     seed: int = 42
 
 
-# Falsified 2026-08 swarm (OPEN_ISSUES #44). Kept default-off for ROC /
-# adversarial-null calibration. Do not enable on the acceptance path;
-# level-set replaces this zoo as the Stage-1 structural proposal (SI S2.6.2).
+# DEPRECATED — falsified geometry / hollow prepass zoo (2026-08 swarm,
+# OPEN_ISSUES #44). Each name is a ``RecursionConfig`` bool that stays
+# default-off for ROC / adversarial-null calibration only. Do **not**
+# enable on the acceptance path; do **not** delete until the director
+# confirms the list. Level-set (SI S2.6.2) replaces this zoo as the
+# Stage-1 structural proposal. Inventory only — no behaviour change.
 FALSIFIED_PREPASS_FLAGS: tuple[str, ...] = (
     "prefer_disconnected_prepass",
     "prefer_radial_gap_prepass",
@@ -1874,6 +1922,106 @@ def _dm_accepts_split(
     return bool(accepted)
 
 
+def _majority_background_sample_fraction(
+    data: np.ndarray,
+    scaffold: "Stage1Scaffold",  # noqa: F821
+    labels: np.ndarray,
+) -> float:
+    """Fraction of samples whose BMU carries a background (``< 0``) label."""
+
+    sample_map = assign_samples_to_clusters(data, scaffold, labels)
+    n = int(data.shape[0])
+    if n <= 0:
+        return 0.0
+    n_bg = 0
+    for label, indices in sample_map.items():
+        if int(label) < 0:
+            n_bg += int(len(indices))
+    return float(n_bg) / float(n)
+
+
+def _option_b_terminate_majority_background(
+    *,
+    level: int,
+    data: np.ndarray,
+    scaffold: "Stage1Scaffold",  # noqa: F821
+    cluster_result: Any,
+    config: RecursionConfig,
+) -> bool:
+    """OPEN_ISSUES #45 option B: child majority-background → terminal leaf.
+
+    Applies only when ``terminate_majority_background_child`` is on, the
+    path is level-set, and ``level > 0`` (root tissue separation is kept).
+    Threshold is strictly greater than one half.
+    """
+
+    if not config.terminate_majority_background_child:
+        return False
+    if not config.use_level_set_clustering:
+        return False
+    if int(level) <= 0:
+        return False
+    labels = getattr(cluster_result, "labels", None)
+    if labels is None:
+        return False
+    return _majority_background_sample_fraction(
+        data, scaffold, labels,
+    ) > 0.5
+
+
+def _scaffold_core_radii(
+    scaffold: "Stage1Scaffold",  # noqa: F821
+    k: int,
+) -> np.ndarray:
+    """Per-node C–D ``k``-NN radius on scaffold positions (level-set density)."""
+
+    positions = np.asarray(
+        [node.position for node in scaffold.nodes], dtype=float,
+    )
+    n = int(positions.shape[0])
+    if n == 0:
+        return np.empty(0, dtype=float)
+    if n == 1:
+        return np.array([np.inf], dtype=float)
+    k_use = max(1, min(int(k), n - 1))
+    dists, _ = cKDTree(positions).query(positions, k=k_use + 1)
+    return np.maximum(np.asarray(dists[:, -1], dtype=float), 1e-12)
+
+
+def _core_only_relabel_halos(
+    scaffold: "Stage1Scaffold",  # noqa: F821
+    labels: np.ndarray,
+    *,
+    k_neighbors: int,
+    halo_frac: float = 0.5,
+) -> np.ndarray:
+    """OPEN_ISSUES #45 option A: mark per-cluster density halos as background.
+
+    For each signal label ``C``, peak = ``max_{i in C} 1/r_k(i)``; nodes with
+    density below ``halo_frac * peak`` are relabeled ``-1``.  Does not invent
+    a new density — uses the same spacing proxy as the level-set tree.
+    """
+
+    out = np.asarray(labels, dtype=int).copy()
+    core_radii = _scaffold_core_radii(scaffold, k_neighbors)
+    if core_radii.size == 0:
+        return out
+    density = 1.0 / core_radii
+    signal_labels = sorted({int(v) for v in out if int(v) >= 0})
+    for lab in signal_labels:
+        members = np.where(out == lab)[0]
+        if members.size == 0:
+            continue
+        peak = float(np.max(density[members]))
+        if not np.isfinite(peak) or peak <= 0.0:
+            continue
+        threshold = float(halo_frac) * peak
+        halo = members[density[members] < threshold]
+        if halo.size:
+            out[halo] = -1
+    return out
+
+
 def _descend_into_clusters(
     *,
     data_arr: np.ndarray,
@@ -1889,13 +2037,23 @@ def _descend_into_clusters(
 ) -> RecursionTree:
     """Demote, map samples, create children, and recurse."""
 
+    labels = np.asarray(cluster_result.labels, dtype=int)
+    if config.core_only_descent and config.use_level_set_clustering:
+        # OPEN_ISSUES #45 option A: descend on branch cores only; halo
+        # samples join the parent background partition (λ=0.5 tier).
+        labels = _core_only_relabel_halos(
+            scaffold,
+            labels,
+            k_neighbors=int(config.level_set.k_neighbors),
+        )
+
     demote_lifted_by_cluster(
-        scaffold, cluster_result.labels,
+        scaffold, labels,
         beta=float(getattr(scaffold, "prune_beta", 0.5)),
     )
 
     sample_map = assign_samples_to_clusters(
-        data_arr, scaffold, cluster_result.labels,
+        data_arr, scaffold, labels,
     )
 
     children_created: list[int] = []
@@ -1919,7 +2077,7 @@ def _descend_into_clusters(
             children_created.append(child_id)
             continue
 
-        cluster_node_ids = np.where(cluster_result.labels == label)[0]
+        cluster_node_ids = np.where(labels == label)[0]
         # Operationally d_final == working dim (SI S1.4.1 refresh semantics),
         # so d_hat reduces to the region working dim unless refreshed.
         d_finals = [scaffold.nodes[int(i)].d_final for i in cluster_node_ids]
@@ -1979,6 +2137,10 @@ def _descend_into_clusters(
             hollow_soft_capacity_only=config.hollow_soft_capacity_only,
             hollow_soft_capacity_frac=config.hollow_soft_capacity_frac,
             hollow_soft_capacity_method=config.hollow_soft_capacity_method,
+            terminate_majority_background_child=(
+                config.terminate_majority_background_child
+            ),
+            core_only_descent=config.core_only_descent,
             seed=config.seed + region_id + label,
         )
 
@@ -2213,6 +2375,19 @@ def run_recursive_discovery(
         # whose split is not evidence-bearing is a single intrinsic feature
         # (terminal leaf), the non-degenerate likelihood-ratio null that the
         # graph-local Q cannot supply (SI S2.6.1 / S3.4, OPEN_ISSUES #27).
+        node.n_clusters = 1
+        return tree
+
+    if _option_b_terminate_majority_background(
+        level=_level,
+        data=data_arr,
+        scaffold=scaffold,
+        cluster_result=cluster_result,
+        config=config,
+    ):
+        # OPEN_ISSUES #45 option B: child's own level-set read sent most
+        # samples to background — keep Hartigan assignment at the parent
+        # and stop rather than accepting residual shell+tissue chunks.
         node.n_clusters = 1
         return tree
 

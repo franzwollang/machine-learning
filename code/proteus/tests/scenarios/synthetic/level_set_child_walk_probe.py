@@ -394,6 +394,8 @@ def _run_as_parent(args: argparse.Namespace, wanted: list[str]) -> int:
             str(int(args.max_grid_points)),
             "--max-finer-steps",
             str(int(args.max_finer_steps)),
+            "--growth-policy",
+            str(args.growth_policy),
         ]
         proc = subprocess.run(cmd, check=False)
         if proc.returncode != 0:
@@ -413,6 +415,12 @@ def main() -> int:
     parser.add_argument("--max-epochs", type=int, default=12)
     parser.add_argument("--max-grid-points", type=int, default=8)
     parser.add_argument("--max-finer-steps", type=int, default=16)
+    parser.add_argument(
+        "--growth-policy",
+        choices=("track_tau",),
+        default="track_tau",
+        help="Level-set finer-walk growth policy (default: track_tau).",
+    )
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     known = [s.name for s in _scenes()]

@@ -51,7 +51,11 @@ from typing import Any
 
 import numpy as np
 
-from proteus.evidence.dm_score import bdeu_alpha, node_log_marginal
+from proteus.evidence.dm_score import (
+    bdeu_alpha,
+    hit_normalized_counts,
+    node_log_marginal,
+)
 from proteus.stage1.clustering import (
     ClusterResult,
     _clusters_from_ap_labels,
@@ -85,9 +89,18 @@ class DMClusterConfig:
         Bayes-factor threshold; the acceptance margin is ``log(tau_bf)``.
         Shares the S14.3 ``tau_BF`` operational default with the Stage-2 gate
         (S3.6); ``tau_bf = 3.0`` gives ``log 3 ~ 1.10``.
+        sample_normalized_counts:
+        If True, score sample-normalized effective transition counts
+        (SI S10.2 shot-noise correction): per-node trial mass is the
+        region's sample count shared by hit mass,
+        ``n_i_eff = n_samples * h_i / sum(h)``, with routing rates from
+        Hebbian counters.  Removes epoch-multiplied overconfidence.
+        Proposed-path; default off until null/composite log-BF
+        separation is accepted.
     """
 
     tau_bf: float = 3.0
+    sample_normalized_counts: bool = False
 
 
 def _region_alpha0(scaffold: Any, members: set[int] | None = None) -> float:
@@ -107,12 +120,24 @@ def _region_alpha0(scaffold: Any, members: set[int] | None = None) -> float:
     return bdeu_alpha(max(d_eff, 1))
 
 
-def block_flow_matrix(scaffold: Any, clusters: list[set[int]]) -> np.ndarray:
+def block_flow_matrix(
+    scaffold: Any,
+    clusters: list[set[int]],
+    *,
+    sample_normalized: bool = False,
+    n_samples: int | None = None,
+) -> np.ndarray:
     """Directed block-flow ``N[k, l] = sum_{a in C_k, b in C_l} n_{a->b}``.
 
     Aggregates the directed Hebbian transition counts (shadow + lifted, per SI
     S6/S3.4 "regardless of tier") over the candidate partition. The diagonal
     ``N[k, k]`` is within-block flow.
+
+    When ``sample_normalized`` is True (SI S10.2 shot-noise correction),
+    each node's outgoing counters are converted to routing rates and given
+    trial mass ``n_samples · h_i / Σ h`` so the region's total multinomial
+    trials equal the sample count (one epoch-equivalent), not the
+    epoch-accumulated Hebbian/hit totals.
     """
 
     k = len(clusters)
@@ -121,13 +146,42 @@ def block_flow_matrix(scaffold: Any, clusters: list[set[int]]) -> np.ndarray:
         for g in members:
             node_block[int(g)] = b
     N = np.zeros((k, k), dtype=float)
+    if not sample_normalized:
+        for link in scaffold.links.as_list():
+            bi = node_block.get(int(link.i))
+            bj = node_block.get(int(link.j))
+            if bi is None or bj is None:
+                continue
+            N[bi, bj] += float(link.count_ij)  # i -> j
+            N[bj, bi] += float(link.count_ji)  # j -> i
+        return N
+
+    n_samp = int(n_samples) if n_samples is not None else 0
+    if n_samp <= 0:
+        return N
+
+    nodes = scaffold.nodes
+    out = {i: np.zeros(k, dtype=float) for i in node_block}
     for link in scaffold.links.as_list():
-        bi = node_block.get(int(link.i))
-        bj = node_block.get(int(link.j))
-        if bi is None or bj is None:
-            continue
-        N[bi, bj] += float(link.count_ij)  # i -> j
-        N[bj, bi] += float(link.count_ji)  # j -> i
+        i = int(link.i)
+        j = int(link.j)
+        bi = node_block.get(i)
+        bj = node_block.get(j)
+        if bi is not None and bj is not None and i in out:
+            out[i][bj] += float(link.count_ij)
+        if bj is not None and bi is not None and j in out:
+            out[j][bi] += float(link.count_ji)
+
+    hit_mass = {
+        i: float(getattr(nodes[i], "hit_count", 0.0)) for i in node_block
+    }
+    hit_total = float(sum(hit_mass.values()))
+    if hit_total <= 0.0:
+        return N
+    for i, row in out.items():
+        bi = node_block[i]
+        eff_hits = n_samp * (hit_mass[i] / hit_total)
+        N[bi] += hit_normalized_counts(row, eff_hits)
     return N
 
 
@@ -153,6 +207,9 @@ def dm_partition_background_logbf(
     scaffold: Any,
     clusters: list[set[int]],
     background: set[int],
+    *,
+    sample_normalized: bool = False,
+    n_samples: int | None = None,
 ) -> float:
     """Split-vs-pooled log-BF with an explicit background outcome.
 
@@ -168,6 +225,9 @@ def dm_partition_background_logbf(
     proposal path (OPEN_ISSUES #44): inactive / low-density nodes are not
     forcibly absorbed into a signal cluster, while the acceptance comparison
     remains an exact fixed-outcome DM edit.
+
+    ``sample_normalized`` selects the SI S10.2 shot-noise effective counts
+    (region trial total = ``n_samples``); see :class:`DMClusterConfig`.
     """
 
     live = [set(c) for c in clusters if c]
@@ -177,7 +237,12 @@ def dm_partition_background_logbf(
     bg = set(background)
     if bg:
         groups.append(bg)
-    N = block_flow_matrix(scaffold, groups)
+    N = block_flow_matrix(
+        scaffold,
+        groups,
+        sample_normalized=bool(sample_normalized),
+        n_samples=n_samples,
+    )
     j = int(N.shape[1])
     members = set().union(*live)
     a0 = _region_alpha0(scaffold, members)
@@ -194,12 +259,18 @@ def dm_partition_background_verdict(
     clusters: list[set[int]],
     background: set[int],
     config: DMClusterConfig | None = None,
+    *,
+    n_samples: int | None = None,
 ) -> tuple[float, bool]:
     """Background-aware region verdict for a level-set partition."""
 
     config = config or DMClusterConfig()
     log_bf = dm_partition_background_logbf(
-        scaffold, clusters, background,
+        scaffold,
+        clusters,
+        background,
+        sample_normalized=bool(config.sample_normalized_counts),
+        n_samples=n_samples,
     )
     return log_bf, log_bf > float(log(max(config.tau_bf, 1.0)))
 
@@ -242,7 +313,12 @@ def dm_partition_verdict(
     for c in live:
         members |= c
     a0 = _region_alpha0(scaffold, members)
-    N = block_flow_matrix(scaffold, live)
+    N = block_flow_matrix(
+        scaffold,
+        live,
+        sample_normalized=bool(config.sample_normalized_counts),
+        n_samples=None,
+    )
     log_bf = dm_partition_logbf(N, a0)
     return log_bf, log_bf > float(log(max(config.tau_bf, 1.0)))
 

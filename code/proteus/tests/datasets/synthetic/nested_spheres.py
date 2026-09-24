@@ -16,17 +16,69 @@ from ..ground_truth import (
     expected_tau_for_surface,
     ideal_nodes_for_surface,
 )
+from .density_valleys import segment_valley_oracle, summarize_valley_pairs
 from .faded_density import (
     FadedMixture,
     SphereShellFadedComponent,
     SupportBox,
     assign_labels_by_lambda,
     sample_faded_mixture,
+    tissue_mass_metadata,
 )
 from .tissue import (
     expected_tau_for_uniform_tissue_box,
     ideal_nodes_for_uniform_tissue_box,
 )
+
+
+def nested_spheres_valley_oracle(
+    mixture: FadedMixture,
+    radii: tuple[float, ...] | list[float],
+    points: np.ndarray,
+    *,
+    n_samples: int,
+    ambient_dim: int,
+    seed: int = 0,
+) -> dict:
+    """All pairwise radial-shell valleys along a shared axis (#28 A4-T10)."""
+    rs = [float(r) for r in radii]
+    if len(rs) < 2:
+        raise ValueError("need at least two shells for a valley oracle")
+    dim = int(mixture.components[0].dim)
+    pairs: list[dict] = []
+    for i in range(len(rs)):
+        for j in range(i + 1, len(rs)):
+            c0 = np.zeros(dim, dtype=float)
+            c1 = np.zeros(dim, dtype=float)
+            c0[0] = rs[i]
+            c1[0] = rs[j]
+            rec = segment_valley_oracle(
+                mixture,
+                c0,
+                c1,
+                points,
+                n_samples=n_samples,
+                seed=seed + 31 * i + j,
+                # Shell gap is radial; keep a modest tube in ambient space.
+                tube_scale=0.35,
+                valley_path="radial_segment",
+            )
+            pairs.append({
+                **rec,
+                "leaf_id_a": int(i + 1),
+                "leaf_id_b": int(j + 1),
+                "parent_id_a": 0,
+                "parent_id_b": 0,
+                "same_parent": True,
+                "radius_a": rs[i],
+                "radius_b": rs[j],
+            })
+    out = summarize_valley_pairs(pairs)
+    out["valley_path"] = "radial_segment_pairs"
+    out["valley_sibling_pair_count"] = len(pairs)
+    out["shell_radii"] = list(rs)
+    out["oracle_ambient_dim"] = int(ambient_dim)
+    return out
 
 
 def _sample_sphere(
@@ -48,15 +100,32 @@ def make_nested_spheres(
     extrusion_dim: int = 1,
     extrusion_sigma: float | None = None,
     tissue_fraction: float = 0.03,
+    tissue_mass: float | None = None,
     seed: int = 0,
+    component_only: bool = False,
+    component_index: int = 0,
 ) -> SyntheticDataset:
     """Generate concentric thickened spheres as exact faded densities.
 
     Each sphere is a (``ambient_dim - 1``)-sphere embedded in
     ``ambient_dim`` dimensions.
+
+    ``tissue_fraction`` only pads the support box (historical name).
+    Pass ``tissue_mass`` for an honest expected λ<0.5 background fraction;
+    ``None`` keeps the legacy fade-balanced floor (~46–49% tissue).
+
+    ``component_only=True`` (#45 A4-T6) emits pure samples from a single
+    shell (``radii[component_index]``) with no tissue and no sibling —
+    a child-sized null (``n_per_sphere`` typically 200–500).
     """
     if extrusion_dim < 0:
         raise ValueError("extrusion_dim must be non-negative")
+    if not radii:
+        raise ValueError("radii must be non-empty")
+    if component_only and tissue_mass not in (None, 0.0):
+        raise ValueError("component_only forbids nonzero tissue_mass")
+    if component_only and not (0 <= int(component_index) < len(radii)):
+        raise ValueError("component_index out of range for radii")
 
     rng = np.random.default_rng(seed)
     sphere_dim = ambient_dim - 1
@@ -68,6 +137,78 @@ def make_nested_spheres(
     effective_noise_variance = (
         noise**2 if extrusion_dim == 0 else extrusion_dim * shell_sigma**2
     )
+
+    if component_only:
+        r = float(radii[int(component_index)])
+        component = SphereShellFadedComponent(
+            radius=r,
+            base_dim=ambient_dim,
+            sigma=shell_sigma,
+            transition_radius=3.0,
+            center=np.zeros(total_ambient_dim),
+            weight=1.0,
+        )
+        points = component.sample(int(n_per_sphere), rng)
+        labels = np.zeros(int(n_per_sphere), dtype=int)
+        signal_tau = expected_tau_for_surface(
+            surface_area=4.0 * np.pi * (r ** 2),
+            target_n_nodes=target_n_nodes,
+            noise_variance=effective_noise_variance,
+        )
+        ideal_nodes = int(np.ceil(ideal_nodes_for_surface(
+            surface_area=4.0 * np.pi * (r ** 2),
+            tau=signal_tau,
+            noise_variance=effective_noise_variance,
+        )))
+        betti = [0] * (sphere_dim + 1)
+        betti[0] = 1
+        betti[sphere_dim] = 1
+        gt = GroundTruthManifold(
+            name="nested_spheres_component_only",
+            ambient_dim=total_ambient_dim,
+            intrinsic_dim=sphere_dim,
+            expected_scale_levels=1,
+            cluster_hierarchy=[
+                ClusterNode(
+                    cluster_id=0, level=0, parent_id=None, weight=1.0,
+                    center=points.mean(axis=0),
+                    covariance=np.cov(points, rowvar=False),
+                    is_leaf=True, intrinsic_dim=sphere_dim,
+                ),
+            ],
+            topology=TopologyExpectation(
+                connected_components=1,
+                betti_numbers=tuple(betti),
+                intrinsic_dim=sphere_dim,
+            ),
+            expected_tau=signal_tau,
+            expected_node_count=ideal_nodes,
+            node_count_upper_bound=3 * ideal_nodes,
+            noise_variance=effective_noise_variance,
+            tau_grid_hint=(signal_tau / 8.0, signal_tau * 8.0),
+        )
+        return SyntheticDataset(
+            points=points,
+            labels=labels,
+            ground_truth=gt,
+            metadata={
+                "extrusion_dim": extrusion_dim,
+                "extrusion_sigma": shell_sigma if extrusion_dim > 0 else 0.0,
+                "base_ambient_dim": ambient_dim,
+                "signal_expected_tau": float(signal_tau),
+                "tissue_expected_tau": 0.0,
+                "component_only": True,
+                "null_scene": True,
+                "component_index": int(component_index),
+                "component_radius": r,
+                "parent_scene": "nested_spheres",
+                **tissue_mass_metadata(
+                    tissue_fraction=0.0,
+                    tissue_mass=0.0,
+                    labels=labels,
+                ),
+            },
+        )
 
     signal_samples: list[np.ndarray] = []
     clusters: list[ClusterNode] = []
@@ -117,7 +258,7 @@ def make_nested_spheres(
         min_padding=0.05,
         extra_padding=3.0 * shell_sigma,
     )
-    mixture = FadedMixture(components, support)
+    mixture = FadedMixture(components, support, tissue_mass=tissue_mass)
     points, sampler_meta = sample_faded_mixture(mixture, n_per_sphere * len(radii), rng)
     labels = assign_labels_by_lambda(
         points,
@@ -161,6 +302,15 @@ def make_nested_spheres(
         ),
     )))
 
+    n_total = int(n_per_sphere * len(radii))
+    valley_meta = nested_spheres_valley_oracle(
+        mixture,
+        radii,
+        points,
+        n_samples=n_total,
+        ambient_dim=total_ambient_dim,
+        seed=seed,
+    )
     gt = GroundTruthManifold(
         name="nested_spheres",
         ambient_dim=total_ambient_dim,
@@ -189,10 +339,16 @@ def make_nested_spheres(
             "base_ambient_dim": ambient_dim,
             "signal_expected_tau": float(signal_tau),
             "tissue_expected_tau": float(tissue_tau),
-            "tissue_fraction_actual": float(np.mean(labels < 0)),
-            "tissue_fraction_requested": tissue_fraction,
             "support_bounds_lo": tissue_bounds[0].tolist(),
             "support_bounds_hi": tissue_bounds[1].tolist(),
+            "component_only": False,
+            "null_scene": False,
             **sampler_meta,
+            **tissue_mass_metadata(
+                tissue_fraction=tissue_fraction,
+                tissue_mass=tissue_mass,
+                labels=labels,
+            ),
+            **valley_meta,
         },
     )

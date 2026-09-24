@@ -15,17 +15,108 @@ from ..ground_truth import (
     expected_tau_for_surface,
     ideal_nodes_for_surface,
 )
+from .density_valleys import segment_valley_oracle, summarize_valley_pairs
 from .faded_density import (
     FadedMixture,
     SupportBox,
     TorusSurfaceFadedComponent,
     assign_labels_by_lambda,
     sample_faded_mixture,
+    tissue_mass_metadata,
 )
 from .tissue import (
     expected_tau_for_uniform_tissue_box,
     ideal_nodes_for_uniform_tissue_box,
 )
+
+
+def _closest_core_points(
+    component_a: TorusSurfaceFadedComponent,
+    component_b: TorusSurfaceFadedComponent,
+    *,
+    n_angles: int = 96,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Brute-force closest points on the two torus core circles."""
+    thetas = np.linspace(0.0, 2.0 * np.pi, num=int(n_angles), endpoint=False)
+    best_d = np.inf
+    best = (None, None)
+    for th in thetas:
+        local_a = np.array(
+            [
+                component_a.major_radius * np.cos(th),
+                component_a.major_radius * np.sin(th),
+                0.0,
+            ],
+            dtype=float,
+        )
+        pa = np.zeros(component_a.dim, dtype=float)
+        pa[:3] = local_a @ component_a.rotation.T
+        pa = pa + component_a.center
+        for ph in thetas:
+            local_b = np.array(
+                [
+                    component_b.major_radius * np.cos(ph),
+                    component_b.major_radius * np.sin(ph),
+                    0.0,
+                ],
+                dtype=float,
+            )
+            pb = np.zeros(component_b.dim, dtype=float)
+            pb[:3] = local_b @ component_b.rotation.T
+            pb = pb + component_b.center
+            d = float(np.linalg.norm(pa - pb))
+            if d < best_d:
+                best_d = d
+                best = (pa, pb)
+    assert best[0] is not None and best[1] is not None
+    return best[0], best[1]
+
+
+def linked_tori_valley_oracle(
+    mixture: FadedMixture,
+    component_a: TorusSurfaceFadedComponent,
+    component_b: TorusSurfaceFadedComponent,
+    points: np.ndarray,
+    *,
+    n_samples: int,
+    surface_gap: float,
+    seed: int = 0,
+) -> dict:
+    """Valley across the closest surface-gap segment (#28 A4-T10)."""
+    core_a, core_b = _closest_core_points(component_a, component_b)
+    axis = core_b - core_a
+    length = float(np.linalg.norm(axis))
+    if length <= 1e-12:
+        raise ValueError("linked torus cores coincide")
+    u = axis / length
+    # Move from each core toward the other by minor_radius to sit on surfaces.
+    c0 = core_a + u * float(component_a.minor_radius)
+    c1 = core_b - u * float(component_b.minor_radius)
+    rec = segment_valley_oracle(
+        mixture,
+        c0,
+        c1,
+        points,
+        n_samples=n_samples,
+        seed=seed,
+        tube_scale=0.5,
+        valley_path="gap_segment",
+    )
+    pair = {
+        **rec,
+        "leaf_id_a": 1,
+        "leaf_id_b": 2,
+        "parent_id_a": 0,
+        "parent_id_b": 0,
+        "same_parent": True,
+        "surface_gap": float(surface_gap),
+        "core_gap": float(length),
+    }
+    out = summarize_valley_pairs([pair])
+    out["valley_path"] = "gap_segment"
+    out["valley_sibling_pair_count"] = 1
+    return out
+
 
 def make_linked_tori(
     n_per_torus: int = 1000,
@@ -36,6 +127,7 @@ def make_linked_tori(
     extrusion_dim: int = 1,
     extrusion_sigma: float | None = None,
     tissue_fraction: float = 0.03,
+    tissue_mass: float | None = None,
     seed: int = 0,
 ) -> SyntheticDataset:
     """Generate two separated Hopf-linked tori as exact faded densities.
@@ -46,6 +138,10 @@ def make_linked_tori(
     condition and welded the two labelled tori together.  Sampling is
     continuous and area-uniform on each torus rather than drawn from a
     sparse kernel-anchor lattice.
+
+    ``tissue_fraction`` only pads the support box (historical name).
+    Pass ``tissue_mass`` for an honest expected λ<0.5 background fraction;
+    ``None`` keeps the legacy fade-balanced floor (~46–49% tissue).
     """
     if extrusion_dim < 0:
         raise ValueError("extrusion_dim must be non-negative")
@@ -104,7 +200,9 @@ def make_linked_tori(
         min_padding=0.05,
         extra_padding=3.0 * tube_sigma,
     )
-    mixture = FadedMixture([component1, component2], support)
+    mixture = FadedMixture(
+        [component1, component2], support, tissue_mass=tissue_mass,
+    )
     points, sampler_meta = sample_faded_mixture(mixture, 2 * n_per_torus, rng)
     labels = assign_labels_by_lambda(points, [component1, component2], label_offsets=[0, 1])
 
@@ -159,6 +257,15 @@ def make_linked_tori(
         ),
     ]
 
+    valley_meta = linked_tori_valley_oracle(
+        mixture,
+        component1,
+        component2,
+        points,
+        n_samples=int(2 * n_per_torus),
+        surface_gap=surface_gap,
+        seed=seed,
+    )
     gt = GroundTruthManifold(
         name="linked_tori",
         ambient_dim=ambient_dim,
@@ -184,8 +291,6 @@ def make_linked_tori(
             "extrusion_sigma": tube_sigma if extrusion_dim > 0 else 0.0,
             "signal_expected_tau": float(signal_tau),
             "tissue_expected_tau": float(tissue_tau),
-            "tissue_fraction_actual": float(np.mean(labels < 0)),
-            "tissue_fraction_requested": tissue_fraction,
             "support_bounds_lo": tissue_bounds[0].tolist(),
             "support_bounds_hi": tissue_bounds[1].tolist(),
             "sampling": "continuous_area_uniform",
@@ -199,5 +304,11 @@ def make_linked_tori(
                 and expected_knn_radius_k8 < lambda_half_gap
             ),
             **sampler_meta,
+            **tissue_mass_metadata(
+                tissue_fraction=tissue_fraction,
+                tissue_mass=tissue_mass,
+                labels=labels,
+            ),
+            **valley_meta,
         },
     )

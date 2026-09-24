@@ -89,6 +89,14 @@ Remaining work:
   rejected as anti-SI. Paper §scale synced to L=1 + coarse-end; hierarchy hybrid≫expected
   regression locked. Do **not** flip the default; persistence stays structural arbiter
   with coarse-end resolution until a SI-justified within-interval signal exists.
+- **Hierarchy seed-0 5/6 residual:** A6-T16 confirms that the accepted split is
+  the true L0/L1 cut (ARI 1), but its `N` and `phi` are path-dependent: the
+  first accept shifted from 46 to 45 nodes, and `phi` changed from 0.197 to
+  0.061 between caps 46 and 64. A6-T17 is canceled. Do not propose a cap rule
+  or treat 45/46 or the observed `phi` values as thresholds. A6-T19/T20/T21
+  landed the SI S2.5.1 retraction and paper audit: the first accept is not
+  stable, density is not a remaining floor, and no usable cap number follows.
+  Persistence, within-interval, and scale-search defaults stay unchanged.
 - **Landed (A3-T31 SI A+C):** SI S2.6.2 + S14.3 document
   `PersistenceConfig.resolve_within_interval` (`none` | `load_crossover`, default
   `none`; hybrid ≤ fine-leaf).
@@ -366,15 +374,16 @@ outer shell (cover ≥ 0.886) and give 2 leaves. Not a growth-policy
 defect: the accepted cut is right, its background partition of the
 lower-density component is crude at the first-accept scale.
 
-Remaining work: define benchmark-wide halo/background semantics
-(descent options recorded in `SCRATCHPAD_LOG`: A core-only descent, B
-interim guard, C as-is — C in effect); decide whether the sampler
-should honour a true tissue *mass* fraction and rename/fix
-`tissue_fraction`; decide whether the reader should refine the
-background partition below the first-accept τ before descending;
-retain signal-only ARI + background recall until then; re-baseline the
-`@awaiting` recovery expectations (#41, #26) on repaired scenes without
-weakening their topology criteria.
+Remaining work: weak two-Gaussian shatter is tissue-sufficient (A5-T11):
+one-signal+tissue splits 5/10, while both-signals/no-tissue and isolated
+`n=194` children stay clean. Tissue mass in the over-splitting child is not the
+residual (A4-T13: bimodal ratio 0.91, nested ratio 0.97). The current-tip
+census (A5-T16) found nested clean on all five seeds (`sigLeaves=rootK=2`) but
+bimodal seed 2 again over-split (`sigLeaves=3>rootK=2`); the effect is
+tip-sensitive rather than a standing nested-child failure. A5-T15 therefore
+skipped the nested ablation. Only benchmark-semantics documentation remains
+this burn. Keep signal-only ARI + background recall. Do not resolve #45, tune
+`tissue_mass`, reopen descent A/B/D, or resume tissue-fraction sweeps.
 
 Level-set consequence (2026-09-09, from #48): the root split assigns about
 half the tissue to signal children (nested seed-0 bg recall 0.51; nested
@@ -393,26 +402,17 @@ signal-labelled nodes have ≥50% tissue catchments, at ~0.64× the hit count
 of ≥90%-signal nodes (2528 vs 3959; 619 vs 972). Samples follow BMU Voronoi
 (`assign_samples_to_clusters`), so 0% of leaked tissue is nearer a
 background node. The reader is Hartigan-faithful: halo belongs to the
-coarse cluster. The generator's λ=0.5 fade defines it as background. The
-open decision is descent semantics: (A) descend on the branch *core* only
-(nodes below a half-max density relative to the branch peak → halo, the
-same λ=0.5 tier as the GT); (B) keep Hartigan assignment and terminate a
-child whose own read sends most of its samples to background; (C) keep as
-is and score signal-only. Nested also loses 755 outer-shell points to the
-root background child at the selected level (coverage 0.76): the outer
-shell is only fully connected at radii where it also connects to the inner
-shell through tissue.
-
-## 46. Pytest runtime hygiene: simulations are misclassified as tests
-
-Default `pytest` now skips `slow` and `real_data` (`pytest.ini` addopts;
-`test_recursion.py` name-parts auto-marked `slow` in `conftest.py`).
-Remaining:
-- Runtime guard so a newly misclassified multi-minute simulation fails
-  the default suite instead of silently expanding it.
-- Keep the unmarked Stage-1 unit/integration slice within roughly two
-  minutes; profile any leftover accidental regressions.
-
+coarse cluster. The generator's λ=0.5 fade defines it as background.
+The descent decision is now recorded in SI S2.6.2: (A) branch-core descent
+failed its linked-tori/nested coverage gate; (B) majority-background
+termination did not improve leaf counts; (C) retain Hartigan assignment
+and score signal-only is the adopted interim semantics. Nested also loses
+755 outer-shell points to the root background child at the selected level
+(coverage 0.76): the outer shell is only fully connected at radii where it
+also connects to the inner shell through tissue. Remaining work is the
+tissue/sibling-context residual only: A5-T11/T13 and A4-T13 isolate sibling
+versus tissue sufficiency. Do not reopen A/B, tune a descent fraction, or
+resume tissue-mass sweeps.
 
 ## 41. Stage 2 topology recovery: persistent-homology Betti validation on fitted regions
 
@@ -739,84 +739,49 @@ The #44 finer walk that reaches composite `tau_sep` (~80× below coarse
 `L=1`) shatters uniform manifolds, because any finite sample is
 multimodal at a fine enough bandwidth. The stop must be an
 **acceptance-path evidence floor**, not another `max_finer_scale_steps`
-budget (SI S2.6.2).
+budget (SI S2.6.2). Null: this region is one Hartigan cluster.
 
-Null: this region is one Hartigan cluster. Accept only when the
-studentized discriminating statistic (flow bottleneck `φ`, or
-background-aware `log BF`) exceeds the deepest shot-noise valley
-expected at the current `(n, τ, k, N, geometry)`. Fade/tissue
-background is a separate floor (DM + #45). Raw persistence / excess
-mass are already measured inseparable.
+**State (level-set mode; `use_level_set_clustering` default off):** the
+one-feature statistic is min-cut-normalized `φ` (cross-cut max-flow over
+the minimum intrinsic internal cut of either side) under a `track_tau`
+finer walk bounded by `N ≤ n/k`, against `max_bottleneck_ratio = 0.25`,
+then the background-aware DM verdict. Seeds 0–4: nulls 30/30, hierarchy
+root K=3 5/5, linked tori / nested root K=2 5/5; bimodal circle 2/5 and
+weak two-Gaussians 2/5 fail at the root with `K=1`.
 
-**LANDED (level-set mode; `use_level_set_clustering` still default
-off):** one-feature statistic = min-cut-normalized `φ` (cross-cut
-max-flow over the minimum intrinsic internal cut of either side;
-Fiedler / hop-geodesic median splits, largest component per half)
-against the calibrated ceiling `max_bottleneck_ratio = 0.25`, then the
-background-aware DM verdict; resolution bound `N ≤ n/k` (clamps scale
-search and the walk); `track_tau` finer walk — fresh
-`fit_scaffold_at_tau` at every finer τ with N free up to `n/k`, stop
-when the bound binds; no γ, no `no_cut` trigger, no step-budget
-dependence, no studentized ρ. Full normal-path sweep, seeds 0–4: every
-null 30/30 (circle, swiss, lone torus / inner shell / 2-D / 4-D
-Gaussian), hierarchy root K=3 5/5 (5–6 of 6 fine leaves), linked tori
-root K=2 5/5 (ARI ≥ 0.999), nested shells root K=2 5/5 with exactly 2
-signal leaves; bimodal circle 2/5 and weak two-Gaussians 2/5 are the
-only failures. SI S2.6.2 / S14.3 updated.
+**Why it is still open (2026-09 burn, full record in SI S2.6.2 / S10.2 /
+S14 and `reference/burn_2026-09_swarm_retrospective.md`):** the corrected
+area-uniform S-curve null accepts 4/20 with min `φ = 0.096`, inside the
+composite-accept band 0.006–0.244, so no fixed ceiling separates them.
+Every additive floor family was killed by its preregistered criterion:
+`φ = 0` link-absence guard (`require_separation_evidence`, works on the
+lone-Gaussian s17 class but cannot see the positive-`φ` failures),
+sample-normalized DM (69 % overlap), Poisson cross-flow likelihood,
+cut persistence, cut-local density contrast, every cut covariate, and
+both statistic-definition falsifiers (flat-strip aspect ladder: min `φ`
+non-monotone 0.123 → 0.163; matched-scan denominator `φ_m`: no matched
+scan on 6/8 null landmarks, `min_null/max_true = 1.66× < 2×`). Diagnosis
+(D8): `φ` compares the region's *coarsest* C–D cut (an extreme statistic)
+to a *typical* Fiedler bisection, so under the null it sits systematically
+below 1 by a geometry-dependent amount.
 
-Remaining (2026-09-09; ordered by severity):
-- **One-feature statistic: min-cut-normalized φ (landed 2026-09-09).**
-  The studentized ρ = φ/φ₀ floor was ill-posed — the candidate is a
-  disconnection of the superlevel set, so the signal-induced graph is
-  already the candidate's components and no connected disagreeing
-  bisection of it exists (pool empty 91/91 null reads) — and is
-  retired (`null_bottleneck_ratio`, `studentized_bottleneck`,
-  `one_feature_null` removed; walk stops on the `n/k` bound only). The
-  statistic is φ = cross-cut flow / min(intrinsic min cut of A, of B):
-  a valley must be weaker than any cut inside the pieces it separates.
-  `max_bottleneck_ratio = 0.25` is **calibrated** by the declared
-  null-ensemble protocol (six null scenes × seeds 0–19, root reads with
-  a candidate, `level_set_root_accept_probe.py --max-depth 1`): 359
-  reads, φ min 0.288 (swiss s17), p1 0.487, p5 0.63, median 1.30;
-  composite accepts 0.006–0.244. SI S2.6.2 / S14.3 rewritten;
-  `test_max_bottleneck_ratio_is_calibrated_null_envelope` pins the
-  value to the protocol. Remaining: the 13% margin (0.25 vs 0.288) is
-  thin — widen the ensemble (more null geometries, sample sizes, n/k
-  regimes) before calling the protocol final, and decide whether the
-  ceiling should be stated relative to the envelope rather than as a
-  fixed number.
-- **Graph-disconnection false accept (acceptance path, owns the DM
-  overconfidence item).** lone 2-D Gaussian seed 17 accepts at N=50,
-  τ=0.012: a 72-point clump in the shoulder (r ≈ 1.2–2σ, ~5 nodes)
-  has no Hebbian link outside itself, so cross flow is exactly 0
-  (φ = 0, no ceiling can catch it) and DM confirms with logBF 2162.
-  Absence of a link after ~20 hits/node is weak evidence and nothing
-  weighs it. 1 of 120 null scene-seeds. Fix belongs with the per-node
-  likelihood / DM shot-noise item: the separation evidence must be a
-  function of hit counts on the saddle nodes, not of link existence.
-  Repro: `level_set_root_accept_probe.py --seed 17 --scenes
-  lone_gauss2d_null --max-depth 1`.
-- **Connected-support valleys (bimodal circle 2/5, weak two-Gaussians
-  2/5).** Root K=1 on the failing seeds; passes on weak have bg recall
-  1.0 and ARI 0.16–0.24. Diagnostic scenes without frozen bars; dissect
-  the root read (φ, ρ, DM) on a failing seed before touching anything;
-  likely bound up with the ρ ceiling and #45.
-- **Tissue-heavy children (→ #45).** Root splits leak tissue into
-  signal children (bimodal child 37% tissue); the reader then marks
-  most of the child background and accepts shell+tissue chunks. Nested
-  no longer over-splits under the connected null (2 leaves on all
-  seeds). Fix belongs at root halo assignment (#45).
-- Weak two-Gaussians (sep 2.5σ) child of 194 samples still splits at
-  the bound (N ≤ 24) on the seeds where the root splits. Revisit after
-  #45.
-- Scale search could take the `n/k` bound natively instead of the
-  level-set-mode clamp in `run_recursive_discovery`; default-path
-  change, needs its own review.
-- **DM log-BF is overconfident** (thousands on 200–500-sample regions
-  at 3–8 hits/node; 2162 on the φ = 0 Gaussian false accept above).
-  Not acting as an evidence floor; calibrate or derive its per-node
-  likelihood in the shot-noise regime.
-- `advance_scaffold_to_tau` is now on no path (unit-locked helper);
-  delete or keep for diagnostics.
-- Do not flip `use_level_set_clustering`. Do not delete S2.6.1
-  stand-ins. Do not retune frozen suite numbers.
+Remaining work:
+- Design a **declared-protocol** valley-existence statistic that is not
+  extreme-vs-typical (e.g. compare the candidate cut to the null
+  distribution of *coarsest* internal cuts of each side at matched `N`,
+  `τ`, `k`), with its null envelope fixed before any composite is scored.
+- Acceptance bar for any successor: corrected S-curve and every flat-strip
+  aspect 0/20, six protocol nulls 0/120, child-sized component-only
+  envelope 0/N, while keeping every seed-0–4 composite root accept; then
+  the 5-seed normal-path sweep is metric-identical or better.
+- Until then: keep 0.25 **provisional** (SI S14.3), keep
+  `use_level_set_clustering`, `require_separation_evidence`, and
+  `sample_normalized_counts` default off, do not drop the S-curve from the
+  null family, do not open #47 from this issue, and do not retune frozen
+  suite numbers. The `φ = 0` graph-disconnection class (lone-Gaussian s17,
+  two circle child cases) is an insertion-evidence problem (#47), not a
+  ceiling problem.
+- Harness: `tests/scenarios/synthetic/level_set_null_envelope.py`
+  (`--mode` protocol / widen / component-only / covariate / aspect-ladder)
+  and `level_set_root_accept_probe.py --max-depth 1` reproduce every
+  number above.

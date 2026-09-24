@@ -13,22 +13,21 @@ bodies below stay static descriptions.
 | Milestone | Status |
 |---|---|
 | M0 — Spec/implementation sync pass | done |
-| M1 — Canonical clustering objective | in progress — #44 flag stays off. #48: `track_tau` walk + min-cut φ one-feature statistic landed (ρ retired); φ ceiling 0.25 calibrated on 359 null reads (min 0.288); seeds 0–4: nulls 30/30, hierarchy 5/5 (5–6 of 6 fine leaves), tori / nested root K=2; bimodal / weak two-Gaussians 2/5 each. Next: φ=0 graph-disconnection guard via DM/per-node evidence; #45 halo semantics |
+| M1 — Canonical clustering objective | blocked — #44 flag stays off. 2026-09 burn closed with no surviving #48 floor: fixed `φ` ceiling, `φ=0` guard flip, DM, cross-flow likelihood, cut persistence, density contrast, covariates, and both statistic-definition falsifiers (aspect ladder; matched-scan `φ_m` 1.66× < 2×) all killed. `φ=0.25` stays provisional; `require_separation_evidence` / `use_level_set_clustering` default off. Next: a declared-protocol non-extreme-vs-typical statistic (#48 remaining work). |
 | M2 — Characteristic-scale selection rebuild | in progress (half×sArg mid-closer except seed2; LC straddle fine>coarse but LC≡0. Do not flip default.) |
 | M3 — Constant audit & calibration tier | done (c_{d,k} + C_Q(d) calibrated on the shared uniform-d-ball ensemble; S14.3 three-tier audit #37 complete; intrinsic-dim estimator #39 validated vs GT + Levina–Bickel cross-check shipped, SI S1.4.1. Operational estimator-wiring divergence surfaced as #40, deferred to the M5 junction-detection consumer.) |
 | M4 — Stage 2 core (complex, evidence gate, dual flow) | in progress (#43 traj×fail_closed compose 177p flags off; do not close. #41: densify294/318 both hard-fail; mult3 dip@0.23; denser512 void-absent. Remaining: densify290/320 / #45) |
 | M5 — Inference interface & diagnostics | not started |
 | M6 — Evaluation, benchmarks, paper finalization | not started |
 
-## Swarm burn 2 (from 2026-09-09)
+## Swarm burn 2 (2026-09-09 → 2026-09-10; imported to `main` 2026-09-24)
 
 Six cloud agents on `coord/A1`–`coord/A6` (integration on `coord/integration`), all
 re-based on `main` @ `3ac67c7`. Work packages, file ownership, and per-task kill criteria
-live only in `SWARM_TASKS.json` (A1 maintains); the binding process lessons from the
-August burn are in `.cursor/rules/swarm-coordination.mdc`. Focus: #48 (φ = 0
-disconnection guard, DM shot-noise likelihood, null-envelope calibration harness),
-#45 (tissue mass fraction, descent semantics B then A), #46/#28 hygiene. A1 records
-sweep results on the M1 board line above after every ~3rd merge.
+live only in `SWARM_TASKS.json` (final snapshot committed). Outcome and lessons:
+`docs/Proteus/paper_1_foundational/reference/burn_2026-09_swarm_retrospective.md`.
+#46 resolved (runtime guard + persistence split); #48 / #45 / #28 negative results
+recorded in the SI; no defaults flipped. The `coord/*` branches are the archive.
 
 ## Current state (July 2026)
 
