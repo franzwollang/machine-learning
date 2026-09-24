@@ -1,6 +1,6 @@
 {
-  "updated_at": "2026-09-24T07:20:00Z",
-  "turn": 136,
+  "updated_at": "2026-09-24T07:50:00Z",
+  "turn": 137,
   "focus": {
     "milestone": "M1",
     "issue": 48,
@@ -9,7 +9,8 @@
   "recent": [
     "2026-09 swarm burn ended 2026-09-10; both D8 statistic-definition oracles killed (aspect ladder, matched-scan 1.66x<2x)",
     "coord/integration + A3/A4 SI closeout squash-imported to main 2026-09-24; default suite 566 passed / 30 xfailed / 0 failed",
-    "OPEN_ISSUES #48 trimmed to remaining work; retrospective written (reference/burn_2026-09_swarm_retrospective.md)"
+    "OPEN_ISSUES #48 trimmed to remaining work; retrospective written (reference/burn_2026-09_swarm_retrospective.md)",
+    "User lifted swarm/burn rules 2026-09-24: swarm-coordination.mdc archived (alwaysApply false), subagent-models override removed, defaults restored"
   ],
   "discoveries": [
     "Corrected S-curve null min phi 0.096 overlaps composite band 0.006-0.244: fixed ceiling is a statistic-level defect (#48, SI S2.6.2)",
@@ -17,7 +18,6 @@
     "Weak two-Gaussian child shatter is tissue-sufficient; isolated n=194 children are clean (#45)"
   ],
   "open_threads": [
-    "Swarm rules (swarm-coordination.mdc, subagent-models override) still marked active; lifting is a user call",
     "Dead-but-gated flags in src (separation guard, sample-normalized DM, option A/B descent) are deprecation candidates"
   ],
   "next_step": "design the successor statistic + null protocol in SI S2.6.2 before any code",

@@ -1,11 +1,22 @@
 ---
-description: Temporary 6-agent credit-burn swarm protocol (COORDINATION, tracker, merge heartbeat)
-alwaysApply: true
+description: INACTIVE — archived 6-agent credit-burn swarm protocol (COORDINATION, tracker, merge heartbeat). Not applied; reference only for a future burn.
+alwaysApply: false
 ---
 
-# Swarm Coordination (temporary credit-burn override)
+# Swarm Coordination (INACTIVE — lifted by the user 2026-09-24)
 
-**Active until the user lifts this rule.** Applies to cloud/local agents on `coord/*`
+**This rule is disabled.** The 2026-09 burn ended 2026-09-10 and was imported to `main`
+2026-09-24 (`reference/burn_2026-09_swarm_retrospective.md`). Nothing below grants
+authority now: the `coord/*` push authorization is revoked, `COORDINATION.jsonl` /
+`SWARM_TASKS.json` are archives, and ordinary git-checkpoint / subagent-model rules
+apply. The text is kept only as the starting protocol for a future burn, which would
+need the user to re-enable it explicitly (set `alwaysApply: true` and restore the
+auth section). The `A1 turn protocol`, merge-worthy definition, and Fable-only director
+gate below are the versions that finally held; start from them, not from the launch text.
+
+---
+
+**(Archived text follows.)** Applies to cloud/local agents on `coord/*`
 branches. Supersedes ordinary “no push” caution for the scoped auth below; does **not**
 weaken testing-integrity, OPEN_ISSUES conventions, or history rewriting bans.
 
